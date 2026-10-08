@@ -25,6 +25,12 @@ describe('webPreferences de seguridad', () => {
     expect(prefs.contextIsolation).toBe(true);
     expect(prefs.nodeIntegration).toBe(false);
   });
+
+  it('pasa los argumentos extra al process.argv del preload', () => {
+    const prefs = buildWebPreferences('/ruta/preload.js', ['--tradia-e2e']);
+    expect(prefs.additionalArguments).toEqual(['--tradia-e2e']);
+    expect(buildWebPreferences('/ruta/preload.js').additionalArguments).toEqual([]);
+  });
 });
 
 describe('CSP del renderer', () => {

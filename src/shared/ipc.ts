@@ -150,11 +150,32 @@ export interface TradiaApi {
     onChanged(listener: (state: AgentsState) => void): () => void;
     onHeartbeat(listener: (at: string) => void): () => void;
   };
-  /** Herramientas de simulación expuestas solo en ejecuciones Playwright. */
+  /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
     getContextIsolation(): boolean;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Ganchos de prueba E2E (solo ejecuciones no empaquetadas)
+// ---------------------------------------------------------------------------
+
+/**
+ * Argumento de proceso que activa `api.testing` en el preload. El proceso
+ * principal solo lo añade cuando `isE2eEnabled` devuelve true; el preload
+ * no puede leer `app.isPackaged` desde el renderer aislado, así que recibe
+ * la decisión ya tomada por `process.argv` (`additionalArguments`).
+ */
+export const E2E_FLAG_ARG = '--tradia-e2e';
+
+/**
+ * Los ganchos de prueba (`api.testing`, intervalos acortados, `userData`
+ * aislado) solo existen fuera de la app empaquetada: ninguna variable de
+ * entorno puede cambiar el comportamiento del build de producción.
+ */
+export function isE2eEnabled(isPackaged: boolean, e2eEnv: string | undefined): boolean {
+  return !isPackaged && e2eEnv === '1';
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import {
   backoffDelayMs,
   createConnectivityService,
   DEFAULT_CONNECTIVITY_ENDPOINTS,
+  FAST_CHECK_INTERVAL_MS,
   ONLINE_INTERVAL_MS,
   resolveEndpoints,
   type ConnectivityDeps,
@@ -107,7 +108,7 @@ afterEach(() => {
 });
 
 describe('vigilancia de conexión', () => {
-  it('en línea comprueba los dos endpoints cada 30 s', async () => {
+  it('en línea repite el sondeo HTTP cada onlineIntervalMs', async () => {
     const { deps, probe } = makeDeps();
     const service = createConnectivityService(deps);
     service.start();
@@ -125,6 +126,48 @@ describe('vigilancia de conexión', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(probe).toHaveBeenCalledTimes(6);
     service.stop();
+  });
+
+  it('un corte local se detecta en la vía rápida y pausa una sola vez', async () => {
+    const { deps, net, scheduler, notifications } = makeDeps();
+    const service = createConnectivityService(deps);
+    service.start();
+    await flush();
+    expect(service.getState().status).toBe('online');
+
+    // Sin petición HTTP: basta el sondeo local de isOnline (≤ 2 s).
+    net.online = false;
+    await vi.advanceTimersByTimeAsync(FAST_CHECK_INTERVAL_MS);
+    expect(service.getState().status).toBe('offline');
+    expect(scheduler.pauseDecisions).toHaveBeenCalledTimes(1);
+    expect(scheduler.pauseDecisions).toHaveBeenCalledWith('sin-conexion');
+    expect(notifications.map((n) => n.level)).toEqual(['alerta']);
+
+    // Ticks siguientes ya sin conexión: la transición no se repite.
+    await vi.advanceTimersByTimeAsync(FAST_CHECK_INTERVAL_MS * 4);
+    expect(scheduler.pauseDecisions).toHaveBeenCalledTimes(1);
+    expect(notifications).toHaveLength(1);
+    service.stop();
+  });
+
+  it('la vía rápida no lanza peticiones HTTP mientras isOnline sea true', async () => {
+    const { deps, net, isOnline, probe } = makeDeps();
+    const service = createConnectivityService(deps);
+    service.start();
+    await flush();
+    // Solo la comprobación inicial lanza una petición por endpoint.
+    expect(probe).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(FAST_CHECK_INTERVAL_MS * 5);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(isOnline.mock.calls.length).toBeGreaterThan(5);
+
+    // stop() también limpia el temporizador de la vía rápida.
+    service.stop();
+    net.online = false;
+    await vi.advanceTimersByTimeAsync(FAST_CHECK_INTERVAL_MS * 5);
+    expect(service.getState().status).toBe('online');
+    expect(probe).toHaveBeenCalledTimes(2);
   });
 
   it('hay conexión si responde al menos un endpoint', async () => {

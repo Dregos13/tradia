@@ -16,11 +16,15 @@ import type { ServiceContext } from './index';
  *
  * Comprueba `net.isOnline` y hace una petición ligera a dos URL
  * configurables (ajustes `connectivity.urls` o `TRADIA_CONNECTIVITY_URLS`;
- * si responde al menos una, hay conexión). En línea se comprueba cada
- * `onlineIntervalMs` (30 s); sin conexión se reintenta con espera
- * exponencial y fluctuación (2 s, 4 s, 8 s… hasta `backoffMaxMs`, 5 min) y
- * se vuelve a comprobar al instante con los eventos `resume` y
- * `unlock-screen` de powerMonitor.
+ * si responde al menos una, hay conexión). En línea hay dos vías:
+ * - la vía rápida consulta `net.isOnline()` cada `fastCheckIntervalMs`
+ *   (2 s), una llamada local al SO sin tráfico: detecta en ≤ 2 s los
+ *   cortes locales (wifi apagado, cable desenchufado, modo avión);
+ * - el sondeo HTTP se repite cada `onlineIntervalMs` (15 s) por si la red
+ *   local sigue activa pero no hay salida a internet (detección ≤ 20 s).
+ * Sin conexión se reintenta con espera exponencial y fluctuación (2 s,
+ * 4 s, 8 s… hasta `backoffMaxMs`, 5 min) y se vuelve a comprobar al
+ * instante con los eventos `resume` y `unlock-screen` de powerMonitor.
  *
  * Al pasar a 'sin conexión': `scheduler.pauseDecisions('sin-conexion')`,
  * repinta la bandeja, emite `connectivity:changed` y avisa con una
@@ -42,7 +46,9 @@ export interface ConnectivityService {
   stop(): void;
 }
 
-export const ONLINE_INTERVAL_MS = 30_000;
+export const ONLINE_INTERVAL_MS = 15_000;
+/** Intervalo del sondeo local de `isOnline()` mientras se está en línea. */
+export const FAST_CHECK_INTERVAL_MS = 2_000;
 export const BACKOFF_BASE_MS = 2_000;
 export const BACKOFF_MAX_MS = 300_000;
 export const PROBE_TIMEOUT_MS = 5_000;
@@ -140,6 +146,8 @@ export interface ConnectivityDeps {
   /** URL ligeras a comprobar; hay conexión si responde al menos una. */
   endpoints?: string[];
   onlineIntervalMs?: number;
+  /** Intervalo de la vía rápida (sondeo local de isOnline, sin red). */
+  fastCheckIntervalMs?: number;
   backoffBaseMs?: number;
   backoffMaxMs?: number;
   /** Fuente del jitter de la espera (los tests la fijan a 0.5). */
@@ -156,6 +164,7 @@ export function createConnectivityService(deps: ConnectivityDeps): ConnectivityS
       ? deps.endpoints
       : [...DEFAULT_CONNECTIVITY_ENDPOINTS];
   const onlineIntervalMs = deps.onlineIntervalMs ?? ONLINE_INTERVAL_MS;
+  const fastCheckIntervalMs = deps.fastCheckIntervalMs ?? FAST_CHECK_INTERVAL_MS;
   const backoffBaseMs = deps.backoffBaseMs ?? BACKOFF_BASE_MS;
   const backoffMaxMs = deps.backoffMaxMs ?? BACKOFF_MAX_MS;
   const random = deps.random ?? Math.random;
@@ -170,6 +179,7 @@ export function createConnectivityService(deps: ConnectivityDeps): ConnectivityS
   let simulatedOffline = deps.simulateOfflineInitially === true;
   let started = false;
   let timer: NodeJS.Timeout | null = null;
+  let fastTimer: NodeJS.Timeout | null = null;
   let inflight: Promise<ConnectivityState> | null = null;
   const powerListeners: Array<['resume' | 'unlock-screen', () => void]> = [];
 
@@ -201,6 +211,21 @@ export function createConnectivityService(deps: ConnectivityDeps): ConnectivityS
     }, delayMs);
     // El temporizador no debe mantener vivo el proceso por sí solo.
     timer.unref?.();
+  };
+
+  /**
+   * Vía rápida: sondeo local de isOnline() mientras el estado consolidado
+   * es 'online'. No lanza peticiones HTTP; si el SO ya no ve red se aplica
+   * 'sin conexión' al instante, sin esperar al sondeo programado.
+   */
+  const fastCheck = (): void => {
+    if (settled !== 'online' || inflight) return;
+    try {
+      if (deps.isOnline()) return;
+    } catch {
+      return;
+    }
+    applyResult(false);
   };
 
   const probeAll = async (): Promise<boolean> => {
@@ -294,6 +319,9 @@ export function createConnectivityService(deps: ConnectivityDeps): ConnectivityS
     start: () => {
       if (started) return;
       started = true;
+      fastTimer = setInterval(fastCheck, fastCheckIntervalMs);
+      // La vía rápida no debe mantener vivo el proceso por sí sola.
+      fastTimer.unref?.();
       if (deps.powerMonitor) {
         // Al despertar o desbloquear el equipo se comprueba al instante,
         // sin esperar al siguiente reintento programado.
@@ -311,6 +339,8 @@ export function createConnectivityService(deps: ConnectivityDeps): ConnectivityS
     stop: () => {
       started = false;
       clearTimer();
+      if (fastTimer) clearInterval(fastTimer);
+      fastTimer = null;
       for (const [event, listener] of powerListeners) {
         deps.powerMonitor?.removeListener(event, listener);
       }

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
-import { IPC_CHANNELS } from '../shared/ipc';
+import { E2E_FLAG_ARG, IPC_CHANNELS } from '../shared/ipc';
 import type {
   AgentsState,
   ConnectivityState,
@@ -52,7 +52,9 @@ const api: TradiaApi = {
     onChanged: (listener) => subscribe<AgentsState>(IPC_CHANNELS.agents.changed, listener),
     onHeartbeat: (listener) => subscribe<string>(IPC_CHANNELS.agents.heartbeat, listener),
   },
-  ...(process.env.TRADIA_E2E === '1'
+  // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
+  // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
+  ...(process.argv.includes(E2E_FLAG_ARG)
     ? {
         testing: {
           simulateOffline: (offline: boolean) =>

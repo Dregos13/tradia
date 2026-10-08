@@ -17,9 +17,17 @@ export const SECURE_WEB_PREFERENCES = {
   spellcheck: false,
 } satisfies Partial<WebPreferences>;
 
-export function buildWebPreferences(preloadPath: string): WebPreferences {
+/**
+ * `additionalArguments` se añade a `process.argv` del renderer: así el
+ * preload recibe flags del proceso principal (p. ej. `E2E_FLAG_ARG`).
+ */
+export function buildWebPreferences(
+  preloadPath: string,
+  additionalArguments: string[] = [],
+): WebPreferences {
   return {
     ...SECURE_WEB_PREFERENCES,
     preload: preloadPath,
+    additionalArguments,
   };
 }

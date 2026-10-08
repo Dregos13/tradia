@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow } from 'electron';
 
+import { E2E_FLAG_ARG, isE2eEnabled } from '../shared/ipc';
 import { resourcePath } from './resources';
 import { buildWebPreferences } from './security';
 
@@ -16,7 +17,12 @@ export function createMainWindow(): BrowserWindow {
     title: 'Tradia',
     // Icono de la ventana (Linux/Windows); en macOS manda el .icns del bundle.
     icon: resourcePath('icon.png'),
-    webPreferences: buildWebPreferences(join(__dirname, '../preload/index.js')),
+    webPreferences: buildWebPreferences(
+      join(__dirname, '../preload/index.js'),
+      // Los ganchos E2E solo se activan fuera de la app empaquetada; la
+      // flag llega al preload por process.argv (ver src/shared/ipc.ts).
+      isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E) ? [E2E_FLAG_ARG] : [],
+    ),
   });
 
   window.once('ready-to-show', () => {

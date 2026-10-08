@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
 
-import { IPC_CHANNELS, type AgentsState } from '../../shared/ipc';
+import { IPC_CHANNELS, isE2eEnabled, type AgentsState } from '../../shared/ipc';
 import type { ServiceContext } from './index';
 
 /**
@@ -128,7 +128,8 @@ export function createSchedulerService(deps: SchedulerDeps): SchedulerService {
 export function registerScheduler(ctx: ServiceContext): SchedulerService {
   const service = createSchedulerService({
     broadcast: ctx.broadcast,
-    ...(process.env.TRADIA_E2E === '1' ? { intervalMs: 250 } : {}),
+    // Latido acortado solo para las pruebas E2E, nunca en la app empaquetada.
+    ...(isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E) ? { intervalMs: 250 } : {}),
   });
 
   ipcMain.handle(IPC_CHANNELS.agents.getState, () => service.getState());

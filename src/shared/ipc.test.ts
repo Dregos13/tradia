@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allIpcChannels,
   IPC_CHANNELS,
+  isE2eEnabled,
   isNotificationLevel,
   isNotificationPayload,
   isNotificationPrefs,
@@ -74,5 +75,15 @@ describe('guardas de entrada', () => {
     expect(isSettingsPatch({})).toBe(false);
     expect(isSettingsPatch({ autostart: true, apiKey: 'sk-...' })).toBe(false);
     expect(isSettingsPatch(null)).toBe(false);
+  });
+});
+
+describe('ganchos E2E', () => {
+  it('isE2eEnabled exige la variable y una ejecución no empaquetada', () => {
+    expect(isE2eEnabled(false, '1')).toBe(true);
+    expect(isE2eEnabled(true, '1')).toBe(false);
+    expect(isE2eEnabled(false, '0')).toBe(false);
+    expect(isE2eEnabled(false, 'true')).toBe(false);
+    expect(isE2eEnabled(false, undefined)).toBe(false);
   });
 });

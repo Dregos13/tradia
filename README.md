@@ -109,6 +109,11 @@ temporal; comprueba el aviso inicial y su persistencia, notificaciones y
 preferencias, latido en segundo plano y pausa, recuperación de la simulación
 offline, ausencia de claves legibles y las protecciones del renderer.
 
+Los ganchos de prueba (`TRADIA_E2E`, `TRADIA_E2E_USER_DATA`, la flag
+`--tradia-e2e` que el proceso principal pasa al preload y el latido acortado
+de 250 ms) solo se activan cuando `isE2eEnabled` confirma que la app **no está
+empaquetada**: una variable de entorno no cambia nada en producción.
+
 ## Seguridad
 
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
