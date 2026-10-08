@@ -142,3 +142,36 @@ describe('Estructura de Tradia', () => {
     expect(simulation.listenerCount()).toBe(0);
   });
 });
+
+it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async () => {
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  for (const [name, heading] of [
+    ['Mercado', 'Mercado'],
+    ['Macro', 'Contexto macro'],
+  ]) {
+    const link = screen.getByRole('link', { name });
+    link.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name: heading })).toHaveFocus();
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Configurar claves' })).toHaveAttribute(
+      'href',
+      '#ajustes',
+    );
+  }
+  await user.click(screen.getByRole('link', { name: 'Configurar claves' }));
+  expect(await screen.findByRole('region', { name: 'Proveedores de datos' })).toBeInTheDocument();
+});
+
+it('prioriza configurar fuentes sin clave aunque fallen las consultas de datos', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'get').mockRejectedValue(new Error('IPC'));
+  window.location.hash = '#mercado';
+  await act(async () => {
+    render(<App />);
+  });
+  expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
+});

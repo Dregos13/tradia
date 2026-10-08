@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SettingsPage } from './SettingsPage';
@@ -23,12 +23,10 @@ async function mount() {
 }
 it('consulta el inicio real y utiliza la respuesta del sistema, sin cambio optimista', async () => {
   await simulation.api.settings.set({ autostart: true });
-  const set = vi
-    .spyOn(simulation.api.settings, 'set')
-    .mockImplementation(async () => ({
-      ...(await simulation.api.settings.get()),
-      autostart: true,
-    }));
+  const set = vi.spyOn(simulation.api.settings, 'set').mockImplementation(async () => ({
+    ...(await simulation.api.settings.get()),
+    autostart: true,
+  }));
   await mount();
   const toggle = screen.getByRole('switch', { name: 'Iniciar con el sistema' });
   expect(toggle).toBeChecked();
@@ -87,7 +85,11 @@ it('valida, guarda, limpia la contraseña y borra sin recuperar la clave', async
   expect(document.body).not.toHaveTextContent('secreto-test');
   await userEvent.click(screen.getByRole('button', { name: 'Borrar clave' }));
   expect(remove).toHaveBeenCalledWith('Proveedor libre');
-  expect(await screen.findByText('Sin clave guardada')).toBeInTheDocument();
+  expect(
+    await within(screen.getByRole('region', { name: 'Claves de API' })).findByText(
+      'Sin clave guardada',
+    ),
+  ).toBeInTheDocument();
 });
 it('explica safeStorage sin mostrar el secreto ni mensajes de error sin filtrar', async () => {
   vi.spyOn(simulation.api.secrets, 'setKey').mockRejectedValue(
@@ -119,5 +121,9 @@ it('ignora respuestas antiguas de proveedores y muestra carga y errores', async 
   await act(async () => {
     resolve(true);
   });
-  await waitFor(() => expect(screen.getByText('Sin clave guardada')).toBeInTheDocument());
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('region', { name: 'Claves de API' })).getByText('Sin clave guardada'),
+    ).toBeInTheDocument(),
+  );
 });

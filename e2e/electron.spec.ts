@@ -204,9 +204,9 @@ test.describe('Tradia Electron', () => {
     const page = await app.firstWindow();
     await acceptRisk(page);
     await page.getByRole('link', { name: 'Ajustes' }).click();
-    await page.getByLabel('Proveedor').fill('Proveedor de prueba');
+    await page.getByLabel('Proveedor', { exact: true }).fill('Proveedor de prueba');
     await page.getByLabel('Clave nueva').fill('tradia-e2e-secret-not-a-real-key-49281');
-    await page.getByRole('button', { name: 'Guardar clave' }).click();
+    await page.getByRole('button', { name: 'Guardar clave', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Guardada (cifrada)' })).toBeVisible();
 
     const secret = 'tradia-e2e-secret-not-a-real-key-49281';
