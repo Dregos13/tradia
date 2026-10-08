@@ -33,6 +33,8 @@ export function registerConnectivity(ctx: ServiceContext): ConnectivityService {
       // TODO(connectivity-service): comprobación real con net.isOnline + fetch.
       state.lastCheckedAt = new Date().toISOString();
       ctx.broadcast(IPC_CHANNELS.connectivity.changed, service.getState());
+      // La bandeja repinta icono y tooltip con el nuevo estado de conexión.
+      ctx.services.tray?.refresh();
       return Promise.resolve(service.getState());
     },
     start() {

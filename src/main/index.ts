@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+import { app } from 'electron';
 
+import { AUTOSTART_HIDDEN_ARG } from './autostart';
 import { broadcast } from './broadcast';
-import { initServices } from './services';
-import { createMainWindow } from './window';
+import { initServices, type MainServices } from './services';
+import { showMainWindow } from './window';
 
 // Bloqueo de instancia única: la app es residente y no tiene sentido duplicarla.
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -12,13 +13,11 @@ if (!gotSingleInstanceLock) {
 } else {
   app.setName('Tradia');
 
+  let services: MainServices | null = null;
+
   app.on('second-instance', () => {
-    const window = BrowserWindow.getAllWindows()[0];
-    if (window) {
-      if (window.isMinimized()) window.restore();
-      window.show();
-      window.focus();
-    }
+    // La instancia residente muestra su ventana al reintentar abrir la app.
+    if (app.isReady()) showMainWindow();
   });
 
   // Endurecimiento: sin window.open ni navegación fuera de la propia app.
@@ -34,15 +33,21 @@ if (!gotSingleInstanceLock) {
   app
     .whenReady()
     .then(() => {
-      const services = initServices({ broadcast, services: {} });
-      createMainWindow();
+      services = initServices({ broadcast, services: {} });
+
+      // Arranque en segundo plano: con --hidden (login item de Windows/Linux)
+      // o lanzada por el inicio de sesión en macOS, la app se queda en bandeja.
+      const startedHidden =
+        process.argv.includes(AUTOSTART_HIDDEN_ARG) ||
+        (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
+      if (!startedHidden) showMainWindow();
+
+      app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
-        services.storage.close();
-      });
-
-      app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+        services?.scheduler.stop();
+        services?.tray.destroy();
+        services?.storage.close();
       });
     })
     .catch((error: unknown) => {
@@ -51,7 +56,10 @@ if (!gotSingleInstanceLock) {
     });
 
   app.on('window-all-closed', () => {
-    // La tarea «tray-background» cambiará esto por ocultar a la bandeja.
-    if (process.platform !== 'darwin') app.quit();
+    // Con bandeja activa la app es residente y cerrar ventanas no la termina;
+    // sin bandeja disponible se recupera el cierre clásico fuera de macOS.
+    if (services?.tray.isActive() !== true && process.platform !== 'darwin') {
+      app.quit();
+    }
   });
 }

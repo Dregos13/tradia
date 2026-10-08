@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 
 import { resourcePath } from './resources';
 import { buildWebPreferences } from './security';
@@ -30,4 +30,21 @@ export function createMainWindow(): BrowserWindow {
   }
 
   return window;
+}
+
+/**
+ * Abre la ventana principal si no existe, o la muestra y enfoca si estaba
+ * oculta o minimizada. En macOS restaura además el icono del Dock, que la
+ * bandeja oculta al cerrar la ventana.
+ */
+export function showMainWindow(): BrowserWindow {
+  if (process.platform === 'darwin') app.dock?.show();
+  const existing = BrowserWindow.getAllWindows()[0];
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+  return createMainWindow();
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, ipcMain, Notification } from 'electron';
 import type { NotificationConstructorOptions } from 'electron';
 
 import {
@@ -11,7 +11,7 @@ import {
   type NotificationPayload,
   type NotificationPrefs,
 } from '../../shared/ipc';
-import { createMainWindow } from '../window';
+import { showMainWindow } from '../window';
 import type { ServiceContext } from './index';
 
 /**
@@ -147,18 +147,6 @@ export function createNotificationsService(deps: NotificationsDeps): Notificatio
   return service;
 }
 
-/** Abre la ventana principal si no existe, o la restaura y enfoca. */
-function focusMainWindow(): void {
-  const existing = BrowserWindow.getAllWindows()[0];
-  if (existing && !existing.isDestroyed()) {
-    if (existing.isMinimized()) existing.restore();
-    existing.show();
-    existing.focus();
-    return;
-  }
-  createMainWindow();
-}
-
 export function registerNotifications(ctx: ServiceContext): NotificationsService {
   // Las preferencias viven en settings (tabla `settings`, clave
   // 'notifications.prefs'); si settings no está registrado se usa memoria.
@@ -175,7 +163,7 @@ export function registerNotifications(ctx: ServiceContext): NotificationsService
         memoryPrefs = { ...prefs };
       }
     },
-    focusMainWindow,
+    focusMainWindow: showMainWindow,
     platform: process.platform,
     setAppUserModelId: (id) => app.setAppUserModelId(id),
   });
