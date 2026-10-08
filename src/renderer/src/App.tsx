@@ -4,6 +4,7 @@ import { RiskDisclaimer } from './components/RiskDisclaimer';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { SettingsPage } from './components/SettingsPage';
 import { HomePage } from './components/HomePage';
+import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
@@ -47,7 +48,7 @@ function AppShell() {
       />
     );
   return (
-    <div className="app">
+    <div className={`app${state.connectivity?.status === 'offline' ? ' has-banner' : ''}`}>
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
@@ -68,6 +69,7 @@ function AppShell() {
         </h1>
         <span className="mode">Señales + paper trading</span>
       </header>
+      <OfflineBanner state={state} />
       <main id="contenido" className="main" tabIndex={-1}>
         {page === 'inicio' ? (
           <HomePage state={state} />

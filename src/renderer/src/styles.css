@@ -562,3 +562,53 @@ input:focus-visible {
     flex-wrap: wrap;
   }
 }
+
+.app.has-banner {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.app.has-banner .side {
+  grid-row: 1 / 5;
+}
+.connection-announcement {
+  grid-column: 2;
+}
+.connection-announcement:empty {
+  display: none;
+}
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  background: var(--state-offline-surface);
+  color: var(--state-offline);
+  font-size: var(--type-sm);
+}
+.offline-banner p {
+  color: inherit;
+}
+.offline-banner .button {
+  flex-shrink: 0;
+  background: transparent;
+  color: inherit;
+  border-color: currentColor;
+}
+.offline-banner .button:hover {
+  background: var(--color-surface);
+}
+@media (max-width: 760px) {
+  .app.has-banner {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  }
+  .app.has-banner .side {
+    grid-row: auto;
+  }
+  .connection-announcement {
+    grid-column: 1;
+  }
+  .offline-banner {
+    flex-wrap: wrap;
+    padding-inline: var(--space-5);
+  }
+}

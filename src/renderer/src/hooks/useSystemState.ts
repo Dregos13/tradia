@@ -30,7 +30,15 @@ export function useSystemState(): SystemState {
     }
     const offConnection = api.connectivity.onChanged((connectivity) => {
       connectionEvent = true;
-      update({ connectivity, connectionError: false });
+      if (active)
+        setState((previous) => ({
+          ...previous,
+          connectivity:
+            connectivity.status === 'checking' && previous.connectivity?.status === 'offline'
+              ? { ...connectivity, status: 'offline' }
+              : connectivity,
+          connectionError: false,
+        }));
     });
     const offAgents = api.agents.onChanged((agents) => {
       agentsEvent = true;

@@ -40,7 +40,17 @@ export function AgentsStatus({ state }: { state: SystemState }) {
       className={`state ${state.agentsError ? 'offline' : state.agents?.paused ? 'paused' : state.agents ? 'online' : ''}`}
     >
       <span className="symbol" aria-hidden="true" />
-      {label}
+      <span>{label}</span>
+      {state.agents?.paused && !state.agentsError && (
+        <span>
+          ·{' '}
+          {state.agents.pauseReason === 'sin-conexion'
+            ? 'Sin conexión'
+            : state.agents.pauseReason === 'usuario'
+              ? 'Pausa manual'
+              : 'Motivo no disponible'}
+        </span>
+      )}
     </span>
   );
 }
@@ -52,6 +62,24 @@ export function StatusBar({ state }: { state: SystemState }) {
         <ConnectionStatus state={state} />
         <AgentsStatus state={state} />
       </div>
+      <span className="numeric">
+        Última comprobación{' '}
+        <time dateTime={state.connectivity?.lastCheckedAt ?? undefined}>
+          {state.connectionError
+            ? 'No disponible'
+            : heartbeatTime(state.connectivity?.lastCheckedAt)}
+        </time>
+      </span>
+      <span className="numeric">
+        Próximo reintento{' '}
+        <time dateTime={state.connectivity?.nextRetryAt ?? undefined}>
+          {state.connectionError
+            ? 'No disponible'
+            : state.connectivity?.nextRetryAt
+              ? heartbeatTime(state.connectivity.nextRetryAt)
+              : '—'}
+        </time>
+      </span>
       <span className="numeric">
         Último latido{' '}
         <time dateTime={state.agents?.lastHeartbeatAt ?? undefined}>

@@ -49,7 +49,7 @@ describe('Estructura de Tradia', () => {
     expect(statusbar().getByText('Cargando conexión…')).toBeInTheDocument();
     expect(statusbar().getByText('Cargando agentes…')).toBeInTheDocument();
     expect(statusbar().queryByText('En línea')).not.toBeInTheDocument();
-    expect(statusbar().getByText('Pendiente')).toBeInTheDocument();
+    expect(statusbar().getAllByText('Pendiente')).toHaveLength(2);
   });
 
   it('actualiza conexión, pausa y latido mediante eventos del adaptador', async () => {
