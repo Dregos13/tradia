@@ -47,7 +47,6 @@ import {
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
-import type { MarketSession } from './calendar';
 import {
   cleanBars,
   deriveCorporateActions,
@@ -57,7 +56,6 @@ import {
 import {
   createSimulatedProvider,
   createTiingoProvider,
-  SIMULATED_PROVIDER_ID,
   TIINGO_SECRETS_KEY,
   isMarketDataError,
   type Bar,
@@ -182,39 +180,11 @@ export interface MarketIngestionService {
 }
 
 // ---------------------------------------------------------------------------
-// Calendario de laborables (el proveedor simulado no modela festivos)
+// Calendario compartido por los proveedores reales y el simulado
 // ---------------------------------------------------------------------------
 
-const SESSION_STUB: Omit<MarketSession, 'date'> = {
-  opensAtUtc: '',
-  closesAtUtc: '',
-  updateAtUtc: '',
-  earlyClose: false,
-};
-
-/**
- * Sesiones = todos los laborables del rango. Es el calendario que casa con
- * el proveedor simulado: como emite también los festivos de NYSE, usar el
- * calendario real marcaría huecos y velas 'non-session' que no existen.
- * Con Tiingo (o cualquier proveedor real) se usa `market/calendar.ts`.
- */
-export const weekdaySessionsCalendar: SessionCalendar = {
-  expectedSessionsBetween(desde, hasta) {
-    const sessions: MarketSession[] = [];
-    let dayMs = Date.parse(`${desde}T00:00:00.000Z`);
-    const endMs = Date.parse(`${hasta}T00:00:00.000Z`);
-    for (; dayMs <= endMs; dayMs += DAY_MS) {
-      const date = new Date(dayMs).toISOString().slice(0, 10);
-      const dow = new Date(dayMs).getUTCDay();
-      if (dow >= 1 && dow <= 5) sessions.push({ ...SESSION_STUB, date });
-    }
-    return sessions;
-  },
-};
-
-/** El simulado genera laborables; el resto usa el calendario real de NYSE. */
-export function defaultSessionsFor(provider: MarketDataProvider): SessionCalendar {
-  return provider.id === SIMULATED_PROVIDER_ID ? weekdaySessionsCalendar : nyseCalendar;
+export function defaultSessionsFor(_provider: MarketDataProvider): SessionCalendar {
+  return nyseCalendar;
 }
 
 // ---------------------------------------------------------------------------

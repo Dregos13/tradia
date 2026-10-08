@@ -128,3 +128,9 @@
   border-radius: var(--radius-sm);
   font-size: var(--type-sm);
 }
+.macro-status-simulated {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  color: var(--dataStatus-simulated);
+  background: var(--dataStatus-simulated-surface);
+}

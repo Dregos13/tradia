@@ -83,3 +83,28 @@ it('conserva las velas si falla el estado del dato, sin afirmar que son fiables'
   expect(result.current.statusError).toContain('fiabilidad está pendiente');
   expect(result.current.error).toBeNull();
 });
+
+it('un evento reciente prevalece sobre una instantánea pendiente más antigua', async () => {
+  const snapshot = await simulation.api.dataStatus.get();
+  let resolve!: (value: typeof snapshot) => void;
+  vi.spyOn(simulation.api.dataStatus, 'get').mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  const { result } = renderHook(() => useMarketData());
+  const entry = {
+    key: 'macro:DFF',
+    state: 'no-fiable' as const,
+    lastOkAt: null,
+    consecutiveFailures: 1,
+    reason: 'Fallo reciente',
+    updatedAt: '2026-10-08T20:00:00Z',
+  };
+  act(() => simulation.emitDataStatus(entry));
+  await act(async () => resolve(snapshot));
+  expect(result.current.statuses).toContainEqual(entry);
+  expect(result.current.series.find((series) => series.id === 'DFF')?.status).toEqual(entry);
+  expect(result.current.loading).toBe(false);
+});

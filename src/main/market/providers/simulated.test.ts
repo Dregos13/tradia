@@ -62,10 +62,10 @@ describe('proveedor simulado', () => {
   });
 
   it('una sesión solo existe si su cierre ya pasó según el reloj', async () => {
-    // Viernes 14-06 a las 20:00 UTC: el cierre (~21:00) aún no llegó.
+    // Viernes 14-06 antes del cierre de verano (20:00 UTC).
     const beforeClose = createSimulatedProvider({
       seed: 's',
-      now: () => Date.parse('2024-06-14T20:00:00.000Z'),
+      now: () => Date.parse('2024-06-14T19:59:00.000Z'),
     });
     const barsBefore = await beforeClose.getBars('AAPL', '2024-06-10', '2024-06-30');
     expect(barsBefore[barsBefore.length - 1]!.date).toBe('2024-06-13');
@@ -77,6 +77,18 @@ describe('proveedor simulado', () => {
     });
     const barsAfter = await afterClose.getBars('AAPL', '2024-06-10', '2024-06-30');
     expect(barsAfter[barsAfter.length - 1]!.date).toBe('2024-06-14');
+  });
+
+  it('omite Acción de Gracias y respeta el cierre anticipado del viernes', async () => {
+    let clock = Date.parse('2026-11-26T23:00:00Z');
+    const provider = make({ now: () => clock });
+    expect((await provider.getQuote('SPY')).date).toBe('2026-11-25');
+    clock = Date.parse('2026-11-27T17:59:00Z');
+    expect((await provider.getQuote('SPY')).date).toBe('2026-11-25');
+    clock = Date.parse('2026-11-27T18:00:00Z');
+    const bars = await provider.getBars('SPY', '2026-11-25', '2026-11-27');
+    expect(bars.map((bar) => bar.date)).toEqual(['2026-11-25', '2026-11-27']);
+    expect((await provider.getQuote('SPY')).date).toBe('2026-11-27');
   });
 
   it('permite inyectar un split: el crudo salta y el ajustado sigue continuo', async () => {

@@ -11,9 +11,11 @@ const statuses = {
 export function MacroCard({
   indicator,
   series,
+  simulated = false,
 }: {
   indicator: (typeof indicators)[number];
   series?: MacroSeriesSnapshot;
+  simulated?: boolean;
 }) {
   const points = series ? displayObservations(series) : [];
   const lastPoint = points.at(-1);
@@ -26,7 +28,7 @@ export function MacroCard({
     latest && previous ? Math.round((latest.value - previous.value) * 100) / 100 : null;
   return (
     <article
-      className={`macro-card macro-series-${indicator.color}`}
+      className={`macro-card macro-series-${indicator.color}${series?.status?.state === 'no-fiable' ? ' data-unreliable' : ''}`}
       aria-labelledby={`macro-${indicator.id}`}
     >
       <div className="macro-card-head">
@@ -36,6 +38,7 @@ export function MacroCard({
           {status?.label ?? 'Sin evaluar'}
         </span>
       </div>
+      {simulated && <span className="macro-badge macro-status-simulated">◇ Datos simulados</span>}
       <h3 id={`macro-${indicator.id}`}>{indicator.name}</h3>
       <div className="macro-value">
         {latest ? `${formatNumber(latest.value)} ${unit}` : 'Sin dato'}
@@ -63,6 +66,11 @@ export function MacroCard({
           <span>Sin fecha de observación</span>
         )}
       </div>
+      {series?.status?.state === 'no-fiable' && (
+        <p className="data-quality-warning" role="alert">
+          Datos no fiables. No se usarán para señales hasta confirmarlos.
+        </p>
+      )}
       {series?.status?.reason && <p className="macro-reason">{series.status.reason}</p>}
     </article>
   );

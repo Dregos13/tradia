@@ -34,6 +34,8 @@ export function MarketWorkspace() {
       )}
       <Watchlist
         items={data.watchlist}
+        statuses={data.statuses}
+        simulated={data.statuses.some((entry) => entry.key === 'provider:simulated')}
         selected={selected}
         onSelect={setSelected}
         onChanged={data.reload}

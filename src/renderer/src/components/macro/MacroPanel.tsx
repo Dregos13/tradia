@@ -22,6 +22,7 @@ export function MacroPanel({
           <MacroCard
             key={indicator.id}
             indicator={indicator}
+            simulated={simulated}
             series={series.find((item) => item.id === indicator.id)}
           />
         ))}

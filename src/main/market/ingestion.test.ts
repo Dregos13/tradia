@@ -257,7 +257,8 @@ describe('actualización diaria programada', () => {
     online = true;
     await vi.advanceTimersByTimeAsync(MARKET_RETRY_INTERVAL_MS);
     await flushAsync();
-    expect(repo.lastBarDate('AAPL')).toBe(LAST_SESSION);
+    // A las 20:30 UTC ya pasó el cierre real de verano (20:00 UTC).
+    expect(repo.lastBarDate('AAPL')).toBe(NEW_SESSION);
   });
 
   it('powerMonitor resume recupera los cierres perdidos aunque no haya saltado el timer', async () => {

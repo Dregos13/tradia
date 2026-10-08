@@ -15,7 +15,7 @@ export function MarketStatus({
 }) {
   const state = status ? states[status.state] : null;
   return (
-    <div className="market-status">
+    <div className="market-status" aria-live="polite">
       {state ? (
         <span className={`market-badge market-badge-${state.token}`}>
           <span aria-hidden="true">{state.symbol}</span> {state.label}

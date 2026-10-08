@@ -399,7 +399,26 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       const repeatDue =
         last !== undefined && last.state === entry.state && now() - last.at >= notifyCooldownMs;
       if (worsened || repeatDue) {
-        notifyState(entry);
+        if (entry.key.startsWith('ticker:') && entry.consecutiveFailures > 0) {
+          // La ingesta publica primero el activo y después su proveedor.
+          // Espera a ambos estados para emitir un solo aviso por la caída.
+          const failedEntry = entry;
+          queueMicrotask(() => {
+            const providerIncident = repo
+              .listDataStatus()
+              .some(
+                (status) =>
+                  status.key.startsWith('provider:') &&
+                  status.consecutiveFailures > 0 &&
+                  status.reason === failedEntry.reason &&
+                  status.updatedAt >= failedEntry.updatedAt &&
+                  SEVERITY[status.state] >= SEVERITY[failedEntry.state],
+              );
+            if (!providerIncident) notifyState(failedEntry);
+          });
+        } else {
+          notifyState(entry);
+        }
         notified.set(entry.key, { state: entry.state, at: now() });
       }
     } else if (entry.state === 'fiable' && badSince.delete(entry.key)) {

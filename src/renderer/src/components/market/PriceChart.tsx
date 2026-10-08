@@ -149,7 +149,10 @@ export function PriceChart({
     averages.current.forEach((series, index) => series.applyOptions({ visible: visible[index] }));
   }, [visible, data, years, theme]);
   return (
-    <section className="market-chart-card" aria-label={`Precio de ${result.ticker}`}>
+    <section
+      className={`market-chart-card${status?.state === 'no-fiable' ? ' data-unreliable' : ''}`}
+      aria-label={`Precio de ${result.ticker}`}
+    >
       <header className="market-chart-heading">
         <div>
           <h3>{result.ticker}</h3>
@@ -183,6 +186,16 @@ export function PriceChart({
         </p>
       )}
       {status?.reason && <p className="market-chart-note">{status.reason}</p>}
+      {status?.state === 'no-fiable' && (
+        <p className="data-quality-warning" role="alert">
+          Datos no fiables. No se usarán para señales hasta confirmarlos.
+        </p>
+      )}
+      {status?.state === 'desactualizado' && (
+        <p className="market-chart-note" role="status">
+          El histórico está desactualizado; puede faltar el último cierre.
+        </p>
+      )}
       {result.source === 'simulated' && (
         <p className="market-chart-note">
           Entorno de pruebas. Los valores no representan cotizaciones reales.

@@ -5,6 +5,7 @@ import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { SettingsPage } from './components/SettingsPage';
 import { MarketDataPage } from './components/MarketDataPage';
 import { HomePage } from './components/HomePage';
+import { ProviderBanner } from './components/ProviderBanner';
 import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
@@ -88,6 +89,7 @@ function AppShell() {
       </header>
       <OfflineBanner state={state} />
       <main id="contenido" className="main" tabIndex={-1}>
+        <ProviderBanner />
         {page === 'inicio' ? (
           <HomePage state={state} />
         ) : page === 'mercado' || page === 'macro' ? (

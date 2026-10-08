@@ -87,7 +87,7 @@ describe('Lista y gráfico con adaptador simulado', () => {
     expect((chart.series[4]!.data as { value: number }[]).at(-1)?.value).toBe(rsi(candles).at(-1));
     expect((chart.series[5]!.data as { value: number }[]).at(-1)?.value).toBe(atr(candles).at(-1));
     expect(screen.getByText(/Última vela:/).textContent).toContain(candles.at(-1)!.time);
-    expect(screen.getByText(/Datos simulados/)).toBeTruthy();
+    expect(screen.getAllByText(/Datos simulados/)).toHaveLength(2);
     await user.click(screen.getByRole('checkbox', { name: 'SMA 20' }));
     expect(chart.series[1]!.applyOptions).toHaveBeenLastCalledWith({ visible: false });
     await user.click(screen.getByRole('button', { name: '1A' }));
@@ -170,7 +170,7 @@ describe('Lista y gráfico con adaptador simulado', () => {
         updatedAt: '2026-10-08T12:01:00Z',
       }),
     );
-    await screen.findByText('No fiable');
+    await screen.findAllByText('No fiable');
     expect(screen.getByRole('img')).toBeTruthy();
   });
   it('selecciona el siguiente activo y maneja errores de alta sin exponer detalles IPC', async () => {
@@ -234,4 +234,28 @@ it('mantiene el formulario bloqueado y muestra descarga mientras el alta ingiere
   });
   await screen.findByRole('img');
   expect(screen.queryByRole('progressbar')).toBeNull();
+});
+
+it('marca lista y gráfico al fallar y restaura la confianza al recuperarse', async () => {
+  await simulation.api.watchlist.add('AAPL');
+  render(<MarketWorkspace />);
+  const chart = await screen.findByRole('region', { name: 'Precio de AAPL' });
+  await waitFor(() => expect(within(chart).getByText('Fiable')).toBeTruthy());
+  const entry = {
+    key: 'ticker:AAPL',
+    state: 'no-fiable' as const,
+    lastOkAt: '2026-10-07T20:00:00Z',
+    consecutiveFailures: 3,
+    reason: 'Tiingo no responde',
+    updatedAt: '2026-10-08T20:00:00Z',
+  };
+  act(() => simulation.emitDataStatus(entry));
+  await waitFor(() => expect(screen.getAllByText('No fiable')).toHaveLength(2));
+  expect(chart.classList.contains('data-unreliable')).toBe(true);
+  expect(within(chart).getByRole('alert').textContent).toContain('No se usarán para señales');
+  act(() =>
+    simulation.emitDataStatus({ ...entry, state: 'fiable', reason: null, consecutiveFailures: 0 }),
+  );
+  await waitFor(() => expect(screen.queryByText('No fiable')).toBeNull());
+  expect(chart.classList.contains('data-unreliable')).toBe(false);
 });

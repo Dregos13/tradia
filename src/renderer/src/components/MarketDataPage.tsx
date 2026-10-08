@@ -38,6 +38,11 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
+      {data.statusError && (
+        <p className="market-error" role="alert">
+          {data.statusError}
+        </p>
+      )}
       {keyError || (kind === 'macro' && configured && data.error) ? (
         <div className="data-empty" role="alert">
           <p>
@@ -51,7 +56,8 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             </button>
           )}
         </div>
-      ) : configured === null || (kind === 'macro' && configured && data.loading) ? (
+      ) : configured === null ||
+        (kind === 'macro' && configured && data.loading && !data.series.length) ? (
         <p role="status">Consultando fuentes de datos…</p>
       ) : !configured ? (
         <div className="data-empty">

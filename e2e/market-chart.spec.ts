@@ -35,7 +35,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     const chart = page.getByRole('img', { name: /Velas diarias ajustadas de AAPL/ });
     await expect(chart).toBeVisible({ timeout: 20000 });
     await expect(chart.locator('canvas').first()).toBeVisible();
-    await expect(page.getByText('◇ Datos simulados')).toBeVisible();
+    await expect(page.locator('.market-chart-card').getByText('◇ Datos simulados')).toBeVisible();
     await expect(page.getByText(/RSI 14: [\d]/)).toBeVisible();
     await expect(page.getByText(/ATR 14: [\d]/)).toBeVisible();
     await page.getByRole('button', { name: '1A', exact: true }).click();
@@ -44,8 +44,10 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       'true',
     );
     await page.getByText(/Ver tabla de datos/).click();
-    await expect(page.getByRole('table')).toBeVisible();
-    await expect(page.getByRole('table').locator('tbody tr')).not.toHaveCount(0);
+    await expect(page.getByRole('table', { name: /AAPL · OHLCV ajustado/ })).toBeVisible();
+    await expect(
+      page.getByRole('table', { name: /AAPL · OHLCV ajustado/ }).locator('tbody tr'),
+    ).not.toHaveCount(0);
     await page.getByText(/Ver tabla de datos/).click();
     await page.locator('.main').evaluate((element) => {
       element.scrollTop = 0;
@@ -62,6 +64,31 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
+    for (let failure = 1; failure <= 3; failure++) {
+      await page.evaluate(async () => {
+        await window.tradia.testing!.simulateProviderFailure(true);
+        await window.tradia.testing!.advanceMarketClock(24 * 60 * 60 * 1000);
+      });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            async () =>
+              (await window.tradia.dataStatus.get()).find((entry) => entry.key === 'ticker:AAPL')
+                ?.consecutiveFailures ?? 0,
+          ),
+        )
+        .toBeGreaterThanOrEqual(failure);
+    }
+    const providerBanner = page.getByRole('alert', { name: 'Estado de Proveedor simulado' });
+    await expect(providerBanner).toBeVisible();
+    await expect(page.locator('.market-chart-card')).toHaveClass(/data-unreliable/);
+    await page.screenshot({ path: 'test-results/provider-failure-narrow.png' });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.screenshot({ path: 'test-results/provider-failure-dark.png' });
+    await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
+    await expect(providerBanner).toHaveCount(0);
+    await expect(page.locator('.market-chart-card')).not.toHaveClass(/data-unreliable/);
     await page.getByRole('button', { name: 'Quitar AAPL', exact: true }).click();
     await expect(chart).toBeVisible();
     await page.getByRole('button', { name: 'Confirmar quitar AAPL', exact: true }).click();

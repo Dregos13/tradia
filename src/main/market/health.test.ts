@@ -360,6 +360,52 @@ describe('notificaciones al observar cambios', () => {
     expect(notifications).toEqual([expect.objectContaining({ level: 'critica' })]);
   });
 
+  it('agrupa el fallo del ticker y su proveedor sin perder sus estados', async () => {
+    const reason = 'fallo de red de Tiingo';
+    const ticker = repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+      reason,
+    });
+    service.observe(ticker);
+    // Las dos escrituras reales pueden caer en milisegundos distintos.
+    nowMs += 1;
+    const provider = repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+      reason,
+    });
+    service.observe(provider);
+    await flush();
+
+    expect(status(ticker.key)?.state).toBe('no-fiable');
+    expect(status(provider.key)?.state).toBe('no-fiable');
+    expect(notifications).toEqual([expect.objectContaining({ level: 'critica' })]);
+    expect(notifications[0]?.title).toContain('proveedor');
+  });
+
+  it('un fallo independiente del ticker sigue notificándose', async () => {
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+      reason: 'credencial rechazada',
+    });
+    service.observe(
+      entry({
+        key: dataStatusKey.ticker('AAPL'),
+        state: 'no-fiable',
+        consecutiveFailures: 3,
+        reason: 'ticker no encontrado',
+      }),
+    );
+    await flush();
+    expect(notifications).toEqual([expect.objectContaining({ level: 'critica' })]);
+    expect(notifications[0]?.title).toContain('AAPL');
+  });
+
   it('actualizando no notifica', async () => {
     service.observe(entry({ key: dataStatusKey.provider('x'), state: 'actualizando' }));
     await flush();

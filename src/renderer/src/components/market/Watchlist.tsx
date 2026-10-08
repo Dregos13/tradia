@@ -1,14 +1,28 @@
 import { useRef, useState } from 'react';
-import { HistoricalProgress } from './MarketStatus';
-import { isTicker, WATCHLIST_MAX_ITEMS, type WatchlistItem } from '../../../../shared/ipc';
+import { HistoricalProgress, MarketStatus } from './MarketStatus';
+import {
+  isTicker,
+  WATCHLIST_MAX_ITEMS,
+  type DataStatusEntry,
+  type WatchlistItem,
+} from '../../../../shared/ipc';
 
 interface Props {
   items: WatchlistItem[];
   selected: string | null;
+  statuses?: DataStatusEntry[];
+  simulated?: boolean;
   onSelect(ticker: string | null): void;
   onChanged(): Promise<void>;
 }
-export function Watchlist({ items, selected, onSelect, onChanged }: Props) {
+export function Watchlist({
+  items,
+  selected,
+  onSelect,
+  onChanged,
+  statuses = [],
+  simulated = false,
+}: Props) {
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -137,8 +151,21 @@ export function Watchlist({ items, selected, onSelect, onChanged }: Props) {
                       setConfirm(null);
                     }}
                   >
-                    {item.ticker}
+                    <span
+                      className={
+                        statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
+                        'no-fiable'
+                          ? 'data-dimmed'
+                          : undefined
+                      }
+                    >
+                      {item.ticker}
+                    </span>
                   </button>
+                  <MarketStatus
+                    status={statuses.find((entry) => entry.key === `ticker:${item.ticker}`)}
+                    simulated={simulated}
+                  />
                 </li>
               ))}
             </ul>

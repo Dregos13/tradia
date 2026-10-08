@@ -4,10 +4,9 @@
  * - La serie de precios es un paseo aleatorio con semilla anclado a una fecha
  *   génesis fija: el mismo (seed, ticker) produce siempre la misma serie, sin
  *   importar el rango consultado ni el orden de las llamadas.
- * - Solo genera días laborables (lunes a viernes); no modela festivos — eso
- *   lo comprueba el calendario real de `market/calendar.ts`.
+ * - Solo genera sesiones del calendario NYSE y excluye sus festivos.
  * - Una sesión solo existe si su cierre ya pasó según el reloj inyectado
- *   (`now`). El cierre de NYSE se aproxima a las 21:00 UTC del día.
+ *   (`now`), con su horario real y sus cierres anticipados.
  * - `adjClose` se calcula hacia atrás como en un proveedor real: continuo a
  *   través de los splits y reducido antes de cada dividendo. Los precios
  *   crudos saltan con el split, como en la realidad.
@@ -15,6 +14,7 @@
  *   defectos de datos (hueco, duplicado, valor anómalo), más fallos
  *   programados del proveedor, para probar limpieza, ingesta y salud del dato.
  */
+import { isTradingDay, lastExpectedSession } from '../calendar';
 import {
   MarketDataError,
   assertValidDateRange,
@@ -33,8 +33,6 @@ export const SIMULATED_PROVIDER_ID = 'simulated';
 export const SIMULATED_RATE_LIMITS: RateLimits = { perHour: 60_000, perDay: 1_000_000 };
 
 const DEFAULT_GENESIS: SessionDate = '2000-01-03'; // lunes
-/** Aproximación del cierre de NYSE (16:00 ET ≈ 21:00 UTC) en el simulado. */
-const SESSION_CLOSE_UTC = 'T21:00:00.000Z';
 
 export interface SimulatedInjections {
   /** { date, factor }: split de `factor`:1 con fecha ex `date`. */
@@ -113,11 +111,6 @@ const round = (value: number, decimals: number): number => {
 };
 
 const normalizeTicker = (ticker: string): string => ticker.trim().toUpperCase();
-
-const isWeekday = (date: Date): boolean => {
-  const day = date.getUTCDay();
-  return day >= 1 && day <= 5;
-};
 
 const toSessionDate = (ms: number): SessionDate => new Date(ms).toISOString().slice(0, 10);
 
@@ -211,7 +204,7 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
 
   /**
    * Paseo aleatorio continuo desde el génesis hasta `lastDay` inclusive
-   * (solo laborables). Determinista por (seed, ticker); no depende del rango.
+   * (solo sesiones NYSE). Determinista por (seed, ticker); no depende del rango.
    */
   const buildContinuousSeries = (ticker: string, lastDay: SessionDate): ContinuousDay[] => {
     const rng = mulberry32(hashSeed(`${String(seed)}:${ticker}`));
@@ -222,8 +215,8 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     const cursor = new Date(`${genesis}T00:00:00.000Z`);
     const end = new Date(`${lastDay}T00:00:00.000Z`);
     while (cursor <= end) {
-      if (isWeekday(cursor)) {
-        const date = toSessionDate(cursor.getTime());
+      const date = toSessionDate(cursor.getTime());
+      if (isTradingDay(date)) {
         // Ruido triangular en [-dailyVol, dailyVol) más una deriva suave.
         const noise = ((rng() + rng() + rng()) / 1.5 - 1) * dailyVol;
         const prev = close;
@@ -307,18 +300,8 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     return bars;
   };
 
-  /** Última sesión cuyo cierre (~21:00 UTC) ya pasó según el reloj inyectado. */
-  const lastAvailableSession = (): SessionDate | null => {
-    const t = now();
-    const candidate = new Date(t - 21 * 3_600_000);
-    // Retrocede hasta caer en un laborable cuyo cierre ya pasó.
-    for (let i = 0; i < 10; i++) {
-      const date = toSessionDate(candidate.getTime() - i * 86_400_000);
-      const d = new Date(`${date}T00:00:00.000Z`);
-      if (isWeekday(d) && Date.parse(`${date}${SESSION_CLOSE_UTC}`) <= t) return date;
-    }
-    return null;
-  };
+  /** Última sesión NYSE cuyo cierre real ya pasó según el reloj inyectado. */
+  const lastAvailableSession = (): SessionDate | null => lastExpectedSession(now())?.date ?? null;
 
   const validateCall = (ticker: string): string => {
     assertValidTicker(ticker, SIMULATED_PROVIDER_ID);

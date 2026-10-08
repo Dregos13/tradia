@@ -29,11 +29,13 @@ export function useMarketData(request?: GetBarsRequest) {
     statusError: null,
   });
   const generation = useRef(0);
+  const events = useRef(new Map<string, DataStatusEntry>());
   const ticker = request?.ticker;
   const desde = request?.desde;
   const hasta = request?.hasta;
   const reload = useCallback(async () => {
     const version = ++generation.current;
+    events.current.clear();
     setState((previous) => ({ ...previous, loading: true, error: null }));
     try {
       const api = window.tradia;
@@ -45,11 +47,16 @@ export function useMarketData(request?: GetBarsRequest) {
           ? api.market.getBars({ ticker, ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) })
           : Promise.resolve(null),
       ]);
-      if (version === generation.current)
+      if (version === generation.current) {
+        const reconciled = new Map((statuses ?? []).map((entry) => [entry.key, entry]));
+        events.current.forEach((entry, key) => reconciled.set(key, entry));
         setState({
           watchlist,
-          series,
-          statuses: statuses ?? [],
+          series: series.map((item) => ({
+            ...item,
+            status: reconciled.get(`macro:${item.id}`) ?? (statuses === null ? null : item.status),
+          })),
+          statuses: [...reconciled.values()],
           bars,
           loading: false,
           error: null,
@@ -58,6 +65,7 @@ export function useMarketData(request?: GetBarsRequest) {
               ? 'No pudimos comprobar el estado del dato. Su fiabilidad está pendiente de verificar.'
               : null,
         });
+      }
     } catch {
       if (version === generation.current)
         setState((previous) => ({
@@ -70,17 +78,14 @@ export function useMarketData(request?: GetBarsRequest) {
   useEffect(() => {
     const offMarket = window.tradia.market.onUpdated(() => void reload());
     const offStatus = window.tradia.dataStatus.onChanged((entry) => {
-      // Invalidate an older snapshot so it cannot overwrite this event.
-      generation.current++;
+      events.current.set(entry.key, entry);
       setState((previous) => ({
         ...previous,
-        loading: false,
         statuses: [...previous.statuses.filter((item) => item.key !== entry.key), entry],
         series: previous.series.map((series) =>
           entry.key === `macro:${series.id}` ? { ...series, status: entry } : series,
         ),
       }));
-      void reload();
     });
     void reload();
     return () => {
