@@ -1,0 +1,36 @@
+{
+  "status": "ok",
+  "totalResults": 3,
+  "articles": [
+    {
+      "source": { "id": "reuters", "name": "Reuters" },
+      "author": "Reuters Staff",
+      "title": "Fed holds rates steady, Powell flags patience on cuts",
+      "description": "The Federal Reserve kept its policy rate unchanged and signaled it needs more confidence on inflation.",
+      "url": "https://www.reuters.com/markets/us/fed-holds-rates-2026-10-07/",
+      "urlToImage": "https://cdn.reuters.com/fed.jpg",
+      "publishedAt": "2026-10-07T18:00:00Z",
+      "content": "WASHINGTON (Reuters) - The Federal Reserve kept ... [+2150 chars]"
+    },
+    {
+      "source": { "id": null, "name": "CNBC" },
+      "author": "Finance Desk",
+      "title": "Apple shares jump after upbeat services revenue",
+      "description": "Apple raised its outlook after a strong quarter in services.",
+      "url": "https://www.cnbc.com/2026/10/08/apple-earnings.html",
+      "urlToImage": null,
+      "publishedAt": "2026-10-08T09:30:00Z",
+      "content": "Apple shares rose in premarket trading ... [+980 chars]"
+    },
+    {
+      "source": { "id": null, "name": "[Removed]" },
+      "author": null,
+      "title": "[Removed]",
+      "description": "[Removed]",
+      "url": "https://removed.example.com/",
+      "urlToImage": null,
+      "publishedAt": "2026-10-08T10:00:00Z",
+      "content": "[Removed]"
+    }
+  ]
+}

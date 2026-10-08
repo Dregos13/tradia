@@ -4,16 +4,24 @@ import { RiskDisclaimer } from './components/RiskDisclaimer';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { SettingsPage } from './components/SettingsPage';
 import { MarketDataPage } from './components/MarketDataPage';
+import { NewsPage, CalendarPage, SourcesPage } from './components/NewsPhasePages';
 import { HomePage } from './components/HomePage';
 import { ProviderBanner } from './components/ProviderBanner';
 import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
-type Page = 'inicio' | 'mercado' | 'macro' | 'ajustes';
+type Page = 'inicio' | 'mercado' | 'macro' | 'noticias' | 'calendario' | 'fuentes' | 'ajustes';
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
-  return hash === 'mercado' || hash === 'macro' || hash === 'ajustes' ? hash : 'inicio';
+  return hash === 'mercado' ||
+    hash === 'macro' ||
+    hash === 'noticias' ||
+    hash === 'calendario' ||
+    hash === 'fuentes' ||
+    hash === 'ajustes'
+    ? hash
+    : 'inicio';
 };
 
 export default function App() {
@@ -69,6 +77,11 @@ function AppShell() {
           <a href="#macro" aria-current={page === 'macro' ? 'page' : undefined}>
             Macro
           </a>
+          {(['noticias', 'calendario', 'fuentes'] as const).map((route) => (
+            <a key={route} href={`#${route}`} aria-current={page === route ? 'page' : undefined}>
+              {{ noticias: 'Noticias', calendario: 'Calendario', fuentes: 'Fuentes' }[route]}
+            </a>
+          ))}
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -81,6 +94,9 @@ function AppShell() {
               inicio: 'Estado del sistema',
               mercado: 'Mercado',
               macro: 'Contexto macro',
+              noticias: 'Noticias',
+              calendario: 'Calendario',
+              fuentes: 'Fuentes',
               ajustes: 'Ajustes',
             }[page]
           }
@@ -94,6 +110,12 @@ function AppShell() {
           <HomePage state={state} />
         ) : page === 'mercado' || page === 'macro' ? (
           <MarketDataPage kind={page} />
+        ) : page === 'noticias' ? (
+          <NewsPage />
+        ) : page === 'calendario' ? (
+          <CalendarPage />
+        ) : page === 'fuentes' ? (
+          <SourcesPage />
         ) : (
           <>
             <SettingsPage state={state} />

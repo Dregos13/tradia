@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import news from '../../../.orquesta/design/e2a636ad/tokens.json';
 import base from '../../../.orquesta/design/fase-0-1/tokens.json';
 import market from '../../../.orquesta/design/fase-1/tokens.json';
 const tokens = { ...market, color: { ...market.color, state: base.color.state } };
@@ -26,4 +27,20 @@ describe('Tokens aprobados', () => {
     expect(css).toContain('@media(prefers-color-scheme:dark)');
     expect(css).toContain(`--size-controlMin:${tokens.size.controlMin};`);
   });
+});
+
+it('traduce las insignias del feed en ambos temas', () => {
+  const css = tokenStylesheet();
+  for (const mode of ['light', 'dark'] as const)
+    for (const group of [
+      'reliability',
+      'newsPriority',
+      'confirmation',
+      'impactLevel',
+      'calendar',
+    ] as const)
+      for (const [name, token] of Object.entries(news.color[group])) {
+        expect(css).toContain(`--${group}-${name}:${token[mode]};`);
+        expect(css).toContain(`--${group}-${name}-surface:${token[`${mode}Surface`]};`);
+      }
 });

@@ -10,6 +10,7 @@ import {
   type NotificationLevel,
   type NotificationPayload,
   type NotificationPrefs,
+  type NotificationRoute,
 } from '../../shared/ipc';
 import { showMainWindow } from '../window';
 import type { ServiceContext } from './index';
@@ -62,6 +63,11 @@ export interface NotificationsDeps {
   setPrefs(prefs: NotificationPrefs): void;
   /** Abre o enfoca la ventana principal al hacer clic en la notificación. */
   focusMainWindow(): void;
+  /**
+   * Llevado tras enfocar cuando el payload trae `navigateTo`: abre la vista
+   * pedida (el registro lo emite como evento `alerts:navigate` al renderer).
+   */
+  onNavigate?: (route: NotificationRoute) => void;
   /** Plataforma para urgency (Linux) y AppUserModelId (Windows). */
   platform?: NodeJS.Platform;
   /** Solo en Windows: app.setAppUserModelId para que los toasts funcionen. */
@@ -81,6 +87,7 @@ export function createNotificationsService(deps: NotificationsDeps): Notificatio
     getPrefs,
     setPrefs,
     focusMainWindow,
+    onNavigate,
     setAppUserModelId,
     logger = console,
   } = deps;
@@ -121,7 +128,10 @@ export function createNotificationsService(deps: NotificationsDeps): Notificatio
 
       try {
         const notification = new NotificationCtor(options);
-        notification.on('click', focusMainWindow);
+        notification.on('click', () => {
+          focusMainWindow();
+          if (payload.navigateTo !== undefined) onNavigate?.(payload.navigateTo);
+        });
         notification.show();
       } catch (error: unknown) {
         // Sin datos personales: solo el nivel y el error del sistema.
@@ -164,6 +174,9 @@ export function registerNotifications(ctx: ServiceContext): NotificationsService
       }
     },
     focusMainWindow: showMainWindow,
+    // El clic con `navigateTo` pide la vista al renderer por broadcast; el
+    // preload la traduce a la ruta por hash (#noticias / #calendario).
+    onNavigate: (route) => ctx.broadcast(IPC_CHANNELS.alerts.navigate, route),
     platform: process.platform,
     setAppUserModelId: (id) => app.setAppUserModelId(id),
   });

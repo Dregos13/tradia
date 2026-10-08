@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" version="2.0">
+  <Channel>
+    <title>CNMV - Hechos relevantes de IIC y otras entidades autorizadas.</title>
+    <link>https://www.cnmv.es/Portal/HR/HRAlDia.aspx</link>
+    <description>Hechos relevantes de IIC y otras entidades autorizadas. al día. Entre las fechas: 07/10/2026  (Desde el cierre de la sesión) y 08/10/2026</description>
+    <generator>CNMV RSS</generator>
+    <language>es</language>
+    <ttl>15</ttl>
+    <image>
+      <Title>Comisión nacional del mercado de valores</Title>
+      <Link>http://www.cnmv.es</Link>
+      <Url>http://www.cnmv.es/images/cnmv_logo.gif</Url>
+    </image>
+    <item>
+      <Title>IBERCAJA DOLAR, FI</Title>
+      <link><![CDATA[https://www.cnmv.es/Portal/HR/ResultadoBusquedaHR.aspx?division=2&nreg=316728&th=H]]></link>
+      <guid isPermaLink="true"><![CDATA[https://www.cnmv.es/Portal/HR/ResultadoBusquedaHR.aspx?division=2&nreg=316728&th=H]]></guid>
+      <pubDate>Thu, 08 Oct 2026 10:46:02 GMT</pubDate>
+      <description><![CDATA[<p><b>12:46  08/10/2026  </b> Reembolsos/Reducción del capital en circulación de IIC superior al 20% - <BR/><BR/>Reembolso superior al 20% del patrimonio del fondo.</p>]]></description>
+    </item>
+<item>
+      <Title>GOLDMAN SACHS FUNDS III</Title>
+      <link><![CDATA[https://www.cnmv.es/Portal/HR/ResultadoBusquedaHR.aspx?division=2&nreg=316727&th=H]]></link>
+      <guid isPermaLink="true"><![CDATA[https://www.cnmv.es/Portal/HR/ResultadoBusquedaHR.aspx?division=2&nreg=316727&th=H]]></guid>
+      <pubDate>Thu, 08 Oct 2026 08:06:31 GMT</pubDate>
+      <description><![CDATA[<p><b>10:06  08/10/2026  </b> Número de accionistas y patrimonio de IIC extranjeras - <BR/><BR/>La entidad comunica número de accionistas y patrimonio</p>]]></description>
+    </item>
+  </Channel>
+</rss>

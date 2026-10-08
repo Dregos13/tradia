@@ -173,6 +173,12 @@ export interface MarketIngestionService {
    * de forma persistente hasta pasar null. Lo consume `market/health.ts`.
    */
   setProviderFailure?(kind: MarketDataErrorKind | null): void;
+  /**
+   * Listener interno del proceso principal: se emite tras cambiar la
+   * watchlist (alta, baja o universo inicial). El calendario económico lo
+   * usa para recalcular los resultados de los activos seguidos.
+   */
+  onWatchlistChanged(listener: (items: WatchlistItem[]) => void): () => void;
   /** Arranca la programación y recupera cierres perdidos; devuelve cuando
    * termina la primera evaluación (útil en pruebas). */
   start(): Promise<void>;
@@ -222,6 +228,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   let running: Promise<UpdateAllResult> | null = null;
   /** Tickers con una ingesta en vuelo, para no solapar add/diario/manual. */
   const ingesting = new Set<string>();
+  /** Oyentes internos del cambio de watchlist (calendario, fases siguientes). */
+  const watchlistListeners = new Set<(items: WatchlistItem[]) => void>();
+
+  const emitWatchlistChanged = (): void => {
+    const items = repo.listWatchlist();
+    for (const listener of watchlistListeners) listener(items);
+  };
 
   const isoNow = (): string => new Date(now()).toISOString();
 
@@ -702,11 +715,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     addTicker: async (ticker) => {
       const entry = repo.addWatchlistTicker(ticker);
       await ingestNewTicker(entry.ticker);
+      emitWatchlistChanged();
       return repo.listWatchlist();
     },
 
     removeTicker: (ticker) => {
       repo.removeWatchlistTicker(ticker);
+      emitWatchlistChanged();
       return repo.listWatchlist();
     },
 
@@ -717,6 +732,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         const provider = await safeResolveProvider();
         if (provider !== null) await runUpdate(provider);
       }
+      emitWatchlistChanged();
       return repo.listWatchlist();
     },
 
@@ -741,6 +757,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       if (running) return { accepted: false, reason: 'en-curso' };
       await runUpdate(provider);
       return { accepted: true, reason: null };
+    },
+
+    onWatchlistChanged: (listener) => {
+      watchlistListeners.add(listener);
+      return () => {
+        watchlistListeners.delete(listener);
+      };
     },
 
     ...(deps.clock

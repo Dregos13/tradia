@@ -83,6 +83,19 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
+    const navigation = page.getByRole('navigation');
+    expect(await navigation.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+      true,
+    );
+    const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
+    await navigation.getByRole('link', { name: 'Fuentes', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    await expect(settingsLink).toBeFocused();
+    await page.getByText(/Ver tabla de datos/).click();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.getByText(/Ver tabla de datos/).click();
     await app.evaluate(({ Notification }) => {
       const state = globalThis as typeof globalThis & {
         __tradiaNotificationCalls?: Array<{ title: string; body: string }>;

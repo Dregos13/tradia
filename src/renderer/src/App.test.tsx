@@ -175,3 +175,58 @@ it('prioriza configurar fuentes sin clave aunque fallen las consultas de datos',
   });
   expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
 });
+
+it('navega con teclado a Noticias, Calendario y Fuentes y muestra sus estados vacíos', async () => {
+  vi.spyOn(simulation.api.news, 'list').mockResolvedValue([]);
+  vi.spyOn(simulation.api.calendar, 'list').mockResolvedValue([]);
+  vi.spyOn(simulation.api.sources, 'list').mockResolvedValue([]);
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  for (const [name, empty] of [
+    ['Noticias', 'No hay noticias disponibles. Añade una fuente para recibir titulares.'],
+    ['Calendario', 'No hay eventos programados para esta semana.'],
+    ['Fuentes', 'Todavía no has añadido fuentes de noticias.'],
+  ] as const) {
+    const link = screen.getByRole('link', { name });
+    link.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByText(empty)).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
+  }
+});
+
+it.each(['noticias', 'calendario', 'fuentes'] as const)('abre directamente #%s', async (route) => {
+  window.location.hash = `#${route}`;
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+    { noticias: 'Noticias', calendario: 'Calendario', fuentes: 'Fuentes' }[route],
+  );
+});
+
+it('muestra carga y permite reintentar una consulta fallida de noticias', async () => {
+  window.location.hash = '#noticias';
+  let reject!: (error: Error) => void;
+  vi.spyOn(simulation.api.news, 'list').mockReturnValueOnce(
+    new Promise((_, fail) => {
+      reject = fail;
+    }),
+  );
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByText('Cargando noticias…')).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Feed de noticias' })).toHaveAttribute(
+    'aria-busy',
+    'true',
+  );
+  await act(async () => reject(new Error('IPC')));
+  expect(screen.getByRole('alert')).toHaveTextContent('No pudimos consultar las noticias.');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Reintentar' }));
+  expect(await screen.findByText('3 titulares disponibles.')).toBeInTheDocument();
+});

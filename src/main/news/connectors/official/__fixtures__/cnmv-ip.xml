@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" version="2.0">
+  <Channel>
+    <title>CNMV - Información privilegiada.</title>
+    <link>https://www.cnmv.es/Portal/Informacion-privilegiada/AlDia-IP.aspx</link>
+    <description>Información privilegiada del día (Desde el cierre de la sesión anterior).</description>
+    <generator>CNMV RSS</generator>
+    <language>es</language>
+    <ttl>15</ttl>
+    <image>
+      <Title>Comisión nacional del mercado de valores</Title>
+      <Link>http://www.cnmv.es</Link>
+      <Url>http://www.cnmv.es/images/cnmv_logo.gif</Url>
+    </image>
+    <item>
+      <Title>AENA, S.M.E., S.A.</Title>
+      <link><![CDATA[https://www.cnmv.es/Portal/Informacion-Privilegiada/Resultado-IP.aspx?nreg=3361]]></link>
+      <guid isPermaLink="true"><![CDATA[https://www.cnmv.es/Portal/Informacion-Privilegiada/Resultado-IP.aspx?nreg=3361]]></guid>
+      <pubDate>Wed, 07 Oct 2026 16:03:00 GMT</pubDate>
+      <description><![CDATA[<p><b>18:03  07/10/2026  </b> Sobre calificaciones crediticias<BR/><BR/>La agencia de calificación crediticia Fitch Ratings (Fitch) ha elevado la calificación de la Sociedad a largo plazo (Long-Term Issuer Default Rating, IDR), así como la calificación del programa de deuda senior no garantizada EMTN, de ‘A’ a ‘A+’.</p>]]></description>
+    </item>
+  </Channel>
+</rss>

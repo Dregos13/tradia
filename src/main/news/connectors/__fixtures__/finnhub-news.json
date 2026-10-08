@@ -1,0 +1,53 @@
+[
+  {
+    "category": "general",
+    "datetime": 1791396000,
+    "headline": "Fed holds rates steady; Powell signals patience on cuts",
+    "id": 7284511,
+    "image": "https://cdn.finnhub.io/img/fed.jpg",
+    "related": "SPY,QQQ,DIA",
+    "source": "Reuters",
+    "summary": "The Federal Reserve kept its benchmark rate unchanged and Chair Powell said officials need more inflation data before easing.",
+    "url": "https://www.reuters.com/markets/us/fed-holds-rates-2026-10-07/"
+  },
+  {
+    "category": "general",
+    "datetime": 1791451800,
+    "headline": "Apple unveils M6 chip as shares climb",
+    "id": 7284489,
+    "image": "",
+    "related": "AAPL",
+    "source": "MarketWatch",
+    "summary": "Apple introduced its next-generation silicon during a special event in Cupertino.",
+    "url": "https://www.marketwatch.com/story/apple-m6-2026"
+  },
+  {
+    "category": "general",
+    "datetime": 1791454500,
+    "headline": "Crude slips after EIA reports inventory build",
+    "id": 7284472,
+    "related": "XLE,CL,",
+    "source": "Bloomberg",
+    "summary": "Oil futures fell after U.S. crude stockpiles rose more than expected last week.",
+    "url": "https://www.bloomberg.com/news/articles/2026-10-08/oil-eia-inventories"
+  },
+  {
+    "category": "general",
+    "datetime": 1791396000,
+    "headline": "Fed holds rates steady; Powell signals patience on cuts",
+    "id": 7284511,
+    "related": "SPY",
+    "source": "Reuters",
+    "summary": "Duplicate of the first item (same id).",
+    "url": "https://www.reuters.com/markets/us/fed-holds-rates-2026-10-07/"
+  },
+  {
+    "category": "general",
+    "headline": "",
+    "id": 7284400,
+    "related": "TSLA",
+    "source": "Yahoo Finance",
+    "summary": "Headline-less item that must be skipped.",
+    "url": "https://finance.yahoo.com/news/skipped"
+  }
+]

@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, shell } from 'electron';
 
 import { isE2eEnabled } from '../shared/ipc';
 import { AUTOSTART_HIDDEN_ARG } from './autostart';
@@ -29,7 +29,10 @@ if (!gotSingleInstanceLock) {
 
   // Endurecimiento: sin window.open ni navegación fuera de la propia app.
   app.on('web-contents-created', (_event, contents) => {
-    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    contents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url)) void shell.openExternal(url).catch(() => undefined);
+      return { action: 'deny' };
+    });
     contents.on('will-navigate', (event, url) => {
       const devUrl = process.env.ELECTRON_RENDERER_URL;
       const allowed = url === devUrl || url.startsWith('file://');
@@ -52,6 +55,9 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
+        services?.alerts.stop();
+        services?.calendar.stop();
+        services?.poller.stop();
         services?.market.stop();
         services?.macro.stop();
         services?.health.stop();

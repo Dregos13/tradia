@@ -1,0 +1,195 @@
+.source-heading,
+.source-heading-actions,
+.source-actions,
+.source-dialog-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.source-heading {
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+.source-heading h2 {
+  font: var(--weight-semibold) var(--type-xl)/var(--type-xl-line) var(--font-editorial);
+  margin: 0 0 var(--space-2);
+}
+.source-heading a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.source-list,
+.source-form-panel {
+  margin-top: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.source-list h3 {
+  font-size: var(--type-lg);
+}
+.source-table-scroll {
+  overflow-x: auto;
+  margin-top: var(--space-4);
+}
+.source-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-sm);
+}
+.source-table th,
+.source-table td {
+  padding: var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.source-table thead {
+  background: var(--color-surfaceSubtle);
+}
+.source-table tbody th {
+  min-width: 16ch;
+}
+.source-protected,
+.source-date small {
+  display: block;
+  color: var(--color-textMuted);
+  margin-top: var(--space-1);
+  font-weight: var(--weight-regular);
+}
+.source-date {
+  font-family: var(--font-numeric);
+}
+.source-reliability {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-xs);
+  font-weight: var(--weight-semibold);
+}
+.source-oficial {
+  color: var(--source-oficial);
+  background: var(--source-oficial-surface);
+}
+.source-agencia {
+  color: var(--source-agencia);
+  background: var(--source-agencia-surface);
+}
+.source-prensa {
+  color: var(--source-prensa);
+  background: var(--source-prensa-surface);
+}
+.source-redes {
+  color: var(--source-redes);
+  background: var(--source-redes-surface);
+}
+.source-active {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-controlMin);
+  white-space: nowrap;
+}
+.source-active input {
+  accent-color: var(--color-accent);
+  width: var(--space-5);
+  height: var(--space-5);
+}
+.source-test {
+  min-width: 19ch;
+}
+.source-form-panel h2 {
+  font-size: var(--type-lg);
+  margin: 0;
+}
+.source-form {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.source-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.source-form legend {
+  margin-bottom: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+.source-form fieldset label {
+  min-height: var(--size-controlMin);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.source-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.source-form-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+.source-form-fields small {
+  font-weight: var(--weight-regular);
+  color: var(--color-textMuted);
+}
+.source-form-fields input,
+.source-form-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-controlMin);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-borderStrong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+.source-wide {
+  grid-column: 1 / -1;
+}
+.source-form > .button {
+  justify-self: start;
+}
+.source-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-canvas);
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  z-index: 10;
+}
+.source-dialog {
+  width: min(100%, 65ch);
+  padding: var(--space-8);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-floating);
+}
+.source-dialog h2 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-editorial);
+}
+.source-dialog-actions {
+  justify-content: flex-end;
+  margin-top: var(--space-6);
+}
+@media (max-width: 760px) {
+  .source-form-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .source-heading-actions {
+    width: 100%;
+  }
+}
