@@ -34,8 +34,12 @@ if (!gotSingleInstanceLock) {
   app
     .whenReady()
     .then(() => {
-      initServices({ broadcast, services: {} });
+      const services = initServices({ broadcast, services: {} });
       createMainWindow();
+
+      app.on('will-quit', () => {
+        services.storage.close();
+      });
 
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
