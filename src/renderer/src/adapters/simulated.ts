@@ -140,7 +140,18 @@ function buildMacroSeries(): MacroSeriesSnapshot[] {
   ];
   const observationsById = new Map<string, MacroObservation[]>();
   observationsById.set('DFF', generateSeries('DFF', 36, 30, 0.1, 5.5, 4.33));
-  observationsById.set('CPIAUCSL', generateSeries('CPIAUCSL', 36, 30, 0.5, 9, 2.6));
+  observationsById.set(
+    'CPIAUCSL',
+    Array.from({ length: 36 }, (_, index) => {
+      const date = new Date();
+      date.setUTCDate(1);
+      date.setUTCMonth(date.getUTCMonth() - (35 - index));
+      return {
+        date: date.toISOString().slice(0, 10),
+        value: round(290 * 1.026 ** (index / 12), 4),
+      };
+    }),
+  );
   observationsById.set('DGS2', generateSeries('DGS2', 120, 7, 0.5, 5.5, 4.4));
   observationsById.set('DGS10', generateSeries('DGS10', 120, 7, 0.7, 5, 4.1));
   // La curva termina invertida (T10Y2Y < 0) para que el aviso se vea en pruebas.

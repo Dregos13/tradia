@@ -61,6 +61,7 @@ import {
   TIINGO_SECRETS_KEY,
   isMarketDataError,
   type Bar,
+  type MarketDataErrorKind,
   type MarketDataProvider,
   type SessionDate,
 } from './providers';
@@ -169,6 +170,11 @@ export interface MarketIngestionService {
    * Solo existe si se inyectó `clock`.
    */
   advanceClock?(deltaMs: number): MarketClockAdvanceResult;
+  /**
+   * Gancho de desarrollo (TRADIA_E2E): hace que el proveedor simulado falle
+   * de forma persistente hasta pasar null. Lo consume `market/health.ts`.
+   */
+  setProviderFailure?(kind: MarketDataErrorKind | null): void;
   /** Arranca la programación y recupera cierres perdidos; devuelve cuando
    * termina la primera evaluación (útil en pruebas). */
   start(): Promise<void>;
@@ -417,6 +423,12 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
     const desde = lastStored ? addDays(lastStored, 1) : yearsBack(lastExpected.date, HISTORY_YEARS);
     const hasta = lastExpected.date;
+
+    publishStatus({
+      key: statusKey,
+      state: 'actualizando',
+      reason: `descargando velas del ${desde} al ${hasta} en '${provider.id}'`,
+    });
 
     let newBars: Bar[];
     try {
@@ -795,7 +807,19 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 // Registro en la app
 // ---------------------------------------------------------------------------
 
-export function registerMarket(ctx: ServiceContext): MarketIngestionService {
+export interface RegisterMarketOptions {
+  /**
+   * Reloj compartido con la vigilancia (`market/health.ts`): al adelantarlo
+   * con `market:advance-clock` también envejecen los datos para las pruebas
+   * de caducidad. Por defecto se crea uno nuevo.
+   */
+  clock?: MarketClock;
+}
+
+export function registerMarket(
+  ctx: ServiceContext,
+  options: RegisterMarketOptions = {},
+): MarketIngestionService {
   // Sin base de datos el servicio no puede funcionar: se degrada a memoria
   // para que el resto de la app siga arrancando (mismo patrón que settings).
   let db = ctx.services.storage?.getDb() ?? null;
@@ -804,14 +828,21 @@ export function registerMarket(ctx: ServiceContext): MarketIngestionService {
     db = openDatabase(':memory:');
   }
   const repo = createMarketRepository(db);
-  const clock = createMarketClock();
+  const clock = options.clock ?? createMarketClock();
   const secrets = ctx.services.secrets;
 
   let tiingo: MarketDataProvider | null = null;
-  let simulated: MarketDataProvider | null = null;
+  let simulated: ReturnType<typeof createSimulatedProvider> | null = null;
   const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+  // Gancho E2E: fuerza el proveedor simulado fallando aunque haya clave real.
+  let forcedFailure: MarketDataErrorKind | null = null;
 
   const resolveProvider = async (): Promise<MarketDataProvider | null> => {
+    if (e2e && forcedFailure !== null) {
+      simulated ??= createSimulatedProvider({ seed: 'tradia-e2e', now: () => clock.now() });
+      simulated.setFailing(forcedFailure);
+      return simulated;
+    }
     if (secrets && (await secrets.hasKey(TIINGO_SECRETS_KEY))) {
       tiingo ??= createTiingoProvider({
         fetch: globalThis.fetch,
@@ -835,6 +866,16 @@ export function registerMarket(ctx: ServiceContext): MarketIngestionService {
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
     powerMonitor,
   });
+
+  // Gancho de desarrollo para `market/health.ts` (simulateProviderFailure):
+  // activa el fallo persistente del simulado; `resolveProvider` lo devuelve
+  // fallando aunque exista una clave real configurada.
+  if (e2e) {
+    service.setProviderFailure = (kind) => {
+      forcedFailure = kind;
+      simulated?.setFailing(kind);
+    };
+  }
 
   const list = (): WatchlistItem[] => service.listWatchlist();
 

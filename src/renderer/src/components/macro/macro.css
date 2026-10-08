@@ -1,0 +1,130 @@
+.macro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.macro-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.macro-card-head,
+.macro-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.macro-code,
+.macro-meta,
+.macro-change,
+.macro-band,
+.macro-reason,
+.macro-chart-empty {
+  font-size: var(--type-xs);
+  color: var(--color-textMuted);
+}
+.macro-code,
+.macro-value,
+.macro-meta time {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.macro-card h3 {
+  font-size: var(--type-md);
+  margin: var(--space-4) 0 var(--space-2);
+}
+.macro-value {
+  font-size: var(--type-2xl);
+  font-weight: var(--weight-semibold);
+}
+.macro-change {
+  margin: var(--space-2) 0;
+}
+.macro-badge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-xs);
+  color: var(--color-textMuted);
+  background: var(--color-surfaceSubtle);
+}
+.macro-status-reliable {
+  color: var(--dataStatus-reliable);
+  background: var(--dataStatus-reliable-surface);
+}
+.macro-status-updating {
+  color: var(--dataStatus-updating);
+  background: var(--dataStatus-updating-surface);
+}
+.macro-status-stale {
+  color: var(--dataStatus-stale);
+  background: var(--dataStatus-stale-surface);
+}
+.macro-status-unreliable {
+  color: var(--dataStatus-unreliable);
+  background: var(--dataStatus-unreliable-surface);
+}
+.macro-spark {
+  width: 100%;
+  height: 88px;
+  margin: var(--space-3) 0;
+}
+.macro-baseline {
+  stroke: var(--color-border);
+}
+.macro-series-dff .macro-spark {
+  color: var(--series-dff);
+}
+.macro-series-cpi .macro-spark {
+  color: var(--series-cpi);
+}
+.macro-series-yield2y .macro-spark {
+  color: var(--series-yield2y);
+}
+.macro-series-yield10y .macro-spark {
+  color: var(--series-yield10y);
+}
+.macro-series-spread .macro-spark {
+  color: var(--series-spread);
+}
+.macro-series-vix .macro-spark {
+  color: var(--series-vix);
+}
+.macro-warning {
+  padding: var(--space-2);
+  background: var(--dataStatus-stale-surface);
+  color: var(--dataStatus-stale);
+  font-size: var(--type-xs);
+}
+.macro-band span {
+  display: block;
+  margin-top: var(--space-1);
+}
+.macro-meta {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+.macro-reason {
+  margin-bottom: 0;
+}
+@media (max-width: 979px) {
+  .macro-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .macro-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.macro-simulation {
+  padding: var(--space-3) var(--space-4);
+  color: var(--dataStatus-simulated);
+  background: var(--dataStatus-simulated-surface);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-sm);
+}

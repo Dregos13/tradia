@@ -6,7 +6,12 @@ import { registerSettings, type SettingsService } from './settings';
 import { registerStorage, type StorageService } from './storage';
 import { registerTray, type TrayService } from './tray';
 import { registerMacro, type MacroService } from '../market/macro';
-import { registerMarket, type MarketIngestionService } from '../market/ingestion';
+import {
+  createMarketClock,
+  registerMarket,
+  type MarketIngestionService,
+} from '../market/ingestion';
+import { registerHealth, type DataHealthService } from '../market/health';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -17,6 +22,8 @@ export interface MainServices {
   tray: TrayService;
   scheduler: SchedulerService;
   connectivity: ConnectivityService;
+  /** Vigilancia de datos caducados/no fiables: data-status:get y avisos. */
+  health: DataHealthService;
   /** Series macro (FRED/VIX): refresco diario programado y `macro:get-series`. */
   macro: MacroService;
   /** Ingesta de velas: histórico, actualización diaria y watchlist/getBars. */
@@ -33,7 +40,9 @@ export interface ServiceContext {
 /**
  * Registra todos los servicios y sus handlers IPC.
  * El orden importa: cada servicio solo puede depender de los ya registrados
- * en `ctx.services`.
+ * en `ctx.services`. `health` va antes de `macro` y `market` porque envuelve
+ * `ctx.broadcast` para observar sus `data-status:changed` al instante, y
+ * comparte con `market` el reloj adelantable por el gancho de desarrollo.
  */
 export function initServices(ctx: ServiceContext): MainServices {
   const services = ctx.services;
@@ -44,7 +53,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.scheduler = registerScheduler(ctx);
   services.tray = registerTray(ctx);
   services.connectivity = registerConnectivity(ctx);
+  const marketClock = createMarketClock();
+  services.health = registerHealth(ctx, { clock: marketClock });
   services.macro = registerMacro(ctx);
-  services.market = registerMarket(ctx);
+  services.market = registerMarket(ctx, { clock: marketClock });
   return services as MainServices;
 }

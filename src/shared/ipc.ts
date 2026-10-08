@@ -74,6 +74,11 @@ export const IPC_CHANNELS = {
   },
   dataStatus: {
     get: 'data-status:get',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): activa o desactiva el
+     * fallo persistente de los proveedores simulados y fuerza una pasada.
+     */
+    simulateProviderFailure: 'data-status:simulate-provider-failure',
     /** Evento main → renderer: cambió la salud de un dato. */
     changed: 'data-status:changed',
   },
@@ -373,6 +378,11 @@ export interface TradiaApi {
     getContextIsolation(): boolean;
     /** Adelanta el reloj del servicio de mercado `ms` y reevalúa su trabajo. */
     advanceMarketClock(ms: number): Promise<MarketClockAdvanceResult>;
+    /**
+     * Activa (`true`) o desactiva (`false`) el fallo de los proveedores
+     * simulados y fuerza una pasada; devuelve los estados del dato resultantes.
+     */
+    simulateProviderFailure(failing: boolean): Promise<DataStatusEntry[]>;
   };
 }
 

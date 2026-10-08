@@ -20,7 +20,7 @@ import type { ServiceContext } from '../../services';
 import { createMarketRepository } from '../repository';
 import { FRED_SECRETS_KEY, createFredProvider } from './fred';
 import { createMacroService, type MacroService } from './service';
-import { createSimulatedMacroProvider } from './simulated';
+import { createSimulatedMacroProvider, type SimulatedMacroProvider } from './simulated';
 import type { MacroDataProvider } from './types';
 
 export type { MacroService } from './service';
@@ -70,6 +70,14 @@ export function registerMacro(
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
     logger: console,
   });
+
+  // Gancho de desarrollo para `market/health.ts` (simulateProviderFailure):
+  // solo los proveedores simulados saben fallar a demanda.
+  if (typeof (provider as { setFailing?: unknown }).setFailing === 'function') {
+    service.setProviderFailure = (kind) => {
+      (provider as SimulatedMacroProvider).setFailing(kind);
+    };
+  }
 
   ipcMain.handle(IPC_CHANNELS.macro.getSeries, (_event, query: unknown) => {
     if (!isMacroSeriesQuery(query)) {

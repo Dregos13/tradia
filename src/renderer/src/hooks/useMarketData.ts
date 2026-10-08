@@ -14,6 +14,7 @@ export interface MarketDataState {
   bars: MarketBarsResult | null;
   loading: boolean;
   error: string | null;
+  statusError: string | null;
 }
 
 /** Reads IPC snapshots and reconciles background updates; never accesses credentials. */
@@ -25,6 +26,7 @@ export function useMarketData(request?: GetBarsRequest) {
     bars: null,
     loading: true,
     error: null,
+    statusError: null,
   });
   const generation = useRef(0);
   const ticker = request?.ticker;
@@ -38,13 +40,24 @@ export function useMarketData(request?: GetBarsRequest) {
       const [watchlist, series, statuses, bars] = await Promise.all([
         api.watchlist.list(),
         api.macro.getSeries(),
-        api.dataStatus.get(),
+        api.dataStatus.get().catch(() => null),
         ticker
           ? api.market.getBars({ ticker, ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) })
           : Promise.resolve(null),
       ]);
       if (version === generation.current)
-        setState({ watchlist, series, statuses, bars, loading: false, error: null });
+        setState({
+          watchlist,
+          series,
+          statuses: statuses ?? [],
+          bars,
+          loading: false,
+          error: null,
+          statusError:
+            statuses === null
+              ? 'No pudimos comprobar el estado del dato. Su fiabilidad está pendiente de verificar.'
+              : null,
+        });
     } catch {
       if (version === generation.current)
         setState((previous) => ({

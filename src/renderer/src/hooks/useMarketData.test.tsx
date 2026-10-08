@@ -69,3 +69,17 @@ it('expone errores y permite reintentar sin mostrar errores IPC sin filtrar', as
   expect(result.current.error).toBeNull();
   expect(list).toHaveBeenCalledTimes(2);
 });
+
+it('conserva las velas si falla el estado del dato, sin afirmar que son fiables', async () => {
+  await simulation.api.watchlist.add('AAPL');
+  vi.spyOn(simulation.api.dataStatus, 'get').mockRejectedValueOnce(
+    new Error('handler no disponible'),
+  );
+  const { result } = renderHook(() => useMarketData({ ticker: 'AAPL' }));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.bars?.bars.length).toBeGreaterThan(0);
+  expect(result.current.watchlist).toHaveLength(1);
+  expect(result.current.statuses).toEqual([]);
+  expect(result.current.statusError).toContain('fiabilidad está pendiente');
+  expect(result.current.error).toBeNull();
+});

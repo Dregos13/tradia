@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { MacroPanel } from './macro/MacroPanel';
 import { useMarketData } from '../hooks/useMarketData';
+import { MarketWorkspace } from './market/MarketWorkspace';
 
 /** Shell for the watchlist/chart and macro panel implemented in the next tasks. */
 export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
@@ -13,7 +15,7 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
     void window.tradia.secrets
       .hasKey(kind === 'mercado' ? 'tiingo' : 'fred')
       .then((value) => {
-        if (active) setConfigured(value);
+        if (active) setConfigured(value || (kind === 'mercado' && !!window.tradia.testing));
       })
       .catch(() => {
         if (active) setKeyError(true);
@@ -22,6 +24,8 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
       active = false;
     };
   }, [kind]);
+  const simulated =
+    kind === 'macro' && data.statuses.some((entry) => entry.key === 'provider:simulated');
   return (
     <section aria-label={kind === 'mercado' ? 'Datos de mercado' : 'Datos macro'}>
       <div className="headline">
@@ -34,7 +38,7 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
-      {keyError || (configured && data.error) ? (
+      {keyError || (kind === 'macro' && configured && data.error) ? (
         <div className="data-empty" role="alert">
           <p>
             {keyError
@@ -47,7 +51,7 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             </button>
           )}
         </div>
-      ) : configured === null || (configured && data.loading) ? (
+      ) : configured === null || (kind === 'macro' && configured && data.loading) ? (
         <p role="status">Consultando fuentes de datos…</p>
       ) : !configured ? (
         <div className="data-empty">
@@ -59,6 +63,10 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             Configurar claves
           </a>
         </div>
+      ) : kind === 'macro' ? (
+        <MacroPanel series={data.series} simulated={simulated} />
+      ) : kind === 'mercado' ? (
+        <MarketWorkspace />
       ) : (
         <div className="data-empty">
           <h3>

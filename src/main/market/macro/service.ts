@@ -28,7 +28,7 @@ import {
   type MacroSeriesSnapshot,
 } from '../../../shared/ipc';
 import { nextUpdateAt } from '../calendar';
-import { MarketDataError } from '../providers/types';
+import { MarketDataError, type MarketDataErrorKind } from '../providers/types';
 import type { MarketRepository } from '../repository';
 import type { MacroDataProvider, MacroObservation } from './types';
 import { macroBatchHash } from './version';
@@ -87,6 +87,11 @@ export interface MacroService {
   /** Refresco al arrancar + programa el diario. Idempotente. */
   start(): void;
   stop(): void;
+  /**
+   * Gancho de desarrollo (TRADIA_E2E): hace que el proveedor simulado falle
+   * de forma persistente hasta pasar null. Lo consume `market/health.ts`.
+   */
+  setProviderFailure?(kind: MarketDataErrorKind | null): void;
 }
 
 const truncate = (text: string, max = 200): string =>
@@ -136,12 +141,12 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     const key = dataStatusKey.macro(seriesId);
     const prev = repository.getDataStatus(key);
     const failures = (prev?.consecutiveFailures ?? 0) + 1;
+    // 'actualizando' no se conserva tras un fallo: la operación ya terminó.
+    const prevState = prev?.state === 'actualizando' ? null : prev?.state;
     publishStatus({
       key,
       state:
-        failures >= MACRO_MAX_CONSECUTIVE_FAILURES
-          ? 'no-fiable'
-          : (prev?.state ?? 'desactualizado'),
+        failures >= MACRO_MAX_CONSECUTIVE_FAILURES ? 'no-fiable' : (prevState ?? 'desactualizado'),
       consecutiveFailures: failures,
       reason: failureReason(error),
     });
@@ -198,6 +203,11 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     if (desde > hasta) return { seriesId, stored: 0, batchId: null, skipped: 'al-dia' };
 
     let observations: MacroObservation[];
+    publishStatus({
+      key: dataStatusKey.macro(seriesId),
+      state: 'actualizando',
+      reason: `descargando observaciones del ${desde} al ${hasta} en '${provider.id}'`,
+    });
     try {
       observations = await provider.getObservations(seriesId, desde, hasta);
     } catch (error) {

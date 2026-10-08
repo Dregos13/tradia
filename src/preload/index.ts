@@ -85,6 +85,8 @@ const api: TradiaApi = {
           getContextIsolation: () => process.contextIsolated,
           advanceMarketClock: (ms: number) =>
             ipcRenderer.invoke(IPC_CHANNELS.market.advanceClock, ms),
+          simulateProviderFailure: (failing: boolean) =>
+            ipcRenderer.invoke(IPC_CHANNELS.dataStatus.simulateProviderFailure, failing),
         },
       }
     : {}),

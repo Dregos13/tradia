@@ -138,7 +138,8 @@ Todos los canales están tipados en `src/shared/ipc.ts`:
 - `market`: `get-bars`, `refresh-now`, evento `updated` y el canal de
   desarrollo `advance-clock` (solo sin empaquetar).
 - `macro`: `get-series`.
-- `data-status`: `get`, evento `changed`.
+- `data-status`: `get`, evento `changed` y el canal de desarrollo
+  `simulate-provider-failure` (solo `TRADIA_E2E` y sin empaquetar).
 
 ### Datos de mercado
 
@@ -172,6 +173,26 @@ con `connectivity` en «sin conexión» no se llama al proveedor.
 trabajo pendiente al instante, sin esperar al horario real. En modo E2E se
 expone como `window.tradia.testing.advanceMarketClock(ms)` y devuelve
 `{ now }` con el nuevo instante.
+
+**Salud del dato** (`src/main/market/health.ts`): la vigilancia evalúa cada
+ticker y cada serie macro cada 15 minutos y en cada cambio de estado.
+Estados: `fiable`, `actualizando` (lo escriben ingesta y macro mientras
+refrescan), `desactualizado` (falta la vela de una sesión esperada pasadas
+12 h desde su hora de actualización —la primera sesión que falta marca el
+plazo—; en macro se pide la observación esperada según su frecuencia) y
+`no-fiable` (3 fallos seguidos del proveedor o un valor anómalo grave en el
+último lote; solo lo levanta un refresco con éxito). Cada estado se guarda
+en `data_status` y se emite por `data-status:changed`. Al empeorar se
+notifica con nivel `alerta` (desactualizado) o `critica` (no fiable),
+agrupando repeticiones como máximo una vez cada 6 h; al recuperarse el dato
+se envía un aviso `info`.
+
+**Gancho de desarrollo** (solo `TRADIA_E2E` y sin empaquetar): el canal
+`data-status:simulate-provider-failure` activa el fallo persistente de los
+proveedores simulados de mercado y macro y fuerza una pasada, para ver las
+insignias y la notificación como en un fallo real. Se expone como
+`window.tradia.testing.simulateProviderFailure(failing)` y devuelve los
+estados del dato resultantes.
 
 ### Renderer y simulación
 

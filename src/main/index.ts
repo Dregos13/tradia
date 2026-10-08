@@ -54,6 +54,7 @@ if (!gotSingleInstanceLock) {
       app.on('will-quit', () => {
         services?.market.stop();
         services?.macro.stop();
+        services?.health.stop();
         services?.scheduler.stop();
         services?.tray.destroy();
         services?.storage.close();

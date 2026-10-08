@@ -61,6 +61,7 @@ describe('contrato IPC', () => {
     expect(IPC_CHANNELS.macro.getSeries).toBe('macro:get-series');
     expect(IPC_CHANNELS.dataStatus).toEqual({
       get: 'data-status:get',
+      simulateProviderFailure: 'data-status:simulate-provider-failure',
       changed: 'data-status:changed',
     });
   });
