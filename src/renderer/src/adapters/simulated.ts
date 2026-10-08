@@ -186,9 +186,10 @@ function buildMacroSeries(): MacroSeriesSnapshot[] {
 
 const hoursAgo = (hours: number): string => new Date(Date.now() - hours * 3_600_000).toISOString();
 
-/** ISO 8601 del día `days` desde hoy a la hora UTC indicada. */
-const daysFromNow = (days: number, utcHour: number, utcMinute = 0): string => {
-  const date = new Date(Date.now() + days * DAY_MS);
+/** Fecha ilustrativa dentro de la semana UTC actual; no es una agenda oficial. */
+const dayOfCurrentWeek = (days: number, utcHour: number, utcMinute = 0): string => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7) + days);
   date.setUTCHours(utcHour, utcMinute, 0, 0);
   return date.toISOString();
 };
@@ -294,51 +295,51 @@ function buildSimulatedCalendar(): CalendarEvent[] {
       id: 1,
       kind: 'fomc',
       title: 'Decisión de tipos del FOMC',
-      dateUtc: daysFromNow(1, 18),
+      dateUtc: dayOfCurrentWeek(1, 18),
       impact: 'alto',
       country: 'US',
       asset: null,
-      origin: 'oficial',
+      origin: 'simulado',
     },
     {
       id: 2,
       kind: 'eia',
       title: 'Inventarios semanales de petróleo (EIA)',
-      dateUtc: daysFromNow(2, 14, 30),
+      dateUtc: dayOfCurrentWeek(2, 14, 30),
       impact: 'medio',
       country: 'US',
       asset: null,
-      origin: 'regla',
+      origin: 'simulado',
     },
     {
       id: 3,
       kind: 'ipc',
       title: 'IPC de EE. UU. (mensual)',
-      dateUtc: daysFromNow(3, 12, 30),
+      dateUtc: dayOfCurrentWeek(3, 12, 30),
       impact: 'alto',
       country: 'US',
       asset: null,
-      origin: 'oficial',
+      origin: 'simulado',
     },
     {
       id: 4,
       kind: 'resultados',
       title: 'Resultados de AAPL',
-      dateUtc: daysFromNow(4, 20),
+      dateUtc: dayOfCurrentWeek(4, 20),
       impact: 'medio',
       country: 'US',
       asset: 'AAPL',
-      origin: 'finnhub',
+      origin: 'simulado',
     },
     {
       id: 5,
       kind: 'vencimiento',
       title: 'Triple witching: vencimiento de opciones y futuros',
-      dateUtc: daysFromNow(5, 13),
+      dateUtc: dayOfCurrentWeek(5, 13),
       impact: 'medio',
       country: null,
       asset: null,
-      origin: 'regla',
+      origin: 'simulado',
     },
   ];
 }

@@ -60,6 +60,19 @@ const asArray = (value: unknown): XmlNode[] => {
 };
 
 /**
+ * Hijo por nombre de etiqueta sin distinguir mayúsculas: la CNMV sirve
+ * `<Channel>` y `<Title>` mientras el resto del mundo usa minúsculas.
+ */
+const childOf = (node: XmlNode, name: string): unknown => {
+  if (name in node) return node[name];
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(node)) {
+    if (key.toLowerCase() === lower) return node[key];
+  }
+  return undefined;
+};
+
+/**
  * Texto de un nodo: cadena directa, número, u objeto con '#text' (nodos con
  * atributos, p. ej. `<guid isPermaLink="false">…</guid>`).
  */
@@ -139,24 +152,24 @@ function pushItem(items: RawNewsItem[], item: RawNewsItem | null, ctx: MapContex
 }
 
 function mapRssItem(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
-  const title = textOf(raw.title);
+  const title = textOf(childOf(raw, 'title'));
   if (!title) return null;
 
   // guid con isPermaLink="false" es un id opaco, no una URL.
-  const guidIsPermalink = asArray(raw.guid)[0]
-    ? attrOf(asArray(raw.guid)[0]!, 'isPermaLink') !== 'false'
-    : true;
-  const externalId = textOf(raw.guid);
+  const guidNode = asArray(childOf(raw, 'guid'));
+  const guidIsPermalink = guidNode[0] ? attrOf(guidNode[0], 'isPermaLink') !== 'false' : true;
+  const externalId = textOf(childOf(raw, 'guid'));
   const url =
-    normalizeItemUrl(textOf(raw.link)) ?? (guidIsPermalink ? normalizeItemUrl(externalId) : null);
+    normalizeItemUrl(textOf(childOf(raw, 'link'))) ??
+    (guidIsPermalink ? normalizeItemUrl(externalId) : null);
 
   const publishedAt =
-    toUtcIso(textOf(raw.pubDate)) ??
-    toUtcIso(textOf(raw['dc:date'])) ??
-    toUtcIso(textOf(raw.date)) ??
+    toUtcIso(textOf(childOf(raw, 'pubDate'))) ??
+    toUtcIso(textOf(childOf(raw, 'dc:date'))) ??
+    toUtcIso(textOf(childOf(raw, 'date'))) ??
     new Date(ctx.now()).toISOString();
 
-  const summary = textOf(raw['content:encoded']) ?? textOf(raw.description);
+  const summary = textOf(childOf(raw, 'content:encoded')) ?? textOf(childOf(raw, 'description'));
 
   return {
     title: truncateText(title, MAX_ITEM_TITLE_LENGTH),
@@ -169,13 +182,13 @@ function mapRssItem(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
 }
 
 function mapAtomEntry(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
-  const title = textOf(raw.title);
+  const title = textOf(childOf(raw, 'title'));
   if (!title) return null;
 
   // El enlace canónico es el rel="alternate" (o el primero sin rel).
   let url: string | null = null;
   let first: string | null = null;
-  for (const link of asArray(raw.link)) {
+  for (const link of asArray(childOf(raw, 'link'))) {
     const href = normalizeItemUrl(attrOf(link, 'href') ?? textOf(link));
     if (href === null) continue;
     first ??= href;
@@ -188,18 +201,18 @@ function mapAtomEntry(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
   url ??= first;
 
   const publishedAt =
-    toUtcIso(textOf(raw.published)) ??
-    toUtcIso(textOf(raw.updated)) ??
+    toUtcIso(textOf(childOf(raw, 'published'))) ??
+    toUtcIso(textOf(childOf(raw, 'updated'))) ??
     new Date(ctx.now()).toISOString();
 
-  const summary = textOf(raw.summary) ?? textOf(raw.content);
+  const summary = textOf(childOf(raw, 'summary')) ?? textOf(childOf(raw, 'content'));
 
   return {
     title: truncateText(title, MAX_ITEM_TITLE_LENGTH),
     url,
     publishedAt,
     summary: summary ? truncateText(stripHtml(summary), MAX_ITEM_SUMMARY_LENGTH) : null,
-    externalId: textOf(raw.id),
+    externalId: textOf(childOf(raw, 'id')),
     assets: [],
   };
 }
@@ -282,18 +295,20 @@ function parseFeed(xml: string, ctx: MapContext): RawNewsItem[] {
   const root = rootKey ? (doc[rootKey] as XmlNode) : undefined;
   const localName = rootKey?.split(':').pop();
 
+  const local = localName?.toLowerCase();
   const items: RawNewsItem[] = [];
-  if (localName === 'rss' && typeof root?.channel === 'object' && root.channel !== null) {
-    for (const raw of asArray((root.channel as XmlNode).item)) {
+  const channel = root !== undefined ? childOf(root, 'channel') : undefined;
+  if (local === 'rss' && typeof channel === 'object' && channel !== null) {
+    for (const raw of asArray(childOf(channel as XmlNode, 'item'))) {
       pushItem(items, mapRssItem(raw, ctx), ctx);
     }
-  } else if (localName === 'RDF' && root !== undefined) {
+  } else if (local === 'rdf' && root !== undefined) {
     // RSS 1.0: los ítems cuelgan de la raíz junto a <channel>.
-    for (const raw of asArray(root.item)) {
+    for (const raw of asArray(childOf(root, 'item'))) {
       pushItem(items, mapRssItem(raw, ctx), ctx);
     }
-  } else if (localName === 'feed' && root !== undefined) {
-    for (const raw of asArray(root.entry)) {
+  } else if (local === 'feed' && root !== undefined) {
+    for (const raw of asArray(childOf(root, 'entry'))) {
       pushItem(items, mapAtomEntry(raw, ctx), ctx);
     }
   } else {

@@ -52,6 +52,8 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
+        services?.calendar.stop();
+        services?.poller.stop();
         services?.market.stop();
         services?.macro.stop();
         services?.health.stop();

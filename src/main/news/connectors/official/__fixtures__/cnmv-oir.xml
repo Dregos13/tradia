@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" version="2.0">
+  <Channel>
+    <title>CNMV - Otra informacion relevante.</title>
+    <link>https://www.cnmv.es/Portal/Otra-Informacion-Relevante/AlDia-OIR.aspx</link>
+    <description>Otra información relevante del día (Desde el cierre de la sesión anterior).</description>
+    <generator>CNMV RSS</generator>
+    <language>es</language>
+    <ttl>15</ttl>
+    <image>
+      <Title>Comisión nacional del mercado de valores</Title>
+      <Link>http://www.cnmv.es</Link>
+      <Url>http://www.cnmv.es/images/cnmv_logo.gif</Url>
+    </image>
+    <item>
+      <Title>CIRSA ENTERPRISES, S.A.</Title>
+      <link><![CDATA[https://www.cnmv.es/Portal/Otra-Informacion-Relevante/Resultado-OIR.aspx?nreg=43116]]></link>
+      <guid isPermaLink="true"><![CDATA[https://www.cnmv.es/Portal/Otra-Informacion-Relevante/Resultado-OIR.aspx?nreg=43116]]></guid>
+      <pubDate>Thu, 08 Oct 2026 19:22:58 GMT</pubDate>
+      <description><![CDATA[<p><b>21:22  08/10/2026  </b> Sobre operaciones corporativas<BR/><BR/>La Sociedad comunica la suscripción del proyecto común de fusión entre CIRSA y Lottomatica y la convocatoria de la Junta General Extraordinaria</p>]]></description>
+    </item>
+<item>
+      <Title>AYCO GRUPO INMOBILIARIO, S.A.</Title>
+      <link><![CDATA[https://www.cnmv.es/Portal/Otra-Informacion-Relevante/Resultado-OIR.aspx?nreg=43115]]></link>
+      <guid isPermaLink="true"><![CDATA[https://www.cnmv.es/Portal/Otra-Informacion-Relevante/Resultado-OIR.aspx?nreg=43115]]></guid>
+      <pubDate>Thu, 08 Oct 2026 16:26:03 GMT</pubDate>
+      <description><![CDATA[<p><b>18:26  08/10/2026  </b> Informes financieros semestrales y de auditoría / revisiones limitadas<BR/><BR/>La sociedad remite información financiera del primer semestre de 2026</p>]]></description>
+    </item>
+  </Channel>
+</rss>

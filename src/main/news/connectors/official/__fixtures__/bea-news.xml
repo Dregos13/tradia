@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<rss version="2.0">
+  <channel>
+    <title>U.S. Bureau of Economic Analysis</title>
+    <link>https://www.bea.gov</link>
+    <description>U.S. Bureau of Economic Analysis</description>
+    <pubDate>Tue, 06 Oct 2026 08:30:00 EDT</pubDate>
+    <lastBuildDate>Tue, 06 Oct 2026 08:30:00 EDT</lastBuildDate>
+    <image>
+      <url>https://www.bea.gov/favicon.ico</url>
+      <title>BEA - Bureau of Economic Analysis</title>
+      <link>https://www.bea.gov</link>
+      <width>88</width>
+      <height>31</height>
+    </image>
+    <language>en-us</language>
+    <ttl>17</ttl>
+    <item name="U.S. International Trade in Goods and Services">
+      <dbId>102</dbId>
+      <title>U.S. International Trade in Goods and Services, August 2026</title>
+      <link>https://www.bea.gov/news/2026/us-international-trade-goods-and-services-august-2026</link>
+      <guid isPermaLink="true">https://www.bea.gov/news/2026/us-international-trade-goods-and-services-august-2026</guid>
+      <description><![CDATA[<p>The U.S. goods and services trade deficit increased in August 2026 according to the U.S. Bureau of Economic Analysis and the U.S. Census Bureau. The deficit increased from $92.8 billion in July (revised) to $105.6 billion in August, as imports increased more than exports. The goods deficit increased $12.8 billion in August to $136.6 billion. The services surplus increased less than $0.1 billion in August to $31.0 billion.</p>]]></description>
+      <data>
+        <main>
+          <current>
+            <infoDate>August 2026</infoDate>
+            <percentChange>-$105.6 B</percentChange>
+            <rateChange>
+            </rateChange>
+          </current>
+          <previous>
+            <infoDate>July 2026</infoDate>
+            <percentChange>-$92.8 B</percentChange>
+          </previous>
+        </main>
+      </data>
+      <NextReleaseDate>November 4, 2026</NextReleaseDate>
+      <unitsOfMeasure>BLN$</unitsOfMeasure>
+      <changeUnit>PCT</changeUnit>
+      <linkHistoric>https://apps.bea.gov/histdata/</linkHistoric>
+      <linkArchive>https://www.bea.gov/news/archive</linkArchive>
+      <pdf>https://www.bea.gov/sites/default/files/2026-10/trad0826.pdf</pdf>
+      <pubDate>Tue, 06 Oct 2026 08:30:00 EDT</pubDate>
+    </item>
+<item name="GDP">
+      <dbId>101</dbId>
+      <title>GDP, (Third Estimate), Industries, Corporate Profits, State GDP, and State Personal Income, 2nd Quarter 2026; State PCE, 2025</title>
+      <link>https://www.bea.gov/news/2026/gdp-third-estimate-industries-corporate-profits-state-gdp-and-state-personal-income-2nd</link>
+      <guid isPermaLink="true">https://www.bea.gov/news/2026/gdp-third-estimate-industries-corporate-profits-state-gdp-and-state-personal-income-2nd</guid>
+      <description><![CDATA[<p>Real gross domestic product (GDP) increased at an annual rate of 2.2 percent in the second quarter of 2026 (April, May, and June), according to the third estimate released today by the U.S. Bureau of Economic Analysis (BEA). In the first quarter, real GDP increased 2.5 percent (revised). The contributors to the increase in real GDP in the second quarter were consumer spending, investment, and exports. Imports, which are a subtraction in the calculation of GDP, increased.</p><p>At the state level, real GDP ranged from a 4.0 percent increase in New York to a 2.3 percent decrease in West Virginia.</p>]]></description>
+      <vintage>3rd</vintage>
+      <data>
+        <main>
+          <current>
+            <infoDate>Q2 2026</infoDate>
+            <percentChange>+2.2</percentChange>
+            <rateChange>
+            </rateChange>
+          </current>
+          <previous>
+            <infoDate>Q1 2026</infoDate>
+            <percentChange>+2.5</percentChange>
+          </previous>
+        </main>
+      </data>
+      <NextReleaseDate>October 29, 2026</NextReleaseDate>
+      <unitsOfMeasure>BLN$</unitsOfMeasure>
+      <changeUnit>PCT</changeUnit>
+      <linkHistoric>https://apps.bea.gov/histdata/</linkHistoric>
+      <linkArchive>https://www.bea.gov/news/archive</linkArchive>
+      <pdf>https://www.bea.gov/sites/default/files/2026-08/gdp2q26-3rd.pdf</pdf>
+      <pubDate>Wed, 30 Sep 2026 08:30:00 EDT</pubDate>
+    </item>
+<item name="U.S. International Transactions and Investment Position">
+      <dbId>105</dbId>
+      <title>U.S. International Transactions and Investment Position, 2nd Quarter 2026</title>
+      <link>https://bea.gov/news/2026/us-international-transactions-and-investment-position-2nd-quarter-2026</link>
+      <guid isPermaLink="true">https://bea.gov/news/2026/us-international-transactions-and-investment-position-2nd-quarter-2026</guid>
+      <description><![CDATA[<p>The U.S. current-account deficit resulting from international economic transactions widened by $33.4 billion, or 15.7 percent, to $246.0 billion in the second quarter of 2026, according to statistics released today by the U.S. Bureau of Economic Analysis. The revised first-quarter deficit was $212.6 billion. The second-quarter deficit was 3.0 percent of current-dollar gross domestic product, up from 2.7 percent in the first quarter.</p>
+      <p>The U.S. net international investment position, the difference between U.S. residents' foreign financial assets and liabilities, was &ndash;$22.42 trillion at the end of the second quarter of 2026. Assets totaled $46.97 trillion, and liabilities totaled $69.39 trillion. At the end of the first quarter of 2026, the net investment position was &ndash;$21.27 trillion (revised).</p>]]></description>
+      <data>
+        <main>
+          <current>
+            <infoDate>Q2 2026</infoDate>
+            <percentChange>-$246.0 B</percentChange>
+            <rateChange>
+            </rateChange>
+          </current>
+          <previous>
+            <infoDate>Q1 2026</infoDate>
+            <percentChange>-$212.6 B</percentChange>
+          </previous>
+        </main>
+        <supplemental name="International Investment Position">
+          <current>
+            <position>End of Q2 2026: -$22.42 T</position>
+          </current>
+          <previous>
+            <position>End of Q1 2026: -$21.27 T</position>
+          </previous>
+        </supplemental>
+      </data>
+      <NextReleaseDate>December 18, 2026</NextReleaseDate>
+      <unitsOfMeasure>BLN$</unitsOfMeasure>
+      <changeUnit>PCT</changeUnit>
+      <linkHistoric>https://apps.bea.gov/histdata/</linkHistoric>
+      <linkArchive>https://www.bea.gov/news/archive</linkArchive>
+      <pdf>https://www.bea.gov/sites/default/files/2026-09/ita-iip226.pdf</pdf>
+      <pubDate>Thu, 24 Sep 2026 08:30:00 EDT</pubDate>
+    </item>
+  </channel>
+</rss>

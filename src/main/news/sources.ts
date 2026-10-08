@@ -41,6 +41,7 @@ import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import {
   createDefaultConnectorRegistry,
+  seedOfficialSources,
   type ConnectorRegistry,
   type ConnectorSourceConfig,
   type NewsConnector,
@@ -339,6 +340,18 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
         throw new SourcesError('not-found', `no existe la fuente ${request.id}`);
       }
       if (request.params !== undefined) assertNoSecretsInParams(request.params);
+      // Las fuentes oficiales predefinidas se pueden desactivar pero no
+      // reclasificar: su fiabilidad queda fijada en 'oficial'.
+      if (
+        request.reliability !== undefined &&
+        existing.kind === 'oficial' &&
+        request.reliability !== existing.reliability
+      ) {
+        throw new SourcesError(
+          'invalid-input',
+          'las fuentes oficiales no pueden reclasificarse: solo activarse, desactivarse o ajustar su configuración',
+        );
+      }
       const connector = connectors.get(existing.connector);
       const url = request.url ?? existing.url;
       if (connector?.requiresUrl && !isSourceUrl(url)) {
@@ -418,13 +431,28 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
 // Registro IPC (canales sources:*)
 // ---------------------------------------------------------------------------
 
-export function registerSources(ctx: ServiceContext): SourcesService {
+export interface RegisterSourcesOptions {
+  /**
+   * true en la app real (`initServices`): siembra las fuentes oficiales
+   * predefinidas (Fed, BCE, BLS, BEA, SEC EDGAR, CNMV) una sola vez por
+   * conector. Las pruebas lo dejan en false para partir de una lista vacía.
+   */
+  seedOfficial?: boolean;
+}
+
+export function registerSources(
+  ctx: ServiceContext,
+  options: RegisterSourcesOptions = {},
+): SourcesService {
   // Sin almacén el servicio no puede persistir: se degrada a memoria para que
   // el resto de la app siga arrancando (mismo patrón que market).
   let db = ctx.services.storage?.getDb() ?? null;
   if (!db) {
     console.error('[sources] almacén no disponible: las fuentes solo vivirán en memoria');
     db = openDatabase(':memory:');
+  }
+  if (options.seedOfficial) {
+    seedOfficialSources(db);
   }
   const repo = createSourcesRepository(db);
   const secrets = ctx.services.secrets;

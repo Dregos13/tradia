@@ -1,0 +1,33 @@
+{
+  "articles": [
+    {
+      "url": "https://www.reuters.com/markets/us/fed-holds-rates-2026-10-07/",
+      "url_mobile": "https://www.reuters.com/markets/us/fed-holds-rates-2026-10-07/",
+      "title": "Fed holds rates steady; Powell signals patience on cuts",
+      "seendate": "20261007180500",
+      "socialimage": "https://cdn.reuters.com/fed.jpg",
+      "domain": "reuters.com",
+      "language": "English",
+      "sourcecountry": "United States"
+    },
+    {
+      "url": "https://elpais.com/economia/2026-10-08/el-bce-mantiene-tipos.html",
+      "url_mobile": "",
+      "title": "El BCE mantiene los tipos y avisa de la inflación",
+      "seendate": "20261008113000",
+      "socialimage": "",
+      "domain": "elpais.com",
+      "language": "Spanish",
+      "sourcecountry": "Spain"
+    },
+    {
+      "url": "https://blog.example.com/markets/oil-note",
+      "title": "Oil slips after inventory build",
+      "seendate": "bad-date",
+      "socialimage": "",
+      "domain": "blog.example.com",
+      "language": "English",
+      "sourcecountry": "United States"
+    }
+  ]
+}

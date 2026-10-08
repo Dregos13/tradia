@@ -19,7 +19,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import type { SourceKind } from '../../../shared/ipc';
+import type { Reliability, SourceKind } from '../../../shared/ipc';
 
 // ---------------------------------------------------------------------------
 // Errores tipados
@@ -166,6 +166,19 @@ export interface RawNewsItem {
   externalId: string | null;
   /** Tickers que la propia fuente asocia al titular (los de API); [] en RSS. */
   assets: string[];
+  /**
+   * Fuente original que publicó el titular ('Reuters', 'reuters.com'…) si la
+   * API la informa; los feeds RSS/Atom no la traen. Sirve para mostrar la
+   * procedencia real y para la regla de fiabilidad por ítem.
+   */
+  sourceName?: string | null;
+  /**
+   * Fiabilidad editorial inferida del ítem por el conector: 'prensa' por
+   * defecto en las APIs, 'agencia' si la fuente original es Reuters, AP,
+   * Bloomberg o Dow Jones. Cuando falta (RSS), se usa la fiabilidad
+   * configurada de la fuente — así 'oficial' y 'redes' no se pierden.
+   */
+  reliability?: Reliability;
 }
 
 /** Resultado de «probar conexión»: nunca lanza, informa del motivo. */

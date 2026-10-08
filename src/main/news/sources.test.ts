@@ -182,8 +182,8 @@ describe('servicio de fuentes', () => {
 
   it('rechaza conectores desconocidos y altas de RSS sin URL', async () => {
     const { service } = makeService();
-    expect(() => service.add(addRequest({ connector: 'finnhub' }))).toThrowError(SourcesError);
-    expect(() => service.add(addRequest({ connector: 'finnhub' }))).toThrowError(
+    expect(() => service.add(addRequest({ connector: 'benzinga' }))).toThrowError(SourcesError);
+    expect(() => service.add(addRequest({ connector: 'benzinga' }))).toThrowError(
       /no está registrado/,
     );
     const noUrl = { ...addRequest() } as Record<string, unknown>;

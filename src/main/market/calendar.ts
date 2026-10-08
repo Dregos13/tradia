@@ -139,7 +139,7 @@ function zoneOffsetMs(instantMs: number, zone: string): number {
 }
 
 /** Convierte una hora civil de `zone` al instante UTC en ms (refinado por si roza un cambio DST). */
-function zonedToUtcMs(
+export function zonedToUtcMs(
   year: number,
   month: number,
   day: number,

@@ -6,6 +6,8 @@ import { registerSettings, type SettingsService } from './settings';
 import { registerStorage, type StorageService } from './storage';
 import { registerTray, type TrayService } from './tray';
 import { registerSources, type SourcesService } from '../news/sources';
+import { registerCalendar, type CalendarService } from '../news/calendar';
+import { registerNews, type NewsPollerService } from '../news/poller';
 import { registerMacro, type MacroService } from '../market/macro';
 import {
   createMarketClock,
@@ -31,6 +33,10 @@ export interface MainServices {
   market: MarketIngestionService;
   /** Fuentes de noticias (fase 1b): alta/baja/edición y «probar conexión». */
   sources: SourcesService;
+  /** Lector de noticias (fase 1b): pasadas programadas, deduplicación y feed. */
+  poller: NewsPollerService;
+  /** Calendario económico (fase 1b): calendar:list y refresco diario. */
+  calendar: CalendarService;
 }
 
 export interface ServiceContext {
@@ -60,7 +66,12 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.health = registerHealth(ctx, { clock: marketClock });
   services.macro = registerMacro(ctx);
   services.market = registerMarket(ctx, { clock: marketClock });
-  // Tras secrets: los conectores piden sus claves por getApiKey.
-  services.sources = registerSources(ctx);
+  // Tras secrets: los conectores piden sus claves por getApiKey. La app
+  // real siembra las fuentes oficiales predefinidas (una vez por conector).
+  services.sources = registerSources(ctx, { seedOfficial: true });
+  // Tras sources, market (watchlist) y connectivity: los necesita el lector.
+  services.poller = registerNews(ctx);
+  // Tras market (watchlist), secrets (clave Finnhub) y poller (news:advance-clock).
+  services.calendar = registerCalendar(ctx);
   return services as MainServices;
 }
