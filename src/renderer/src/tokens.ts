@@ -1,4 +1,6 @@
-import tokens from '../../../.orquesta/design/fase-0-1/tokens.json';
+import base from '../../../.orquesta/design/fase-0-1/tokens.json';
+import market from '../../../.orquesta/design/fase-1/tokens.json';
+const tokens = { ...market, color: { ...market.color, state: base.color.state } };
 
 /** Translate the approved source tokens; no duplicated palette in renderer styles. */
 export function tokenStylesheet(): string {
@@ -21,7 +23,26 @@ export function tokenStylesheet(): string {
         ]),
       ),
       'state',
-    );
+    ) +
+    ['candle', 'series', 'dataStatus']
+      .map((group) =>
+        declarations(
+          Object.fromEntries(
+            Object.entries(market.color[group as 'candle']).flatMap(([key, token]) => {
+              const values = token as {
+                light: string;
+                dark: string;
+                lightSurface?: string;
+                darkSurface?: string;
+              };
+              const surface = mode === 'light' ? values.lightSurface : values.darkSurface;
+              return [[key, values[mode]], ...(surface ? [[`${key}-surface`, surface]] : [])];
+            }),
+          ),
+          group,
+        ),
+      )
+      .join('');
   const common =
     declarations(tokens.spacing, 'space') +
     declarations(tokens.radius, 'radius') +

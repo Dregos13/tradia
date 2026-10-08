@@ -1,3 +1,4 @@
+import { DataProvidersSettings } from './DataProvidersSettings';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   NOTIFICATION_LEVELS,
@@ -388,6 +389,7 @@ export function SettingsPage({ state }: { state: SystemState }) {
       </div>
       <GeneralSettings state={state} />
       <NotificationSettings />
+      <DataProvidersSettings />
       <ApiKeys />
     </section>
   );

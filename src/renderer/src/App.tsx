@@ -3,13 +3,18 @@ import { RiskGate } from './components/RiskGate';
 import { RiskDisclaimer } from './components/RiskDisclaimer';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { SettingsPage } from './components/SettingsPage';
+import { MarketDataPage } from './components/MarketDataPage';
 import { HomePage } from './components/HomePage';
+import { ProviderBanner } from './components/ProviderBanner';
 import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
-type Page = 'inicio' | 'ajustes';
-const currentPage = (): Page => (window.location.hash === '#ajustes' ? 'ajustes' : 'inicio');
+type Page = 'inicio' | 'mercado' | 'macro' | 'ajustes';
+const currentPage = (): Page => {
+  const hash = window.location.hash.slice(1);
+  return hash === 'mercado' || hash === 'macro' || hash === 'ajustes' ? hash : 'inicio';
+};
 
 export default function App() {
   return (
@@ -58,6 +63,12 @@ function AppShell() {
           <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
             Inicio
           </a>
+          <a href="#mercado" aria-current={page === 'mercado' ? 'page' : undefined}>
+            Mercado
+          </a>
+          <a href="#macro" aria-current={page === 'macro' ? 'page' : undefined}>
+            Macro
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -65,14 +76,24 @@ function AppShell() {
       </aside>
       <header className="top">
         <h1 ref={heading} tabIndex={-1}>
-          {page === 'inicio' ? 'Estado del sistema' : 'Ajustes'}
+          {
+            {
+              inicio: 'Estado del sistema',
+              mercado: 'Mercado',
+              macro: 'Contexto macro',
+              ajustes: 'Ajustes',
+            }[page]
+          }
         </h1>
         <span className="mode">Señales + paper trading</span>
       </header>
       <OfflineBanner state={state} />
       <main id="contenido" className="main" tabIndex={-1}>
+        <ProviderBanner />
         {page === 'inicio' ? (
           <HomePage state={state} />
+        ) : page === 'mercado' || page === 'macro' ? (
+          <MarketDataPage kind={page} />
         ) : (
           <>
             <SettingsPage state={state} />

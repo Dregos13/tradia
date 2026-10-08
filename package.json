@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "better-sqlite3": "~13.0.3",
+    "lightweight-charts": "^5.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

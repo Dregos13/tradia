@@ -4,6 +4,10 @@ import { E2E_FLAG_ARG, IPC_CHANNELS } from '../shared/ipc';
 import type {
   AgentsState,
   ConnectivityState,
+  DataStatusEntry,
+  GetBarsRequest,
+  MacroSeriesQuery,
+  MarketUpdatedEvent,
   NotificationLevel,
   NotificationPayload,
   NotificationPrefs,
@@ -52,6 +56,25 @@ const api: TradiaApi = {
     onChanged: (listener) => subscribe<AgentsState>(IPC_CHANNELS.agents.changed, listener),
     onHeartbeat: (listener) => subscribe<string>(IPC_CHANNELS.agents.heartbeat, listener),
   },
+  watchlist: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.watchlist.list),
+    add: (ticker: string) => ipcRenderer.invoke(IPC_CHANNELS.watchlist.add, ticker),
+    remove: (ticker: string) => ipcRenderer.invoke(IPC_CHANNELS.watchlist.remove, ticker),
+    addUniverse: () => ipcRenderer.invoke(IPC_CHANNELS.watchlist.addUniverse),
+  },
+  market: {
+    getBars: (request: GetBarsRequest) => ipcRenderer.invoke(IPC_CHANNELS.market.getBars, request),
+    refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.market.refreshNow),
+    onUpdated: (listener) => subscribe<MarketUpdatedEvent>(IPC_CHANNELS.market.updated, listener),
+  },
+  macro: {
+    getSeries: (query?: MacroSeriesQuery) =>
+      ipcRenderer.invoke(IPC_CHANNELS.macro.getSeries, query),
+  },
+  dataStatus: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.get),
+    onChanged: (listener) => subscribe<DataStatusEntry>(IPC_CHANNELS.dataStatus.changed, listener),
+  },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
   ...(process.argv.includes(E2E_FLAG_ARG)
@@ -60,6 +83,10 @@ const api: TradiaApi = {
           simulateOffline: (offline: boolean) =>
             ipcRenderer.invoke(IPC_CHANNELS.connectivity.simulateOffline, offline),
           getContextIsolation: () => process.contextIsolated,
+          advanceMarketClock: (ms: number) =>
+            ipcRenderer.invoke(IPC_CHANNELS.market.advanceClock, ms),
+          simulateProviderFailure: (failing: boolean) =>
+            ipcRenderer.invoke(IPC_CHANNELS.dataStatus.simulateProviderFailure, failing),
         },
       }
     : {}),
