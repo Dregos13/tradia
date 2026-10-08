@@ -5,6 +5,7 @@ import { registerSecrets, type SecretsService } from './secrets';
 import { registerSettings, type SettingsService } from './settings';
 import { registerStorage, type StorageService } from './storage';
 import { registerTray, type TrayService } from './tray';
+import { registerSources, type SourcesService } from '../news/sources';
 import { registerMacro, type MacroService } from '../market/macro';
 import {
   createMarketClock,
@@ -28,6 +29,8 @@ export interface MainServices {
   macro: MacroService;
   /** Ingesta de velas: histórico, actualización diaria y watchlist/getBars. */
   market: MarketIngestionService;
+  /** Fuentes de noticias (fase 1b): alta/baja/edición y «probar conexión». */
+  sources: SourcesService;
 }
 
 export interface ServiceContext {
@@ -57,5 +60,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.health = registerHealth(ctx, { clock: marketClock });
   services.macro = registerMacro(ctx);
   services.market = registerMarket(ctx, { clock: marketClock });
+  // Tras secrets: los conectores piden sus claves por getApiKey.
+  services.sources = registerSources(ctx);
   return services as MainServices;
 }

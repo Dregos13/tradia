@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>SEC EDGAR - Latest Filings (grabado)</title>
+  <link rel="self" href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&amp;output=atom"/>
+  <updated>2026-10-08T12:00:00Z</updated>
+  <id>urn:sec:edgar:feed</id>
+  <entry>
+    <title>8-K - ACME CORP (0000000001)</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/edgar/data/1/0000000001-26-000001-index.htm"/>
+    <link rel="self" href="https://www.sec.gov/Archives/edgar/data/1/feed"/>
+    <id>urn:tag:sec.gov,2026:0000000001-26-000001</id>
+    <published>2026-10-06T14:00:00Z</published>
+    <updated>2026-10-08T11:00:00Z</updated>
+    <summary type="html">&lt;p&gt;Current report filing &amp;amp; details.&lt;/p&gt;</summary>
+  </entry>
+  <entry>
+    <title>4 - Insider trades (Doe Jane)</title>
+    <link rel="alternate" href="https://www.sec.gov/Archives/edgar/data/2/0000000002-26-000002-index.htm"/>
+    <id>urn:tag:sec.gov,2026:0000000002-26-000002</id>
+    <updated>2026-10-07T16:45:00Z</updated>
+    <content type="html"><![CDATA[<div>Form 4 statement of changes in beneficial ownership.</div>]]></content>
+  </entry>
+</feed>
