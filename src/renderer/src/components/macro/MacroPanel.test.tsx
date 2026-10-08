@@ -16,6 +16,31 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+it('muestra las seis series en E2E sin una clave FRED guardada', async () => {
+  vi.mocked(simulation.api.secrets.hasKey).mockResolvedValue(false);
+  window.tradia = {
+    ...simulation.api,
+    testing: {
+      simulateOffline: vi.fn(),
+      getContextIsolation: vi.fn(),
+      advanceMarketClock: vi.fn(),
+      simulateProviderFailure: vi.fn(),
+    },
+  };
+  render(<MarketDataPage kind="macro" />);
+  const panel = await screen.findByRole('region', { name: 'Indicadores macroeconómicos' });
+  expect(within(panel).getAllByRole('article')).toHaveLength(6);
+  expect(screen.queryByText('Conecta tus fuentes de datos.')).toBeNull();
+  expect(simulation.api.secrets.hasKey).toHaveBeenCalledWith('fred');
+});
+it('exige la clave FRED fuera de E2E aunque haya series almacenadas', async () => {
+  vi.mocked(simulation.api.secrets.hasKey).mockResolvedValue(false);
+  window.tradia = { ...simulation.api, testing: undefined };
+  render(<MarketDataPage kind="macro" />);
+  expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Configurar claves' })).toBeTruthy();
+  expect(screen.queryAllByRole('article')).toHaveLength(0);
+});
 it('muestra los seis indicadores simulados con fecha, estado y curva invertida', async () => {
   render(<MarketDataPage kind="macro" />);
   const panel = await screen.findByRole('region', { name: 'Indicadores macroeconómicos' });

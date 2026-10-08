@@ -15,7 +15,7 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
     void window.tradia.secrets
       .hasKey(kind === 'mercado' ? 'tiingo' : 'fred')
       .then((value) => {
-        if (active) setConfigured(value || (kind === 'mercado' && !!window.tradia.testing));
+        if (active) setConfigured(value || !!window.tradia.testing);
       })
       .catch(() => {
         if (active) setKeyError(true);
