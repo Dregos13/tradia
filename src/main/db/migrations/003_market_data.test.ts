@@ -31,8 +31,8 @@ describe('migración 003 · datos de mercado', () => {
       "INSERT INTO settings (key, value, updated_at) VALUES ('autostart', 'true', '2026-10-07T00:00:00Z')",
     ).run();
 
-    // Solo la migración 003 queda pendiente.
-    expect(migrate(db, MIGRATIONS)).toEqual([3]);
+    // Solo las migraciones 003 y 004 quedan pendientes.
+    expect(migrate(db, MIGRATIONS)).toEqual([3, 4]);
 
     expect((db.prepare('SELECT COUNT(*) AS n FROM series').get() as { n: number }).n).toBe(1);
     expect(
@@ -132,6 +132,8 @@ describe('migración 003 · datos de mercado', () => {
       "INSERT INTO watchlist (ticker, alta, orden) VALUES ('SPY', '2026-10-08T00:00:00Z', 0)",
     ).run();
 
+    // Primero cae la 004 (noticias) y luego la 003 (mercado).
+    expect(rollbackLast(db, MIGRATIONS)).toBe(4);
     expect(rollbackLast(db, MIGRATIONS)).toBe(3);
     expect(tableNames(db)).not.toContain('watchlist');
     expect(tableNames(db)).toContain('series');

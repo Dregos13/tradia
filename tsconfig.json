@@ -20,5 +20,12 @@
       "@renderer/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src", "e2e", "electron.vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": [
+    "src",
+    "e2e",
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "playwright.config.ts"
+  ]
 }

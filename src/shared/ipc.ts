@@ -1,5 +1,5 @@
 /**
- * Contrato IPC de Tradia — Fase 0-1.
+ * Contrato IPC de Tradia — Fases 0-1b.
  *
  * Única fuente de verdad para los canales entre el renderer y el proceso
  * principal. El preload (`src/preload/index.ts`) expone solo `window.tradia`
@@ -81,6 +81,34 @@ export const IPC_CHANNELS = {
     simulateProviderFailure: 'data-status:simulate-provider-failure',
     /** Evento main → renderer: cambió la salud de un dato. */
     changed: 'data-status:changed',
+  },
+  sources: {
+    list: 'sources:list',
+    add: 'sources:add',
+    update: 'sources:update',
+    remove: 'sources:remove',
+    /** «Probar conexión»: acepta una fuente guardada (`{ id }`) o el borrador del alta. */
+    test: 'sources:test',
+  },
+  news: {
+    list: 'news:list',
+    /** Evento main → renderer: el feed cambió tras una pasada del programador. */
+    updated: 'news:updated',
+    /**
+     * Solo desarrollo (la app empaquetada no registra el handler): fuerza
+     * una pasada inmediata del lector de noticias.
+     */
+    pollNow: 'news:poll-now',
+    /**
+     * Solo desarrollo (la app empaquetada no registra el handler): adelanta
+     * el reloj del lector de noticias y del calendario para las pruebas E2E.
+     */
+    advanceClock: 'news:advance-clock',
+  },
+  calendar: {
+    list: 'calendar:list',
+    /** Evento main → renderer: el calendario se recalculó o llegaron fechas nuevas. */
+    updated: 'calendar:updated',
   },
 } as const;
 
@@ -321,6 +349,220 @@ export interface MacroSeriesSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Dominio: noticias, fuentes y calendario (fase 1b)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tipo lógico de una fuente: feed RSS/Atom, API de noticias, fuente oficial
+ * o redes sociales (siempre vía RSS; ver asunciones del plan de fase).
+ */
+export const SOURCE_KINDS = ['rss', 'api', 'oficial', 'redes'] as const;
+export type SourceKind = (typeof SOURCE_KINDS)[number];
+
+/**
+ * Fiabilidad editorial (regla de calidad de la sección 5.4 del plan). Una
+ * noticia solo respaldada por 'redes' nunca se marca como confirmada: hace
+ * falta una fuente 'oficial' o 'agencia'.
+ */
+export const RELIABILITY_LEVELS = ['oficial', 'agencia', 'prensa', 'redes'] as const;
+export type Reliability = (typeof RELIABILITY_LEVELS)[number];
+
+/** Prioridades del feed según la sección 6 del plan. */
+export const NEWS_PRIORITIES = ['maxima', 'media', 'activo', 'baja'] as const;
+export type NewsPriority = (typeof NEWS_PRIORITIES)[number];
+
+/** Impacto de un evento del calendario; 'alto' dispara el aviso previo. */
+export const IMPACT_LEVELS = ['alto', 'medio', 'bajo'] as const;
+export type ImpactLevel = (typeof IMPACT_LEVELS)[number];
+
+/**
+ * Catálogo de tipos de evento del calendario: los de la sección 6 más
+ * 'banco-central' (decisiones de BCE, BoE, BoJ distintas del FOMC) y 'otro'.
+ * Es la misma lista que el CHECK de `calendar_events.tipo`.
+ */
+export const CALENDAR_EVENT_KINDS = [
+  'fomc',
+  'banco-central',
+  'nfp',
+  'ipc',
+  'pce',
+  'pib',
+  'pmi',
+  'eia',
+  'opep',
+  'vencimiento',
+  'resultados',
+  'otro',
+] as const;
+export type CalendarEventKind = (typeof CALENDAR_EVENT_KINDS)[number];
+
+/** Estado de la última lectura o prueba de conexión de una fuente. */
+export const SOURCE_STATES = ['pendiente', 'ok', 'error'] as const;
+export type SourceState = (typeof SOURCE_STATES)[number];
+
+/** Identificador de conector en minúsculas ('rss', 'finnhub', 'sec-edgar'). */
+export const CONNECTOR_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+export const SOURCE_MIN_INTERVAL_SECONDS = 60;
+export const SOURCE_MAX_INTERVAL_SECONDS = 86_400;
+export const SOURCE_NAME_MAX_LENGTH = 120;
+export const SOURCE_URL_MAX_LENGTH = 2_048;
+/** Tope del parámetro `limit` de `news:list`. */
+export const NEWS_LIST_MAX_LIMIT = 500;
+
+/** Una fuente de noticias configurada (fila de `news_sources`). */
+export interface NewsSource {
+  id: number;
+  /** Nombre visible elegido por el usuario o por el catálogo de oficiales. */
+  name: string;
+  kind: SourceKind;
+  /** Conector que la lee ('rss', 'finnhub', 'sec-edgar'...). */
+  connector: string;
+  url: string | null;
+  /** Parámetros del conector (JSON); nunca contiene secretos ni claves. */
+  params: Record<string, unknown>;
+  reliability: Reliability;
+  intervalSeconds: number;
+  active: boolean;
+  lastStatus: SourceState;
+  lastError: string | null;
+  /** Última lectura correcta (ISO 8601); null si aún no hubo ninguna. */
+  lastFetchedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Alta de una fuente. `url` es obligatoria para los tipos 'rss' y 'redes'
+ * (ambos se leen por feed); en 'api' y 'oficial' el endpoint lo fija el
+ * conector y `url` es opcional.
+ */
+export interface AddSourceRequest {
+  name: string;
+  kind: SourceKind;
+  connector: string;
+  url?: string;
+  params?: Record<string, unknown>;
+  reliability: Reliability;
+  intervalSeconds?: number;
+}
+
+/** Cambios sobre una fuente: `id` más al menos un campo a modificar. */
+export interface UpdateSourceRequest {
+  id: number;
+  name?: string;
+  url?: string;
+  params?: Record<string, unknown>;
+  reliability?: Reliability;
+  intervalSeconds?: number;
+  active?: boolean;
+}
+
+/** «Probar conexión»: una fuente guardada por id o el borrador del alta. */
+export type TestSourceRequest = { id: number } | AddSourceRequest;
+
+export interface TestSourceResult {
+  ok: boolean;
+  /** Titulares que devolvió la fuente en la prueba (0 si falló). */
+  itemsFound: number;
+  /** Latencia de la prueba en ms; null si no se pudo medir. */
+  latencyMs: number | null;
+  /** Motivo legible del fallo, o null. */
+  error: string | null;
+}
+
+/** Fuente que trajo un titular deduplicado. */
+export interface NewsItemSource {
+  id: number;
+  name: string;
+  reliability: Reliability;
+}
+
+/** Titular del feed: la misma noticia por varias fuentes es un solo ítem. */
+export interface NewsItem {
+  id: number;
+  title: string;
+  /** URL canónica; null si la fuente no la dio. */
+  url: string | null;
+  /** Publicación en ISO 8601 UTC. */
+  publishedAt: string;
+  summary: string | null;
+  priority: NewsPriority;
+  /** true solo si la respalda una fuente 'oficial' o 'agencia'. */
+  confirmed: boolean;
+  /** Todas las fuentes que trajeron la noticia. */
+  sources: NewsItemSource[];
+  /** Tickers relacionados (lista de seguimiento o mencionados). */
+  assets: string[];
+}
+
+/** Filtros de `news:list`; todos opcionales y combinables. */
+export interface NewsListQuery {
+  /** Rango de publicación, ambos inclusive ('YYYY-MM-DD'). */
+  desde?: string;
+  hasta?: string;
+  priority?: NewsPriority;
+  /** Filtra por la fiabilidad de alguna de las fuentes de la noticia. */
+  reliability?: Reliability;
+  ticker?: string;
+  confirmed?: boolean;
+  sourceId?: number;
+  /** Máximo de resultados; tope `NEWS_LIST_MAX_LIMIT`. */
+  limit?: number;
+}
+
+/** Evento `news:updated`: el feed cambió tras una pasada del programador. */
+export interface NewsUpdatedEvent {
+  /** Titulares nuevos guardados en la última pasada. */
+  newItems: number;
+  /** ISO 8601. */
+  updatedAt: string;
+}
+
+/** Un evento del calendario económico o de resultados. */
+export interface CalendarEvent {
+  id: number;
+  kind: CalendarEventKind;
+  title: string;
+  /** Instante UTC (ISO 8601). */
+  dateUtc: string;
+  impact: ImpactLevel;
+  /** País o área ('US', 'EA', 'ES'); null en eventos globales. */
+  country: string | null;
+  /** Activo relacionado en resultados; null en eventos macro. */
+  asset: string | null;
+  /** 'regla' | 'oficial' | 'finnhub' | 'simulado'. */
+  origin: string;
+}
+
+/** `calendar:list` exige un rango de fechas, ambos inclusive ('YYYY-MM-DD'). */
+export interface CalendarListQuery {
+  desde: string;
+  hasta: string;
+}
+
+/** Evento `calendar:updated`: el calendario se recalculó. */
+export interface CalendarUpdatedEvent {
+  /** ISO 8601. */
+  updatedAt: string;
+}
+
+/** Respuesta del gancho de desarrollo `news:poll-now`. */
+export interface NewsPollResult {
+  /** Fuentes activas consultadas en la pasada. */
+  sourcesPolled: number;
+  /** Titulares nuevos guardados. */
+  newItems: number;
+  /** ISO 8601. */
+  polledAt: string;
+}
+
+/** Respuesta del gancho de desarrollo `news:advance-clock`. */
+export interface NewsClockAdvanceResult {
+  /** Instante del reloj interno tras el avance, ISO 8601. */
+  now: string;
+}
+
+// ---------------------------------------------------------------------------
 // API expuesta al renderer como window.tradia
 // ---------------------------------------------------------------------------
 
@@ -372,6 +614,23 @@ export interface TradiaApi {
     get(): Promise<DataStatusEntry[]>;
     onChanged(listener: (entry: DataStatusEntry) => void): () => void;
   };
+  sources: {
+    list(): Promise<NewsSource[]>;
+    /** Da de alta una fuente y la devuelve con su id asignado. */
+    add(request: AddSourceRequest): Promise<NewsSource>;
+    update(request: UpdateSourceRequest): Promise<NewsSource>;
+    /** Quita la fuente y devuelve la lista actualizada. */
+    remove(id: number): Promise<NewsSource[]>;
+    test(request: TestSourceRequest): Promise<TestSourceResult>;
+  };
+  news: {
+    list(query?: NewsListQuery): Promise<NewsItem[]>;
+    onUpdated(listener: (event: NewsUpdatedEvent) => void): () => void;
+  };
+  calendar: {
+    list(query: CalendarListQuery): Promise<CalendarEvent[]>;
+    onUpdated(listener: (event: CalendarUpdatedEvent) => void): () => void;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -383,6 +642,10 @@ export interface TradiaApi {
      * simulados y fuerza una pasada; devuelve los estados del dato resultantes.
      */
     simulateProviderFailure(failing: boolean): Promise<DataStatusEntry[]>;
+    /** Fuerza una pasada inmediata del lector de noticias. */
+    pollNewsNow(): Promise<NewsPollResult>;
+    /** Adelanta el reloj del lector de noticias y del calendario `ms`. */
+    advanceNewsClock(ms: number): Promise<NewsClockAdvanceResult>;
   };
 }
 
@@ -495,6 +758,191 @@ export function isMacroSeriesQuery(value: unknown): value is MacroSeriesQuery {
 
 export function isDataStatusState(value: unknown): value is DataStatusState {
   return typeof value === 'string' && (DATA_STATUS_STATES as readonly string[]).includes(value);
+}
+
+export function isSourceKind(value: unknown): value is SourceKind {
+  return typeof value === 'string' && (SOURCE_KINDS as readonly string[]).includes(value);
+}
+
+export function isReliability(value: unknown): value is Reliability {
+  return typeof value === 'string' && (RELIABILITY_LEVELS as readonly string[]).includes(value);
+}
+
+export function isNewsPriority(value: unknown): value is NewsPriority {
+  return typeof value === 'string' && (NEWS_PRIORITIES as readonly string[]).includes(value);
+}
+
+export function isImpactLevel(value: unknown): value is ImpactLevel {
+  return typeof value === 'string' && (IMPACT_LEVELS as readonly string[]).includes(value);
+}
+
+export function isCalendarEventKind(value: unknown): value is CalendarEventKind {
+  return typeof value === 'string' && (CALENDAR_EVENT_KINDS as readonly string[]).includes(value);
+}
+
+export function isSourceState(value: unknown): value is SourceState {
+  return typeof value === 'string' && (SOURCE_STATES as readonly string[]).includes(value);
+}
+
+/** Id entero positivo (clave primaria autoincremental). */
+export function isSourceId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+export function isSourceConnector(value: unknown): value is string {
+  return typeof value === 'string' && CONNECTOR_PATTERN.test(value);
+}
+
+/** Nombre visible de una fuente: texto no vacío dentro del tope. */
+export function isSourceName(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= SOURCE_NAME_MAX_LENGTH
+  );
+}
+
+/**
+ * URL de una fuente: http(s) o file (los feeds locales de las pruebas E2E),
+ * dentro del tope de longitud. Rechaza javascript:, data: y compañía.
+ */
+export function isSourceUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > SOURCE_URL_MAX_LENGTH) {
+    return false;
+  }
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === 'http:' || protocol === 'https:' || protocol === 'file:';
+  } catch {
+    return false;
+  }
+}
+
+/** Escalar JSON admitido en `params` (con tope de longitud en cadenas). */
+function isJsonScalar(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value)) ||
+    (typeof value === 'string' && value.length <= 512)
+  );
+}
+
+/**
+ * Parámetros de un conector: objeto plano de escalares o listas cortas de
+ * escalares, con topes para no admitir cargas arbitrarias. Las claves de
+ * API no viajan aquí: viven cifradas en `secrets`.
+ */
+export function isSourceParams(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > 32) return false;
+  for (const [key, val] of entries) {
+    if (key.length === 0 || key.length > 64) return false;
+    if (Array.isArray(val)) {
+      if (val.length > 32 || !val.every(isJsonScalar)) return false;
+    } else if (!isJsonScalar(val)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function isSourceInterval(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= SOURCE_MIN_INTERVAL_SECONDS &&
+    value <= SOURCE_MAX_INTERVAL_SECONDS
+  );
+}
+
+export function isAddSourceRequest(value: unknown): value is AddSourceRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['name', 'kind', 'connector', 'url', 'params', 'reliability', 'intervalSeconds'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isSourceName(v.name)) return false;
+  if (!isSourceKind(v.kind)) return false;
+  if (!isSourceConnector(v.connector)) return false;
+  if (!isReliability(v.reliability)) return false;
+  if ('url' in v && !isSourceUrl(v.url)) return false;
+  if ('params' in v && !isSourceParams(v.params)) return false;
+  if ('intervalSeconds' in v && !isSourceInterval(v.intervalSeconds)) return false;
+  // Los feeds (rss y redes vía RSS) necesitan su URL.
+  if ((v.kind === 'rss' || v.kind === 'redes') && !isSourceUrl(v.url)) return false;
+  return true;
+}
+
+export function isUpdateSourceRequest(value: unknown): value is UpdateSourceRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['id', 'name', 'url', 'params', 'reliability', 'intervalSeconds', 'active'];
+  const keys = Object.keys(v);
+  if (keys.some((k) => !allowed.includes(k))) return false;
+  if (!isSourceId(v.id)) return false;
+  // Hace falta al menos un campo a modificar además del id.
+  if (keys.length === 1) return false;
+  if ('name' in v && !isSourceName(v.name)) return false;
+  if ('url' in v && !isSourceUrl(v.url)) return false;
+  if ('params' in v && !isSourceParams(v.params)) return false;
+  if ('reliability' in v && !isReliability(v.reliability)) return false;
+  if ('intervalSeconds' in v && !isSourceInterval(v.intervalSeconds)) return false;
+  if ('active' in v && typeof v.active !== 'boolean') return false;
+  return true;
+}
+
+export function isTestSourceRequest(value: unknown): value is TestSourceRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const keys = Object.keys(value);
+  if (keys.length === 1) {
+    // { id } solo: prueba de una fuente ya guardada.
+    return keys[0] === 'id' && isSourceId((value as Record<string, unknown>).id);
+  }
+  return isAddSourceRequest(value);
+}
+
+export function isNewsListQuery(value: unknown): value is NewsListQuery {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'desde',
+    'hasta',
+    'priority',
+    'reliability',
+    'ticker',
+    'confirmed',
+    'sourceId',
+    'limit',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('desde' in v && !isIsoDate(v.desde)) return false;
+  if ('hasta' in v && !isIsoDate(v.hasta)) return false;
+  if (typeof v.desde === 'string' && typeof v.hasta === 'string' && v.desde > v.hasta) {
+    return false;
+  }
+  if ('priority' in v && !isNewsPriority(v.priority)) return false;
+  if ('reliability' in v && !isReliability(v.reliability)) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('confirmed' in v && typeof v.confirmed !== 'boolean') return false;
+  if ('sourceId' in v && !isSourceId(v.sourceId)) return false;
+  if (
+    'limit' in v &&
+    (typeof v.limit !== 'number' ||
+      !Number.isInteger(v.limit) ||
+      v.limit < 1 ||
+      v.limit > NEWS_LIST_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isCalendarListQuery(value: unknown): value is CalendarListQuery {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'desde' && k !== 'hasta')) return false;
+  if (!isIsoDate(v.desde) || !isIsoDate(v.hasta)) return false;
+  return v.desde <= v.hasta;
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

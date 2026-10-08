@@ -2,17 +2,24 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import { E2E_FLAG_ARG, IPC_CHANNELS } from '../shared/ipc';
 import type {
+  AddSourceRequest,
   AgentsState,
+  CalendarListQuery,
+  CalendarUpdatedEvent,
   ConnectivityState,
   DataStatusEntry,
   GetBarsRequest,
   MacroSeriesQuery,
   MarketUpdatedEvent,
+  NewsListQuery,
+  NewsUpdatedEvent,
   NotificationLevel,
   NotificationPayload,
   NotificationPrefs,
   SettingsPatch,
+  TestSourceRequest,
   TradiaApi,
+  UpdateSourceRequest,
 } from '../shared/ipc';
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
@@ -75,6 +82,23 @@ const api: TradiaApi = {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.get),
     onChanged: (listener) => subscribe<DataStatusEntry>(IPC_CHANNELS.dataStatus.changed, listener),
   },
+  sources: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.sources.list),
+    add: (request: AddSourceRequest) => ipcRenderer.invoke(IPC_CHANNELS.sources.add, request),
+    update: (request: UpdateSourceRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.sources.update, request),
+    remove: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.sources.remove, id),
+    test: (request: TestSourceRequest) => ipcRenderer.invoke(IPC_CHANNELS.sources.test, request),
+  },
+  news: {
+    list: (query?: NewsListQuery) => ipcRenderer.invoke(IPC_CHANNELS.news.list, query),
+    onUpdated: (listener) => subscribe<NewsUpdatedEvent>(IPC_CHANNELS.news.updated, listener),
+  },
+  calendar: {
+    list: (query: CalendarListQuery) => ipcRenderer.invoke(IPC_CHANNELS.calendar.list, query),
+    onUpdated: (listener) =>
+      subscribe<CalendarUpdatedEvent>(IPC_CHANNELS.calendar.updated, listener),
+  },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
   ...(process.argv.includes(E2E_FLAG_ARG)
@@ -87,6 +111,8 @@ const api: TradiaApi = {
             ipcRenderer.invoke(IPC_CHANNELS.market.advanceClock, ms),
           simulateProviderFailure: (failing: boolean) =>
             ipcRenderer.invoke(IPC_CHANNELS.dataStatus.simulateProviderFailure, failing),
+          pollNewsNow: () => ipcRenderer.invoke(IPC_CHANNELS.news.pollNow),
+          advanceNewsClock: (ms: number) => ipcRenderer.invoke(IPC_CHANNELS.news.advanceClock, ms),
         },
       }
     : {}),

@@ -18,8 +18,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3]);
+    expect(applied).toEqual([1, 2, 3, 4]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4]);
     db.close();
   });
 
@@ -28,7 +28,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(3);
+    expect(appliedMigrations(db)).toHaveLength(4);
     db.close();
   });
 
@@ -38,13 +38,19 @@ describe('ejecutor de migraciones', () => {
 
     expect(tableNames(db)).toEqual([
       'bars',
+      'calendar_events',
       'corporate_actions',
       'data_batches',
       'data_status',
       'diario',
       'macro_observations',
       'macro_series',
+      'news_item_assets',
+      'news_item_sources',
+      'news_items',
+      'news_sources',
       'noticias',
+      'notification_log',
       'quality_flags',
       'schema_migrations',
       'secrets',
@@ -71,6 +77,10 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(4);
+    expect(tableNames(db)).not.toContain('news_items');
+    expect(tableNames(db)).toContain('bars');
+
     expect(rollbackLast(db, MIGRATIONS)).toBe(3);
     expect(tableNames(db)).not.toContain('bars');
     expect(tableNames(db)).toContain('series');
@@ -90,7 +100,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([3]);
+    expect(migrate(db, MIGRATIONS)).toEqual([4]);
     expect(tableNames(db)).toContain('watchlist');
     db.close();
   });
