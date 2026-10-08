@@ -126,7 +126,10 @@ export function createSchedulerService(deps: SchedulerDeps): SchedulerService {
 }
 
 export function registerScheduler(ctx: ServiceContext): SchedulerService {
-  const service = createSchedulerService({ broadcast: ctx.broadcast });
+  const service = createSchedulerService({
+    broadcast: ctx.broadcast,
+    ...(process.env.TRADIA_E2E === '1' ? { intervalMs: 250 } : {}),
+  });
 
   ipcMain.handle(IPC_CHANNELS.agents.getState, () => service.getState());
   ipcMain.handle(IPC_CHANNELS.agents.pause, () => service.pause());

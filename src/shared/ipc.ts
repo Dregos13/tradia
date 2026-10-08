@@ -150,6 +150,11 @@ export interface TradiaApi {
     onChanged(listener: (state: AgentsState) => void): () => void;
     onHeartbeat(listener: (at: string) => void): () => void;
   };
+  /** Herramientas de simulación expuestas solo en ejecuciones Playwright. */
+  testing?: {
+    simulateOffline(offline: boolean): Promise<ConnectivityState>;
+    getContextIsolation(): boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------

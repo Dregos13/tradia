@@ -21,20 +21,20 @@ npm install
 
 ## Scripts
 
-| Script               | Qué hace                                                           |
-| -------------------- | ------------------------------------------------------------------ |
-| `npm run dev`        | Arranca electron-vite en modo desarrollo y abre la ventana         |
-| `npm run build`      | Typecheck + build de main, preload y renderer a `out/`             |
-| `npm start`          | Previsualiza la build (`electron-vite preview`)                    |
-| `npm run lint`       | ESLint sobre todo el proyecto                                      |
-| `npm run typecheck`  | `tsc --noEmit`                                                     |
-| `npm test`           | Pruebas unitarias con Vitest                                       |
-| `npm run test:e2e`   | Pruebas de extremo a extremo con Playwright (pendiente, en `e2e/`) |
-| `npm run format`     | Formatea con Prettier                                              |
-| `npm run dist`       | Empaqueta el instalador del sistema actual a `release/`            |
-| `npm run dist:mac`   | Empaqueta los dmg de macOS (x64 y arm64)                           |
-| `npm run dist:win`   | Empaqueta el instalador nsis de Windows                            |
-| `npm run dist:linux` | Empaqueta AppImage y deb de Linux                                  |
+| Script               | Qué hace                                                   |
+| -------------------- | ---------------------------------------------------------- |
+| `npm run dev`        | Arranca electron-vite en modo desarrollo y abre la ventana |
+| `npm run build`      | Typecheck + build de main, preload y renderer a `out/`     |
+| `npm start`          | Previsualiza la build (`electron-vite preview`)            |
+| `npm run lint`       | ESLint sobre todo el proyecto                              |
+| `npm run typecheck`  | `tsc --noEmit`                                             |
+| `npm test`           | Pruebas unitarias con Vitest                               |
+| `npm run test:e2e`   | Construye la app y ejecuta pruebas Electron con Playwright |
+| `npm run format`     | Formatea con Prettier                                      |
+| `npm run dist`       | Empaqueta el instalador del sistema actual a `release/`    |
+| `npm run dist:mac`   | Empaqueta los dmg de macOS (x64 y arm64)                   |
+| `npm run dist:win`   | Empaqueta el instalador nsis de Windows                    |
+| `npm run dist:linux` | Empaqueta AppImage y deb de Linux                          |
 
 ## Estructura
 
@@ -98,7 +98,16 @@ fuera de esta fase.
 `.github/workflows/ci.yml` compila, pasa lint y pruebas y genera los
 instaladores en `macos-latest`, `windows-latest` y `ubuntu-latest`, con
 `CSC_IDENTITY_AUTO_DISCOVERY=false` (sin firma). Los artefactos se suben como
-`tradia-<os>` con `actions/upload-artifact` y usan caché de npm.
+`tradia-<os>` con `actions/upload-artifact` y usan caché de npm. En Linux,
+Playwright ejecuta las pruebas Electron bajo `xvfb-run`.
+
+### Pruebas E2E
+
+`npm run test:e2e` crea la build y ejecuta `e2e/electron.spec.ts` mediante el
+controlador `_electron` de Playwright. Cada caso usa y elimina un `userData`
+temporal; comprueba el aviso inicial y su persistencia, notificaciones y
+preferencias, latido en segundo plano y pausa, recuperación de la simulación
+offline, ausencia de claves legibles y las protecciones del renderer.
 
 ## Seguridad
 

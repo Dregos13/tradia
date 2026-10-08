@@ -19,6 +19,11 @@ export interface SafeStorageLike {
   isEncryptionAvailable(): boolean;
   encryptString(plainText: string): Buffer;
   decryptString(encrypted: Buffer): string;
+  /**
+   * Backend de llavero elegido por Electron (solo existe en Linux). El valor
+   * 'basic_text' usa una clave fija y equivale a texto plano: se rechaza.
+   */
+  getSelectedStorageBackend?(): string;
 }
 
 export class SecretsError extends Error {
@@ -51,12 +56,22 @@ export function createSecretsService(
     return db;
   };
 
+  const requireRealEncryption = (): void => {
+    if (!crypto.isEncryptionAvailable()) {
+      throw new SecretsError(ERR_ENCRYPTION_UNAVAILABLE);
+    }
+    // En Linux sin llavero Electron usa el backend 'basic_text' (clave fija,
+    // en la práctica texto plano) y aun así isEncryptionAvailable() puede
+    // devolver true. 'basic_text' solo se reporta en Linux.
+    if (crypto.getSelectedStorageBackend?.() === 'basic_text') {
+      throw new SecretsError(ERR_ENCRYPTION_UNAVAILABLE);
+    }
+  };
+
   return {
     setKey: async (provider, apiKey) => {
       const database = requireDb();
-      if (!crypto.isEncryptionAvailable()) {
-        throw new SecretsError(ERR_ENCRYPTION_UNAVAILABLE);
-      }
+      requireRealEncryption();
       const ciphertext = crypto.encryptString(apiKey).toString('base64');
       const now = new Date().toISOString();
       database
@@ -84,6 +99,7 @@ export function createSecretsService(
         .prepare('SELECT ciphertext FROM secrets WHERE provider = ?')
         .get(provider) as { ciphertext: string } | undefined;
       if (!row) return null;
+      requireRealEncryption();
       try {
         return crypto.decryptString(Buffer.from(row.ciphertext, 'base64'));
       } catch {

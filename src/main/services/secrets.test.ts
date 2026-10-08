@@ -101,6 +101,55 @@ describe('servicio de claves cifradas', () => {
     expect(await secrets.hasKey('proveedor')).toBe(false);
   });
 
+  it('rechaza el backend basic_text de Linux aunque isEncryptionAvailable diga true', async () => {
+    const { db } = fileDb();
+    const basicText: SafeStorageLike = {
+      ...fakeSafeStorage(),
+      getSelectedStorageBackend: () => 'basic_text',
+    };
+    const secrets = createSecretsService(db, basicText);
+
+    await expect(secrets.setKey('proveedor', SAMPLE_KEY)).rejects.toThrowError(
+      ERR_ENCRYPTION_UNAVAILABLE,
+    );
+    await expect(secrets.setKey('proveedor', SAMPLE_KEY)).rejects.toBeInstanceOf(SecretsError);
+    // No se guardó nada: basic_text es en la práctica texto plano.
+    expect(await secrets.hasKey('proveedor')).toBe(false);
+  });
+
+  it('también rechaza basic_text al leer una clave ya guardada (solo main)', async () => {
+    const { db } = fileDb();
+    const keyringBackend: SafeStorageLike = {
+      ...fakeSafeStorage(),
+      getSelectedStorageBackend: () => 'kwallet6',
+    };
+    await createSecretsService(db, keyringBackend).setKey('proveedor', SAMPLE_KEY);
+
+    // El llavero desaparece y Electron cae a basic_text: la lectura se rechaza.
+    const basicText: SafeStorageLike = {
+      ...fakeSafeStorage(),
+      getSelectedStorageBackend: () => 'basic_text',
+    };
+    const degraded = createSecretsService(db, basicText);
+    await expect(degraded.getKey('proveedor')).rejects.toThrowError(ERR_ENCRYPTION_UNAVAILABLE);
+    // hasKey y deleteKey siguen disponibles para poder limpiar la clave.
+    expect(await degraded.hasKey('proveedor')).toBe(true);
+    await degraded.deleteKey('proveedor');
+    expect(await degraded.hasKey('proveedor')).toBe(false);
+  });
+
+  it('acepta un backend de llavero real en Linux (gnome_libsecret, kwallet…)', async () => {
+    const { db } = fileDb();
+    const keyringBackend: SafeStorageLike = {
+      ...fakeSafeStorage(),
+      getSelectedStorageBackend: () => 'gnome_libsecret',
+    };
+    const secrets = createSecretsService(db, keyringBackend);
+
+    await secrets.setKey('proveedor', SAMPLE_KEY);
+    expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+  });
+
   it('falla con un error claro si el almacén no está disponible', async () => {
     const secrets = createSecretsService(null, fakeSafeStorage());
 

@@ -5,6 +5,11 @@ import { broadcast } from './broadcast';
 import { initServices, type MainServices } from './services';
 import { showMainWindow } from './window';
 
+// Playwright runs each Electron instance with an isolated data directory.
+if (process.env.TRADIA_E2E_USER_DATA) {
+  app.setPath('userData', process.env.TRADIA_E2E_USER_DATA);
+}
+
 // Bloqueo de instancia única: la app es residente y no tiene sentido duplicarla.
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 

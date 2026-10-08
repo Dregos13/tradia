@@ -52,6 +52,15 @@ const api: TradiaApi = {
     onChanged: (listener) => subscribe<AgentsState>(IPC_CHANNELS.agents.changed, listener),
     onHeartbeat: (listener) => subscribe<string>(IPC_CHANNELS.agents.heartbeat, listener),
   },
+  ...(process.env.TRADIA_E2E === '1'
+    ? {
+        testing: {
+          simulateOffline: (offline: boolean) =>
+            ipcRenderer.invoke(IPC_CHANNELS.connectivity.simulateOffline, offline),
+          getContextIsolation: () => process.contextIsolated,
+        },
+      }
+    : {}),
 };
 
 contextBridge.exposeInMainWorld('tradia', api);
