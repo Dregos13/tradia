@@ -15,7 +15,11 @@ export function createSimulatedAdapter() {
     attempt: 0,
   };
   let agents: AgentsState = { paused: false, pauseReason: null, lastHeartbeatAt: null };
-  let settings: AppSettings = { autostart: false, disclaimerAcceptedVersion: null, disclaimerAcceptedAt: null };
+  let settings: AppSettings = {
+    autostart: false,
+    disclaimerAcceptedVersion: null,
+    disclaimerAcceptedAt: null,
+  };
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
   const connectionListeners = new Set<(value: ConnectivityState) => void>();
   const agentListeners = new Set<(value: AgentsState) => void>();
@@ -59,7 +63,17 @@ export function createSimulatedAdapter() {
     settings: {
       get: async () => settings,
       set: async (patch) => {
-        settings = { ...settings, ...patch, ...(patch.disclaimerAcceptedVersion !== undefined ? { disclaimerAcceptedAt: patch.disclaimerAcceptedVersion ? new Date().toISOString() : null } : {}) };
+        settings = {
+          ...settings,
+          ...patch,
+          ...(patch.disclaimerAcceptedVersion !== undefined
+            ? {
+                disclaimerAcceptedAt: patch.disclaimerAcceptedVersion
+                  ? new Date().toISOString()
+                  : null,
+              }
+            : {}),
+        };
         return settings;
       },
     },

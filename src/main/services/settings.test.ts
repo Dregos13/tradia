@@ -31,7 +31,11 @@ describe('servicio de ajustes', () => {
   it('devuelve los valores por defecto en una instalación limpia', () => {
     const settings = createSettingsService(fileDb().db);
 
-    expect(settings.get()).toEqual({ autostart: false, disclaimerAcceptedVersion: null });
+    expect(settings.get()).toEqual({
+      autostart: false,
+      disclaimerAcceptedVersion: null,
+      disclaimerAcceptedAt: null,
+    });
     expect(settings.getNotificationPrefs()).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
 
@@ -40,7 +44,13 @@ describe('servicio de ajustes', () => {
     const settings = createSettingsService(db);
 
     const updated = settings.set({ autostart: true, disclaimerAcceptedVersion: '2026-10' });
-    expect(updated).toEqual({ autostart: true, disclaimerAcceptedVersion: '2026-10' });
+    expect(updated).toEqual({
+      autostart: true,
+      disclaimerAcceptedVersion: '2026-10',
+      disclaimerAcceptedAt: expect.any(String),
+    });
+    expect(Number.isNaN(Date.parse(updated.disclaimerAcceptedAt!))).toBe(false);
+    expect(createSettingsService(db).get().disclaimerAcceptedAt).toBe(updated.disclaimerAcceptedAt);
 
     // Una nueva instancia lee lo persistido, no memoria.
     const reloaded = createSettingsService(db);
@@ -63,13 +73,18 @@ describe('servicio de ajustes', () => {
   it('restablece el aviso aceptado cuando el patch llega con null', () => {
     const settings = createSettingsService(fileDb().db);
     settings.set({ disclaimerAcceptedVersion: '2026-10' });
-    const reset = settings.set({ disclaimerAcceptedVersion: null as unknown as string });
+    const reset = settings.set({ disclaimerAcceptedVersion: null });
     expect(reset.disclaimerAcceptedVersion).toBeNull();
+    expect(reset.disclaimerAcceptedAt).toBeNull();
   });
 
   it('degrada a memoria cuando el almacén no está disponible', () => {
     const settings = createSettingsService(null);
-    expect(settings.get()).toEqual({ autostart: false, disclaimerAcceptedVersion: null });
+    expect(settings.get()).toEqual({
+      autostart: false,
+      disclaimerAcceptedVersion: null,
+      disclaimerAcceptedAt: null,
+    });
     expect(settings.set({ autostart: true }).autostart).toBe(true);
     expect(settings.get().autostart).toBe(true);
   });

@@ -98,7 +98,10 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
         // La guarda IPC admite null como "restablecer": se guarda '' (NOT NULL).
         const saveAcceptance = () => {
           store.setValue(KEYS.disclaimerAcceptedVersion, patch.disclaimerAcceptedVersion ?? '');
-          store.setValue(KEYS.disclaimerAcceptedAt, patch.disclaimerAcceptedVersion ? new Date().toISOString() : '');
+          store.setValue(
+            KEYS.disclaimerAcceptedAt,
+            patch.disclaimerAcceptedVersion ? new Date().toISOString() : '',
+          );
         };
         if (db) db.transaction(saveAcceptance)();
         else saveAcceptance();

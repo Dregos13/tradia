@@ -4,13 +4,15 @@ import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { createSimulatedAdapter } from './adapters/simulated';
 
 let simulation: ReturnType<typeof createSimulatedAdapter>;
-beforeEach(() => {
+beforeEach(async () => {
   window.location.hash = '';
   simulation = createSimulatedAdapter();
   window.tradia = simulation.api;
+  await simulation.api.settings.set({ disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION });
 });
 afterEach(() => {
   cleanup();
@@ -21,7 +23,9 @@ const statusbar = () => within(screen.getByRole('contentinfo', { name: 'Estado d
 describe('Estructura de Tradia', () => {
   it('navega entre Inicio y Ajustes con teclado y conserva la barra de estado', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await act(async () => {
+      render(<App />);
+    });
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
     const settings = screen.getByRole('link', { name: 'Ajustes' });
     settings.focus();
@@ -36,10 +40,12 @@ describe('Estructura de Tradia', () => {
     ).toBeInTheDocument();
   });
 
-  it('muestra carga sin atribuir conexión o actividad antes de recibir datos', () => {
+  it('muestra carga sin atribuir conexión o actividad antes de recibir datos', async () => {
     vi.spyOn(simulation.api.connectivity, 'getState').mockReturnValue(new Promise(() => {}));
     vi.spyOn(simulation.api.agents, 'getState').mockReturnValue(new Promise(() => {}));
-    render(<App />);
+    await act(async () => {
+      render(<App />);
+    });
     expect(statusbar().getByText('Cargando conexión…')).toBeInTheDocument();
     expect(statusbar().getByText('Cargando agentes…')).toBeInTheDocument();
     expect(statusbar().queryByText('En línea')).not.toBeInTheDocument();
@@ -47,7 +53,9 @@ describe('Estructura de Tradia', () => {
   });
 
   it('actualiza conexión, pausa y latido mediante eventos del adaptador', async () => {
-    render(<App />);
+    await act(async () => {
+      render(<App />);
+    });
     await statusbar().findByText('Comprobando conexión');
     act(() => {
       simulation.emitConnectivity({
@@ -90,7 +98,9 @@ describe('Estructura de Tradia', () => {
   it('muestra fallos de consulta y se recupera con eventos posteriores', async () => {
     vi.spyOn(simulation.api.connectivity, 'getState').mockRejectedValue(new Error('IPC'));
     vi.spyOn(simulation.api.agents, 'getState').mockRejectedValue(new Error('IPC'));
-    render(<App />);
+    await act(async () => {
+      render(<App />);
+    });
     expect(await statusbar().findByText('Conexión no disponible')).toBeInTheDocument();
     expect(await statusbar().findByText('Agentes no disponibles')).toBeInTheDocument();
     act(() =>
@@ -114,6 +124,7 @@ describe('Estructura de Tradia', () => {
       }),
     );
     const { unmount } = render(<App />);
+    await act(async () => {});
     act(() =>
       simulation.emitConnectivity({
         status: 'offline',

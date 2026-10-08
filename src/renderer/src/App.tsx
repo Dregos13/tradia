@@ -10,7 +10,11 @@ type Page = 'inicio' | 'ajustes';
 const currentPage = (): Page => (window.location.hash === '#ajustes' ? 'ajustes' : 'inicio');
 
 export default function App() {
-  return <RiskGate><AppShell /></RiskGate>;
+  return (
+    <RiskGate>
+      <AppShell />
+    </RiskGate>
+  );
 }
 
 function AppShell() {
@@ -32,7 +36,15 @@ function AppShell() {
     previousPage.current = page;
     heading.current?.focus();
   }, [page]);
-  if (legalOpen) return <RiskDisclaimer onClose={() => { setLegalOpen(false); requestAnimationFrame(() => legalButton.current?.focus()); }} />;
+  if (legalOpen)
+    return (
+      <RiskDisclaimer
+        onClose={() => {
+          setLegalOpen(false);
+          requestAnimationFrame(() => legalButton.current?.focus());
+        }}
+      />
+    );
   return (
     <div className="app">
       <a className="skip-link" href="#contenido">
@@ -67,13 +79,23 @@ function AppShell() {
             <section className="empty" aria-label="Preferencias">
               <h3>Ajustes pendientes de integración</h3>
               <p>
-                El inicio automático, las notificaciones, las claves de API se
-                incorporarán aquí.
+                El inicio automático, las notificaciones, las claves de API se incorporarán aquí.
               </p>
             </section>
             <section className="settings-section" aria-labelledby="legal-heading">
-              <div><h2 id="legal-heading">Legal</h2><p>Información siempre accesible.</p></div>
-              <div className="legal-panel"><p>Tradia no es asesoramiento financiero. El modo predeterminado usa señales informativas y paper trading.</p><button ref={legalButton} className="legal-link" onClick={() => setLegalOpen(true)}>Ver aviso de riesgo, versión {RISK_DISCLAIMER_VERSION}</button></div>
+              <div>
+                <h2 id="legal-heading">Legal</h2>
+                <p>Información siempre accesible.</p>
+              </div>
+              <div className="legal-panel">
+                <p>
+                  Tradia no es asesoramiento financiero. El modo predeterminado usa señales
+                  informativas y paper trading.
+                </p>
+                <button ref={legalButton} className="legal-link" onClick={() => setLegalOpen(true)}>
+                  Ver aviso de riesgo, versión {RISK_DISCLAIMER_VERSION}
+                </button>
+              </div>
             </section>
           </>
         )}

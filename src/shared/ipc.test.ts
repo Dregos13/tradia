@@ -69,6 +69,7 @@ describe('guardas de entrada', () => {
   it('valida patches de ajustes y rechaza claves ajenas', () => {
     expect(isSettingsPatch({ autostart: true })).toBe(true);
     expect(isSettingsPatch({ disclaimerAcceptedVersion: '1.0' })).toBe(true);
+    expect(isSettingsPatch({ disclaimerAcceptedAt: '2026-10-08T10:00:00Z' })).toBe(false);
     expect(isSettingsPatch({ autostart: 'sí' })).toBe(false);
     expect(isSettingsPatch({})).toBe(false);
     expect(isSettingsPatch({ autostart: true, apiKey: 'sk-...' })).toBe(false);

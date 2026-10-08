@@ -138,3 +138,19 @@ inventados. La simulación nunca se activa en una compilación de producción.
 
 Los controles de Ajustes, el bloqueo del aviso de riesgo y el banner de desconexión
 se integran en las siguientes tareas de frontend.
+
+### Aviso de riesgo
+
+En una instalación limpia, la interfaz permanece bloqueada hasta aceptar el
+aviso vigente (`src/shared/riskDisclaimer.ts`, texto de `docs/alcance.md` §7.4).
+`settings:set` guarda la versión y una fecha ISO generada en main en una
+transacción SQLite. El renderer no puede escribir la fecha. Para publicar un
+texto nuevo, actualizar el documento, el texto compartido y
+`RISK_DISCLAIMER_VERSION`: las versiones anteriores vuelven a pedir aceptación.
+El aviso se consulta sin aceptar de nuevo en Ajustes > Legal; al volver se
+restaura el foco del botón. Los errores de carga o guardado mantienen el bloqueo.
+
+Para comprobar el primer arranque, usar una carpeta temporal con
+`npm run build` seguido de
+`npx electron . --user-data-dir=/ruta/temporal/tradia` o una instalación de
+prueba sin datos previos. No borrar el `userData` habitual con datos personales.
