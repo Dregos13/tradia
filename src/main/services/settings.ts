@@ -11,6 +11,7 @@ import {
   type SettingsPatch,
 } from '../../shared/ipc';
 import type { ServiceContext } from './index';
+import { applyOsAutostart, readOsAutostart } from './tray';
 
 /**
  * Ajustes de la app, persistidos en la tabla `settings` (clave-valor, sin
@@ -131,12 +132,16 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
 export function registerSettings(ctx: ServiceContext): SettingsService {
   const service = createSettingsService(ctx.services.storage?.getDb() ?? null);
 
-  ipcMain.handle(IPC_CHANNELS.settings.get, () => service.get());
+  const actualSettings = () => ({ ...service.get(), autostart: readOsAutostart() });
+  ipcMain.handle(IPC_CHANNELS.settings.get, actualSettings);
   ipcMain.handle(IPC_CHANNELS.settings.set, (_event, patch: unknown) => {
     if (!isSettingsPatch(patch)) {
       throw new IpcValidationError(IPC_CHANNELS.settings.set, 'patch de ajustes inválido');
     }
-    return service.set(patch);
+    if (patch.autostart !== undefined) applyOsAutostart(patch.autostart);
+    service.set(patch);
+    ctx.services.tray?.refresh();
+    return actualSettings();
   });
 
   return service;

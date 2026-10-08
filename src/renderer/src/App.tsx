@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { RiskGate } from './components/RiskGate';
 import { RiskDisclaimer } from './components/RiskDisclaimer';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
+import { SettingsPage } from './components/SettingsPage';
 import { HomePage } from './components/HomePage';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
@@ -72,16 +73,7 @@ function AppShell() {
           <HomePage state={state} />
         ) : (
           <>
-            <div className="headline">
-              <h2>Tu aplicación, bajo tus reglas.</h2>
-              <p>Preferencias de la aplicación de escritorio.</p>
-            </div>
-            <section className="empty" aria-label="Preferencias">
-              <h3>Ajustes pendientes de integración</h3>
-              <p>
-                El inicio automático, las notificaciones, las claves de API se incorporarán aquí.
-              </p>
-            </section>
+            <SettingsPage state={state} />
             <section className="settings-section" aria-labelledby="legal-heading">
               <div>
                 <h2 id="legal-heading">Legal</h2>

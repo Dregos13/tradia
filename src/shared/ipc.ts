@@ -16,6 +16,11 @@ export const IPC_CHANNELS = {
   connectivity: {
     getState: 'connectivity:get-state',
     checkNow: 'connectivity:check-now',
+    /**
+     * Solo desarrollo (la app empaquetada no registra el handler): fuerza el
+     * modo simulación de 'sin conexión' para las pruebas manuales.
+     */
+    simulateOffline: 'connectivity:simulate-offline',
     /** Evento main → renderer: el estado de conexión cambió. */
     changed: 'connectivity:changed',
   },

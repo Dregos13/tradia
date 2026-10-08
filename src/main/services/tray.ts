@@ -101,7 +101,7 @@ function loadTrayIcon(state: TrayVisualState): NativeImage {
 }
 
 /** Aplica el inicio automático del SO según la plataforma. */
-function applyOsAutostart(enabled: boolean): void {
+export function applyOsAutostart(enabled: boolean): void {
   if (process.platform === 'linux') {
     setLinuxAutostart(enabled, {
       home: app.getPath('home'),
@@ -124,7 +124,7 @@ function applyOsAutostart(enabled: boolean): void {
 }
 
 /** Lee el estado real del inicio automático en el SO (para la casilla). */
-function readOsAutostart(): boolean {
+export function readOsAutostart(): boolean {
   try {
     if (process.platform === 'linux') {
       return isLinuxAutostartEnabled({
