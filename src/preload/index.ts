@@ -83,6 +83,8 @@ const api: TradiaApi = {
           simulateOffline: (offline: boolean) =>
             ipcRenderer.invoke(IPC_CHANNELS.connectivity.simulateOffline, offline),
           getContextIsolation: () => process.contextIsolated,
+          advanceMarketClock: (ms: number) =>
+            ipcRenderer.invoke(IPC_CHANNELS.market.advanceClock, ms),
         },
       }
     : {}),

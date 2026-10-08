@@ -134,6 +134,44 @@ Todos los canales están tipados en `src/shared/ipc.ts`:
 - `settings`: `get`, `set` (autostart y aceptación del aviso).
 - `secrets`: `set-key`, `has-key`, `delete-key` (sin `get` desde el renderer).
 - `agents`: `pause`, `resume`, `get-state`, eventos `changed` y `heartbeat`.
+- `watchlist`: `list`, `add`, `remove`, `add-universe`.
+- `market`: `get-bars`, `refresh-now`, evento `updated` y el canal de
+  desarrollo `advance-clock` (solo sin empaquetar).
+- `macro`: `get-series`.
+- `data-status`: `get`, evento `changed`.
+
+### Datos de mercado
+
+El servicio de mercado (`src/main/market/ingestion.ts`) descarga 5 años de
+velas diarias OHLCV al añadir un ticker a la lista de seguimiento (máx. 25)
+y luego actualiza de forma incremental desde la última vela guardada. Cada
+lote pasa por la limpieza (`src/main/market/cleaning/`: deduplicado, huecos,
+valores anómalos y ajuste hacia atrás por splits y dividendos) y se guarda
+versionado en SQLite (`data_batches`, `bars`, `corporate_actions`,
+`quality_flags`), con la salud del dato en `data_status`.
+
+**Proveedor**: se usa Tiingo (EOD diario; cuota ~50 símbolos/hora y 1000
+peticiones/día, respetada por el limitador local) cuando hay una clave
+guardada en Ajustes → Proveedores de datos (`secrets.setKey('tiingo', …)`;
+la clave viaja en la cabecera `Authorization`, nunca en la URL ni en los
+logs). Sin clave no hay proveedor y la app muestra el estado vacío. Con
+`TRADIA_E2E=1` y **sin empaquetar** se usa un adaptador simulado
+determinista rotulado «Datos simulados».
+
+**Horario de la actualización diaria**: se ejecuta al cierre de NYSE más un
+margen de 75 minutos (16:00 ET + 75 min ≈ 21:15 UTC, normalmente **23:15 en
+Madrid**; ~22:15 en las semanas de desfase de horario entre EE. UU. y
+Europa —mediados de marzo y finales de octubre—, calculado con `Intl` y las
+zonas IANA en `src/main/market/calendar.ts`). Si la pasada queda incompleta
+reintenta cada 30 minutos, hasta 4 veces. Al arrancar la app y al volver de
+la suspensión (`powerMonitor` resume) se recuperan los cierres perdidos, y
+con `connectivity` en «sin conexión» no se llama al proveedor.
+
+**Gancho de desarrollo** (solo sin empaquetar): el canal
+`market:advance-clock` adelanta el reloj interno del servicio y reevalúa el
+trabajo pendiente al instante, sin esperar al horario real. En modo E2E se
+expone como `window.tradia.testing.advanceMarketClock(ms)` y devuelve
+`{ now }` con el nuevo instante.
 
 ### Renderer y simulación
 

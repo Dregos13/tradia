@@ -56,6 +56,7 @@ describe('contrato IPC', () => {
       getBars: 'market:get-bars',
       refreshNow: 'market:refresh-now',
       updated: 'market:updated',
+      advanceClock: 'market:advance-clock',
     });
     expect(IPC_CHANNELS.macro.getSeries).toBe('macro:get-series');
     expect(IPC_CHANNELS.dataStatus).toEqual({

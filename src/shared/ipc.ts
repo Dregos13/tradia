@@ -62,6 +62,12 @@ export const IPC_CHANNELS = {
     refreshNow: 'market:refresh-now',
     /** Evento main → renderer: llegaron velas nuevas de un ticker. */
     updated: 'market:updated',
+    /**
+     * Solo desarrollo (la app empaquetada no registra el handler): adelanta
+     * el reloj interno del servicio de mercado para probar la actualización
+     * diaria sin esperar al horario real.
+     */
+    advanceClock: 'market:advance-clock',
   },
   macro: {
     getSeries: 'macro:get-series',
@@ -251,6 +257,12 @@ export interface MarketUpdatedEvent {
   updatedAt: string;
 }
 
+/** Respuesta del gancho de desarrollo `market:advance-clock`. */
+export interface MarketClockAdvanceResult {
+  /** Instante del reloj interno tras el avance, ISO 8601. */
+  now: string;
+}
+
 /** Estados de salud del dato, compartidos por main (data_status) y renderer. */
 export const DATA_STATUS_STATES = [
   'fiable',
@@ -359,6 +371,8 @@ export interface TradiaApi {
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
     getContextIsolation(): boolean;
+    /** Adelanta el reloj del servicio de mercado `ms` y reevalúa su trabajo. */
+    advanceMarketClock(ms: number): Promise<MarketClockAdvanceResult>;
   };
 }
 

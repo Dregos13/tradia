@@ -5,6 +5,8 @@ import { registerSecrets, type SecretsService } from './secrets';
 import { registerSettings, type SettingsService } from './settings';
 import { registerStorage, type StorageService } from './storage';
 import { registerTray, type TrayService } from './tray';
+import { registerMacro, type MacroService } from '../market/macro';
+import { registerMarket, type MarketIngestionService } from '../market/ingestion';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -15,6 +17,10 @@ export interface MainServices {
   tray: TrayService;
   scheduler: SchedulerService;
   connectivity: ConnectivityService;
+  /** Series macro (FRED/VIX): refresco diario programado y `macro:get-series`. */
+  macro: MacroService;
+  /** Ingesta de velas: histórico, actualización diaria y watchlist/getBars. */
+  market: MarketIngestionService;
 }
 
 export interface ServiceContext {
@@ -38,5 +44,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.scheduler = registerScheduler(ctx);
   services.tray = registerTray(ctx);
   services.connectivity = registerConnectivity(ctx);
+  services.macro = registerMacro(ctx);
+  services.market = registerMarket(ctx);
   return services as MainServices;
 }
