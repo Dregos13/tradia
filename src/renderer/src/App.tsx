@@ -1,60 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { HomePage } from './components/HomePage';
+import { StatusBar } from './components/SystemStatus';
+import { useSystemState } from './hooks/useSystemState';
 
-import type { AgentsState, AppSettings, ConnectivityState } from '../../shared/ipc';
+type Page = 'inicio' | 'ajustes';
+const currentPage = (): Page => (window.location.hash === '#ajustes' ? 'ajustes' : 'inicio');
 
-/**
- * Pantalla provisional del esqueleto.
- * La tarea «renderer-shell» (frontend) construye aquí la maquetación real
- * con los tokens del sistema de diseño.
- */
 export default function App() {
-  const [connectivity, setConnectivity] = useState<ConnectivityState | null>(null);
-  const [agents, setAgents] = useState<AgentsState | null>(null);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-
+  const [page, setPage] = useState<Page>(currentPage);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const state = useSystemState();
   useEffect(() => {
-    if (!window.tradia) return;
-    window.tradia.connectivity.getState().then(setConnectivity).catch(console.error);
-    window.tradia.agents.getState().then(setAgents).catch(console.error);
-    window.tradia.settings.get().then(setSettings).catch(console.error);
-    const offConnectivity = window.tradia.connectivity.onChanged(setConnectivity);
-    const offAgents = window.tradia.agents.onChanged(setAgents);
-    const offHeartbeat = window.tradia.agents.onHeartbeat((at) =>
-      setAgents((prev) => (prev ? { ...prev, lastHeartbeatAt: at } : prev)),
-    );
-    return () => {
-      offConnectivity();
-      offAgents();
-      offHeartbeat();
+    const navigate = () => {
+      setPage(currentPage());
     };
+    window.addEventListener('hashchange', navigate);
+    return () => window.removeEventListener('hashchange', navigate);
   }, []);
-
-  const online = connectivity?.status !== 'offline';
-  const disclaimerAccepted = settings?.disclaimerAcceptedVersion != null;
-
+  const previousPage = useRef(page);
+  useEffect(() => {
+    if (previousPage.current === page) return;
+    previousPage.current = page;
+    heading.current?.focus();
+  }, [page]);
   return (
-    <main className="app">
-      <header>
-        <h1>Tradia</h1>
-        <p className="subtitle">Agentes de trading — señales y paper trading</p>
+    <div className="app">
+      <a className="skip-link" href="#contenido">
+        Saltar al contenido
+      </a>
+      <aside className="side">
+        <div className="logo">Tradia</div>
+        <nav className="nav" aria-label="Principal">
+          <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
+            Inicio
+          </a>
+          <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
+            Ajustes
+          </a>
+        </nav>
+      </aside>
+      <header className="top">
+        <h1 ref={heading} tabIndex={-1}>
+          {page === 'inicio' ? 'Estado del sistema' : 'Ajustes'}
+        </h1>
+        <span className="mode">Señales + paper trading</span>
       </header>
-      <section className="panel">
-        <h2>Estado</h2>
-        <ul>
-          <li>Conexión: {online ? 'En línea' : 'Sin conexión'}</li>
-          <li>
-            Agentes: {agents?.paused ? `En pausa (${agents.pauseReason ?? 'manual'})` : 'Activos'}
-          </li>
-          <li>
-            Último latido:{' '}
-            {agents?.lastHeartbeatAt ? new Date(agents.lastHeartbeatAt).toLocaleTimeString() : '—'}
-          </li>
-          <li>Aviso de riesgo: {disclaimerAccepted ? 'Aceptado' : 'Pendiente'}</li>
-        </ul>
-      </section>
-      <footer className="statusbar" aria-live="polite">
-        {online ? 'En línea' : 'Sin conexión'} · Tradia se ejecuta en segundo plano
-      </footer>
-    </main>
+      <main id="contenido" className="main" tabIndex={-1}>
+        {page === 'inicio' ? (
+          <HomePage state={state} />
+        ) : (
+          <>
+            <div className="headline">
+              <h2>Tu aplicación, bajo tus reglas.</h2>
+              <p>Preferencias de la aplicación de escritorio.</p>
+            </div>
+            <section className="empty" aria-label="Preferencias">
+              <h3>Ajustes pendientes de integración</h3>
+              <p>
+                El inicio automático, las notificaciones, las claves de API y el aviso legal se
+                incorporarán aquí.
+              </p>
+            </section>
+          </>
+        )}
+      </main>
+      <StatusBar state={state} />
+    </div>
   );
 }

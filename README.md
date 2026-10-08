@@ -80,3 +80,21 @@ Todos los canales están tipados en `src/shared/ipc.ts`:
 - `settings`: `get`, `set` (autostart y aceptación del aviso).
 - `secrets`: `set-key`, `has-key`, `delete-key` (sin `get` desde el renderer).
 - `agents`: `pause`, `resume`, `get-state`, eventos `changed` y `heartbeat`.
+
+### Renderer y simulación
+
+La estructura de interfaz vive en `src/renderer/src`: `App.tsx` gestiona Inicio/Ajustes,
+`hooks/useSystemState.ts` escucha el contrato IPC y `components/SystemStatus.tsx`
+compone la barra de estado. `tokens.ts` traduce directamente el JSON aprobado de
+`.orquesta/design/fase-0-1/tokens.json` a variables CSS con tema del sistema.
+
+Electron usa siempre `window.tradia` del preload. Para previsualizar en un navegador
+sin preload, iniciar `VITE_TRADIA_SIMULATED=true npm run dev` y abrir la URL local de
+Vite. La simulación se identifica por el indicador «Comprobando conexión» y no
+emite notificaciones nativas ni almacena claves. En pruebas se instala explícitamente
+`createSimulatedAdapter().api` en `window.tradia`; sus métodos `emitConnectivity`,
+`emitAgents` y `emitHeartbeat` permiten controlar los estados sin datos de mercado
+inventados. La simulación nunca se activa en una compilación de producción.
+
+Los controles de Ajustes, el bloqueo del aviso de riesgo y el banner de desconexión
+se integran en las siguientes tareas de frontend.
