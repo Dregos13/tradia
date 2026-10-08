@@ -1,6 +1,8 @@
 import { DataProvidersSettings } from './DataProvidersSettings';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  ALERT_LEAD_MINUTES,
+  type AlertPrefs,
   NOTIFICATION_LEVELS,
   type NotificationLevel,
   type NotificationPrefs,
@@ -246,6 +248,79 @@ function NotificationSettings() {
     </Section>
   );
 }
+function NewsAlertSettings() {
+  const [prefs, setPrefs] = useState<AlertPrefs | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    let active = true;
+    void window.tradia.alerts
+      .getPrefs()
+      .then((value) => {
+        if (active) setPrefs(value);
+      })
+      .catch(() => {
+        if (active)
+          setError('No se pudieron cargar los avisos de noticias. Vuelve a abrir Ajustes.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  async function save(value: string) {
+    const leadMinutes = ALERT_LEAD_MINUTES.find((minutes) => String(minutes) === value);
+    if (!prefs || leadMinutes === undefined || busy) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      setPrefs(await window.tradia.alerts.setPrefs({ leadMinutes }));
+      setMessage('Antelación guardada.');
+    } catch {
+      setError('No se pudo guardar la antelación. Inténtalo de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Section
+      title="Avisos de noticias"
+      description="Antelación de los avisos de eventos de alto impacto, también en segundo plano."
+    >
+      <div className="settings-form" aria-busy={busy}>
+        <label htmlFor="news-alert-lead">Minutos de antelación</label>
+        <select
+          id="news-alert-lead"
+          value={prefs?.leadMinutes ?? 30}
+          disabled={!prefs || busy}
+          onChange={(e) => void save(e.target.value)}
+        >
+          {ALERT_LEAD_MINUTES.map((minutes) => (
+            <option key={minutes} value={minutes}>
+              {minutes} minutos
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="settings-message">
+        Los avisos de noticias críticas siguen el interruptor «Notificaciones: Crítica» de la
+        sección Notificaciones.
+      </p>
+      {!prefs && !error && <p role="status">Cargando avisos de noticias…</p>}
+      {message && (
+        <p className="settings-message success" role="status">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="settings-message error" role="alert">
+          {error}
+        </p>
+      )}
+    </Section>
+  );
+}
 function ApiKeys() {
   const [provider, setProvider] = useState('');
   const [key, setKey] = useState('');
@@ -389,6 +464,7 @@ export function SettingsPage({ state }: { state: SystemState }) {
       </div>
       <GeneralSettings state={state} />
       <NotificationSettings />
+      <NewsAlertSettings />
       <DataProvidersSettings />
       <ApiKeys />
     </section>

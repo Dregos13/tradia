@@ -25,7 +25,16 @@ export function tokenStylesheet(): string {
       ),
       'state',
     ) +
-    ['candle', 'series', 'dataStatus', 'reliability', 'newsPriority', 'confirmation']
+    [
+      'candle',
+      'series',
+      'dataStatus',
+      'reliability',
+      'newsPriority',
+      'confirmation',
+      'impactLevel',
+      'calendar',
+    ]
       .map((group) =>
         declarations(
           Object.fromEntries(
@@ -35,6 +44,8 @@ export function tokenStylesheet(): string {
                 reliability: news.color.reliability,
                 newsPriority: news.color.newsPriority,
                 confirmation: news.color.confirmation,
+                impactLevel: news.color.impactLevel,
+                calendar: news.color.calendar,
               }[group as 'candle'],
             ).flatMap(([key, token]) => {
               const values = token as {

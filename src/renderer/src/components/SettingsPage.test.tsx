@@ -55,7 +55,10 @@ it('guarda preferencias, respeta niveles desactivados y prueba el nivel elegido'
     critica: true,
   });
   expect(screen.getByRole('button', { name: 'Enviar prueba' })).toBeDisabled();
-  await userEvent.selectOptions(screen.getByRole('combobox'), 'critica');
+  await userEvent.selectOptions(
+    screen.getByRole('combobox', { name: 'Nivel de la notificación de prueba' }),
+    'critica',
+  );
   await userEvent.click(screen.getByRole('button', { name: 'Enviar prueba' }));
   expect(test).toHaveBeenCalledWith('critica');
   expect(await screen.findByText(/Prueba enviada/)).toBeInTheDocument();
@@ -126,4 +129,16 @@ it('ignora respuestas antiguas de proveedores y muestra carga y errores', async 
       within(screen.getByRole('region', { name: 'Claves de API' })).getByText('Sin clave guardada'),
     ).toBeInTheDocument(),
   );
+});
+
+it('guarda la antelación mediante alerts y conserva el valor si falla', async () => {
+  await mount();
+  const input = screen.getByLabelText('Minutos de antelación');
+  await userEvent.selectOptions(input, '45');
+  expect(await simulation.api.alerts.getPrefs()).toEqual({ leadMinutes: 45 });
+  expect(input).toHaveValue('45');
+  vi.spyOn(simulation.api.alerts, 'setPrefs').mockRejectedValue(new Error('IPC'));
+  await userEvent.selectOptions(input, '60');
+  expect(input).toHaveValue('45');
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar la antelación');
 });

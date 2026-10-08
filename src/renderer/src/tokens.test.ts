@@ -32,7 +32,13 @@ describe('Tokens aprobados', () => {
 it('traduce las insignias del feed en ambos temas', () => {
   const css = tokenStylesheet();
   for (const mode of ['light', 'dark'] as const)
-    for (const group of ['reliability', 'newsPriority', 'confirmation'] as const)
+    for (const group of [
+      'reliability',
+      'newsPriority',
+      'confirmation',
+      'impactLevel',
+      'calendar',
+    ] as const)
       for (const [name, token] of Object.entries(news.color[group])) {
         expect(css).toContain(`--${group}-${name}:${token[mode]};`);
         expect(css).toContain(`--${group}-${name}-surface:${token[`${mode}Surface`]};`);
