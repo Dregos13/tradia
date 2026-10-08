@@ -3,6 +3,7 @@ import { MigrationError } from '../migrator';
 
 import raw001 from './001_init.sql?raw';
 import raw002 from './002_app_state.sql?raw';
+import raw003 from './003_market_data.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -33,4 +34,5 @@ function parseSqlMigration(version: number, name: string, raw: string): Migratio
 export const MIGRATIONS: Migration[] = [
   parseSqlMigration(1, 'init', raw001),
   parseSqlMigration(2, 'app-state', raw002),
+  parseSqlMigration(3, 'market-data', raw003),
 ];

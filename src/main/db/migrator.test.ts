@@ -18,8 +18,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2]);
+    expect(applied).toEqual([1, 2, 3]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3]);
     db.close();
   });
 
@@ -28,22 +28,30 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(2);
+    expect(appliedMigrations(db)).toHaveLength(3);
     db.close();
   });
 
-  it('crea las tablas de dominio y de estado de la app', () => {
+  it('crea las tablas de dominio, de estado de la app y de datos de mercado', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
     expect(tableNames(db)).toEqual([
+      'bars',
+      'corporate_actions',
+      'data_batches',
+      'data_status',
       'diario',
+      'macro_observations',
+      'macro_series',
       'noticias',
+      'quality_flags',
       'schema_migrations',
       'secrets',
       'senales',
       'series',
       'settings',
+      'watchlist',
     ]);
     db.close();
   });
@@ -63,6 +71,10 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(3);
+    expect(tableNames(db)).not.toContain('bars');
+    expect(tableNames(db)).toContain('series');
+
     expect(rollbackLast(db, MIGRATIONS)).toBe(2);
     expect(tableNames(db)).not.toContain('secrets');
     expect(tableNames(db)).toContain('series');
@@ -78,8 +90,8 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([2]);
-    expect(tableNames(db)).toContain('secrets');
+    expect(migrate(db, MIGRATIONS)).toEqual([3]);
+    expect(tableNames(db)).toContain('watchlist');
     db.close();
   });
 

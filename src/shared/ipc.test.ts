@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest';
 
 import {
   allIpcChannels,
+  INITIAL_UNIVERSE_TICKERS,
   IPC_CHANNELS,
+  isDataStatusState,
   isE2eEnabled,
+  isGetBarsRequest,
+  isIsoDate,
+  isMacroSeriesQuery,
   isNotificationLevel,
   isNotificationPayload,
   isNotificationPrefs,
   isSettingsPatch,
+  isTicker,
   NOTIFICATION_LEVELS,
+  WATCHLIST_MAX_ITEMS,
 } from './ipc';
 
 describe('contrato IPC', () => {
@@ -20,18 +27,46 @@ describe('contrato IPC', () => {
 
   it('todos los canales usan el prefijo dominio:accion', () => {
     for (const channel of allIpcChannels()) {
-      expect(channel).toMatch(/^[a-z]+:[a-z-]+$/);
+      expect(channel).toMatch(/^[a-z-]+:[a-z-]+$/);
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets y agents', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro y dataStatus', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'connectivity',
+      'dataStatus',
+      'macro',
+      'market',
       'notifications',
       'secrets',
       'settings',
+      'watchlist',
     ]);
+  });
+
+  it('incluye los canales de mercado del contrato', () => {
+    expect(IPC_CHANNELS.watchlist).toEqual({
+      list: 'watchlist:list',
+      add: 'watchlist:add',
+      remove: 'watchlist:remove',
+      addUniverse: 'watchlist:add-universe',
+    });
+    expect(IPC_CHANNELS.market).toEqual({
+      getBars: 'market:get-bars',
+      refreshNow: 'market:refresh-now',
+      updated: 'market:updated',
+    });
+    expect(IPC_CHANNELS.macro.getSeries).toBe('macro:get-series');
+    expect(IPC_CHANNELS.dataStatus).toEqual({
+      get: 'data-status:get',
+      changed: 'data-status:changed',
+    });
+  });
+
+  it('el universo inicial cabe en el límite de la lista', () => {
+    expect(INITIAL_UNIVERSE_TICKERS.length).toBeLessThanOrEqual(WATCHLIST_MAX_ITEMS);
+    expect(new Set(INITIAL_UNIVERSE_TICKERS).size).toBe(INITIAL_UNIVERSE_TICKERS.length);
   });
 
   it('secrets no expone ningún canal de lectura', () => {
@@ -75,6 +110,49 @@ describe('guardas de entrada', () => {
     expect(isSettingsPatch({})).toBe(false);
     expect(isSettingsPatch({ autostart: true, apiKey: 'sk-...' })).toBe(false);
     expect(isSettingsPatch(null)).toBe(false);
+  });
+
+  it('valida tickers y fechas ISO reales', () => {
+    expect(isTicker('AAPL')).toBe(true);
+    expect(isTicker('BRK.B')).toBe(true);
+    expect(isTicker('')).toBe(false);
+    expect(isTicker('DROP TABLE bars;--')).toBe(false);
+    expect(isTicker(42)).toBe(false);
+
+    expect(isIsoDate('2026-10-08')).toBe(true);
+    expect(isIsoDate('2020-02-30')).toBe(false);
+    expect(isIsoDate('08/10/2026')).toBe(false);
+    expect(isIsoDate('2026-10-08T23:15:00Z')).toBe(false);
+    expect(isIsoDate(20261008)).toBe(false);
+  });
+
+  it('valida peticiones de velas con rango opcional', () => {
+    expect(isGetBarsRequest({ ticker: 'AAPL' })).toBe(true);
+    expect(isGetBarsRequest({ ticker: 'AAPL', desde: '2021-01-01', hasta: '2026-01-01' })).toBe(
+      true,
+    );
+    expect(isGetBarsRequest({ ticker: 'a a' })).toBe(false);
+    expect(isGetBarsRequest({ ticker: 'AAPL', desde: '2026-01-01', hasta: '2021-01-01' })).toBe(
+      false,
+    );
+    expect(isGetBarsRequest({ ticker: 'AAPL', desde: 'ayer' })).toBe(false);
+    expect(isGetBarsRequest({ ticker: 'AAPL', apiKey: 'x' })).toBe(false);
+    expect(isGetBarsRequest('AAPL')).toBe(false);
+  });
+
+  it('valida la consulta macro y los estados de salud del dato', () => {
+    expect(isMacroSeriesQuery(undefined)).toBe(true);
+    expect(isMacroSeriesQuery({})).toBe(true);
+    expect(isMacroSeriesQuery({ desde: '2024-01-01' })).toBe(true);
+    expect(isMacroSeriesQuery({ desde: 'mañana' })).toBe(false);
+    expect(isMacroSeriesQuery({ otra: 1 })).toBe(false);
+    expect(isMacroSeriesQuery(null)).toBe(false);
+
+    for (const state of ['fiable', 'actualizando', 'desactualizado', 'no-fiable']) {
+      expect(isDataStatusState(state)).toBe(true);
+    }
+    expect(isDataStatusState('caido')).toBe(false);
+    expect(isDataStatusState(null)).toBe(false);
   });
 });
 
