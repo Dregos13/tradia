@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   allIpcChannels,
+  ALERT_LEAD_MINUTES,
   CALENDAR_EVENT_KINDS,
   IMPACT_LEVELS,
   INITIAL_UNIVERSE_TICKERS,
   IPC_CHANNELS,
   isAddSourceRequest,
+  isAlertPrefs,
   isCalendarListQuery,
   isDataStatusState,
   isE2eEnabled,
@@ -50,9 +52,10 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news y calendar', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar y alerts', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
+      'alerts',
       'calendar',
       'connectivity',
       'dataStatus',
@@ -106,6 +109,11 @@ describe('contrato IPC', () => {
       list: 'calendar:list',
       updated: 'calendar:updated',
     });
+    expect(IPC_CHANNELS.alerts).toEqual({
+      getPrefs: 'alerts:get-prefs',
+      setPrefs: 'alerts:set-prefs',
+      navigate: 'alerts:navigate',
+    });
   });
 
   it('los ganchos E2E de noticias son canales marcados como solo desarrollo', () => {
@@ -144,6 +152,32 @@ describe('guardas de entrada', () => {
     expect(isNotificationPayload({ level: 'info', title: 'T' })).toBe(false);
     expect(isNotificationPayload('texto')).toBe(false);
     expect(isNotificationPayload(null)).toBe(false);
+  });
+
+  it('valida la ruta opcional del payload de notificación', () => {
+    expect(
+      isNotificationPayload({ level: 'alerta', title: 'T', body: 'b', navigateTo: 'calendario' }),
+    ).toBe(true);
+    expect(
+      isNotificationPayload({ level: 'alerta', title: 'T', body: 'b', navigateTo: 'noticias' }),
+    ).toBe(true);
+    expect(
+      isNotificationPayload({ level: 'alerta', title: 'T', body: 'b', navigateTo: 'mercado' }),
+    ).toBe(false);
+    expect(isNotificationPayload({ level: 'alerta', title: 'T', body: 'b', navigateTo: 3 })).toBe(
+      false,
+    );
+  });
+
+  it('valida las preferencias de avisos (antelación del diseño)', () => {
+    for (const leadMinutes of ALERT_LEAD_MINUTES) {
+      expect(isAlertPrefs({ leadMinutes })).toBe(true);
+    }
+    expect(isAlertPrefs({ leadMinutes: 20 })).toBe(false);
+    expect(isAlertPrefs({ leadMinutes: '30' })).toBe(false);
+    expect(isAlertPrefs({ leadMinutes: 30, extra: true })).toBe(false);
+    expect(isAlertPrefs({})).toBe(false);
+    expect(isAlertPrefs(null)).toBe(false);
   });
 
   it('valida preferencias de notificación', () => {

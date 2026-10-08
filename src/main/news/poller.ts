@@ -1054,13 +1054,11 @@ export function registerNews(ctx: ServiceContext): NewsPollerService {
           'se esperaba un número de ms positivo',
         );
       }
-      const result = service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
-      // El contrato adelanta también el reloj del calendario (se registra
-      // después del lector; por eso se busca aquí y no en el arranque).
-      const calendar = (ctx.services as { calendar?: { advanceClock?: (ms: number) => unknown } })
-        .calendar;
-      calendar?.advanceClock?.(deltaMs);
-      return result;
+      // El contrato adelanta también el reloj del calendario y el de los
+      // avisos: ambos se registran después del lector y encadenan su reloj
+      // envolviendo `service.advanceClock` (ver registerCalendar y
+      // registerAlerts), así que aquí no se les llama otra vez.
+      return service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
     });
   }
 

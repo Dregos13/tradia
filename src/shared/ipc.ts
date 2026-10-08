@@ -110,6 +110,12 @@ export const IPC_CHANNELS = {
     /** Evento main → renderer: el calendario se recalculó o llegaron fechas nuevas. */
     updated: 'calendar:updated',
   },
+  alerts: {
+    getPrefs: 'alerts:get-prefs',
+    setPrefs: 'alerts:set-prefs',
+    /** Evento main → renderer: el clic en una notificación pide abrir una vista. */
+    navigate: 'alerts:navigate',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -135,10 +141,20 @@ export interface ConnectivityState {
 export const NOTIFICATION_LEVELS = ['info', 'alerta', 'critica'] as const;
 export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
 
+/**
+ * Vistas a las que puede llevar el clic de una notificación nativa: el
+ * aviso previo de un evento abre Calendario y el de una noticia, Noticias.
+ * Son las rutas por hash del renderer (`#noticias`, `#calendario`).
+ */
+export const NOTIFICATION_ROUTES = ['noticias', 'calendario'] as const;
+export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
+
 export interface NotificationPayload {
   level: NotificationLevel;
   title: string;
   body: string;
+  /** Vista a abrir al hacer clic; sin ella el clic solo enfoca la ventana. */
+  navigateTo?: NotificationRoute;
 }
 
 /** Preferencias por nivel; `critica` se muestra siempre salvo desactivación explícita. */
@@ -562,6 +578,19 @@ export interface NewsClockAdvanceResult {
   now: string;
 }
 
+/**
+ * Antelación del aviso previo a eventos de alto impacto, en minutos
+ * (opciones del diseño: 15, 30, 45 o 60; 30 por defecto).
+ */
+export const ALERT_LEAD_MINUTES = [15, 30, 45, 60] as const;
+export type AlertLeadMinutes = (typeof ALERT_LEAD_MINUTES)[number];
+
+/** Preferencias de los avisos en segundo plano (`alerts:get-prefs`). */
+export interface AlertPrefs {
+  /** Minutos antes de un evento de impacto alto para avisar. */
+  leadMinutes: AlertLeadMinutes;
+}
+
 // ---------------------------------------------------------------------------
 // API expuesta al renderer como window.tradia
 // ---------------------------------------------------------------------------
@@ -631,6 +660,12 @@ export interface TradiaApi {
     list(query: CalendarListQuery): Promise<CalendarEvent[]>;
     onUpdated(listener: (event: CalendarUpdatedEvent) => void): () => void;
   };
+  alerts: {
+    getPrefs(): Promise<AlertPrefs>;
+    setPrefs(prefs: AlertPrefs): Promise<AlertPrefs>;
+    /** El clic en una notificación nativa pide abrir una vista. */
+    onNavigate(listener: (route: NotificationRoute) => void): () => void;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -689,10 +724,19 @@ export function isNotificationLevel(value: unknown): value is NotificationLevel 
   return typeof value === 'string' && (NOTIFICATION_LEVELS as readonly string[]).includes(value);
 }
 
+export function isNotificationRoute(value: unknown): value is NotificationRoute {
+  return typeof value === 'string' && (NOTIFICATION_ROUTES as readonly string[]).includes(value);
+}
+
 export function isNotificationPayload(value: unknown): value is NotificationPayload {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  return isNotificationLevel(v.level) && isNonEmptyString(v.title) && typeof v.body === 'string';
+  return (
+    isNotificationLevel(v.level) &&
+    isNonEmptyString(v.title) &&
+    typeof v.body === 'string' &&
+    (!('navigateTo' in v) || isNotificationRoute(v.navigateTo))
+  );
 }
 
 export function isNotificationPrefs(value: unknown): value is NotificationPrefs {
@@ -935,6 +979,16 @@ export function isNewsListQuery(value: unknown): value is NewsListQuery {
     return false;
   }
   return true;
+}
+
+export function isAlertPrefs(value: unknown): value is AlertPrefs {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'leadMinutes')) return false;
+  return (
+    typeof v.leadMinutes === 'number' &&
+    (ALERT_LEAD_MINUTES as readonly number[]).includes(v.leadMinutes)
+  );
 }
 
 export function isCalendarListQuery(value: unknown): value is CalendarListQuery {

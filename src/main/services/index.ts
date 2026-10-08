@@ -8,6 +8,7 @@ import { registerTray, type TrayService } from './tray';
 import { registerSources, type SourcesService } from '../news/sources';
 import { registerCalendar, type CalendarService } from '../news/calendar';
 import { registerNews, type NewsPollerService } from '../news/poller';
+import { registerAlerts, type NewsAlertsService } from '../news/alerts';
 import { registerMacro, type MacroService } from '../market/macro';
 import {
   createMarketClock,
@@ -37,6 +38,8 @@ export interface MainServices {
   poller: NewsPollerService;
   /** Calendario económico (fase 1b): calendar:list y refresco diario. */
   calendar: CalendarService;
+  /** Avisos (fase 1b): evento previo, noticia crítica y alerts:get/set-prefs. */
+  alerts: NewsAlertsService;
 }
 
 export interface ServiceContext {
@@ -73,5 +76,8 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.poller = registerNews(ctx);
   // Tras market (watchlist), secrets (clave Finnhub) y poller (news:advance-clock).
   services.calendar = registerCalendar(ctx);
+  // El último: consume notifications, settings, poller (onItemsStored y el
+  // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
+  services.alerts = registerAlerts(ctx);
   return services as MainServices;
 }

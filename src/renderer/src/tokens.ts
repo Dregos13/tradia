@@ -1,3 +1,4 @@
+import news from '../../../.orquesta/design/e2a636ad/tokens.json';
 import base from '../../../.orquesta/design/fase-0-1/tokens.json';
 import market from '../../../.orquesta/design/fase-1/tokens.json';
 const tokens = { ...market, color: { ...market.color, state: base.color.state } };
@@ -24,11 +25,18 @@ export function tokenStylesheet(): string {
       ),
       'state',
     ) +
-    ['candle', 'series', 'dataStatus']
+    ['candle', 'series', 'dataStatus', 'reliability', 'newsPriority', 'confirmation']
       .map((group) =>
         declarations(
           Object.fromEntries(
-            Object.entries(market.color[group as 'candle']).flatMap(([key, token]) => {
+            Object.entries(
+              {
+                ...market.color,
+                reliability: news.color.reliability,
+                newsPriority: news.color.newsPriority,
+                confirmation: news.color.confirmation,
+              }[group as 'candle'],
+            ).flatMap(([key, token]) => {
               const values = token as {
                 light: string;
                 dark: string;

@@ -14,6 +14,7 @@ import {
 } from '../../../shared/ipc';
 import type {
   AgentsState,
+  AlertPrefs,
   AppSettings,
   CalendarEvent,
   CalendarUpdatedEvent,
@@ -29,6 +30,7 @@ import type {
   NewsSource,
   NewsUpdatedEvent,
   NotificationPrefs,
+  NotificationRoute,
   TradiaApi,
   WatchlistItem,
 } from '../../../shared/ipc';
@@ -359,6 +361,7 @@ export function createSimulatedAdapter() {
     disclaimerAcceptedAt: null,
   };
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
+  let alertPrefs: AlertPrefs = { leadMinutes: 30 };
   let watchlist: WatchlistItem[] = [];
   let newsSources = buildSimulatedSources();
   let newsItems = buildSimulatedNewsItems(newsSources);
@@ -386,6 +389,7 @@ export function createSimulatedAdapter() {
   const marketUpdatedListeners = new Set<(value: MarketUpdatedEvent) => void>();
   const newsUpdatedListeners = new Set<(value: NewsUpdatedEvent) => void>();
   const calendarUpdatedListeners = new Set<(value: CalendarUpdatedEvent) => void>();
+  const alertNavigateListeners = new Set<(value: NotificationRoute) => void>();
   const subscribe = <T>(listeners: Set<(value: T) => void>, listener: (value: T) => void) => {
     listeners.add(listener);
     return () => {
@@ -666,6 +670,14 @@ export function createSimulatedAdapter() {
       },
       onUpdated: (listener) => subscribe(calendarUpdatedListeners, listener),
     },
+    alerts: {
+      getPrefs: async () => alertPrefs,
+      setPrefs: async (value) => {
+        alertPrefs = value;
+        return alertPrefs;
+      },
+      onNavigate: (listener) => subscribe(alertNavigateListeners, listener),
+    },
   };
   return {
     api,
@@ -698,6 +710,7 @@ export function createSimulatedAdapter() {
       dataStatusListeners.size +
       marketUpdatedListeners.size +
       newsUpdatedListeners.size +
-      calendarUpdatedListeners.size,
+      calendarUpdatedListeners.size +
+      alertNavigateListeners.size,
   };
 }

@@ -220,7 +220,7 @@ it('muestra carga y permite reintentar una consulta fallida de noticias', async 
   await act(async () => {
     render(<App />);
   });
-  expect(screen.getByText('Cargando feed de noticias…')).toBeInTheDocument();
+  expect(screen.getByText('Cargando noticias…')).toBeInTheDocument();
   expect(screen.getByRole('region', { name: 'Feed de noticias' })).toHaveAttribute(
     'aria-busy',
     'true',

@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
-import { E2E_FLAG_ARG, IPC_CHANNELS } from '../shared/ipc';
+import { E2E_FLAG_ARG, IPC_CHANNELS, isNotificationRoute } from '../shared/ipc';
 import type {
   AddSourceRequest,
   AgentsState,
+  AlertPrefs,
   CalendarListQuery,
   CalendarUpdatedEvent,
   ConnectivityState,
@@ -16,6 +17,7 @@ import type {
   NotificationLevel,
   NotificationPayload,
   NotificationPrefs,
+  NotificationRoute,
   SettingsPatch,
   TestSourceRequest,
   TradiaApi,
@@ -99,6 +101,11 @@ const api: TradiaApi = {
     onUpdated: (listener) =>
       subscribe<CalendarUpdatedEvent>(IPC_CHANNELS.calendar.updated, listener),
   },
+  alerts: {
+    getPrefs: () => ipcRenderer.invoke(IPC_CHANNELS.alerts.getPrefs),
+    setPrefs: (prefs: AlertPrefs) => ipcRenderer.invoke(IPC_CHANNELS.alerts.setPrefs, prefs),
+    onNavigate: (listener) => subscribe<NotificationRoute>(IPC_CHANNELS.alerts.navigate, listener),
+  },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
   ...(process.argv.includes(E2E_FLAG_ARG)
@@ -119,3 +126,12 @@ const api: TradiaApi = {
 };
 
 contextBridge.exposeInMainWorld('tradia', api);
+
+// Clic en una notificación nativa: el proceso principal emite
+// alerts:navigate y la app navega por hash (#noticias / #calendario,
+// ver App.tsx). Funciona también con la ventana oculta en la bandeja.
+ipcRenderer.on(IPC_CHANNELS.alerts.navigate, (_event, route: unknown) => {
+  if (isNotificationRoute(route)) {
+    window.location.hash = `#${route}`;
+  }
+});
