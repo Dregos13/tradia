@@ -41,6 +41,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 const KEYS = {
   autostart: 'autostart',
   disclaimerAcceptedVersion: 'disclaimerAcceptedVersion',
+  disclaimerAcceptedAt: 'disclaimerAcceptedAt',
   notificationPrefs: 'notifications.prefs',
 } as const;
 
@@ -86,6 +87,7 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
     get: () => ({
       autostart: store.getValue(KEYS.autostart) === 'true',
       disclaimerAcceptedVersion: store.getValue(KEYS.disclaimerAcceptedVersion) || null,
+      disclaimerAcceptedAt: store.getValue(KEYS.disclaimerAcceptedAt) || null,
     }),
     set: (patch) => {
       if (patch.autostart !== undefined) {
@@ -94,7 +96,12 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
       }
       if (patch.disclaimerAcceptedVersion !== undefined) {
         // La guarda IPC admite null como "restablecer": se guarda '' (NOT NULL).
-        store.setValue(KEYS.disclaimerAcceptedVersion, patch.disclaimerAcceptedVersion ?? '');
+        const saveAcceptance = () => {
+          store.setValue(KEYS.disclaimerAcceptedVersion, patch.disclaimerAcceptedVersion ?? '');
+          store.setValue(KEYS.disclaimerAcceptedAt, patch.disclaimerAcceptedVersion ? new Date().toISOString() : '');
+        };
+        if (db) db.transaction(saveAcceptance)();
+        else saveAcceptance();
       }
       return service.get();
     },

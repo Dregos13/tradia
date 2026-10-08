@@ -21,16 +21,20 @@ npm install
 
 ## Scripts
 
-| Script              | Qué hace                                                           |
-| ------------------- | ------------------------------------------------------------------ |
-| `npm run dev`       | Arranca electron-vite en modo desarrollo y abre la ventana         |
-| `npm run build`     | Typecheck + build de main, preload y renderer a `out/`             |
-| `npm start`         | Previsualiza la build (`electron-vite preview`)                    |
-| `npm run lint`      | ESLint sobre todo el proyecto                                      |
-| `npm run typecheck` | `tsc --noEmit`                                                     |
-| `npm test`          | Pruebas unitarias con Vitest                                       |
-| `npm run test:e2e`  | Pruebas de extremo a extremo con Playwright (pendiente, en `e2e/`) |
-| `npm run format`    | Formatea con Prettier                                              |
+| Script               | Qué hace                                                           |
+| -------------------- | ------------------------------------------------------------------ |
+| `npm run dev`        | Arranca electron-vite en modo desarrollo y abre la ventana         |
+| `npm run build`      | Typecheck + build de main, preload y renderer a `out/`             |
+| `npm start`          | Previsualiza la build (`electron-vite preview`)                    |
+| `npm run lint`       | ESLint sobre todo el proyecto                                      |
+| `npm run typecheck`  | `tsc --noEmit`                                                     |
+| `npm test`           | Pruebas unitarias con Vitest                                       |
+| `npm run test:e2e`   | Pruebas de extremo a extremo con Playwright (pendiente, en `e2e/`) |
+| `npm run format`     | Formatea con Prettier                                              |
+| `npm run dist`       | Empaqueta el instalador del sistema actual a `release/`            |
+| `npm run dist:mac`   | Empaqueta los dmg de macOS (x64 y arm64)                           |
+| `npm run dist:win`   | Empaqueta el instalador nsis de Windows                            |
+| `npm run dist:linux` | Empaqueta AppImage y deb de Linux                                  |
 
 ## Estructura
 
@@ -58,7 +62,43 @@ src/
     ipc.ts              Contrato IPC tipado: canales, tipos de dominio,
                         TradiaApi y guardas de validación
 e2e/                    Pruebas Playwright (tarea e2e-tests)
+build/                  Iconos del empaquetado (icon.svg fuente, png/icns/ico)
+resources/              Recursos en runtime (extraResources): icon.png y tray/
 ```
+
+## Empaquetado e instaladores
+
+El empaquetado usa **electron-builder** (`electron-builder.yml`):
+
+- `appId` `com.tradia.app`, `productName` `Tradia`, salida en `release/`.
+- macOS: `dmg` para x64 y arm64 (icono `build/icon.icns`).
+- Windows: `nsis` con asistente de instalación (icono `build/icon.ico`).
+- Linux: `AppImage` y `deb` (icono `build/icon.png`).
+- `resources/` se copia como `extraResources` a `process.resourcesPath/resources`;
+  en código se accede con `resourcePath()` de `src/main/resources.ts`
+  (la bandeja usa `resources/tray/tray-{estado}[-Template][@2x].png`).
+- `better-sqlite3` se reempaqueta para el Electron de destino (`npmRebuild`)
+  y sus `.node` se desempaquetan del asar (`asarUnpack`).
+
+Para generar el instalador del sistema en local:
+
+```bash
+npm install        # postinstall ya ejecuta electron-builder install-app-deps
+npm run dist       # o dist:mac / dist:win / dist:linux
+```
+
+Los instaladores salen **sin firmar**: macOS pedirá confirmar la apertura por
+Gatekeeper y Windows mostrará el aviso de SmartScreen. En local, si hay un
+certificado de desarrollador instalado y no se quiere firmar, exportar
+`CSC_IDENTITY_AUTO_DISCOVERY=false`. La firma y notarización reales quedan
+fuera de esta fase.
+
+### CI
+
+`.github/workflows/ci.yml` compila, pasa lint y pruebas y genera los
+instaladores en `macos-latest`, `windows-latest` y `ubuntu-latest`, con
+`CSC_IDENTITY_AUTO_DISCOVERY=false` (sin firma). Los artefactos se suben como
+`tradia-<os>` con `actions/upload-artifact` y usan caché de npm.
 
 ## Seguridad
 

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Tradia — app de escritorio de trading con agentes (señales y paper trading).",
   "license": "MIT",
+  "author": "Tradia",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,7 +16,11 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "better-sqlite3": "~13.0.3",

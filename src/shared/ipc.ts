@@ -91,12 +91,14 @@ export interface AppSettings {
   autostart: boolean;
   /** Versión del aviso de riesgo aceptada, o null si aún no se ha aceptado. */
   disclaimerAcceptedVersion: string | null;
+  /** Fecha ISO 8601 generada por main; el renderer no puede escribirla. */
+  disclaimerAcceptedAt: string | null;
 }
 
 /** Solo estas claves son escribibles desde el renderer. */
 export interface SettingsPatch {
   autostart?: boolean;
-  disclaimerAcceptedVersion?: string;
+  disclaimerAcceptedVersion?: string | null;
 }
 
 // ---------------------------------------------------------------------------

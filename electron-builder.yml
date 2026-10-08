@@ -1,0 +1,60 @@
+appId: com.tradia.app
+productName: Tradia
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/prebuilds/**
+  - node_modules/better-sqlite3/build/**
+
+# Recompila/repara el módulo nativo better-sqlite3 para el Electron de destino.
+npmRebuild: true
+
+# Iconos de la app y de la bandeja disponibles en runtime:
+# process.resourcesPath/resources/{icon.png,tray/*} (ver src/main/resources.ts).
+extraResources:
+  - from: resources/
+    to: resources/
+
+mac:
+  icon: icon.icns
+  category: public.app-category.finance
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  icon: icon.ico
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Tradia
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+linux:
+  icon: icon.png
+  category: Office
+  target:
+    - AppImage
+    - deb
+
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+deb:
+  artifactName: ${productName}_${version}_${arch}.${ext}

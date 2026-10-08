@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { RiskGate } from './components/RiskGate';
+import { RiskDisclaimer } from './components/RiskDisclaimer';
+import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { HomePage } from './components/HomePage';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
@@ -7,6 +10,12 @@ type Page = 'inicio' | 'ajustes';
 const currentPage = (): Page => (window.location.hash === '#ajustes' ? 'ajustes' : 'inicio');
 
 export default function App() {
+  return <RiskGate><AppShell /></RiskGate>;
+}
+
+function AppShell() {
+  const [legalOpen, setLegalOpen] = useState(false);
+  const legalButton = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>(currentPage);
   const heading = useRef<HTMLHeadingElement>(null);
   const state = useSystemState();
@@ -23,6 +32,7 @@ export default function App() {
     previousPage.current = page;
     heading.current?.focus();
   }, [page]);
+  if (legalOpen) return <RiskDisclaimer onClose={() => { setLegalOpen(false); requestAnimationFrame(() => legalButton.current?.focus()); }} />;
   return (
     <div className="app">
       <a className="skip-link" href="#contenido">
@@ -57,9 +67,13 @@ export default function App() {
             <section className="empty" aria-label="Preferencias">
               <h3>Ajustes pendientes de integración</h3>
               <p>
-                El inicio automático, las notificaciones, las claves de API y el aviso legal se
+                El inicio automático, las notificaciones, las claves de API se
                 incorporarán aquí.
               </p>
+            </section>
+            <section className="settings-section" aria-labelledby="legal-heading">
+              <div><h2 id="legal-heading">Legal</h2><p>Información siempre accesible.</p></div>
+              <div className="legal-panel"><p>Tradia no es asesoramiento financiero. El modo predeterminado usa señales informativas y paper trading.</p><button ref={legalButton} className="legal-link" onClick={() => setLegalOpen(true)}>Ver aviso de riesgo, versión {RISK_DISCLAIMER_VERSION}</button></div>
             </section>
           </>
         )}

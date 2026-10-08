@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { BrowserWindow } from 'electron';
 
+import { resourcePath } from './resources';
 import { buildWebPreferences } from './security';
 
 export function createMainWindow(): BrowserWindow {
@@ -13,6 +14,8 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'Tradia',
+    // Icono de la ventana (Linux/Windows); en macOS manda el .icns del bundle.
+    icon: resourcePath('icon.png'),
     webPreferences: buildWebPreferences(join(__dirname, '../preload/index.js')),
   });
 
