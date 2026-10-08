@@ -173,7 +173,9 @@ export function isNotificationPayload(value: unknown): value is NotificationPayl
 export function isNotificationPrefs(value: unknown): value is NotificationPrefs {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  return typeof v.info === 'boolean' && typeof v.alerta === 'boolean' && typeof v.critica === 'boolean';
+  return (
+    typeof v.info === 'boolean' && typeof v.alerta === 'boolean' && typeof v.critica === 'boolean'
+  );
 }
 
 export function isSettingsPatch(value: unknown): value is SettingsPatch {
