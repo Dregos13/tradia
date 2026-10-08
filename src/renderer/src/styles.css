@@ -210,11 +210,12 @@ h3 {
 }
 @media (max-width: 760px) {
   .app {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
   .side {
     grid-row: auto;
+    min-width: 0;
     padding: var(--space-4);
   }
   .logo {
@@ -222,6 +223,10 @@ h3 {
   }
   .nav {
     display: flex;
+    overflow-x: auto;
+  }
+  .nav a {
+    flex-shrink: 0;
   }
   .top {
     flex-wrap: wrap;
