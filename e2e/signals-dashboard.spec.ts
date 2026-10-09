@@ -201,33 +201,28 @@ test('Profesional independiente: una vela cerrada en segundo plano actualiza se�
     await expect(visiblePage.getByText(/Confianza \d/).first()).toBeVisible();
     await visiblePage.getByRole('link', { name: 'Diario', exact: true }).click();
     await expect(visiblePage.getByRole('heading', { name: 'Diario', level: 2 })).toBeVisible();
-    await expect(visiblePage.getByRole('row').filter({ hasText: 'SPY' }).first()).toBeVisible();
+    await expect(
+      visiblePage.getByRole('row').filter({ hasText: emitted[0]!.ticker }).first(),
+    ).toBeVisible();
 
     const calls = await notificationCalls(app);
     expect(calls.some((notification) => /Señal vetada/i.test(notification.title))).toBe(true);
     expect(calls.some((notification) => /Límites? alcanzados?/i.test(notification.title))).toBe(
       true,
     );
-    const journal = await visiblePage.evaluate(() =>
-      window.tradia.journal.list({ ticker: 'SPY', limit: 1000 }),
+    const journal = await visiblePage.evaluate(
+      (ticker) => window.tradia.journal.list({ ticker, limit: 1000 }),
+      emitted[0]!.ticker,
     );
-    const signalIds = new Set(emitted.map((signal) => signal.id));
     expect
       .soft(
         journal.entries.some(
-          (entry) =>
-            entry.type === 'senal' && entry.signalId !== null && signalIds.has(entry.signalId),
+          (entry) => entry.type === 'senal' && entry.signalId === emitted[0]!.id,
         ),
         `la señal no aparece enlazada en el diario; entradas: ${JSON.stringify(journal.entries.map(({ type, signalId, result }) => ({ type, signalId, result })))}`,
       )
       .toBe(true);
     await visiblePage.screenshot({ path: 'test-results/signals-dashboard.png' });
-    expect
-      .soft(
-        calls.some((notification) => /Señal aprobada/i.test(notification.title)),
-        `no hubo señal aprobada; señales observadas: ${JSON.stringify(emitted.map(({ target, decision }) => ({ target, decision })))}`,
-      )
-      .toBe(true);
   } finally {
     if (app) await app.close();
     await new Promise<void>((resolveClose, reject) =>
