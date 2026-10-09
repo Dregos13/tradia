@@ -95,7 +95,12 @@ function toSignal(row: SignalRow): Signal {
     confidence: row.confianza,
     reason: row.motivo,
     strategies: parseJson<SignalStrategyVote[]>(row.estrategias, [], 'estrategias', ref),
-    dataUsed: parseJson<SignalDataUsed>(row.datos_usados, {} as SignalDataUsed, 'datos_usados', ref),
+    dataUsed: parseJson<SignalDataUsed>(
+      row.datos_usados,
+      {} as SignalDataUsed,
+      'datos_usados',
+      ref,
+    ),
     decision: parseJson<RiskDecision>(row.decision, {} as RiskDecision, 'decision', ref),
     createdAt: row.creado_en,
   };
@@ -210,9 +215,7 @@ export function createSignalsRepository(db: Database.Database): SignalsRepositor
       const limit = Math.min(query.limit ?? SIGNALS_LIST_MAX_LIMIT, SIGNALS_LIST_MAX_LIMIT);
       const offset = query.offset ?? 0;
       const rows = db
-        .prepare(
-          `SELECT * FROM signals ${where} ORDER BY creado_en DESC, id DESC LIMIT ? OFFSET ?`,
-        )
+        .prepare(`SELECT * FROM signals ${where} ORDER BY creado_en DESC, id DESC LIMIT ? OFFSET ?`)
         .all(...params, limit, offset) as SignalRow[];
       return rows.map(toSignal);
     },

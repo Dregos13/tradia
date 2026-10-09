@@ -134,12 +134,7 @@ export interface SignalEngineDeps {
 // ---------------------------------------------------------------------------
 
 export type TickerEvaluationOutcome =
-  | 'emitted'
-  | 'contradiction'
-  | 'no-votes'
-  | 'error'
-  | 'already-processed'
-  | 'blocked';
+  'emitted' | 'contradiction' | 'no-votes' | 'error' | 'already-processed' | 'blocked';
 
 export interface SignalEngine {
   /** Entrada del evento interno «vela guardada» de market/ingestion. */
@@ -314,9 +309,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       params: evaluable.ficha.parameters,
       bars,
       maxPositions:
-        Number.isInteger(topN) && (topN as number) >= 1
-          ? (topN as number)
-          : DEFAULT_MAX_POSITIONS,
+        Number.isInteger(topN) && (topN as number) >= 1 ? (topN as number) : DEFAULT_MAX_POSITIONS,
     });
 
     const confidence = voteConfidence(evaluable.ficha);
@@ -508,7 +501,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       return 'error';
     }
 
-    let signal: Signal | null = null;
+    let signal: Signal | null;
     try {
       signal = emitSignal(intent, votes, dataUsed, barDate);
     } catch (error: unknown) {
@@ -529,11 +522,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       return 'error';
     }
     const outcome: SignalStrategyOutcome =
-      signal === null
-        ? 'sin-senal'
-        : signal.decision.status === 'vetada'
-          ? 'vetada'
-          : 'senal';
+      signal === null ? 'sin-senal' : signal.decision.status === 'vetada' ? 'vetada' : 'senal';
     for (const vote of votes) markState(vote.strategyId, barDate, outcome, signal?.id ?? null);
     if (signal !== null) {
       logger.info?.(

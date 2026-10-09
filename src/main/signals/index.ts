@@ -127,9 +127,7 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     if (!strategies) return [];
     const evaluables: EvaluableStrategy[] = [];
     for (const summary of strategies.list()) {
-      if (
-        !(SIGNAL_EMITTING_STRATEGY_STATUSES as readonly string[]).includes(summary.status)
-      ) {
+      if (!(SIGNAL_EMITTING_STRATEGY_STATUSES as readonly string[]).includes(summary.status)) {
         continue;
       }
       const ficha = strategies.get(summary.id);
@@ -161,8 +159,7 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
   };
 
   const journal = ctx.services.journal as
-    | { record?(input: JournalRecordInput): unknown }
-    | undefined;
+    { record?(input: JournalRecordInput): unknown } | undefined;
 
   const engine = createSignalEngine({
     repo,
