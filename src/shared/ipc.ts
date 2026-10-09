@@ -36,10 +36,34 @@ import type {
   StrategySummary,
   UpdateStrategyRequest,
 } from './strategy';
+import {
+  BACKTEST_MAX_INITIAL_CASH,
+  BACKTEST_MAX_LIMIT,
+  BACKTEST_MAX_POSITIONS,
+  BACKTEST_MAX_RISK_PER_TRADE,
+  BACKTEST_MAX_UNIVERSE,
+  BACKTEST_MIN_INITIAL_CASH,
+  BACKTEST_MIN_RISK_PER_TRADE,
+  MONTE_CARLO_MAX_SIMULATIONS,
+  MONTE_CARLO_METHODS,
+  OBJECTIVE_METRIC_NAMES,
+} from './backtest';
+import type {
+  BacktestFinalTestRequest,
+  BacktestListQuery,
+  BacktestProgressEvent,
+  BacktestReport,
+  BacktestRunRequest,
+  BacktestRunSummary,
+  StressRequest,
+  StressResultDto,
+} from './backtest';
 
-// El dominio de estrategias (fase 2) vive en ./strategy y se reexporta aquí
-// para que el renderer y el preload sigan importando de un solo sitio.
+// El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
+// ./backtest; se reexportan aquí para que el renderer y el preload sigan
+// importando de un solo sitio.
 export * from './strategy';
+export * from './backtest';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -156,6 +180,27 @@ export const IPC_CHANNELS = {
     setStatus: 'strategies:set-status',
     /** Registro de cambios de una estrategia, más reciente primero. */
     history: 'strategies:history',
+  },
+  backtest: {
+    /** Lanza la ejecución completa (métricas, walk-forward, sensibilidad, MC). */
+    run: 'backtest:run',
+    /** Ejecuciones guardadas, más recientes primero (`{strategyId?, version?, limit?}`). */
+    list: 'backtest:list',
+    /** Informe completo de una ejecución por id. */
+    get: 'backtest:get',
+    /**
+     * Ejecuta el tramo de prueba bloqueado de la versión: una sola vez.
+     * La segunda llamada para la misma versión se rechaza.
+     */
+    runFinalTest: 'backtest:run-final-test',
+    /** Evento main → renderer: progreso de una ejecución en curso. */
+    progress: 'backtest:progress',
+  },
+  stress: {
+    /** Pruebas de estrés guardadas de una estrategia (`{strategyId, version?}`). */
+    get: 'stress:get',
+    /** Ejecuta de nuevo las tres crisis y las guarda en la ficha. */
+    run: 'stress:run',
   },
 } as const;
 
@@ -721,6 +766,30 @@ export interface TradiaApi {
     /** Registro de cambios, más reciente primero. */
     history(id: number): Promise<StrategyChangelogEntry[]>;
   };
+  backtest: {
+    /**
+     * Lanza el pipeline completo y devuelve el informe guardado. El tramo
+     * de prueba (último 20 % por defecto) queda bloqueado y no se ejecuta.
+     */
+    run(request: BacktestRunRequest): Promise<BacktestReport>;
+    /** Ejecuciones guardadas, más recientes primero. */
+    list(query?: BacktestListQuery): Promise<BacktestRunSummary[]>;
+    /** Informe completo de una ejecución; null si no existe. */
+    get(id: number): Promise<BacktestReport | null>;
+    /**
+     * Ejecuta el tramo de prueba bloqueado: una vez por versión. La
+     * segunda llamada rechaza (la prueba queda «Ejecutada y bloqueada»).
+     */
+    runFinalTest(request: BacktestFinalTestRequest): Promise<BacktestReport>;
+    /** Progreso de las ejecuciones en curso. */
+    onProgress(listener: (event: BacktestProgressEvent) => void): () => void;
+  };
+  stress: {
+    /** Resultados de las crisis 2008/2020/2022 guardados en la ficha. */
+    get(request: StressRequest): Promise<StressResultDto[]>;
+    /** Ejecuta de nuevo las pruebas de estrés y las guarda. */
+    run(request: StressRequest): Promise<StressResultDto[]>;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -1280,6 +1349,194 @@ export function isSetStrategyStatusRequest(value: unknown): value is SetStrategy
   if (Object.keys(v).some((k) => k !== 'id' && k !== 'status' && k !== 'note')) return false;
   if (!isStrategyId(v.id) || !isStrategyStatus(v.status)) return false;
   return !('note' in v) || isStrategyNote(v.note);
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: backtest y pruebas de estrés (fase 2)
+// ---------------------------------------------------------------------------
+
+/** Id entero positivo de una ejecución guardada (`backtest:get`). */
+export function isBacktestRunId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/** Costes configurables del run: subconjunto de los de la ficha. */
+function isPartialCosts(value: unknown): value is Partial<StrategyCosts> {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  return Object.values(v).every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0,
+  );
+}
+
+function isSplitRatiosInput(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['train', 'validation', 'test'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  return Object.values(v).every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && (n as number) > 0 && (n as number) < 1,
+  );
+}
+
+function isWalkForwardOptions(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['trainSize', 'testSize', 'step', 'objective'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  for (const key of ['trainSize', 'testSize', 'step'] as const) {
+    if (key in v && (!Number.isInteger(v[key]) || (v[key] as number) < 1)) return false;
+  }
+  return (
+    !('objective' in v) ||
+    (typeof v.objective === 'string' &&
+      (OBJECTIVE_METRIC_NAMES as readonly string[]).includes(v.objective))
+  );
+}
+
+function isSensitivityAxes(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'xParam' && k !== 'yParam')) return false;
+  return ['xParam', 'yParam'].every(
+    (k) => !(k in v) || isNonEmptyString(v[k]),
+  );
+}
+
+function isMonteCarloOptions(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['seed', 'simulations', 'method'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  if ('seed' in v && (typeof v.seed !== 'number' || !Number.isFinite(v.seed))) return false;
+  if (
+    'simulations' in v &&
+    (!Number.isInteger(v.simulations) ||
+      (v.simulations as number) < 1 ||
+      (v.simulations as number) > MONTE_CARLO_MAX_SIMULATIONS)
+  ) {
+    return false;
+  }
+  return (
+    !('method' in v) ||
+    (typeof v.method === 'string' && (MONTE_CARLO_METHODS as readonly string[]).includes(v.method))
+  );
+}
+
+/** Universo del run: lista de tickers válidos (no nombres libres). */
+function isUniverse(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= BACKTEST_MAX_UNIVERSE &&
+    value.every(isTicker)
+  );
+}
+
+export function isBacktestRunRequest(value: unknown): value is BacktestRunRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'strategyId',
+    'version',
+    'desde',
+    'hasta',
+    'universe',
+    'initialCash',
+    'riskPerTrade',
+    'maxPositions',
+    'costs',
+    'params',
+    'split',
+    'walkForward',
+    'sensitivity',
+    'monteCarlo',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  if ('desde' in v && !isIsoDate(v.desde)) return false;
+  if ('hasta' in v && !isIsoDate(v.hasta)) return false;
+  if (typeof v.desde === 'string' && typeof v.hasta === 'string' && v.desde > v.hasta) {
+    return false;
+  }
+  if ('universe' in v && !isUniverse(v.universe)) return false;
+  if (
+    'initialCash' in v &&
+    (typeof v.initialCash !== 'number' ||
+      !Number.isFinite(v.initialCash) ||
+      v.initialCash < BACKTEST_MIN_INITIAL_CASH ||
+      v.initialCash > BACKTEST_MAX_INITIAL_CASH)
+  ) {
+    return false;
+  }
+  if (
+    'riskPerTrade' in v &&
+    (typeof v.riskPerTrade !== 'number' ||
+      v.riskPerTrade < BACKTEST_MIN_RISK_PER_TRADE ||
+      v.riskPerTrade > BACKTEST_MAX_RISK_PER_TRADE)
+  ) {
+    return false;
+  }
+  if (
+    'maxPositions' in v &&
+    (!Number.isInteger(v.maxPositions) ||
+      (v.maxPositions as number) < 1 ||
+      (v.maxPositions as number) > BACKTEST_MAX_POSITIONS)
+  ) {
+    return false;
+  }
+  if ('costs' in v && !isPartialCosts(v.costs)) return false;
+  if ('params' in v && !isStrategyParameters(v.params)) return false;
+  if ('split' in v && !isSplitRatiosInput(v.split)) return false;
+  for (const key of ['walkForward', 'sensitivity', 'monteCarlo'] as const) {
+    if (!(key in v)) continue;
+    const opt = v[key];
+    if (opt === false) continue;
+    if (key === 'walkForward' && !isWalkForwardOptions(opt)) return false;
+    if (key === 'sensitivity' && !isSensitivityAxes(opt)) return false;
+    if (key === 'monteCarlo' && !isMonteCarloOptions(opt)) return false;
+  }
+  return true;
+}
+
+export function isBacktestListQuery(value: unknown): value is BacktestListQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version' && k !== 'limit')) {
+    return false;
+  }
+  if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) || (v.limit as number) < 1 || (v.limit as number) > BACKTEST_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isBacktestFinalTestRequest(
+  value: unknown,
+): value is BacktestFinalTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  return !('version' in v) || isStrategyId(v.version);
+}
+
+/** `{strategyId, version?}` para `stress:get` y `stress:run`. */
+export function isStressRequest(value: unknown): value is StressRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  return !('version' in v) || isStrategyId(v.version);
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

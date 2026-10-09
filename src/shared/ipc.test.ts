@@ -31,9 +31,14 @@ import {
   isTestSourceRequest,
   isTicker,
   isUpdateSourceRequest,
+  isBacktestFinalTestRequest,
+  isBacktestListQuery,
+  isBacktestRunId,
+  isBacktestRunRequest,
   isCreateStrategyRequest,
   isGetStrategyRequest,
   isSetStrategyStatusRequest,
+  isStressRequest,
   isStrategyCosts,
   isStrategyMarkets,
   isStrategyParameterRanges,
@@ -61,10 +66,11 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts y strategies', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest y stress', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'alerts',
+      'backtest',
       'calendar',
       'connectivity',
       'dataStatus',
@@ -76,6 +82,7 @@ describe('contrato IPC', () => {
       'settings',
       'sources',
       'strategies',
+      'stress',
       'watchlist',
     ]);
   });
@@ -135,6 +142,17 @@ describe('contrato IPC', () => {
       setStatus: 'strategies:set-status',
       history: 'strategies:history',
     });
+  });
+
+  it('incluye los canales de backtest y de estrés del contrato (fase 2)', () => {
+    expect(IPC_CHANNELS.backtest).toEqual({
+      run: 'backtest:run',
+      list: 'backtest:list',
+      get: 'backtest:get',
+      runFinalTest: 'backtest:run-final-test',
+      progress: 'backtest:progress',
+    });
+    expect(IPC_CHANNELS.stress).toEqual({ get: 'stress:get', run: 'stress:run' });
   });
 
   it('los ganchos E2E de noticias son canales marcados como solo desarrollo', () => {
@@ -517,6 +535,84 @@ describe('guardas de entrada', () => {
     expect(isSetStrategyStatusRequest({ id: 1, status: 'en-vivo' })).toBe(false);
     expect(isSetStrategyStatusRequest({ id: 1 })).toBe(false);
     expect(isSetStrategyStatusRequest({ id: 1, status: 'paper', note: '' })).toBe(false);
+  });
+});
+
+describe('guardas del backtest y del estrés', () => {
+  it('valida la petición de ejecución: campos, periodo y límites', () => {
+    expect(isBacktestRunRequest({ strategyId: 1 })).toBe(true);
+    expect(
+      isBacktestRunRequest({
+        strategyId: 2,
+        version: 3,
+        desde: '2020-01-01',
+        hasta: '2024-12-31',
+        universe: ['SPY', 'QQQ'],
+        initialCash: 25_000,
+        riskPerTrade: 0.01,
+        maxPositions: 5,
+        costs: { commissionPct: 0.1, slippageBps: 10 },
+        params: { fastPeriod: 30 },
+        split: { train: 0.6, validation: 0.2, test: 0.2 },
+        walkForward: { trainSize: 100, testSize: 40, objective: 'sharpe' },
+        sensitivity: { xParam: 'fastPeriod', yParam: 'slowPeriod' },
+        monteCarlo: { seed: 7, simulations: 500, method: 'bootstrap' },
+      }),
+    ).toBe(true);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, walkForward: false, sensitivity: false, monteCarlo: false }),
+    ).toBe(true);
+
+    expect(isBacktestRunRequest({})).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 0 })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, truco: true })).toBe(false);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, desde: '2024-01-01', hasta: '2020-01-01' }),
+    ).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, universe: [] })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, universe: ['no es ticker'] })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, initialCash: 0 })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, riskPerTrade: 0.5 })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, maxPositions: 0 })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, costs: { commissionPct: -1 } })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, split: { train: 1.5 } })).toBe(false);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, monteCarlo: { simulations: 0 } }),
+    ).toBe(false);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, monteCarlo: { method: 'azar' } }),
+    ).toBe(false);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, walkForward: { trainSize: 2.5 } }),
+    ).toBe(false);
+    expect(
+      isBacktestRunRequest({ strategyId: 1, walkForward: { objective: 'rentabilidad' } }),
+    ).toBe(false);
+  });
+
+  it('valida la lista, la ficha de ejecución, la prueba final y el estrés', () => {
+    expect(isBacktestListQuery(undefined)).toBe(true);
+    expect(isBacktestListQuery({})).toBe(true);
+    expect(isBacktestListQuery({ strategyId: 1, version: 2, limit: 50 })).toBe(true);
+    expect(isBacktestListQuery({ limit: 0 })).toBe(false);
+    expect(isBacktestListQuery({ limit: 501 })).toBe(false);
+    expect(isBacktestListQuery({ strategyId: 'x' })).toBe(false);
+    expect(isBacktestListQuery(null)).toBe(false);
+
+    expect(isBacktestRunId(1)).toBe(true);
+    expect(isBacktestRunId(0)).toBe(false);
+    expect(isBacktestRunId(1.5)).toBe(false);
+    expect(isBacktestRunId('1')).toBe(false);
+
+    expect(isBacktestFinalTestRequest({ strategyId: 1 })).toBe(true);
+    expect(isBacktestFinalTestRequest({ strategyId: 1, version: 2 })).toBe(true);
+    expect(isBacktestFinalTestRequest({ strategyId: 1, version: 0 })).toBe(false);
+    expect(isBacktestFinalTestRequest({})).toBe(false);
+
+    expect(isStressRequest({ strategyId: 1 })).toBe(true);
+    expect(isStressRequest({ strategyId: 1, version: 2 })).toBe(true);
+    expect(isStressRequest({ strategyId: -1 })).toBe(false);
+    expect(isStressRequest({ strategyId: 1, crisis: '2008' })).toBe(false);
   });
 });
 

@@ -18,6 +18,7 @@ import {
 import { registerHealth, type DataHealthService } from '../market/health';
 import { registerStrategies } from '../strategies/service';
 import type { StrategiesRepository } from '../strategies/repository';
+import { registerBacktest, type BacktestService } from '../backtest/service';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -44,6 +45,8 @@ export interface MainServices {
   alerts: NewsAlertsService;
   /** Biblioteca de estrategias (fase 2): fichas versionadas y registro. */
   strategies: StrategiesRepository;
+  /** Backtests (fase 2): ejecución, informes persistidos, estrés y semilla. */
+  backtest: BacktestService;
 }
 
 export interface ServiceContext {
@@ -82,6 +85,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.calendar = registerCalendar(ctx);
   // Fase 2: la biblioteca de estrategias solo necesita storage.
   services.strategies = registerStrategies(ctx);
+  // Fase 2: el servicio de backtest necesita strategies (fichas y métricas
+  // resumen) y secrets (clave de Tiingo); siembra las clásicas al registrar.
+  services.backtest = registerBacktest(ctx);
   // El último: consume notifications, settings, poller (onItemsStored y el
   // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
   services.alerts = registerAlerts(ctx);
