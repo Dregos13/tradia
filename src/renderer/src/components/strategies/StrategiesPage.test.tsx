@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { StrategiesPage } from './StrategiesPage';
+import type { BacktestProgressEvent } from '../../../../shared/backtest';
 import type { StrategyDraft } from '../../../../shared/strategy';
 const draft: StrategyDraft = {
   name: 'Cruce de medias',
@@ -44,6 +45,53 @@ describe('Biblioteca y ficha versionada', () => {
     expect(screen.getAllByText('Sin datos')).toHaveLength(4);
     await userEvent.selectOptions(screen.getByLabelText('Estado'), 'activa');
     expect(screen.getByText('No hay estrategias con este estado')).toBeInTheDocument();
+  });
+  it('refresca las métricas al terminar la siembra y libera la suscripción', async () => {
+    await window.tradia.strategies.create(draft);
+    let progress: ((event: BacktestProgressEvent) => void) | undefined;
+    const off = vi.fn();
+    vi.spyOn(window.tradia.backtest, 'onProgress').mockImplementation((listener) => {
+      progress = listener;
+      return off;
+    });
+    const view = render(<StrategiesPage />);
+    await screen.findByRole('link', { name: draft.name });
+    expect(screen.getAllByText('Sin datos')).toHaveLength(4);
+    const summaries = await window.tradia.strategies.list();
+    vi.spyOn(window.tradia.strategies, 'list').mockResolvedValue(
+      summaries.map((summary) => ({
+        ...summary,
+        metricsSummary: {
+          totalReturnPct: 12,
+          maxDrawdownPct: 4,
+          sharpe: 1.5,
+          trades: 8,
+          profitFactor: 2,
+          winRatePct: 50,
+          expectancy: 10,
+          maxLosingStreak: 2,
+        },
+      })),
+    );
+    act(() =>
+      progress?.({
+        ticket: 'seed',
+        strategyId: 1,
+        stage: 'completado',
+        percent: 100,
+        detail: null,
+        elapsedMs: 100,
+      }),
+    );
+    expect(screen.getByRole('link', { name: draft.name })).toBeVisible();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    await screen.findByText('12%');
+    expect(screen.queryByText('Sin datos')).not.toBeInTheDocument();
+    const row = screen.getByRole('link', { name: draft.name }).closest('tr')!;
+    expect(within(row).getByText('12%')).toBeInTheDocument();
+    expect(within(row).getByText('8')).toBeInTheDocument();
+    view.unmount();
+    expect(off).toHaveBeenCalledOnce();
   });
   it('crea, exige nota y conserva v1 al guardar v2 con su registro', async () => {
     const user = userEvent.setup();

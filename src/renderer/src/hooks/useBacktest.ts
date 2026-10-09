@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BacktestProgressEvent, BacktestRunRequest } from '../../../shared/backtest';
 import { useIpcList } from './useIpcList';
+const subscribe = (reload: () => void) =>
+  window.tradia.backtest.onProgress((event) => {
+    if (event.stage === 'completado') reload();
+  });
 export function useBacktestHistory(strategyId: number, version: number) {
   const read = useCallback(
     () => window.tradia.backtest.list({ strategyId, version }),
     [strategyId, version],
   );
-  return useIpcList(read, undefined, 'No pudimos cargar el historial. Reintenta la consulta.');
+  return useIpcList(
+    read,
+    subscribe,
+    'No pudimos cargar el historial. Reintenta la consulta.',
+    true,
+  );
 }
 export function useBacktestReport(id: number) {
   const read = useCallback(async () => [await window.tradia.backtest.get(id)], [id]);

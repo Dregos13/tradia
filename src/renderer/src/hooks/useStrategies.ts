@@ -6,11 +6,16 @@ import type {
 } from '../../../shared/strategy';
 import { useIpcList } from './useIpcList';
 const list = () => window.tradia.strategies.list();
+const subscribe = (reload: () => void) =>
+  window.tradia.backtest.onProgress((event) => {
+    if (event.stage === 'completado') reload();
+  });
 export function useStrategies() {
   const state = useIpcList(
     list,
-    undefined,
+    subscribe,
     'No pudimos consultar las estrategias. Inténtalo de nuevo.',
+    true,
   );
   return {
     ...state,
@@ -43,8 +48,9 @@ export function useStrategy(id: number, version?: number) {
   }, [id, version]);
   const state = useIpcList(
     read,
-    undefined,
+    subscribe,
     'No pudimos cargar la ficha y su historial. Inténtalo de nuevo.',
+    true,
   );
   return { ...state, ...state.items[0] };
 }

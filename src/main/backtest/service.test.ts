@@ -10,11 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase } from '../db/database';
 import { createSimulatedProvider, SIMULATED_PROVIDER_ID } from '../market/providers';
 import type { CreateStrategyRequest } from '../../shared/strategy';
-import {
-  IPC_CHANNELS,
-  IpcValidationError,
-  type BacktestProgressEvent,
-} from '../../shared/ipc';
+import { IPC_CHANNELS, IpcValidationError, type BacktestProgressEvent } from '../../shared/ipc';
 import { createStrategiesRepository, type StrategiesRepository } from '../strategies/repository';
 import type { ServiceContext } from '../services';
 import type { StorageService } from '../services/storage';
@@ -73,9 +69,7 @@ interface Harness {
 }
 
 /** Monta el servicio real sobre SQLite en memoria y el proveedor simulado. */
-const makeService = (
-  over: Partial<Parameters<typeof createBacktestService>[0]> = {},
-): Harness => {
+const makeService = (over: Partial<Parameters<typeof createBacktestService>[0]> = {}): Harness => {
   const db = database();
   const strategies = createStrategiesRepository(db);
   const runs = createBacktestRepository(db);
@@ -157,12 +151,39 @@ describe('semilla de estrategias clásicas', () => {
     expect(h.service.seedFichas()).toBe(0);
   });
 
-  it('guarda un backtest y las tres crisis por estrategia (idempotente)', async () => {
+  it('siembra SMA con robustez aunque su rejilla incluya medias 100/100', async () => {
+    const impl = CLASSIC_STRATEGIES[0]!;
     const h = makeService({
-      // Semilla con perfil reducido: los bloques pesados quedan cubiertos
-      // por la prueba de run individual.
-      seedRun: { walkForward: false, sensitivity: false, monteCarlo: { simulations: 50 } },
+      seedRun: { walkForward: { trainSize: 126, testSize: 63 } },
+      impls: [
+        {
+          ...impl,
+          seed: {
+            ...impl.seed,
+            trainingPeriod: { desde: '2020-01-02', hasta: '2020-12-31' },
+            outOfSamplePeriod: { desde: '2021-01-04', hasta: '2021-12-31' },
+          },
+        },
+      ],
     });
+    h.service.seedFichas();
+    await h.service.seedResults();
+    const summary = h.strategies.list()[0]!;
+    const runs = h.service.listRuns({ strategyId: summary.id });
+    expect(runs).toHaveLength(1);
+    expect(summary.metricsSummary).not.toBeNull();
+    const report = h.service.getRun(runs[0]!.id)!;
+    expect(report.walkForward!.windows.length).toBeGreaterThan(0);
+    for (const window of report.walkForward!.windows) {
+      expect(window.params.fastPeriod).toBeLessThan(window.params.slowPeriod!);
+    }
+    const map = report.sensitivity!;
+    expect(map.cells[map.yValues.indexOf(100)]![map.xValues.indexOf(100)]).toBeNull();
+    expect(map.cells[map.yValues.indexOf(200)]![map.xValues.indexOf(50)]).not.toBeNull();
+  }, 60_000);
+
+  it('guarda un backtest y las tres crisis por estrategia (idempotente)', async () => {
+    const h = makeService();
     h.service.seedFichas();
     await h.service.seedResults();
 
@@ -182,6 +203,12 @@ describe('semilla de estrategias clásicas', () => {
         expect(row.providerId).toBe(SIMULATED_PROVIDER_ID);
       }
 
+      const report = h.service.getRun(runs[0]!.id)!;
+      expect(report.walkForward?.trainSize).toBe(756);
+      expect(report.walkForward?.testSize).toBe(252);
+      expect(report.walkForward!.windows.length).toBeGreaterThan(0);
+      expect(report.sensitivity).not.toBeNull();
+      expect(report.monteCarlo).not.toBeNull();
       // La ficha muestra métricas resumen del run semilla.
       const detail = h.strategies.get(summary.id);
       expect(detail?.metricsSummary).not.toBeNull();
@@ -484,13 +511,15 @@ describe('registro IPC', () => {
     await expect(run(null, { strategyId: 999 })).rejects.toMatchObject({
       code: 'not-found',
     });
-    expect(() =>
-      electronMock.handlers.get(IPC_CHANNELS.backtest.get)!(null, '1'),
-    ).toThrowError(IpcValidationError);
+    expect(() => electronMock.handlers.get(IPC_CHANNELS.backtest.get)!(null, '1')).toThrowError(
+      IpcValidationError,
+    );
     expect(() =>
       electronMock.handlers.get(IPC_CHANNELS.stress.get)!(null, { strategyId: -1 }),
     ).toThrowError(IpcValidationError);
-    expect(await electronMock.handlers.get(IPC_CHANNELS.backtest.list)!(null, undefined)).toEqual([]);
+    expect(await electronMock.handlers.get(IPC_CHANNELS.backtest.list)!(null, undefined)).toEqual(
+      [],
+    );
   });
 
   it('siembra las fichas al registrar (seed activado por defecto)', () => {

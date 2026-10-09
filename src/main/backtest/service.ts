@@ -115,11 +115,7 @@ import {
   type WalkForwardWindowOptions,
 } from './validation';
 import type { BacktestInput, CostConfig, EngineBar, StrategyParams } from './types';
-import {
-  DEFAULT_INITIAL_CASH,
-  DEFAULT_MAX_POSITIONS,
-  DEFAULT_RISK_PER_TRADE,
-} from './types';
+import { DEFAULT_INITIAL_CASH, DEFAULT_MAX_POSITIONS, DEFAULT_RISK_PER_TRADE } from './types';
 
 // ---------------------------------------------------------------------------
 // Constantes del servicio
@@ -217,7 +213,7 @@ interface ResolvedRunConfig {
   hasta: SessionDate;
   warmupSessions: number;
   split: { train: number; validation: number; test: number };
-  walkForward: false | WalkForwardWindowOptions & { objective?: ObjectiveMetric };
+  walkForward: false | (WalkForwardWindowOptions & { objective?: ObjectiveMetric });
   sensitivity: false | { xParam: string; yParam: string };
   monteCarlo: false | { seed: number; simulations: number; method: 'permutation' | 'bootstrap' };
 }
@@ -247,8 +243,7 @@ function toMetricsDto(m: BacktestMetrics): BacktestMetricsDto {
     annualizedReturn: m.annualizedReturn,
     maxDrawdown: m.maxDrawdown,
     sharpe: m.sharpe !== null && Number.isFinite(m.sharpe) ? m.sharpe : null,
-    sharpeInfinite:
-      m.sharpe === Infinity ? 'positive' : m.sharpe === -Infinity ? 'negative' : null,
+    sharpeInfinite: m.sharpe === Infinity ? 'positive' : m.sharpe === -Infinity ? 'negative' : null,
     profitFactor:
       m.profitFactor !== null && Number.isFinite(m.profitFactor) ? m.profitFactor : null,
     profitFactorInfinite: m.profitFactor === Infinity,
@@ -432,7 +427,9 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       riskPerTrade: request.riskPerTrade ?? DEFAULT_RISK_PER_TRADE,
       maxPositions:
         request.maxPositions ??
-        (Number.isInteger(topN) && (topN as number) >= 1 ? (topN as number) : DEFAULT_MAX_POSITIONS),
+        (Number.isInteger(topN) && (topN as number) >= 1
+          ? (topN as number)
+          : DEFAULT_MAX_POSITIONS),
       desde,
       hasta,
       warmupSessions,
@@ -451,9 +448,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
   };
 
   /** Rejilla de optimización: los rangos de los dos ejes elegidos. */
-  const gridForAxes = (
-    cfg: ResolvedRunConfig,
-  ): Record<string, StrategyParameterRange> => {
+  const gridForAxes = (cfg: ResolvedRunConfig): Record<string, StrategyParameterRange> => {
     if (cfg.sensitivity === false) return {};
     const ranges = cfg.strategy.parameterRanges;
     const grid: Record<string, StrategyParameterRange> = {};
@@ -524,6 +519,17 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     return { result, metrics: computeMetrics(result.equityCurve, result.trades) };
   };
 
+  /** Valida cada candidato sin ejecutar velas ni ocultar errores del motor. */
+  const validCandidate = (cfg: ResolvedRunConfig, params: StrategyParams): boolean => {
+    try {
+      cfg.impl.create().init(params);
+      return true;
+    } catch (error) {
+      if (error instanceof RangeError) return false;
+      throw error;
+    }
+  };
+
   /** Fechas operativas dentro de [desde, hasta] (sin calentamiento). */
   const operativeDates = (
     bars: Record<string, readonly EngineBar[]>,
@@ -558,7 +564,12 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       cfg.walkForward === false ? {} : cfg.walkForward;
     const windows = buildWalkForwardWindows(dates, opts);
     const objective: ObjectiveMetric = opts.objective ?? 'sharpe';
-    const candidates = expandParamGrid(cfg.params, gridForAxes(cfg));
+    const candidates = expandParamGrid(cfg.params, gridForAxes(cfg)).filter((params) =>
+      validCandidate(cfg, params),
+    );
+    if (candidates.length === 0) {
+      throw new RangeError('La rejilla no contiene combinaciones válidas para la estrategia.');
+    }
     const results: WalkForwardWindowDto[] = [];
     let outOfSampleTrades = 0;
 
@@ -639,8 +650,9 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       const row: (number | null)[] = [];
       for (const x of xValues) {
         const params = { ...cfg.params, [xParam]: x, [yParam]: y };
-        const { metrics } = runAndMeasure(cfg, bars, params, range);
-        const value = metrics[metric];
+        const value = validCandidate(cfg, params)
+          ? runAndMeasure(cfg, bars, params, range).metrics[metric]
+          : null;
         row.push(value !== null && Number.isFinite(value) ? value : null);
         done += 1;
         emit('sensibilidad', progressBase + (done / total) * progressSpan, `${xParam}=${x}`);
@@ -787,9 +799,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   // -- Pipeline principal -----------------------------------------------------
 
-  const runPipeline = async (
-    request: BacktestRunRequest,
-  ): Promise<BacktestReport> => {
+  const runPipeline = async (request: BacktestRunRequest): Promise<BacktestReport> => {
     const started = now();
     const cfg = resolveConfig(request);
     const emit = makeEmitter(cfg.strategy.id);
@@ -1109,6 +1119,10 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
             await runPipeline({
               strategyId,
               version: strategy.version,
+              // Evidencia inicial: tres años de entrenamiento y un año OOS.
+              // Evita cientos de ventanas trimestrales sobre el histórico de
+              // 25 años; la configuración usada queda guardada en el informe.
+              walkForward: { trainSize: 756, testSize: 252, step: 252 },
               ...deps.seedRun,
             });
           }

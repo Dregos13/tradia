@@ -283,11 +283,15 @@ it('cubre vacío, carga, error recuperable y ausencia de informe', async () => {
   expect(screen.getByText(/Sin datos de walk-forward/)).toBeVisible();
 });
 it('envía periodo, parámetros y costes precargados, actualiza progreso y limpia suscripción', async () => {
-  let listener: (event: BacktestProgressEvent) => void = () => {};
+  const listeners = new Set<(event: BacktestProgressEvent) => void>();
+  const listener = (event: BacktestProgressEvent) => listeners.forEach((fn) => fn(event));
   const off = vi.fn();
   vi.spyOn(window.tradia.backtest, 'onProgress').mockImplementation((fn) => {
-    listener = fn;
-    return off;
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+      off();
+    };
   });
   let finish: (r: BacktestReport) => void = () => {};
   const run = vi.spyOn(window.tradia.backtest, 'run').mockImplementation(
