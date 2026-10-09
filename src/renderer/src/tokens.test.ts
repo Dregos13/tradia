@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
 import market from './design/market.tokens.json';
+import risk from './design/risk.tokens.json';
 const tokens = { ...market, color: { ...market.color, state: base.color.state } };
 import { tokenStylesheet } from './tokens';
 
@@ -43,4 +44,19 @@ it('traduce las insignias del feed en ambos temas', () => {
         expect(css).toContain(`--${group}-${name}:${token[mode]};`);
         expect(css).toContain(`--${group}-${name}-surface:${token[`${mode}Surface`]};`);
       }
+});
+
+it('mantiene completos los tokens semánticos de riesgo en ambos temas', () => {
+  expect(risk.meta.extends).toBe('./base.tokens.json');
+  expect(risk.meta.contrastStandard).toBe('WCAG 2.2 AA');
+  expect(risk.size.controlMin).toBe('44px');
+
+  for (const group of ['riskStatus', 'decision'] as const)
+    for (const token of Object.values(risk.color[group])) {
+      expect(token.light).toMatch(/^#[0-9A-F]{6}$/);
+      expect(token.lightSurface).toMatch(/^#[0-9A-F]{6}$/);
+      expect(token.dark).toMatch(/^#[0-9A-F]{6}$/);
+      expect(token.darkSurface).toMatch(/^#[0-9A-F]{6}$/);
+      expect(token.label.length).toBeGreaterThan(0);
+    }
 });

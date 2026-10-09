@@ -5,17 +5,21 @@ import type { MenuItemConstructorOptions, NativeImage } from 'electron';
 
 import { AUTOSTART_HIDDEN_ARG, isLinuxAutostartEnabled, setLinuxAutostart } from '../autostart';
 import { resourcePath } from '../resources';
-import type { AgentsState, ConnectivityState } from '../../shared/ipc';
+import { IPC_CHANNELS } from '../../shared/ipc';
+import type { AgentsState, ConnectivityState, KillSwitchState } from '../../shared/ipc';
 import { showMainWindow } from '../window';
 import type { ServiceContext } from './index';
 
 /**
  * Bandeja del sistema y modo segundo plano.
  *
- * - Icono y tooltip por estado: en línea, sin conexión o pausado (en macOS
- *   plantilla monocroma `*-Template.png`; en Windows/Linux color).
- * - Menú: Abrir, Pausar/Reanudar agentes (alterna), Iniciar con el sistema
- *   (casilla) y Salir.
+ * - Icono y tooltip por estado: en línea, sin conexión, pausado o parada
+ *   activa, que tiene prioridad visual sobre los demás (en macOS plantilla
+ *   monocroma `*-Template.png`; en Windows/Linux color).
+ * - Menú: Abrir, Parada de emergencia / Reanudar (requiere confirmar),
+ *   Pausar/Reanudar agentes (alterna), Iniciar con el sistema (casilla) y
+ *   Salir. La bandeja nunca reanuda la parada directamente: abre la
+ *   ventana en «Riesgo» para que el usuario confirme.
  * - Al cerrar la ventana se oculta y la app sigue residente; en macOS se
  *   oculta también el Dock. Solo se sale con 'Salir' de la bandeja o Cmd+Q
  *   (`before-quit` pone el flag `quitting` que deja pasar el cierre real).
@@ -37,23 +41,32 @@ export interface TrayService {
   destroy(): void;
 }
 
-export type TrayVisualState = 'online' | 'offline' | 'paused';
+export type TrayVisualState = 'online' | 'offline' | 'paused' | 'stopped';
 
 /** Tooltips fijados por la guía de diseño (el icono nunca es la única señal). */
-const TOOLTIPS: Record<TrayVisualState, string> = {
+export const TOOLTIPS: Record<TrayVisualState, string> = {
   online: 'Tradia — En línea',
   offline: 'Tradia — Sin conexión',
   paused: 'Tradia — Agentes en pausa',
+  stopped: 'Tradia — Parada activa',
 };
 
+/** Etiquetas del elemento de la parada de emergencia en el menú de la bandeja. */
+export function killSwitchTrayLabel(killSwitch: KillSwitchState | undefined): string {
+  return killSwitch?.active ? 'Reanudar (requiere confirmar)' : 'Parada de emergencia';
+}
+
 /**
- * Precedencia del estado visual: la pausa manda sobre la conexión, y un estado
+ * Precedencia del estado visual: la parada de emergencia manda sobre la
+ * pausa y la conexión, la pausa manda sobre la conexión, y un estado
  * 'checking' o desconocido se muestra como en línea (optimista).
  */
 export function resolveTrayVisualState(
   agents: AgentsState | undefined,
   connectivity: ConnectivityState | undefined,
+  killSwitch?: KillSwitchState,
 ): TrayVisualState {
+  if (killSwitch?.active) return 'stopped';
   if (agents?.paused) return 'paused';
   if (connectivity?.status === 'offline') return 'offline';
   return 'online';
@@ -66,6 +79,7 @@ function placeholderIcon(state: TrayVisualState): NativeImage {
     online: [0x12, 0x6b, 0x4b],
     offline: [0xa3, 0x3b, 0x18],
     paused: [0x76, 0x55, 0x00],
+    stopped: [0xa1, 0x22, 0x32],
   };
   const [r, g, b] = rgb[state];
   const buffer = Buffer.alloc(size * size * 4);
@@ -152,6 +166,7 @@ export function registerTray(ctx: ServiceContext): TrayService {
     resolveTrayVisualState(
       ctx.services.scheduler?.getState(),
       ctx.services.connectivity?.getState(),
+      ctx.services.killSwitch?.getState(),
     );
 
   const setAutostart = (enabled: boolean): void => {
@@ -166,8 +181,23 @@ export function registerTray(ctx: ServiceContext): TrayService {
 
   const buildMenu = (): Menu => {
     const agents = ctx.services.scheduler?.getState();
+    const killSwitch = ctx.services.killSwitch?.getState();
     const template: MenuItemConstructorOptions[] = [
       { label: 'Abrir', click: () => showMainWindow() },
+      {
+        // La bandeja nunca reanuda directamente: abre la ventana en
+        // «Riesgo», donde el usuario confirma la reanudación.
+        label: killSwitchTrayLabel(killSwitch),
+        click: () => {
+          if (ctx.services.killSwitch?.getState().active) {
+            showMainWindow();
+            ctx.broadcast(IPC_CHANNELS.alerts.navigate, 'riesgo');
+          } else {
+            ctx.services.killSwitch?.activate('manual', 'usuario');
+          }
+        },
+      },
+      { type: 'separator' },
       {
         label: agents?.paused ? 'Reanudar agentes' : 'Pausar agentes',
         click: () => {

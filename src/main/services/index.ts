@@ -1,3 +1,4 @@
+import { RISK_DEFAULTS } from '../../shared/ipc';
 import { registerConnectivity, type ConnectivityService } from './connectivity';
 import { registerNotifications, type NotificationsService } from './notifications';
 import { registerScheduler, type SchedulerService } from './scheduler';
@@ -19,6 +20,8 @@ import { registerHealth, type DataHealthService } from '../market/health';
 import { registerStrategies } from '../strategies/service';
 import type { StrategiesRepository } from '../strategies/repository';
 import { registerBacktest, type BacktestService } from '../backtest/service';
+import { registerKillSwitch, type KillSwitchService } from '../risk/killSwitch';
+import { registerRisk, type RiskService } from '../risk/service';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -31,6 +34,10 @@ export interface MainServices {
   connectivity: ConnectivityService;
   /** Vigilancia de datos caducados/no fiables: data-status:get y avisos. */
   health: DataHealthService;
+  /** Parada de emergencia (fase 3): veto total, disparadores automáticos. */
+  killSwitch: KillSwitchService;
+  /** Pasarela única del motor de riesgo (fase 3): límites, vetos y cautela. */
+  risk: RiskService;
   /** Series macro (FRED/VIX): refresco diario programado y `macro:get-series`. */
   macro: MacroService;
   /** Ingesta de velas: histórico, actualización diaria y watchlist/getBars. */
@@ -62,6 +69,9 @@ export interface ServiceContext {
  * en `ctx.services`. `health` va antes de `macro` y `market` porque envuelve
  * `ctx.broadcast` para observar sus `data-status:changed` al instante, y
  * comparte con `market` el reloj adelantable por el gancho de desarrollo.
+ * `killSwitch` va después de `health` por el mismo motivo: su envoltura de
+ * `ctx.broadcast` tiene que estar instalada antes de que `macro` y `market`
+ * lo capturen para que la parada vea cada `data-status:changed`.
  */
 export function initServices(ctx: ServiceContext): MainServices {
   const services = ctx.services;
@@ -74,6 +84,14 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.connectivity = registerConnectivity(ctx);
   const marketClock = createMarketClock();
   services.health = registerHealth(ctx, { clock: marketClock });
+  // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
+  // crítico), connectivity (sondeo), tray (repintado) y storage (historial
+  // de kill_switch_events); envuelve ctx.broadcast antes de macro/market.
+  // getLimits es perezoso: se enlaza con los límites reales cuando `risk`
+  // se registra unas líneas más abajo.
+  services.killSwitch = registerKillSwitch(ctx, {
+    getLimits: () => services.risk?.getLimits() ?? RISK_DEFAULTS,
+  });
   services.macro = registerMacro(ctx);
   services.market = registerMarket(ctx, { clock: marketClock });
   // Tras secrets: los conectores piden sus claves por getApiKey. La app
@@ -83,6 +101,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.poller = registerNews(ctx);
   // Tras market (watchlist), secrets (clave Finnhub) y poller (news:advance-clock).
   services.calendar = registerCalendar(ctx);
+  // Fase 3: la pasarela del motor de riesgo va tras killSwitch (instala
+  // los overviewExtras reales) y tras calendar (su listEvents alimenta la
+  // cautela); la cartera simulada y los vetos viven en storage.
+  services.risk = registerRisk(ctx);
   // Fase 2: la biblioteca de estrategias solo necesita storage.
   services.strategies = registerStrategies(ctx);
   // Fase 2: el servicio de backtest necesita strategies (fichas y métricas

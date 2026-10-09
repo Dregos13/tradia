@@ -88,9 +88,19 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       true,
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
-    await navigation.getByRole('link', { name: 'Estrategias', exact: true }).focus();
+    const strategiesLink = navigation.getByRole('link', { name: 'Estrategias', exact: true });
+    const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
+    await strategiesLink.focus();
+    await expect(strategiesLink).toBeFocused();
+    // Riesgo precede a Ajustes en la navegación de la fase 3.
+    await page.keyboard.press('Tab');
+    await expect(riskLink).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(riskLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(strategiesLink).toBeFocused();
     await page.getByText(/Ver tabla de datos/).click();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),

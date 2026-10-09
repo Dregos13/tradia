@@ -18,8 +18,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     db.close();
   });
 
@@ -28,7 +28,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(6);
+    expect(appliedMigrations(db)).toHaveLength(7);
     db.close();
   });
 
@@ -44,6 +44,7 @@ describe('ejecutor de migraciones', () => {
       'data_batches',
       'data_status',
       'diario',
+      'kill_switch_events',
       'macro_observations',
       'macro_series',
       'news_item_assets',
@@ -53,6 +54,10 @@ describe('ejecutor de migraciones', () => {
       'noticias',
       'notification_log',
       'quality_flags',
+      'risk_equity_history',
+      'risk_limits',
+      'risk_portfolio_positions',
+      'risk_vetoes',
       'schema_migrations',
       'secrets',
       'senales',
@@ -82,6 +87,10 @@ describe('ejecutor de migraciones', () => {
   it('revierte la última migración con su bloque down', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
+
+    expect(rollbackLast(db, MIGRATIONS)).toBe(7);
+    expect(tableNames(db)).not.toContain('risk_vetoes');
+    expect(tableNames(db)).toContain('backtest_runs');
 
     expect(rollbackLast(db, MIGRATIONS)).toBe(6);
     expect(tableNames(db)).not.toContain('backtest_runs');
@@ -114,7 +123,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([6]);
+    expect(migrate(db, MIGRATIONS)).toEqual([7]);
     expect(tableNames(db)).toContain('watchlist');
     db.close();
   });

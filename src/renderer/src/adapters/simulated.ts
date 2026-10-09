@@ -13,7 +13,11 @@ import {
   isGetStrategyRequest,
   isIsoDate,
   isNewsListQuery,
+  isResumeKillSwitchRequest,
+  isRiskLimits,
+  isRiskVetoesQuery,
   isSetStrategyStatusRequest,
+  isSignalIntent,
   isSourceId,
   isStrategyId,
   isStressRequest,
@@ -21,6 +25,9 @@ import {
   isTicker,
   isUpdateSourceRequest,
   isUpdateStrategyRequest,
+  CAUTION_REDUCED_SIZE_FACTOR,
+  RISK_DEFAULTS,
+  VETO_REASON_MESSAGES,
   WATCHLIST_MAX_ITEMS,
 } from '../../../shared/ipc';
 import type {
@@ -33,10 +40,13 @@ import type {
   BacktestStage,
   CalendarEvent,
   CalendarUpdatedEvent,
+  CautionState,
   ConnectivityState,
   DataStatusEntry,
   EquityPointDto,
   GetBarsRequest,
+  KillSwitchState,
+  LoggedRiskDecision,
   MacroObservation,
   MacroSeriesQuery,
   MacroSeriesSnapshot,
@@ -47,12 +57,20 @@ import type {
   NewsUpdatedEvent,
   NotificationPrefs,
   NotificationRoute,
+  RiskDecision,
+  RiskDecisionReason,
+  RiskLimits,
+  RiskOverview,
+  RiskVeto,
+  SeedRiskPosition,
+  SignalIntent,
   Strategy,
   StrategyChangelogEntry,
   StrategyDraft,
   StrategyStatus,
   StressResultDto,
   TradiaApi,
+  VetoReasonCode,
   WatchlistItem,
 } from '../../../shared/ipc';
 // El falso ejecuta el motor real: estos módulos son TS puro, sin Electron
@@ -847,6 +865,194 @@ export function createSimulatedAdapter() {
   const unsupported = async () => {
     throw new Error('Operación nativa no disponible en la simulación.');
   };
+
+  // — Motor de riesgo simulado (fase 3) ------------------------------------
+  // Réplica en memoria de la pasarela: parada → reglas por operación →
+  // posiciones abiertas → cautela. Cuando el motor real aterrice en
+  // src/main/risk/ este bloque lo usará, como ya hace el backtest.
+  let riskLimits: RiskLimits = { ...RISK_DEFAULTS };
+  let killSwitch: KillSwitchState = {
+    active: false,
+    cause: null,
+    actor: null,
+    activatedAt: null,
+    detail: null,
+  };
+  const caution: CautionState = {
+    active: false,
+    effect: 'ninguno',
+    sizeFactor: 1,
+    cause: null,
+    eventTitle: null,
+    until: null,
+  };
+  const riskEquity = 100_000;
+  const riskPositions: SeedRiskPosition[] = [];
+  let riskVetoes: RiskVeto[] = [];
+  let nextVetoId = 1;
+  const riskChangedListeners = new Set<(overview: RiskOverview) => void>();
+  const riskVetoedListeners = new Set<(veto: RiskVeto) => void>();
+  const riskOverview = (): RiskOverview => ({
+    limits: riskLimits,
+    killSwitch,
+    caution,
+  });
+  const emitRiskChanged = () => {
+    const overview = riskOverview();
+    riskChangedListeners.forEach((listener) => listener(overview));
+  };
+  const vetoReason = (
+    code: VetoReasonCode,
+    details: Record<string, number | string> = {},
+  ): RiskDecisionReason => ({ code, message: VETO_REASON_MESSAGES[code], details });
+  const recordVeto = (
+    signal: SignalIntent,
+    decision: LoggedRiskDecision,
+    reason: RiskDecisionReason,
+    size: number,
+  ): void => {
+    const veto: RiskVeto = {
+      id: nextVetoId++,
+      signal,
+      ticker: signal.ticker,
+      decision,
+      code: reason.code,
+      message: reason.message,
+      details: reason.details,
+      size,
+      createdAt: new Date().toISOString(),
+    };
+    riskVetoes = [veto, ...riskVetoes];
+    riskVetoedListeners.forEach((listener) => listener(veto));
+  };
+
+  /** Evaluación del falso: mismo orden que la pasarela del contrato. */
+  const evaluateSignal = (signal: SignalIntent): RiskDecision => {
+    const decidedAt = new Date().toISOString();
+    const reasons: RiskDecisionReason[] = [];
+    if (killSwitch.active) {
+      reasons.push(vetoReason('KILL_SWITCH_ACTIVE', { causa: killSwitch.cause ?? 'manual' }));
+    }
+    if (signal.confidence < 0 || signal.confidence > 1) {
+      reasons.push(vetoReason('SIGNAL_INVALID', { confianza: signal.confidence }));
+    }
+    if (signal.stop === null) {
+      reasons.push(vetoReason('STOP_MISSING'));
+    } else {
+      const wrongSide =
+        (signal.direction === 'largo' && signal.stop >= signal.entry) ||
+        (signal.direction === 'corto' && signal.stop <= signal.entry);
+      if (wrongSide) {
+        reasons.push(vetoReason('STOP_WRONG_SIDE', { entrada: signal.entry, stop: signal.stop }));
+      }
+    }
+    if (signal.target === null) {
+      reasons.push(
+        vetoReason('RR_TOO_LOW', { ratio: 'sin objetivo', minimo: riskLimits.minRewardRiskRatio }),
+      );
+    } else if (signal.stop !== null) {
+      const riskDistance = Math.abs(signal.entry - signal.stop);
+      const ratio = riskDistance > 0 ? Math.abs(signal.target - signal.entry) / riskDistance : 0;
+      if (ratio < riskLimits.minRewardRiskRatio) {
+        reasons.push(
+          vetoReason('RR_TOO_LOW', {
+            ratio: round(ratio, 2),
+            minimo: riskLimits.minRewardRiskRatio,
+          }),
+        );
+      }
+    }
+    const openPositions = riskPositions.filter((p) => p.closedAt === undefined);
+    if (openPositions.length >= riskLimits.maxOpenPositions) {
+      reasons.push(
+        vetoReason('MAX_POSITIONS', {
+          posiciones: openPositions.length,
+          maximo: riskLimits.maxOpenPositions,
+        }),
+      );
+    }
+    if (reasons.length > 0) {
+      reasons.forEach((reason) => recordVeto(signal, 'vetada', reason, 0));
+      return {
+        status: 'vetada',
+        size: 0,
+        sizeFactor: 1,
+        riskAmount: 0,
+        notional: 0,
+        reasons,
+        decidedAt,
+      };
+    }
+
+    const stop = signal.stop as number;
+    const distance = Math.abs(signal.entry - stop);
+    const factor =
+      caution.effect === 'bloquear'
+        ? 0
+        : caution.effect === 'reducir'
+          ? CAUTION_REDUCED_SIZE_FACTOR
+          : 1;
+    const size = Math.floor((riskEquity * (riskLimits.riskPerTradePct / 100) * factor) / distance);
+    const riskAmount = size * distance;
+    const notional = size * signal.entry;
+    if (factor === 0) {
+      const reason = vetoReason('CAUTION_MODE', {
+        evento: caution.eventTitle ?? caution.cause ?? '',
+      });
+      recordVeto(signal, 'vetada', reason, 0);
+      return {
+        status: 'vetada',
+        size: 0,
+        sizeFactor: 0,
+        riskAmount: 0,
+        notional: 0,
+        reasons: [reason],
+        decidedAt,
+      };
+    }
+    if (size === 0) {
+      const reason = vetoReason('SIZE_ZERO', {
+        capital: riskEquity,
+        riesgoPct: riskLimits.riskPerTradePct,
+      });
+      recordVeto(signal, 'vetada', reason, 0);
+      return {
+        status: 'vetada',
+        size: 0,
+        sizeFactor: factor,
+        riskAmount: 0,
+        notional: 0,
+        reasons: [reason],
+        decidedAt,
+      };
+    }
+    if (factor < 1) {
+      const reason = vetoReason('CAUTION_MODE', {
+        evento: caution.eventTitle ?? caution.cause ?? '',
+        factor,
+      });
+      recordVeto(signal, 'reducida', reason, size);
+      return {
+        status: 'reducida',
+        size,
+        sizeFactor: factor,
+        riskAmount,
+        notional,
+        reasons: [reason],
+        decidedAt,
+      };
+    }
+    return {
+      status: 'aprobada',
+      size,
+      sizeFactor: 1,
+      riskAmount,
+      notional,
+      reasons: [],
+      decidedAt,
+    };
+  };
+
   const api: TradiaApi = {
     connectivity: {
       getState: async () => connectivity,
@@ -1350,6 +1556,62 @@ export function createSimulatedAdapter() {
         emitProgress(ticket, strategy.id, 'completado', 100);
         return rows;
       },
+    },
+    risk: {
+      getLimits: async () => ({ ...riskLimits }),
+      setLimits: async (limits) => {
+        if (!isRiskLimits(limits)) {
+          throw new Error(
+            'Límites fuera de los márgenes permitidos (revisa los valores contra sus mínimos y máximos).',
+          );
+        }
+        riskLimits = { ...limits };
+        emitRiskChanged();
+        return { ...riskLimits };
+      },
+      listVetoes: async (query) => {
+        if (query !== undefined && !isRiskVetoesQuery(query)) {
+          throw new Error('Filtros de vetos inválidos.');
+        }
+        let rows = riskVetoes;
+        if (query?.rule) rows = rows.filter((v) => v.code === query.rule);
+        if (query?.decision) rows = rows.filter((v) => v.decision === query.decision);
+        if (query?.ticker)
+          rows = rows.filter((v) => v.ticker === query.ticker!.trim().toUpperCase());
+        const offset = query?.offset ?? 0;
+        return rows.slice(offset, offset + (query?.limit ?? 100));
+      },
+      submitSignal: async (signal) => {
+        if (!isSignalIntent(signal)) {
+          throw new Error('Señal inválida (ticker, dirección, precios u origen).');
+        }
+        return evaluateSignal(signal);
+      },
+      getKillSwitch: async () => ({ ...killSwitch }),
+      activateKillSwitch: async () => {
+        if (!killSwitch.active) {
+          killSwitch = {
+            active: true,
+            cause: 'manual',
+            actor: 'usuario',
+            activatedAt: new Date().toISOString(),
+            detail: null,
+          };
+          emitRiskChanged();
+        }
+        return { ...killSwitch };
+      },
+      resumeKillSwitch: async (request) => {
+        if (!isResumeKillSwitchRequest(request)) {
+          throw new Error('La reanudación exige una confirmación explícita.');
+        }
+        killSwitch = { ...killSwitch, active: false };
+        emitRiskChanged();
+        return { ...killSwitch };
+      },
+      getCaution: async () => ({ ...caution }),
+      onChanged: (listener) => subscribe(riskChangedListeners, listener),
+      onVetoed: (listener) => subscribe(riskVetoedListeners, listener),
     },
   };
   return {

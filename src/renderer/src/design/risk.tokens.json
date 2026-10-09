@@ -1,0 +1,81 @@
+{
+  "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+  "meta": {
+    "name": "Tradia — Cuaderno cuantitativo · Riesgo",
+    "version": "3.0.0",
+    "extends": "./base.tokens.json",
+    "contrastStandard": "WCAG 2.2 AA",
+    "baseUnit": "4px"
+  },
+  "color": {
+    "light": {
+      "canvas": { "value": "#F5F3ED", "name": "Lienzo" },
+      "surface": { "value": "#FFFEFA", "name": "Superficie" },
+      "surfaceSubtle": { "value": "#ECE9E1", "name": "Superficie tenue" },
+      "surfaceStrong": { "value": "#DCD8CE", "name": "Superficie marcada" },
+      "text": { "value": "#17233A", "name": "Tinta" },
+      "textMuted": { "value": "#566174", "name": "Tinta secundaria" },
+      "textFaint": { "value": "#6A7280", "name": "Tinta terciaria" },
+      "border": { "value": "#CBC7BD", "name": "Línea" },
+      "borderStrong": { "value": "#8D94A0", "name": "Línea marcada" },
+      "accent": { "value": "#1746C6", "name": "Cobalto" },
+      "accentHover": { "value": "#10369E", "name": "Cobalto activo" },
+      "accentSoft": { "value": "#E5EBFF", "name": "Cobalto tenue" },
+      "focus": { "value": "#0C60E8", "name": "Foco" },
+      "inverse": { "value": "#FFFFFF", "name": "Texto inverso" }
+    },
+    "dark": {
+      "canvas": { "value": "#0E1522", "name": "Lienzo" },
+      "surface": { "value": "#151F30", "name": "Superficie" },
+      "surfaceSubtle": { "value": "#1D293B", "name": "Superficie tenue" },
+      "surfaceStrong": { "value": "#2B384C", "name": "Superficie marcada" },
+      "text": { "value": "#F4F5F7", "name": "Tinta" },
+      "textMuted": { "value": "#B8C1CE", "name": "Tinta secundaria" },
+      "textFaint": { "value": "#98A5B7", "name": "Tinta terciaria" },
+      "border": { "value": "#3B485C", "name": "Línea" },
+      "borderStrong": { "value": "#718096", "name": "Línea marcada" },
+      "accent": { "value": "#7EA2FF", "name": "Cobalto" },
+      "accentHover": { "value": "#A9C0FF", "name": "Cobalto activo" },
+      "accentSoft": { "value": "#1B3265", "name": "Cobalto tenue" },
+      "focus": { "value": "#9DB8FF", "name": "Foco" },
+      "inverse": { "value": "#0E1522", "name": "Texto inverso" }
+    },
+    "riskStatus": {
+      "safe": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Operativo", "icon": "shield-check" },
+      "caution": { "light": "#765500", "lightSurface": "#FFF0BF", "dark": "#FFD166", "darkSurface": "#45320D", "label": "Modo cautela", "icon": "triangle-alert" },
+      "stopped": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Parada activa", "icon": "octagon-stop" },
+      "resuming": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Reanudando", "icon": "loader" },
+      "simulation": { "light": "#5B3B91", "lightSurface": "#EEE6FA", "dark": "#D0B4FF", "darkSurface": "#35244F", "label": "Simulación", "icon": "flask" }
+    },
+    "decision": {
+      "approved": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Aprobada" },
+      "reduced": { "light": "#765500", "lightSurface": "#FFF0BF", "dark": "#FFD166", "darkSurface": "#45320D", "label": "Tamaño reducido" },
+      "vetoed": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Vetada" }
+    }
+  },
+  "typography": {
+    "family": {
+      "interface": { "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", "name": "Interfaz" },
+      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "numeric": { "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace", "name": "Datos" }
+    },
+    "size": {
+      "xs": { "value": "12px", "lineHeight": "16px" },
+      "sm": { "value": "14px", "lineHeight": "20px" },
+      "md": { "value": "16px", "lineHeight": "24px" },
+      "lg": { "value": "18px", "lineHeight": "26px" },
+      "xl": { "value": "24px", "lineHeight": "32px" },
+      "2xl": { "value": "34px", "lineHeight": "40px" }
+    },
+    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
+    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+  },
+  "spacing": { "0": "0", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px", "16": "64px" },
+  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "shadow": {
+    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
+    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" }
+  },
+  "size": { "controlMin": "44px", "sidebar": "228px", "contentMax": "1440px", "statusBar": "48px", "limitsLabel": "220px", "vetoTableMin": "880px" },
+  "motion": { "fast": "120ms", "normal": "200ms", "slow": "320ms", "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)", "reduced": "0ms" }
+}

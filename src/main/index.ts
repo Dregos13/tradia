@@ -61,6 +61,8 @@ if (!gotSingleInstanceLock) {
         services?.market.stop();
         services?.macro.stop();
         services?.health.stop();
+        services?.killSwitch.stop();
+        services?.risk.stop();
         services?.scheduler.stop();
         services?.tray.destroy();
         services?.storage.close();
