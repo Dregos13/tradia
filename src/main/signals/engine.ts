@@ -137,6 +137,7 @@ export type TickerEvaluationOutcome =
   | 'emitted'
   | 'contradiction'
   | 'no-votes'
+  | 'error'
   | 'already-processed'
   | 'blocked';
 
@@ -504,10 +505,29 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       // La señal exige entrada > 0 (CHECK de la tabla y guarda de riesgo).
       logger.warn?.(`[signals] ${ticker} ${barDate}: sin precio de referencia; no se emite`);
       for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
-      return 'no-votes';
+      return 'error';
     }
 
-    const signal = emitSignal(intent, votes, dataUsed, barDate);
+    let signal: Signal | null = null;
+    try {
+      signal = emitSignal(intent, votes, dataUsed, barDate);
+    } catch (error: unknown) {
+      // La pasarela o la persistencia fallaron: queda como error en el
+      // diario, la vela no se reevalúa (ya está marcada) y se sigue.
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error?.(`[signals] ${ticker} ${barDate}: no se pudo emitir la señal: ${message}`);
+      for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
+      recordJournal({
+        type: 'error',
+        ticker,
+        strategies: votes.map(toStrategyRef),
+        reason: `Error al emitir la señal ${direction} de ${ticker}`,
+        dataUsed: { ...(dataUsed as unknown as Record<string, unknown>) },
+        result: 'error',
+        errors: [message],
+      });
+      return 'error';
+    }
     const outcome: SignalStrategyOutcome =
       signal === null
         ? 'sin-senal'

@@ -125,7 +125,7 @@ class ProbeContext implements StrategyContext {
   constructor(
     private readonly assets: Map<string, ProbeAsset>,
     private readonly pending: Map<string, ProbePendingOrder[]>,
-    private readonly positions: Map<string, ProbePosition>,
+    private readonly book: Map<string, ProbePosition>,
     private readonly emitted: ProbeOrder[],
     private readonly lastDate: SessionDate,
   ) {
@@ -153,13 +153,13 @@ class ProbeContext implements StrategyContext {
   }
 
   position(ticker: string): PositionView | null {
-    const position = this.positions.get(normalize(ticker));
+    const position = this.book.get(normalize(ticker));
     if (position === undefined) return null;
     return toView(position);
   }
 
   positions(): PositionView[] {
-    return [...this.positions.values()].map(toView);
+    return [...this.book.values()].map(toView);
   }
 
   buy(ticker: string, options: { stop?: number; target?: number } = {}): void {
@@ -181,13 +181,13 @@ class ProbeContext implements StrategyContext {
   }
 
   setStop(ticker: string, price: number): void {
-    const position = this.positions.get(normalize(ticker));
+    const position = this.book.get(normalize(ticker));
     if (position === undefined) return;
     position.stop = optionalPrice(price, 'stop');
   }
 
   setTarget(ticker: string, price: number): void {
-    const position = this.positions.get(normalize(ticker));
+    const position = this.book.get(normalize(ticker));
     if (position === undefined) return;
     position.target = optionalPrice(price, 'target');
   }
