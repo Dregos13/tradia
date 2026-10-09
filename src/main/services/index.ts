@@ -16,6 +16,8 @@ import {
   type MarketIngestionService,
 } from '../market/ingestion';
 import { registerHealth, type DataHealthService } from '../market/health';
+import { registerStrategies } from '../strategies/service';
+import type { StrategiesRepository } from '../strategies/repository';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -40,6 +42,8 @@ export interface MainServices {
   calendar: CalendarService;
   /** Avisos (fase 1b): evento previo, noticia crítica y alerts:get/set-prefs. */
   alerts: NewsAlertsService;
+  /** Biblioteca de estrategias (fase 2): fichas versionadas y registro. */
+  strategies: StrategiesRepository;
 }
 
 export interface ServiceContext {
@@ -76,6 +80,8 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.poller = registerNews(ctx);
   // Tras market (watchlist), secrets (clave Finnhub) y poller (news:advance-clock).
   services.calendar = registerCalendar(ctx);
+  // Fase 2: la biblioteca de estrategias solo necesita storage.
+  services.strategies = registerStrategies(ctx);
   // El último: consume notifications, settings, poller (onItemsStored y el
   // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
   services.alerts = registerAlerts(ctx);

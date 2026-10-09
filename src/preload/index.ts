@@ -23,6 +23,12 @@ import type {
   TradiaApi,
   UpdateSourceRequest,
 } from '../shared/ipc';
+import type {
+  CreateStrategyRequest,
+  GetStrategyRequest,
+  SetStrategyStatusRequest,
+  UpdateStrategyRequest,
+} from '../shared/ipc';
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: IpcRendererEvent, payload: T): void => listener(payload);
@@ -105,6 +111,17 @@ const api: TradiaApi = {
     getPrefs: () => ipcRenderer.invoke(IPC_CHANNELS.alerts.getPrefs),
     setPrefs: (prefs: AlertPrefs) => ipcRenderer.invoke(IPC_CHANNELS.alerts.setPrefs, prefs),
     onNavigate: (listener) => subscribe<NotificationRoute>(IPC_CHANNELS.alerts.navigate, listener),
+  },
+  strategies: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.strategies.list),
+    get: (request: GetStrategyRequest) => ipcRenderer.invoke(IPC_CHANNELS.strategies.get, request),
+    create: (request: CreateStrategyRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.create, request),
+    update: (request: UpdateStrategyRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.update, request),
+    setStatus: (request: SetStrategyStatusRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.setStatus, request),
+    history: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.strategies.history, id),
   },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.

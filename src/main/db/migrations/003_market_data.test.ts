@@ -6,6 +6,8 @@ import { migrate, rollbackLast } from '../migrator';
 
 /** Migraciones de la fase 0-1, antes de los datos de mercado. */
 const PHASE_0_1 = MIGRATIONS.filter((m) => m.version <= 2);
+/** Hasta noticias inclusive: lo que cubre esta prueba. */
+const PHASE_1B = MIGRATIONS.filter((m) => m.version <= 4);
 
 function tableNames(db: Database.Database): string[] {
   const rows = db
@@ -31,8 +33,8 @@ describe('migración 003 · datos de mercado', () => {
       "INSERT INTO settings (key, value, updated_at) VALUES ('autostart', 'true', '2026-10-07T00:00:00Z')",
     ).run();
 
-    // Solo las migraciones 003 y 004 quedan pendientes.
-    expect(migrate(db, MIGRATIONS)).toEqual([3, 4]);
+    // Solo las migraciones 003 y 004 quedan pendientes en esta prueba.
+    expect(migrate(db, PHASE_1B)).toEqual([3, 4]);
 
     expect((db.prepare('SELECT COUNT(*) AS n FROM series').get() as { n: number }).n).toBe(1);
     expect(
@@ -127,7 +129,7 @@ describe('migración 003 · datos de mercado', () => {
 
   it('revertir la 003 solo elimina las tablas de mercado', () => {
     const db = new Database(':memory:');
-    migrate(db, MIGRATIONS);
+    migrate(db, PHASE_1B);
     db.prepare(
       "INSERT INTO watchlist (ticker, alta, orden) VALUES ('SPY', '2026-10-08T00:00:00Z', 0)",
     ).run();

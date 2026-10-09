@@ -31,6 +31,15 @@ import {
   isTestSourceRequest,
   isTicker,
   isUpdateSourceRequest,
+  isCreateStrategyRequest,
+  isGetStrategyRequest,
+  isSetStrategyStatusRequest,
+  isStrategyCosts,
+  isStrategyMarkets,
+  isStrategyParameterRanges,
+  isStrategyPeriod,
+  isStrategyStatus,
+  isUpdateStrategyRequest,
   NEWS_LIST_MAX_LIMIT,
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
@@ -52,7 +61,7 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar y alerts', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts y strategies', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'alerts',
@@ -66,6 +75,7 @@ describe('contrato IPC', () => {
       'secrets',
       'settings',
       'sources',
+      'strategies',
       'watchlist',
     ]);
   });
@@ -113,6 +123,17 @@ describe('contrato IPC', () => {
       getPrefs: 'alerts:get-prefs',
       setPrefs: 'alerts:set-prefs',
       navigate: 'alerts:navigate',
+    });
+  });
+
+  it('incluye los canales de estrategias del contrato (fase 2)', () => {
+    expect(IPC_CHANNELS.strategies).toEqual({
+      list: 'strategies:list',
+      get: 'strategies:get',
+      create: 'strategies:create',
+      update: 'strategies:update',
+      setStatus: 'strategies:set-status',
+      history: 'strategies:history',
     });
   });
 
@@ -396,6 +417,106 @@ describe('guardas de entrada', () => {
     expect(isCalendarListQuery({ desde: '2026-10-05', hasta: 'mañana' })).toBe(false);
     expect(isCalendarListQuery({ desde: '2026-10-05', hasta: '2026-10-11', extra: 1 })).toBe(false);
     expect(isCalendarListQuery(undefined)).toBe(false);
+  });
+
+  it('valida estados, periodos, costes y mercados de la ficha', () => {
+    for (const status of ['investigacion', 'paper', 'activa', 'degradada', 'retirada']) {
+      expect(isStrategyStatus(status)).toBe(true);
+    }
+    expect(isStrategyStatus('en-vivo')).toBe(false);
+    expect(isStrategyStatus(null)).toBe(false);
+
+    expect(isStrategyPeriod({ desde: '2010-01-01', hasta: '2015-12-31' })).toBe(true);
+    expect(isStrategyPeriod({ desde: '2015-12-31', hasta: '2010-01-01' })).toBe(false);
+    expect(isStrategyPeriod({ desde: '2020-02-30', hasta: '2020-03-01' })).toBe(false);
+    expect(isStrategyPeriod({ desde: '2010-01-01' })).toBe(false);
+
+    expect(
+      isStrategyCosts({ commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 }),
+    ).toBe(true);
+    expect(
+      isStrategyCosts({ commissionPct: -1, commissionMin: 1, slippageBps: 5, spreadBps: 2 }),
+    ).toBe(false);
+    expect(isStrategyCosts({ commissionPct: 0.05, commissionMin: 1, slippageBps: 5 })).toBe(false);
+    expect(
+      isStrategyCosts({
+        commissionPct: 0.05,
+        commissionMin: 1,
+        slippageBps: 5,
+        spreadBps: 2,
+        fee: 9,
+      }),
+    ).toBe(false);
+
+    expect(isStrategyMarkets(['SPY', 'ETF sectoriales US'])).toBe(true);
+    expect(isStrategyMarkets([])).toBe(false);
+    expect(isStrategyMarkets([''])).toBe(false);
+    expect(isStrategyMarkets('SPY')).toBe(false);
+  });
+
+  it('valida rangos de sensibilidad ligados a los parámetros', () => {
+    const params = { fast: 50, slow: 200 };
+    expect(isStrategyParameterRanges({ fast: { min: 10, max: 100, step: 5 } }, params)).toBe(true);
+    // Rango de un parámetro que no existe, invertido o con paso cero.
+    expect(isStrategyParameterRanges({ medium: { min: 1, max: 2, step: 1 } }, params)).toBe(false);
+    expect(isStrategyParameterRanges({ fast: { min: 100, max: 10, step: 5 } }, params)).toBe(false);
+    expect(isStrategyParameterRanges({ fast: { min: 10, max: 100, step: 0 } }, params)).toBe(false);
+    expect(isStrategyParameterRanges({ fast: { min: 10, max: 100 } }, params)).toBe(false);
+    // Sin `parameters` de referencia solo se valida la forma.
+    expect(isStrategyParameterRanges({ cualquiera: { min: 1, max: 2, step: 1 } })).toBe(true);
+  });
+
+  it('valida el alta y la edición de estrategias', () => {
+    const draft = {
+      name: 'Cruce de medias 50/200',
+      hypothesis: 'La tendencia persiste.',
+      rules: { entry: 'e', exit: 's', stop: 'st', target: 't' },
+      parameters: { fast: 50, slow: 200 },
+      markets: ['SPY'],
+      regime: 'tendencial',
+    };
+    expect(isCreateStrategyRequest(draft)).toBe(true);
+    expect(
+      isCreateStrategyRequest({
+        ...draft,
+        note: 'Alta inicial',
+        parameterRanges: { fast: { min: 10, max: 100, step: 10 } },
+        trainingPeriod: { desde: '2005-01-01', hasta: '2015-12-31' },
+        assumedCosts: { commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 },
+      }),
+    ).toBe(true);
+
+    // Campos obligatorios que faltan, inválidos o claves ajenas.
+    expect(isCreateStrategyRequest({ ...draft, name: '' })).toBe(false);
+    expect(
+      isCreateStrategyRequest({ ...draft, rules: { entry: 'e', exit: 's', stop: 'st' } }),
+    ).toBe(false);
+    expect(isCreateStrategyRequest({ ...draft, markets: [] })).toBe(false);
+    expect(isCreateStrategyRequest({ ...draft, apiKey: 'sk-...' })).toBe(false);
+    expect(isCreateStrategyRequest({ ...draft, note: '' })).toBe(false);
+    expect(isCreateStrategyRequest(null)).toBe(false);
+
+    // La edición exige id, nota y al menos un campo versionable.
+    expect(isUpdateStrategyRequest({ id: 1, note: 'cambio', parameters: { fast: 40 } })).toBe(true);
+    expect(isUpdateStrategyRequest({ id: 1, note: 'cambio' })).toBe(false);
+    expect(isUpdateStrategyRequest({ id: 1, parameters: { fast: 40 } })).toBe(false);
+    expect(isUpdateStrategyRequest({ id: 'x', note: 'cambio', name: 'y' })).toBe(false);
+    expect(isUpdateStrategyRequest({ id: 1, note: 'cambio', metricsSummary: {} })).toBe(false);
+  });
+
+  it('valida la consulta de ficha y el cambio de estado', () => {
+    expect(isGetStrategyRequest({ id: 1 })).toBe(true);
+    expect(isGetStrategyRequest({ id: 1, version: 2 })).toBe(true);
+    expect(isGetStrategyRequest({ id: 1, version: 0 })).toBe(false);
+    expect(isGetStrategyRequest({ id: -1 })).toBe(false);
+    expect(isGetStrategyRequest({ id: 1, truco: true })).toBe(false);
+    expect(isGetStrategyRequest(1)).toBe(false);
+
+    expect(isSetStrategyStatusRequest({ id: 1, status: 'paper' })).toBe(true);
+    expect(isSetStrategyStatusRequest({ id: 1, status: 'retirada', note: 'motivo' })).toBe(true);
+    expect(isSetStrategyStatusRequest({ id: 1, status: 'en-vivo' })).toBe(false);
+    expect(isSetStrategyStatusRequest({ id: 1 })).toBe(false);
+    expect(isSetStrategyStatusRequest({ id: 1, status: 'paper', note: '' })).toBe(false);
   });
 });
 

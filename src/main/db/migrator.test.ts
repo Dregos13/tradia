@@ -18,8 +18,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4]);
+    expect(applied).toEqual([1, 2, 3, 4, 5]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5]);
     db.close();
   });
 
@@ -28,7 +28,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(4);
+    expect(appliedMigrations(db)).toHaveLength(5);
     db.close();
   });
 
@@ -57,6 +57,9 @@ describe('ejecutor de migraciones', () => {
       'senales',
       'series',
       'settings',
+      'strategies',
+      'strategy_changelog',
+      'strategy_versions',
       'watchlist',
     ]);
     db.close();
@@ -76,6 +79,10 @@ describe('ejecutor de migraciones', () => {
   it('revierte la última migración con su bloque down', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
+
+    expect(rollbackLast(db, MIGRATIONS)).toBe(5);
+    expect(tableNames(db)).not.toContain('strategies');
+    expect(tableNames(db)).toContain('news_items');
 
     expect(rollbackLast(db, MIGRATIONS)).toBe(4);
     expect(tableNames(db)).not.toContain('news_items');
@@ -100,7 +107,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([4]);
+    expect(migrate(db, MIGRATIONS)).toEqual([5]);
     expect(tableNames(db)).toContain('watchlist');
     db.close();
   });

@@ -1,15 +1,21 @@
 import {
   dataStatusKey,
+  DEFAULT_STRATEGY_COSTS,
   INITIAL_UNIVERSE_TICKERS,
   isAddSourceRequest,
   isCalendarListQuery,
+  isCreateStrategyRequest,
   isGetBarsRequest,
+  isGetStrategyRequest,
   isIsoDate,
   isNewsListQuery,
+  isSetStrategyStatusRequest,
   isSourceId,
+  isStrategyId,
   isTestSourceRequest,
   isTicker,
   isUpdateSourceRequest,
+  isUpdateStrategyRequest,
   WATCHLIST_MAX_ITEMS,
 } from '../../../shared/ipc';
 import type {
@@ -31,6 +37,10 @@ import type {
   NewsUpdatedEvent,
   NotificationPrefs,
   NotificationRoute,
+  Strategy,
+  StrategyChangelogEntry,
+  StrategyDraft,
+  StrategyStatus,
   TradiaApi,
   WatchlistItem,
 } from '../../../shared/ipc';
@@ -382,6 +392,63 @@ export function createSimulatedAdapter() {
     updatedAt: new Date().toISOString(),
   });
 
+  // Biblioteca de estrategias simulada: una entrada por versión guardada;
+  // `status` vive en cada fila porque el estado es de la estrategia, no de
+  // la versión (setStatus lo actualiza en todas sus versiones).
+  let strategyVersions: Strategy[] = [];
+  const strategyChangelog: StrategyChangelogEntry[] = [];
+  let nextStrategyId = 1;
+  let nextChangelogId = 1;
+  const latestStrategyVersion = (id: number): Strategy | null =>
+    strategyVersions.filter((v) => v.id === id).sort((a, b) => b.version - a.version)[0] ?? null;
+  /** Replica strategies.actualizado_en: todos los get de una estrategia lo ven. */
+  const touchStrategy = (id: number, at: string, status?: StrategyStatus) => {
+    strategyVersions = strategyVersions.map((v) =>
+      v.id === id ? { ...v, updatedAt: at, ...(status ? { status } : {}) } : v,
+    );
+  };
+  const addChangelog = (
+    strategyId: number,
+    kind: StrategyChangelogEntry['kind'],
+    note: string,
+    extra: Partial<Pick<StrategyChangelogEntry, 'version' | 'fromStatus' | 'toStatus'>> = {},
+  ): void => {
+    strategyChangelog.push({
+      id: nextChangelogId++,
+      strategyId,
+      kind,
+      version: extra.version ?? null,
+      fromStatus: extra.fromStatus ?? null,
+      toStatus: extra.toStatus ?? null,
+      note,
+      createdAt: new Date().toISOString(),
+    });
+  };
+  const mergeStrategyDraft = (base: Strategy, patch: Partial<StrategyDraft>): StrategyDraft => {
+    const merged: StrategyDraft = {
+      name: patch.name ?? base.name,
+      hypothesis: patch.hypothesis ?? base.hypothesis,
+      rules: patch.rules ?? base.rules,
+      parameters: patch.parameters ?? base.parameters,
+      parameterRanges: patch.parameterRanges ?? base.parameterRanges,
+      markets: patch.markets ?? base.markets,
+      trainingPeriod:
+        patch.trainingPeriod === undefined ? base.trainingPeriod : patch.trainingPeriod,
+      outOfSamplePeriod:
+        patch.outOfSamplePeriod === undefined ? base.outOfSamplePeriod : patch.outOfSamplePeriod,
+      regime: patch.regime ?? base.regime,
+      assumedCosts: patch.assumedCosts ?? base.assumedCosts,
+    };
+    // Como en el repositorio: si cambian los parámetros sin tocar los rangos,
+    // los rangos huérfanos no pasan a la versión nueva.
+    if (patch.parameters !== undefined && patch.parameterRanges === undefined) {
+      merged.parameterRanges = Object.fromEntries(
+        Object.entries(merged.parameterRanges ?? {}).filter(([key]) => key in merged.parameters),
+      );
+    }
+    return merged;
+  };
+
   const connectionListeners = new Set<(value: ConnectivityState) => void>();
   const agentListeners = new Set<(value: AgentsState) => void>();
   const heartbeatListeners = new Set<(value: string) => void>();
@@ -677,6 +744,132 @@ export function createSimulatedAdapter() {
         return alertPrefs;
       },
       onNavigate: (listener) => subscribe(alertNavigateListeners, listener),
+    },
+    strategies: {
+      list: async () =>
+        [...new Set(strategyVersions.map((v) => v.id))].map((id) => {
+          const latest = latestStrategyVersion(id)!;
+          return {
+            id,
+            name: latest.name,
+            version: latest.version,
+            status: latest.status,
+            regime: latest.regime,
+            markets: latest.markets,
+            metricsSummary: latest.metricsSummary,
+            updatedAt: latest.updatedAt,
+          };
+        }),
+      get: async (request) => {
+        if (!isGetStrategyRequest(request)) {
+          throw new Error('Consulta de ficha inválida (id o versión).');
+        }
+        if (request.version !== undefined) {
+          return (
+            strategyVersions.find((v) => v.id === request.id && v.version === request.version) ??
+            null
+          );
+        }
+        return latestStrategyVersion(request.id);
+      },
+      create: async (request) => {
+        if (!isCreateStrategyRequest(request)) {
+          throw new Error('Alta de estrategia inválida (revisa los campos de la ficha).');
+        }
+        const now = new Date().toISOString();
+        const note = request.note?.trim() || 'Alta de la estrategia';
+        const strategy: Strategy = {
+          id: nextStrategyId++,
+          version: 1,
+          name: request.name.trim(),
+          hypothesis: request.hypothesis,
+          rules: request.rules,
+          parameters: request.parameters,
+          parameterRanges: request.parameterRanges ?? {},
+          markets: request.markets,
+          trainingPeriod: request.trainingPeriod ?? null,
+          outOfSamplePeriod: request.outOfSamplePeriod ?? null,
+          metricsSummary: null,
+          regime: request.regime,
+          assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          status: 'investigacion',
+          changeNote: note,
+          createdAt: now,
+          updatedAt: now,
+          versionCreatedAt: now,
+        };
+        strategyVersions.push(strategy);
+        addChangelog(strategy.id, 'version', note, { version: 1 });
+        return strategy;
+      },
+      update: async (request) => {
+        if (!isUpdateStrategyRequest(request)) {
+          throw new Error(
+            'Edición de estrategia inválida (nota obligatoria y al menos un campo de la ficha).',
+          );
+        }
+        const current = latestStrategyVersion(request.id);
+        if (!current) {
+          throw new Error(`No existe la estrategia ${request.id}.`);
+        }
+        const { id: _id, note, ...patch } = request;
+        const merged = mergeStrategyDraft(current, patch);
+        const now = new Date().toISOString();
+        const version: Strategy = {
+          ...current,
+          version: current.version + 1,
+          name: merged.name.trim(),
+          hypothesis: merged.hypothesis,
+          rules: merged.rules,
+          parameters: merged.parameters,
+          parameterRanges: merged.parameterRanges ?? {},
+          markets: merged.markets,
+          trainingPeriod: merged.trainingPeriod ?? null,
+          outOfSamplePeriod: merged.outOfSamplePeriod ?? null,
+          metricsSummary: null,
+          regime: merged.regime,
+          assumedCosts: merged.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          changeNote: note.trim(),
+          updatedAt: now,
+          versionCreatedAt: now,
+        };
+        strategyVersions.push(version);
+        touchStrategy(request.id, now);
+        addChangelog(request.id, 'version', note.trim(), { version: version.version });
+        return strategyVersions.find((v) => v.id === request.id && v.version === version.version)!;
+      },
+      setStatus: async (request) => {
+        if (!isSetStrategyStatusRequest(request)) {
+          throw new Error('Cambio de estado inválido.');
+        }
+        const current = latestStrategyVersion(request.id);
+        if (!current) {
+          throw new Error(`No existe la estrategia ${request.id}.`);
+        }
+        if (request.status === current.status) {
+          throw new Error(`La estrategia ${request.id} ya está en estado '${request.status}'.`);
+        }
+        const now = new Date().toISOString();
+        touchStrategy(request.id, now, request.status);
+        addChangelog(
+          request.id,
+          'estado',
+          request.note?.trim() || `Cambio de estado: ${current.status} → ${request.status}`,
+          {
+            fromStatus: current.status,
+            toStatus: request.status,
+          },
+        );
+        return latestStrategyVersion(request.id)!;
+      },
+      history: async (id) => {
+        if (!isStrategyId(id)) {
+          throw new Error('Identificador de estrategia inválido.');
+        }
+        return strategyChangelog
+          .filter((entry) => entry.strategyId === id)
+          .sort((a, b) => b.id - a.id);
+      },
     },
   };
   return {

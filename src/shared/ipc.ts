@@ -12,6 +12,35 @@
  *   claves, pero nunca recuperarlas.
  */
 
+import {
+  STRATEGY_MARKET_MAX_LENGTH,
+  STRATEGY_MAX_MARKETS,
+  STRATEGY_MAX_PARAMETERS,
+  STRATEGY_NAME_MAX_LENGTH,
+  STRATEGY_NOTE_MAX_LENGTH,
+  STRATEGY_REGIME_MAX_LENGTH,
+  STRATEGY_STATUSES,
+  STRATEGY_TEXT_MAX_LENGTH,
+} from './strategy';
+import type {
+  CreateStrategyRequest,
+  GetStrategyRequest,
+  SetStrategyStatusRequest,
+  Strategy,
+  StrategyChangelogEntry,
+  StrategyCosts,
+  StrategyParameterRange,
+  StrategyPeriod,
+  StrategyRules,
+  StrategyStatus,
+  StrategySummary,
+  UpdateStrategyRequest,
+} from './strategy';
+
+// El dominio de estrategias (fase 2) vive en ./strategy y se reexporta aquí
+// para que el renderer y el preload sigan importando de un solo sitio.
+export * from './strategy';
+
 export const IPC_CHANNELS = {
   connectivity: {
     getState: 'connectivity:get-state',
@@ -115,6 +144,18 @@ export const IPC_CHANNELS = {
     setPrefs: 'alerts:set-prefs',
     /** Evento main → renderer: el clic en una notificación pide abrir una vista. */
     navigate: 'alerts:navigate',
+  },
+  strategies: {
+    list: 'strategies:list',
+    /** `{ id, version? }`: la versión vigente por defecto o una concreta. */
+    get: 'strategies:get',
+    create: 'strategies:create',
+    /** Edición versionada: exige `note` y crea la versión N+1. */
+    update: 'strategies:update',
+    /** Cambio de estado: anota el registro sin crear versión nueva. */
+    setStatus: 'strategies:set-status',
+    /** Registro de cambios de una estrategia, más reciente primero. */
+    history: 'strategies:history',
   },
 } as const;
 
@@ -666,6 +707,20 @@ export interface TradiaApi {
     /** El clic en una notificación nativa pide abrir una vista. */
     onNavigate(listener: (route: NotificationRoute) => void): () => void;
   };
+  strategies: {
+    /** Biblioteca: la versión vigente de cada estrategia. */
+    list(): Promise<StrategySummary[]>;
+    /** Ficha completa; null si la estrategia o la versión no existen. */
+    get(request: GetStrategyRequest): Promise<Strategy | null>;
+    /** Alta en estado 'investigacion': crea la versión 1. */
+    create(request: CreateStrategyRequest): Promise<Strategy>;
+    /** Edición con nota obligatoria: crea la versión N+1 y conserva las demás. */
+    update(request: UpdateStrategyRequest): Promise<Strategy>;
+    /** Cambio de estado: entrada en el registro, sin versión nueva. */
+    setStatus(request: SetStrategyStatusRequest): Promise<Strategy>;
+    /** Registro de cambios, más reciente primero. */
+    history(id: number): Promise<StrategyChangelogEntry[]>;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -997,6 +1052,234 @@ export function isCalendarListQuery(value: unknown): value is CalendarListQuery 
   if (Object.keys(v).some((k) => k !== 'desde' && k !== 'hasta')) return false;
   if (!isIsoDate(v.desde) || !isIsoDate(v.hasta)) return false;
   return v.desde <= v.hasta;
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: estrategias (fase 2)
+// ---------------------------------------------------------------------------
+
+export function isStrategyStatus(value: unknown): value is StrategyStatus {
+  return typeof value === 'string' && (STRATEGY_STATUSES as readonly string[]).includes(value);
+}
+
+/** Id entero positivo de estrategia (clave primaria autoincremental). */
+export function isStrategyId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/** Texto corto requerido (nombre de estrategia). */
+export function isStrategyName(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_NAME_MAX_LENGTH
+  );
+}
+
+/** Texto largo requerido (hipótesis, reglas): no vacío dentro del tope. */
+function isStrategyText(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_TEXT_MAX_LENGTH
+  );
+}
+
+/** Nota del registro de cambios: obligatoria en la edición, opcional en el alta. */
+export function isStrategyNote(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_NOTE_MAX_LENGTH
+  );
+}
+
+export function isStrategyRules(value: unknown): value is StrategyRules {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'entry' && k !== 'exit' && k !== 'stop' && k !== 'target')) {
+    return false;
+  }
+  return (
+    isStrategyText(v.entry) &&
+    isStrategyText(v.exit) &&
+    isStrategyText(v.stop) &&
+    isStrategyText(v.target)
+  );
+}
+
+/** Periodo 'YYYY-MM-DD' con ambos extremos reales y ordenados. */
+export function isStrategyPeriod(value: unknown): value is StrategyPeriod {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'desde' && k !== 'hasta')) return false;
+  if (!isIsoDate(v.desde) || !isIsoDate(v.hasta)) return false;
+  return v.desde <= v.hasta;
+}
+
+/** Parámetros ejecutables: mapa nombre → número finito, con topes. */
+export function isStrategyParameters(value: unknown): value is Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > STRATEGY_MAX_PARAMETERS) return false;
+  return entries.every(
+    ([key, val]) =>
+      key.trim().length > 0 && key.length <= 64 && typeof val === 'number' && Number.isFinite(val),
+  );
+}
+
+export function isStrategyParameterRange(value: unknown): value is StrategyParameterRange {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'min' && k !== 'max' && k !== 'step')) return false;
+  return (
+    typeof v.min === 'number' &&
+    Number.isFinite(v.min) &&
+    typeof v.max === 'number' &&
+    Number.isFinite(v.max) &&
+    typeof v.step === 'number' &&
+    Number.isFinite(v.step) &&
+    v.min <= v.max &&
+    v.step > 0
+  );
+}
+
+/**
+ * Rangos para el mapa de sensibilidad: cada rango es válido y, cuando la
+ * petición trae `parameters`, su clave tiene que existir en ellos.
+ */
+export function isStrategyParameterRanges(
+  value: unknown,
+  parameters?: Record<string, number>,
+): value is Record<string, StrategyParameterRange> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > STRATEGY_MAX_PARAMETERS) return false;
+  return entries.every(
+    ([key, range]) =>
+      key.trim().length > 0 &&
+      key.length <= 64 &&
+      isStrategyParameterRange(range) &&
+      (parameters === undefined || key in parameters),
+  );
+}
+
+/** Mercados de la ficha: 1..64 nombres cortos (tickers o descripciones). */
+export function isStrategyMarkets(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > STRATEGY_MAX_MARKETS) {
+    return false;
+  }
+  return value.every(
+    (market) =>
+      typeof market === 'string' &&
+      market.trim().length > 0 &&
+      market.length <= STRATEGY_MARKET_MAX_LENGTH,
+  );
+}
+
+/** Costes asumidos: los cuatro campos, números finitos no negativos. */
+export function isStrategyCosts(value: unknown): value is StrategyCosts {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  return allowed.every(
+    (key) => typeof v[key] === 'number' && Number.isFinite(v[key]) && (v[key] as number) >= 0,
+  );
+}
+
+/** Campos versionables de la ficha, para filtrar claves ajenas en las peticiones. */
+const STRATEGY_DRAFT_KEYS = [
+  'name',
+  'hypothesis',
+  'rules',
+  'parameters',
+  'parameterRanges',
+  'markets',
+  'trainingPeriod',
+  'outOfSamplePeriod',
+  'regime',
+  'assumedCosts',
+] as const;
+
+/** Valida cada campo versionable presente en `v`. Devuelve los presentes. */
+function checkStrategyDraftFields(
+  v: Record<string, unknown>,
+  { requireAll }: { requireAll: boolean },
+): string[] | null {
+  const required = ['name', 'hypothesis', 'rules', 'parameters', 'markets', 'regime'];
+  const present = STRATEGY_DRAFT_KEYS.filter((key) => key in v);
+  if (requireAll && required.some((key) => !(key in v))) return null;
+
+  if ('name' in v && !isStrategyName(v.name)) return null;
+  if ('hypothesis' in v && !isStrategyText(v.hypothesis)) return null;
+  if ('rules' in v && !isStrategyRules(v.rules)) return null;
+  if ('parameters' in v && !isStrategyParameters(v.parameters)) return null;
+  const parameters = 'parameters' in v ? (v.parameters as Record<string, number>) : undefined;
+  if ('parameterRanges' in v && !isStrategyParameterRanges(v.parameterRanges, parameters)) {
+    return null;
+  }
+  if ('markets' in v && !isStrategyMarkets(v.markets)) return null;
+  if ('trainingPeriod' in v && v.trainingPeriod !== null && !isStrategyPeriod(v.trainingPeriod)) {
+    return null;
+  }
+  if (
+    'outOfSamplePeriod' in v &&
+    v.outOfSamplePeriod !== null &&
+    !isStrategyPeriod(v.outOfSamplePeriod)
+  ) {
+    return null;
+  }
+  if (
+    'regime' in v &&
+    (typeof v.regime !== 'string' ||
+      v.regime.trim().length === 0 ||
+      v.regime.length > STRATEGY_REGIME_MAX_LENGTH)
+  ) {
+    return null;
+  }
+  if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  return present;
+}
+
+export function isCreateStrategyRequest(value: unknown): value is CreateStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).some(
+      (k) => k !== 'note' && !(STRATEGY_DRAFT_KEYS as readonly string[]).includes(k),
+    )
+  ) {
+    return false;
+  }
+  if (checkStrategyDraftFields(v, { requireAll: true }) === null) return false;
+  return !('note' in v) || isStrategyNote(v.note);
+}
+
+export function isUpdateStrategyRequest(value: unknown): value is UpdateStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).some(
+      (k) => k !== 'id' && k !== 'note' && !(STRATEGY_DRAFT_KEYS as readonly string[]).includes(k),
+    )
+  ) {
+    return false;
+  }
+  if (!isStrategyId(v.id) || !isStrategyNote(v.note)) return false;
+  const present = checkStrategyDraftFields(v, { requireAll: false });
+  // La nota sola no basta: una edición tiene que cambiar algo de la ficha.
+  return present !== null && present.length > 0;
+}
+
+export function isGetStrategyRequest(value: unknown): value is GetStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'version')) return false;
+  if (!isStrategyId(v.id)) return false;
+  return !('version' in v) || isStrategyId(v.version);
+}
+
+export function isSetStrategyStatusRequest(value: unknown): value is SetStrategyStatusRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'status' && k !== 'note')) return false;
+  if (!isStrategyId(v.id) || !isStrategyStatus(v.status)) return false;
+  return !('note' in v) || isStrategyNote(v.note);
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */
