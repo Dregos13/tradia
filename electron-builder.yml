@@ -14,8 +14,11 @@ asarUnpack:
   - node_modules/better-sqlite3/prebuilds/**
   - node_modules/better-sqlite3/build/**
 
-# Recompila/repara el módulo nativo better-sqlite3 para el Electron de destino.
-npmRebuild: true
+# better-sqlite3 >= 13 ya empaqueta binarios precompilados para todas las
+# plataformas (node_modules/better-sqlite3/prebuilds/) que Electron carga
+# directamente; reconstruir con node-gyp es innecesario y falla en rutas con
+# espacios (limitación conocida de node-gyp), así que se desactiva.
+npmRebuild: false
 
 # Iconos de la app y de la bandeja disponibles en runtime:
 # process.resourcesPath/resources/{icon.png,tray/*} (ver src/main/resources.ts).

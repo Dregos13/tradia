@@ -1,0 +1,120 @@
+.backtest-fields {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  padding: var(--space-4);
+}
+.backtest-fields input {
+  width: 100%;
+  min-width: 0;
+}
+.backtest-fields > button {
+  margin-top: var(--space-6);
+}
+.backtest-final {
+  margin-top: var(--space-8);
+  border-top: 1px solid var(--color-border);
+}
+.backtest-notice {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+}
+.backtest-notice p {
+  color: inherit;
+}
+.notice-method {
+  color: var(--notice-method);
+  background: var(--notice-method-surface);
+}
+.notice-info {
+  color: var(--notice-info);
+  background: var(--notice-info-surface);
+}
+.notice-critical {
+  color: var(--notice-critical);
+  background: var(--notice-critical-surface);
+}
+.backtest-chart {
+  height: 320px;
+  width: 100%;
+  min-width: 0;
+}
+.backtest-table {
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+.backtest-table caption {
+  text-align: left;
+  padding: var(--space-4) 0;
+  color: var(--color-textMuted);
+}
+.backtest-heat-scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+.backtest-heat {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+.backtest-heat > div {
+  padding: var(--space-3);
+  text-align: center;
+  font-family: var(--font-numeric);
+  color: var(--color-text);
+}
+.heat-low {
+  background: var(--heatmap-low);
+}
+.heat-mid {
+  background: var(--heatmap-mid);
+}
+.heat-high {
+  background: var(--heatmap-high);
+}
+.heat-selected {
+  outline: 3px solid var(--heatmap-selected);
+  outline-offset: -3px;
+}
+.backtest-histogram {
+  display: flex;
+  align-items: end;
+  gap: var(--space-1);
+  height: 180px;
+  border-bottom: 1px solid var(--color-border);
+  margin: var(--space-6) 0;
+}
+.backtest-histogram > div {
+  flex: 1;
+  background: var(--chart-equity);
+}
+.strategies-page progress {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+@media (max-width: 700px) {
+  .backtest-table,
+  .backtest-table tbody,
+  .backtest-table tr,
+  .backtest-table td {
+    display: block;
+    width: 100%;
+  }
+  .backtest-table thead {
+    display: none;
+  }
+  .backtest-table tr {
+    border-bottom: 1px solid var(--color-borderStrong);
+    padding: var(--space-3) 0;
+  }
+  .backtest-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-3);
+    border: 0;
+  }
+  .backtest-table td::before {
+    content: attr(data-label);
+    color: var(--color-textMuted);
+  }
+}

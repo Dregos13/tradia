@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { StrategiesPage } from './components/strategies/StrategiesPage';
 import { RiskGate } from './components/RiskGate';
 import { RiskDisclaimer } from './components/RiskDisclaimer';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
@@ -11,9 +12,18 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
-type Page = 'inicio' | 'mercado' | 'macro' | 'noticias' | 'calendario' | 'fuentes' | 'ajustes';
+type Page =
+  | 'inicio'
+  | 'mercado'
+  | 'macro'
+  | 'noticias'
+  | 'calendario'
+  | 'fuentes'
+  | 'ajustes'
+  | 'estrategias';
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
+  if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
   return hash === 'mercado' ||
     hash === 'macro' ||
     hash === 'noticias' ||
@@ -82,6 +92,9 @@ function AppShell() {
               {{ noticias: 'Noticias', calendario: 'Calendario', fuentes: 'Fuentes' }[route]}
             </a>
           ))}
+          <a href="#estrategias" aria-current={page === 'estrategias' ? 'page' : undefined}>
+            Estrategias
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -98,6 +111,7 @@ function AppShell() {
               calendario: 'Calendario',
               fuentes: 'Fuentes',
               ajustes: 'Ajustes',
+              estrategias: 'Estrategias',
             }[page]
           }
         </h1>
@@ -106,7 +120,9 @@ function AppShell() {
       <OfflineBanner state={state} />
       <main id="contenido" className="main" tabIndex={-1}>
         <ProviderBanner />
-        {page === 'inicio' ? (
+        {page === 'estrategias' ? (
+          <StrategiesPage />
+        ) : page === 'inicio' ? (
           <HomePage state={state} />
         ) : page === 'mercado' || page === 'macro' ? (
           <MarketDataPage kind={page} />

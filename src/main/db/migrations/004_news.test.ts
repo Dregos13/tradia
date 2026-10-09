@@ -6,6 +6,8 @@ import { migrate, rollbackLast } from '../migrator';
 
 /** Migraciones de las fases 0-1, antes de noticias y calendario. */
 const PHASE_0_1 = MIGRATIONS.filter((m) => m.version <= 3);
+/** Hasta noticias inclusive: lo que cubre esta prueba. */
+const PHASE_1B = MIGRATIONS.filter((m) => m.version <= 4);
 
 function tableNames(db: Database.Database): string[] {
   const rows = db
@@ -34,8 +36,8 @@ describe('migración 004 · noticias, fuentes y calendario', () => {
       "INSERT INTO settings (key, value, updated_at) VALUES ('autostart', 'true', '2026-10-08T00:00:00Z')",
     ).run();
 
-    // Solo la migración 004 queda pendiente.
-    expect(migrate(db, MIGRATIONS)).toEqual([4]);
+    // Solo la migración 004 queda pendiente en esta prueba.
+    expect(migrate(db, PHASE_1B)).toEqual([4]);
 
     expect((db.prepare('SELECT COUNT(*) AS n FROM watchlist').get() as { n: number }).n).toBe(1);
     expect(
@@ -224,7 +226,7 @@ describe('migración 004 · noticias, fuentes y calendario', () => {
 
   it('revertir la 004 solo elimina las tablas de noticias y calendario', () => {
     const db = new Database(':memory:');
-    migrate(db, MIGRATIONS);
+    migrate(db, PHASE_1B);
     db.prepare(
       "INSERT INTO news_sources (nombre, tipo, conector, fiabilidad) VALUES ('Fed', 'oficial', 'fed', 'oficial')",
     ).run();

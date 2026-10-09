@@ -12,6 +12,59 @@
  *   claves, pero nunca recuperarlas.
  */
 
+import {
+  STRATEGY_MARKET_MAX_LENGTH,
+  STRATEGY_MAX_MARKETS,
+  STRATEGY_MAX_PARAMETERS,
+  STRATEGY_NAME_MAX_LENGTH,
+  STRATEGY_NOTE_MAX_LENGTH,
+  STRATEGY_REGIME_MAX_LENGTH,
+  STRATEGY_STATUSES,
+  STRATEGY_TEXT_MAX_LENGTH,
+} from './strategy';
+import type {
+  CreateStrategyRequest,
+  GetStrategyRequest,
+  SetStrategyStatusRequest,
+  Strategy,
+  StrategyChangelogEntry,
+  StrategyCosts,
+  StrategyParameterRange,
+  StrategyPeriod,
+  StrategyRules,
+  StrategyStatus,
+  StrategySummary,
+  UpdateStrategyRequest,
+} from './strategy';
+import {
+  BACKTEST_MAX_INITIAL_CASH,
+  BACKTEST_MAX_LIMIT,
+  BACKTEST_MAX_POSITIONS,
+  BACKTEST_MAX_RISK_PER_TRADE,
+  BACKTEST_MAX_UNIVERSE,
+  BACKTEST_MIN_INITIAL_CASH,
+  BACKTEST_MIN_RISK_PER_TRADE,
+  MONTE_CARLO_MAX_SIMULATIONS,
+  MONTE_CARLO_METHODS,
+  OBJECTIVE_METRIC_NAMES,
+} from './backtest';
+import type {
+  BacktestFinalTestRequest,
+  BacktestListQuery,
+  BacktestProgressEvent,
+  BacktestReport,
+  BacktestRunRequest,
+  BacktestRunSummary,
+  StressRequest,
+  StressResultDto,
+} from './backtest';
+
+// El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
+// ./backtest; se reexportan aquí para que el renderer y el preload sigan
+// importando de un solo sitio.
+export * from './strategy';
+export * from './backtest';
+
 export const IPC_CHANNELS = {
   connectivity: {
     getState: 'connectivity:get-state',
@@ -115,6 +168,39 @@ export const IPC_CHANNELS = {
     setPrefs: 'alerts:set-prefs',
     /** Evento main → renderer: el clic en una notificación pide abrir una vista. */
     navigate: 'alerts:navigate',
+  },
+  strategies: {
+    list: 'strategies:list',
+    /** `{ id, version? }`: la versión vigente por defecto o una concreta. */
+    get: 'strategies:get',
+    create: 'strategies:create',
+    /** Edición versionada: exige `note` y crea la versión N+1. */
+    update: 'strategies:update',
+    /** Cambio de estado: anota el registro sin crear versión nueva. */
+    setStatus: 'strategies:set-status',
+    /** Registro de cambios de una estrategia, más reciente primero. */
+    history: 'strategies:history',
+  },
+  backtest: {
+    /** Lanza la ejecución completa (métricas, walk-forward, sensibilidad, MC). */
+    run: 'backtest:run',
+    /** Ejecuciones guardadas, más recientes primero (`{strategyId?, version?, limit?}`). */
+    list: 'backtest:list',
+    /** Informe completo de una ejecución por id. */
+    get: 'backtest:get',
+    /**
+     * Ejecuta el tramo de prueba bloqueado de la versión: una sola vez.
+     * La segunda llamada para la misma versión se rechaza.
+     */
+    runFinalTest: 'backtest:run-final-test',
+    /** Evento main → renderer: progreso de una ejecución en curso. */
+    progress: 'backtest:progress',
+  },
+  stress: {
+    /** Pruebas de estrés guardadas de una estrategia (`{strategyId, version?}`). */
+    get: 'stress:get',
+    /** Ejecuta de nuevo las tres crisis y las guarda en la ficha. */
+    run: 'stress:run',
   },
 } as const;
 
@@ -666,6 +752,44 @@ export interface TradiaApi {
     /** El clic en una notificación nativa pide abrir una vista. */
     onNavigate(listener: (route: NotificationRoute) => void): () => void;
   };
+  strategies: {
+    /** Biblioteca: la versión vigente de cada estrategia. */
+    list(): Promise<StrategySummary[]>;
+    /** Ficha completa; null si la estrategia o la versión no existen. */
+    get(request: GetStrategyRequest): Promise<Strategy | null>;
+    /** Alta en estado 'investigacion': crea la versión 1. */
+    create(request: CreateStrategyRequest): Promise<Strategy>;
+    /** Edición con nota obligatoria: crea la versión N+1 y conserva las demás. */
+    update(request: UpdateStrategyRequest): Promise<Strategy>;
+    /** Cambio de estado: entrada en el registro, sin versión nueva. */
+    setStatus(request: SetStrategyStatusRequest): Promise<Strategy>;
+    /** Registro de cambios, más reciente primero. */
+    history(id: number): Promise<StrategyChangelogEntry[]>;
+  };
+  backtest: {
+    /**
+     * Lanza el pipeline completo y devuelve el informe guardado. El tramo
+     * de prueba (último 20 % por defecto) queda bloqueado y no se ejecuta.
+     */
+    run(request: BacktestRunRequest): Promise<BacktestReport>;
+    /** Ejecuciones guardadas, más recientes primero. */
+    list(query?: BacktestListQuery): Promise<BacktestRunSummary[]>;
+    /** Informe completo de una ejecución; null si no existe. */
+    get(id: number): Promise<BacktestReport | null>;
+    /**
+     * Ejecuta el tramo de prueba bloqueado: una vez por versión. La
+     * segunda llamada rechaza (la prueba queda «Ejecutada y bloqueada»).
+     */
+    runFinalTest(request: BacktestFinalTestRequest): Promise<BacktestReport>;
+    /** Progreso de las ejecuciones en curso. */
+    onProgress(listener: (event: BacktestProgressEvent) => void): () => void;
+  };
+  stress: {
+    /** Resultados de las crisis 2008/2020/2022 guardados en la ficha. */
+    get(request: StressRequest): Promise<StressResultDto[]>;
+    /** Ejecuta de nuevo las pruebas de estrés y las guarda. */
+    run(request: StressRequest): Promise<StressResultDto[]>;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -997,6 +1121,422 @@ export function isCalendarListQuery(value: unknown): value is CalendarListQuery 
   if (Object.keys(v).some((k) => k !== 'desde' && k !== 'hasta')) return false;
   if (!isIsoDate(v.desde) || !isIsoDate(v.hasta)) return false;
   return v.desde <= v.hasta;
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: estrategias (fase 2)
+// ---------------------------------------------------------------------------
+
+export function isStrategyStatus(value: unknown): value is StrategyStatus {
+  return typeof value === 'string' && (STRATEGY_STATUSES as readonly string[]).includes(value);
+}
+
+/** Id entero positivo de estrategia (clave primaria autoincremental). */
+export function isStrategyId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/** Texto corto requerido (nombre de estrategia). */
+export function isStrategyName(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_NAME_MAX_LENGTH
+  );
+}
+
+/** Texto largo requerido (hipótesis, reglas): no vacío dentro del tope. */
+function isStrategyText(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_TEXT_MAX_LENGTH
+  );
+}
+
+/** Nota del registro de cambios: obligatoria en la edición, opcional en el alta. */
+export function isStrategyNote(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= STRATEGY_NOTE_MAX_LENGTH
+  );
+}
+
+export function isStrategyRules(value: unknown): value is StrategyRules {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'entry' && k !== 'exit' && k !== 'stop' && k !== 'target')) {
+    return false;
+  }
+  return (
+    isStrategyText(v.entry) &&
+    isStrategyText(v.exit) &&
+    isStrategyText(v.stop) &&
+    isStrategyText(v.target)
+  );
+}
+
+/** Periodo 'YYYY-MM-DD' con ambos extremos reales y ordenados. */
+export function isStrategyPeriod(value: unknown): value is StrategyPeriod {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'desde' && k !== 'hasta')) return false;
+  if (!isIsoDate(v.desde) || !isIsoDate(v.hasta)) return false;
+  return v.desde <= v.hasta;
+}
+
+/** Parámetros ejecutables: mapa nombre → número finito, con topes. */
+export function isStrategyParameters(value: unknown): value is Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > STRATEGY_MAX_PARAMETERS) return false;
+  return entries.every(
+    ([key, val]) =>
+      key.trim().length > 0 && key.length <= 64 && typeof val === 'number' && Number.isFinite(val),
+  );
+}
+
+export function isStrategyParameterRange(value: unknown): value is StrategyParameterRange {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'min' && k !== 'max' && k !== 'step')) return false;
+  return (
+    typeof v.min === 'number' &&
+    Number.isFinite(v.min) &&
+    typeof v.max === 'number' &&
+    Number.isFinite(v.max) &&
+    typeof v.step === 'number' &&
+    Number.isFinite(v.step) &&
+    v.min <= v.max &&
+    v.step > 0
+  );
+}
+
+/**
+ * Rangos para el mapa de sensibilidad: cada rango es válido y, cuando la
+ * petición trae `parameters`, su clave tiene que existir en ellos.
+ */
+export function isStrategyParameterRanges(
+  value: unknown,
+  parameters?: Record<string, number>,
+): value is Record<string, StrategyParameterRange> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > STRATEGY_MAX_PARAMETERS) return false;
+  return entries.every(
+    ([key, range]) =>
+      key.trim().length > 0 &&
+      key.length <= 64 &&
+      isStrategyParameterRange(range) &&
+      (parameters === undefined || key in parameters),
+  );
+}
+
+/** Mercados de la ficha: 1..64 nombres cortos (tickers o descripciones). */
+export function isStrategyMarkets(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > STRATEGY_MAX_MARKETS) {
+    return false;
+  }
+  return value.every(
+    (market) =>
+      typeof market === 'string' &&
+      market.trim().length > 0 &&
+      market.length <= STRATEGY_MARKET_MAX_LENGTH,
+  );
+}
+
+/** Costes asumidos: los cuatro campos, números finitos no negativos. */
+export function isStrategyCosts(value: unknown): value is StrategyCosts {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  return allowed.every(
+    (key) => typeof v[key] === 'number' && Number.isFinite(v[key]) && (v[key] as number) >= 0,
+  );
+}
+
+/** Campos versionables de la ficha, para filtrar claves ajenas en las peticiones. */
+const STRATEGY_DRAFT_KEYS = [
+  'name',
+  'hypothesis',
+  'rules',
+  'parameters',
+  'parameterRanges',
+  'markets',
+  'trainingPeriod',
+  'outOfSamplePeriod',
+  'regime',
+  'assumedCosts',
+] as const;
+
+/** Valida cada campo versionable presente en `v`. Devuelve los presentes. */
+function checkStrategyDraftFields(
+  v: Record<string, unknown>,
+  { requireAll }: { requireAll: boolean },
+): string[] | null {
+  const required = ['name', 'hypothesis', 'rules', 'parameters', 'markets', 'regime'];
+  const present = STRATEGY_DRAFT_KEYS.filter((key) => key in v);
+  if (requireAll && required.some((key) => !(key in v))) return null;
+
+  if ('name' in v && !isStrategyName(v.name)) return null;
+  if ('hypothesis' in v && !isStrategyText(v.hypothesis)) return null;
+  if ('rules' in v && !isStrategyRules(v.rules)) return null;
+  if ('parameters' in v && !isStrategyParameters(v.parameters)) return null;
+  const parameters = 'parameters' in v ? (v.parameters as Record<string, number>) : undefined;
+  if ('parameterRanges' in v && !isStrategyParameterRanges(v.parameterRanges, parameters)) {
+    return null;
+  }
+  if ('markets' in v && !isStrategyMarkets(v.markets)) return null;
+  if ('trainingPeriod' in v && v.trainingPeriod !== null && !isStrategyPeriod(v.trainingPeriod)) {
+    return null;
+  }
+  if (
+    'outOfSamplePeriod' in v &&
+    v.outOfSamplePeriod !== null &&
+    !isStrategyPeriod(v.outOfSamplePeriod)
+  ) {
+    return null;
+  }
+  if (
+    'regime' in v &&
+    (typeof v.regime !== 'string' ||
+      v.regime.trim().length === 0 ||
+      v.regime.length > STRATEGY_REGIME_MAX_LENGTH)
+  ) {
+    return null;
+  }
+  if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  return present;
+}
+
+export function isCreateStrategyRequest(value: unknown): value is CreateStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).some(
+      (k) => k !== 'note' && !(STRATEGY_DRAFT_KEYS as readonly string[]).includes(k),
+    )
+  ) {
+    return false;
+  }
+  if (checkStrategyDraftFields(v, { requireAll: true }) === null) return false;
+  return !('note' in v) || isStrategyNote(v.note);
+}
+
+export function isUpdateStrategyRequest(value: unknown): value is UpdateStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).some(
+      (k) => k !== 'id' && k !== 'note' && !(STRATEGY_DRAFT_KEYS as readonly string[]).includes(k),
+    )
+  ) {
+    return false;
+  }
+  if (!isStrategyId(v.id) || !isStrategyNote(v.note)) return false;
+  const present = checkStrategyDraftFields(v, { requireAll: false });
+  // La nota sola no basta: una edición tiene que cambiar algo de la ficha.
+  return present !== null && present.length > 0;
+}
+
+export function isGetStrategyRequest(value: unknown): value is GetStrategyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'version')) return false;
+  if (!isStrategyId(v.id)) return false;
+  return !('version' in v) || isStrategyId(v.version);
+}
+
+export function isSetStrategyStatusRequest(value: unknown): value is SetStrategyStatusRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'status' && k !== 'note')) return false;
+  if (!isStrategyId(v.id) || !isStrategyStatus(v.status)) return false;
+  return !('note' in v) || isStrategyNote(v.note);
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: backtest y pruebas de estrés (fase 2)
+// ---------------------------------------------------------------------------
+
+/** Id entero positivo de una ejecución guardada (`backtest:get`). */
+export function isBacktestRunId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/** Costes configurables del run: subconjunto de los de la ficha. */
+function isPartialCosts(value: unknown): value is Partial<StrategyCosts> {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  return Object.values(v).every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0,
+  );
+}
+
+function isSplitRatiosInput(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['train', 'validation', 'test'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  return Object.values(v).every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && (n as number) > 0 && (n as number) < 1,
+  );
+}
+
+function isWalkForwardOptions(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['trainSize', 'testSize', 'step', 'objective'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  for (const key of ['trainSize', 'testSize', 'step'] as const) {
+    if (key in v && (!Number.isInteger(v[key]) || (v[key] as number) < 1)) return false;
+  }
+  return (
+    !('objective' in v) ||
+    (typeof v.objective === 'string' &&
+      (OBJECTIVE_METRIC_NAMES as readonly string[]).includes(v.objective))
+  );
+}
+
+function isSensitivityAxes(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'xParam' && k !== 'yParam')) return false;
+  return ['xParam', 'yParam'].every(
+    (k) => !(k in v) || isNonEmptyString(v[k]),
+  );
+}
+
+function isMonteCarloOptions(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = ['seed', 'simulations', 'method'];
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  if ('seed' in v && (typeof v.seed !== 'number' || !Number.isFinite(v.seed))) return false;
+  if (
+    'simulations' in v &&
+    (!Number.isInteger(v.simulations) ||
+      (v.simulations as number) < 1 ||
+      (v.simulations as number) > MONTE_CARLO_MAX_SIMULATIONS)
+  ) {
+    return false;
+  }
+  return (
+    !('method' in v) ||
+    (typeof v.method === 'string' && (MONTE_CARLO_METHODS as readonly string[]).includes(v.method))
+  );
+}
+
+/** Universo del run: lista de tickers válidos (no nombres libres). */
+function isUniverse(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= BACKTEST_MAX_UNIVERSE &&
+    value.every(isTicker)
+  );
+}
+
+export function isBacktestRunRequest(value: unknown): value is BacktestRunRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'strategyId',
+    'version',
+    'desde',
+    'hasta',
+    'universe',
+    'initialCash',
+    'riskPerTrade',
+    'maxPositions',
+    'costs',
+    'params',
+    'split',
+    'walkForward',
+    'sensitivity',
+    'monteCarlo',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  if ('desde' in v && !isIsoDate(v.desde)) return false;
+  if ('hasta' in v && !isIsoDate(v.hasta)) return false;
+  if (typeof v.desde === 'string' && typeof v.hasta === 'string' && v.desde > v.hasta) {
+    return false;
+  }
+  if ('universe' in v && !isUniverse(v.universe)) return false;
+  if (
+    'initialCash' in v &&
+    (typeof v.initialCash !== 'number' ||
+      !Number.isFinite(v.initialCash) ||
+      v.initialCash < BACKTEST_MIN_INITIAL_CASH ||
+      v.initialCash > BACKTEST_MAX_INITIAL_CASH)
+  ) {
+    return false;
+  }
+  if (
+    'riskPerTrade' in v &&
+    (typeof v.riskPerTrade !== 'number' ||
+      v.riskPerTrade < BACKTEST_MIN_RISK_PER_TRADE ||
+      v.riskPerTrade > BACKTEST_MAX_RISK_PER_TRADE)
+  ) {
+    return false;
+  }
+  if (
+    'maxPositions' in v &&
+    (!Number.isInteger(v.maxPositions) ||
+      (v.maxPositions as number) < 1 ||
+      (v.maxPositions as number) > BACKTEST_MAX_POSITIONS)
+  ) {
+    return false;
+  }
+  if ('costs' in v && !isPartialCosts(v.costs)) return false;
+  if ('params' in v && !isStrategyParameters(v.params)) return false;
+  if ('split' in v && !isSplitRatiosInput(v.split)) return false;
+  for (const key of ['walkForward', 'sensitivity', 'monteCarlo'] as const) {
+    if (!(key in v)) continue;
+    const opt = v[key];
+    if (opt === false) continue;
+    if (key === 'walkForward' && !isWalkForwardOptions(opt)) return false;
+    if (key === 'sensitivity' && !isSensitivityAxes(opt)) return false;
+    if (key === 'monteCarlo' && !isMonteCarloOptions(opt)) return false;
+  }
+  return true;
+}
+
+export function isBacktestListQuery(value: unknown): value is BacktestListQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version' && k !== 'limit')) {
+    return false;
+  }
+  if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) || (v.limit as number) < 1 || (v.limit as number) > BACKTEST_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isBacktestFinalTestRequest(
+  value: unknown,
+): value is BacktestFinalTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  return !('version' in v) || isStrategyId(v.version);
+}
+
+/** `{strategyId, version?}` para `stress:get` y `stress:run`. */
+export function isStressRequest(value: unknown): value is StressRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  return !('version' in v) || isStrategyId(v.version);
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

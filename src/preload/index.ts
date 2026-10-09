@@ -5,6 +5,10 @@ import type {
   AddSourceRequest,
   AgentsState,
   AlertPrefs,
+  BacktestFinalTestRequest,
+  BacktestListQuery,
+  BacktestProgressEvent,
+  BacktestRunRequest,
   CalendarListQuery,
   CalendarUpdatedEvent,
   ConnectivityState,
@@ -19,9 +23,16 @@ import type {
   NotificationPrefs,
   NotificationRoute,
   SettingsPatch,
+  StressRequest,
   TestSourceRequest,
   TradiaApi,
   UpdateSourceRequest,
+} from '../shared/ipc';
+import type {
+  CreateStrategyRequest,
+  GetStrategyRequest,
+  SetStrategyStatusRequest,
+  UpdateStrategyRequest,
 } from '../shared/ipc';
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
@@ -105,6 +116,30 @@ const api: TradiaApi = {
     getPrefs: () => ipcRenderer.invoke(IPC_CHANNELS.alerts.getPrefs),
     setPrefs: (prefs: AlertPrefs) => ipcRenderer.invoke(IPC_CHANNELS.alerts.setPrefs, prefs),
     onNavigate: (listener) => subscribe<NotificationRoute>(IPC_CHANNELS.alerts.navigate, listener),
+  },
+  strategies: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.strategies.list),
+    get: (request: GetStrategyRequest) => ipcRenderer.invoke(IPC_CHANNELS.strategies.get, request),
+    create: (request: CreateStrategyRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.create, request),
+    update: (request: UpdateStrategyRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.update, request),
+    setStatus: (request: SetStrategyStatusRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.strategies.setStatus, request),
+    history: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.strategies.history, id),
+  },
+  backtest: {
+    run: (request: BacktestRunRequest) => ipcRenderer.invoke(IPC_CHANNELS.backtest.run, request),
+    list: (query?: BacktestListQuery) => ipcRenderer.invoke(IPC_CHANNELS.backtest.list, query),
+    get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.backtest.get, id),
+    runFinalTest: (request: BacktestFinalTestRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.backtest.runFinalTest, request),
+    onProgress: (listener: (event: BacktestProgressEvent) => void) =>
+      subscribe<BacktestProgressEvent>(IPC_CHANNELS.backtest.progress, listener),
+  },
+  stress: {
+    get: (request: StressRequest) => ipcRenderer.invoke(IPC_CHANNELS.stress.get, request),
+    run: (request: StressRequest) => ipcRenderer.invoke(IPC_CHANNELS.stress.run, request),
   },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.

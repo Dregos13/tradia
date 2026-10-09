@@ -88,7 +88,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       true,
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
-    await navigation.getByRole('link', { name: 'Fuentes', exact: true }).focus();
+    await navigation.getByRole('link', { name: 'Estrategias', exact: true }).focus();
     await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
     await page.getByText(/Ver tabla de datos/).click();

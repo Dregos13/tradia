@@ -1,25 +1,41 @@
 import {
   dataStatusKey,
+  DEFAULT_STRATEGY_COSTS,
   INITIAL_UNIVERSE_TICKERS,
   isAddSourceRequest,
+  isBacktestFinalTestRequest,
+  isBacktestListQuery,
+  isBacktestRunId,
+  isBacktestRunRequest,
   isCalendarListQuery,
+  isCreateStrategyRequest,
   isGetBarsRequest,
+  isGetStrategyRequest,
   isIsoDate,
   isNewsListQuery,
+  isSetStrategyStatusRequest,
   isSourceId,
+  isStrategyId,
+  isStressRequest,
   isTestSourceRequest,
   isTicker,
   isUpdateSourceRequest,
+  isUpdateStrategyRequest,
   WATCHLIST_MAX_ITEMS,
 } from '../../../shared/ipc';
 import type {
   AgentsState,
   AlertPrefs,
   AppSettings,
+  BacktestMetricsDto,
+  BacktestProgressEvent,
+  BacktestReport,
+  BacktestStage,
   CalendarEvent,
   CalendarUpdatedEvent,
   ConnectivityState,
   DataStatusEntry,
+  EquityPointDto,
   GetBarsRequest,
   MacroObservation,
   MacroSeriesQuery,
@@ -31,9 +47,21 @@ import type {
   NewsUpdatedEvent,
   NotificationPrefs,
   NotificationRoute,
+  Strategy,
+  StrategyChangelogEntry,
+  StrategyDraft,
+  StrategyStatus,
+  StressResultDto,
   TradiaApi,
   WatchlistItem,
 } from '../../../shared/ipc';
+// El falso ejecuta el motor real: estos módulos son TS puro, sin Electron
+// ni Node (contrato de src/main/backtest/).
+import { runBacktest } from '../../../main/backtest/engine';
+import { computeMetrics, type BacktestMetrics } from '../../../main/backtest/metrics';
+import { CLASSIC_STRATEGIES } from '../../../main/backtest/strategies';
+import { runMonteCarlo, splitTimeline } from '../../../main/backtest/validation';
+import type { EngineBar } from '../../../main/backtest/types';
 
 const SIMULATED_SOURCE = 'simulated';
 /** Génesis de las series simuladas: da unos 7 años de velas diarias. */
@@ -382,6 +410,398 @@ export function createSimulatedAdapter() {
     updatedAt: new Date().toISOString(),
   });
 
+  // Biblioteca de estrategias simulada: una entrada por versión guardada;
+  // `status` vive en cada fila porque el estado es de la estrategia, no de
+  // la versión (setStatus lo actualiza en todas sus versiones).
+  let strategyVersions: Strategy[] = [];
+  const strategyChangelog: StrategyChangelogEntry[] = [];
+  let nextStrategyId = 1;
+  let nextChangelogId = 1;
+  const latestStrategyVersion = (id: number): Strategy | null =>
+    strategyVersions.filter((v) => v.id === id).sort((a, b) => b.version - a.version)[0] ?? null;
+  /** Replica strategies.actualizado_en: todos los get de una estrategia lo ven. */
+  const touchStrategy = (id: number, at: string, status?: StrategyStatus) => {
+    strategyVersions = strategyVersions.map((v) =>
+      v.id === id ? { ...v, updatedAt: at, ...(status ? { status } : {}) } : v,
+    );
+  };
+  const addChangelog = (
+    strategyId: number,
+    kind: StrategyChangelogEntry['kind'],
+    note: string,
+    extra: Partial<Pick<StrategyChangelogEntry, 'version' | 'fromStatus' | 'toStatus'>> = {},
+  ): void => {
+    strategyChangelog.push({
+      id: nextChangelogId++,
+      strategyId,
+      kind,
+      version: extra.version ?? null,
+      fromStatus: extra.fromStatus ?? null,
+      toStatus: extra.toStatus ?? null,
+      note,
+      createdAt: new Date().toISOString(),
+    });
+  };
+  const mergeStrategyDraft = (base: Strategy, patch: Partial<StrategyDraft>): StrategyDraft => {
+    const merged: StrategyDraft = {
+      name: patch.name ?? base.name,
+      hypothesis: patch.hypothesis ?? base.hypothesis,
+      rules: patch.rules ?? base.rules,
+      parameters: patch.parameters ?? base.parameters,
+      parameterRanges: patch.parameterRanges ?? base.parameterRanges,
+      markets: patch.markets ?? base.markets,
+      trainingPeriod:
+        patch.trainingPeriod === undefined ? base.trainingPeriod : patch.trainingPeriod,
+      outOfSamplePeriod:
+        patch.outOfSamplePeriod === undefined ? base.outOfSamplePeriod : patch.outOfSamplePeriod,
+      regime: patch.regime ?? base.regime,
+      assumedCosts: patch.assumedCosts ?? base.assumedCosts,
+    };
+    // Como en el repositorio: si cambian los parámetros sin tocar los rangos,
+    // los rangos huérfanos no pasan a la versión nueva.
+    if (patch.parameters !== undefined && patch.parameterRanges === undefined) {
+      merged.parameterRanges = Object.fromEntries(
+        Object.entries(merged.parameterRanges ?? {}).filter(([key]) => key in merged.parameters),
+      );
+    }
+    return merged;
+  };
+
+  // — Backtest y pruebas de estrés (fase 2) ----------------------------------
+  // El falso ejecuta el motor real sobre las velas generadas, así el informe
+  // es verídico en estructura y razonable en valores. Los bloques pesados
+  // (walk-forward y sensibilidad) se omiten: el informe los muestra
+  // «Sin datos», como un run que los tenga desactivados. Monte Carlo sí se
+  // calcula (es barato). La versión reducida del pipeline vive en
+  // src/main/backtest/service.ts — este falso le sigue de cerca.
+  let nextBacktestRunId = 1;
+  const backtestRuns: BacktestReport[] = [];
+  const stressRowsByKey = new Map<string, StressResultDto[]>();
+  const finalTestRunByKey = new Map<string, number>();
+  const progressListeners = new Set<(event: BacktestProgressEvent) => void>();
+  let progressSeq = 0;
+
+  const emitProgress = (
+    ticket: string,
+    strategyId: number,
+    stage: BacktestStage,
+    percent: number,
+    detail: string | null = null,
+  ): void => {
+    const event: BacktestProgressEvent = {
+      ticket,
+      strategyId,
+      stage,
+      percent,
+      detail,
+      elapsedMs: 0,
+    };
+    progressListeners.forEach((listener) => listener(event));
+  };
+
+  // El adaptador no registra implementaciones para las fichas creadas por el usuario.
+  const implementations = new Map<number, (typeof CLASSIC_STRATEGIES)[number]>();
+  const implForStrategy = (strategy: Strategy) => implementations.get(strategy.id) ?? null;
+
+  const findStrategyVersion = (id: number, version?: number): Strategy | null =>
+    version !== undefined
+      ? (strategyVersions.find((v) => v.id === id && v.version === version) ?? null)
+      : latestStrategyVersion(id);
+
+  /** Velas generadas del ticker recortadas a [desde, hasta] (EngineBar). */
+  const fakeBars = (ticker: string, desde: string, hasta: string): EngineBar[] =>
+    generateBars(ticker)
+      .filter((b) => b.date >= desde && b.date <= hasta)
+      .map((b) => ({
+        date: b.date,
+        open: b.open,
+        high: b.high,
+        low: b.low,
+        close: b.close,
+        volume: b.volume,
+      }));
+
+  /** ~300 sesiones de calentamiento ≈ 430 días naturales antes del inicio. */
+  const warmupDesde = (desde: string): string => toDate(Date.parse(desde) - 430 * DAY_MS);
+
+  /** Métricas JSON-safe (misma normalización que service.ts: ±Inf → null). */
+  const toMetricsDto = (m: BacktestMetrics): BacktestMetricsDto => ({
+    totalReturn: m.totalReturn,
+    annualizedReturn: m.annualizedReturn,
+    maxDrawdown: m.maxDrawdown,
+    sharpe: m.sharpe !== null && Number.isFinite(m.sharpe) ? m.sharpe : null,
+    sharpeInfinite: m.sharpe === Infinity ? 'positive' : m.sharpe === -Infinity ? 'negative' : null,
+    profitFactor:
+      m.profitFactor !== null && Number.isFinite(m.profitFactor) ? m.profitFactor : null,
+    profitFactorInfinite: m.profitFactor === Infinity,
+    winRate: m.winRate,
+    expectancy: m.expectancy,
+    maxLosingStreak: m.maxLosingStreak,
+    tradeCount: m.tradeCount,
+    winningTrades: m.winningTrades,
+    losingTrades: m.losingTrades,
+    grossProfit: m.grossProfit,
+    grossLoss: m.grossLoss,
+  });
+
+  /** Curva comprar-y-mantener del benchmark sobre el tramo dado. */
+  const fakeBenchmark = (
+    initialCash: number,
+    desde: string,
+    hasta: string,
+  ): BacktestReport['benchmark'] => {
+    const inside = fakeBars('SPY', desde, hasta);
+    if (inside.length === 0 || inside[0]!.close <= 0) return null;
+    const first = inside[0]!.close;
+    const curve: EquityPointDto[] = inside.map((b) => ({
+      date: b.date,
+      cash: initialCash,
+      equity: (initialCash * b.close) / first,
+      positions: 1,
+    }));
+    return { ticker: 'SPY', totalReturn: inside.at(-1)!.close / first - 1, curve };
+  };
+
+  const fakeWarnings = (tradeCount: number) => [
+    ...(tradeCount > 0 && tradeCount < 30
+      ? [
+          {
+            rule: 'pocas-operaciones',
+            severity: 'method' as const,
+            message: `El run cerró ${tradeCount} operaciones; el plan pide al menos 30 para que las métricas sean representativas.`,
+          },
+        ]
+      : []),
+    {
+      rule: 'sesgo-supervivencia',
+      severity: 'method' as const,
+      message:
+        'Sesgo de supervivencia residual: el universo no registra altas ni bajas históricas.',
+    },
+    {
+      rule: 'rendimientos-pasados',
+      severity: 'method' as const,
+      message: 'Los rendimientos pasados no garantizan resultados futuros.',
+    },
+    {
+      rule: 'datos-simulados',
+      severity: 'info' as const,
+      message: "Datos simulados (proveedor 'simulated').",
+    },
+  ];
+
+  /** Run del motor real sobre datos simulados; devuelve el informe persistido. */
+  const runFakeBacktest = (
+    strategy: Strategy,
+    request: { params?: Record<string, number>; initialCash?: number },
+    range: { desde: string; hasta: string },
+    kind: 'completo' | 'prueba-final',
+    progress: { ticket: string; percentBase: number },
+  ): BacktestReport => {
+    const impl = implForStrategy(strategy);
+    if (impl === null) {
+      throw new Error(
+        `La estrategia ${strategy.id} no tiene una implementación ejecutable registrada.`,
+      );
+    }
+    const markets = strategy.markets.map((m) => m.trim().toUpperCase()).filter(isTicker);
+    if (markets.length === 0) {
+      throw new Error('La ficha no tiene mercados ejecutables (ningún ticker válido).');
+    }
+    const params = { ...strategy.parameters, ...request.params };
+    const initialCash = request.initialCash ?? 10_000;
+    const costs = strategy.assumedCosts;
+    emitProgress(progress.ticket, strategy.id, 'descargando', progress.percentBase + 5);
+    const bars = Object.fromEntries(
+      markets.map((ticker) => [ticker, fakeBars(ticker, warmupDesde(range.desde), range.hasta)]),
+    );
+    emitProgress(progress.ticket, strategy.id, 'backtest', progress.percentBase + 40);
+    const result = runBacktest({
+      strategy: impl.create(),
+      params,
+      bars,
+      universe: markets.map((ticker) => ({ ticker })),
+      initialCash,
+      costs: {
+        // La ficha guarda la comisión en %; el motor la espera en fracción.
+        commissionPct: costs.commissionPct / 100,
+        commissionMin: costs.commissionMin,
+        slippageBp: costs.slippageBps,
+        spreadBp: costs.spreadBps,
+      },
+      riskPerTrade: 0.01,
+      maxPositions: Number.isInteger(params['topN']) && params['topN']! >= 1 ? params['topN']! : 5,
+      startDate: range.desde,
+      endDate: range.hasta,
+    });
+    const metrics = toMetricsDto(computeMetrics(result.equityCurve, result.trades));
+    emitProgress(progress.ticket, strategy.id, 'monte-carlo', progress.percentBase + 70);
+    const monteCarlo = runMonteCarlo({
+      trades: result.trades,
+      initialCash,
+      seed: 1,
+      simulations: 200,
+      method: 'permutation',
+    });
+    emitProgress(progress.ticket, strategy.id, 'guardando', progress.percentBase + 90);
+    const id = nextBacktestRunId++;
+    const key = `${strategy.id}:${strategy.version}`;
+    const report: BacktestReport = {
+      id,
+      strategyId: strategy.id,
+      version: strategy.version,
+      kind,
+      dataSource: 'simulated',
+      providerId: 'simulated',
+      totalReturn: metrics.totalReturn,
+      maxDrawdownPct: metrics.maxDrawdown?.pct ?? null,
+      sharpe: metrics.sharpe,
+      tradeCount: metrics.tradeCount,
+      durationMs: 0,
+      createdAt: new Date().toISOString(),
+      config: {
+        desde: range.desde,
+        hasta: range.hasta,
+        ejecutadoHasta: range.hasta,
+        markets,
+        initialCash,
+        riskPerTrade: 0.01,
+        maxPositions:
+          Number.isInteger(params['topN']) && params['topN']! >= 1 ? params['topN']! : 5,
+        parameters: params,
+        warmupSessions: 300,
+        split: { train: 0.6, validation: 0.2, test: 0.2 },
+        walkForward: null,
+        sensitivity: null,
+        monteCarlo: { seed: 1, simulations: 200, method: 'permutation' },
+      },
+      costs,
+      split: null,
+      metrics,
+      equityCurve: result.equityCurve,
+      trades: result.trades,
+      walkForward: null,
+      sensitivity: null,
+      monteCarlo,
+      warnings: fakeWarnings(metrics.tradeCount),
+      benchmark: fakeBenchmark(initialCash, range.desde, range.hasta),
+      finalTest: {
+        status: finalTestRunByKey.has(key) ? 'ejecutada' : 'disponible',
+        runId: finalTestRunByKey.get(key) ?? null,
+        executedAt: null,
+      },
+    };
+    backtestRuns.push(report);
+    if (kind === 'prueba-final') {
+      report.finalTest = { status: 'ejecutada', runId: id, executedAt: report.createdAt };
+    } else {
+      // El run 'completo' refresca las métricas resumen de la ficha.
+      const summary = {
+        totalReturnPct: (metrics.totalReturn ?? 0) * 100,
+        maxDrawdownPct: (metrics.maxDrawdown?.pct ?? 0) * 100,
+        sharpe: metrics.sharpe,
+        profitFactor: metrics.profitFactor,
+        winRatePct: metrics.winRate === null ? null : metrics.winRate * 100,
+        expectancy: metrics.expectancy,
+        maxLosingStreak: metrics.maxLosingStreak,
+        trades: metrics.tradeCount,
+      };
+      strategyVersions = strategyVersions.map((v) =>
+        v.id === strategy.id && v.version === strategy.version
+          ? { ...v, metricsSummary: summary }
+          : v,
+      );
+    }
+    return report;
+  };
+
+  /** Periodo resuelto como en el servicio real: petición → ficha → 5 años. */
+  const resolveRunRange = (
+    strategy: Strategy,
+    request: { desde?: string; hasta?: string },
+  ): { desde: string; hasta: string } => {
+    const today = toDate(Date.now());
+    const hasta = request.hasta ?? strategy.outOfSamplePeriod?.hasta ?? today;
+    const desde =
+      request.desde ??
+      strategy.trainingPeriod?.desde ??
+      toDate(Date.parse(hasta) - 5 * 365 * DAY_MS);
+    return { desde: desde < GENESIS ? GENESIS : desde, hasta };
+  };
+
+  const CRISIS_WINDOWS_FAKE = [
+    { id: '2008', name: 'Crisis financiera 2008', desde: '2007-10-09', hasta: '2009-03-09' },
+    { id: '2020', name: 'Choque del covid 2020', desde: '2020-02-19', hasta: '2020-06-30' },
+    { id: '2022', name: 'Mercado bajista 2022', desde: '2022-01-03', hasta: '2022-10-12' },
+  ];
+
+  /** Ejecuta las tres crisis con el motor real sobre datos simulados. */
+  const runFakeStress = (strategy: Strategy): StressResultDto[] => {
+    const impl = implForStrategy(strategy);
+    if (!impl)
+      throw new Error(
+        `La estrategia ${strategy.id} no tiene una implementación ejecutable registrada.`,
+      );
+    const markets = strategy.markets.map((m) => m.trim().toUpperCase()).filter(isTicker);
+    const params = strategy.parameters;
+    const rows: StressResultDto[] = CRISIS_WINDOWS_FAKE.map((crisis) => {
+      const bars = Object.fromEntries(
+        markets.map((ticker) => [
+          ticker,
+          fakeBars(ticker, warmupDesde(crisis.desde), crisis.hasta),
+        ]),
+      );
+      const bench = fakeBars('SPY', crisis.desde, crisis.hasta);
+      let sessions = 0;
+      let metrics: BacktestMetricsDto | null = null;
+      let curve: EquityPointDto[] = [];
+      if (impl !== null && Object.values(bars).some((b) => b.length > 0)) {
+        const result = runBacktest({
+          strategy: impl.create(),
+          params,
+          bars,
+          universe: markets.map((ticker) => ({ ticker })),
+          initialCash: 10_000,
+          costs: {
+            commissionPct: strategy.assumedCosts.commissionPct / 100,
+            commissionMin: strategy.assumedCosts.commissionMin,
+            slippageBp: strategy.assumedCosts.slippageBps,
+            spreadBp: strategy.assumedCosts.spreadBps,
+          },
+          riskPerTrade: 0.01,
+          maxPositions:
+            Number.isInteger(params['topN']) && params['topN']! >= 1 ? params['topN']! : 5,
+          startDate: crisis.desde,
+          endDate: crisis.hasta,
+        });
+        metrics = toMetricsDto(computeMetrics(result.equityCurve, result.trades));
+        sessions = result.equityCurve.length;
+        curve = result.equityCurve;
+      }
+      return {
+        crisisId: crisis.id,
+        crisisName: crisis.name,
+        desde: crisis.desde,
+        hasta: crisis.hasta,
+        sessions,
+        totalReturn: metrics?.totalReturn ?? null,
+        maxDrawdown: metrics?.maxDrawdown?.pct ?? null,
+        trades: metrics?.tradeCount ?? 0,
+        benchmarkTicker: 'SPY',
+        benchmarkReturn:
+          bench.length > 0 && bench[0]!.close > 0
+            ? bench.at(-1)!.close / bench[0]!.close - 1
+            : null,
+        dataSource: 'simulated',
+        providerId: 'simulated',
+        equityCurve: curve,
+        createdAt: new Date().toISOString(),
+      };
+    });
+    stressRowsByKey.set(`${strategy.id}:${strategy.version}`, rows);
+    return rows;
+  };
+
   const connectionListeners = new Set<(value: ConnectivityState) => void>();
   const agentListeners = new Set<(value: AgentsState) => void>();
   const heartbeatListeners = new Set<(value: string) => void>();
@@ -677,6 +1097,259 @@ export function createSimulatedAdapter() {
         return alertPrefs;
       },
       onNavigate: (listener) => subscribe(alertNavigateListeners, listener),
+    },
+    strategies: {
+      list: async () =>
+        [...new Set(strategyVersions.map((v) => v.id))].map((id) => {
+          const latest = latestStrategyVersion(id)!;
+          return {
+            id,
+            name: latest.name,
+            version: latest.version,
+            status: latest.status,
+            regime: latest.regime,
+            markets: latest.markets,
+            metricsSummary: latest.metricsSummary,
+            updatedAt: latest.updatedAt,
+          };
+        }),
+      get: async (request) => {
+        if (!isGetStrategyRequest(request)) {
+          throw new Error('Consulta de ficha inválida (id o versión).');
+        }
+        if (request.version !== undefined) {
+          return (
+            strategyVersions.find((v) => v.id === request.id && v.version === request.version) ??
+            null
+          );
+        }
+        return latestStrategyVersion(request.id);
+      },
+      create: async (request) => {
+        if (!isCreateStrategyRequest(request)) {
+          throw new Error('Alta de estrategia inválida (revisa los campos de la ficha).');
+        }
+        const now = new Date().toISOString();
+        const note = request.note?.trim() || 'Alta de la estrategia';
+        const strategy: Strategy = {
+          id: nextStrategyId++,
+          executable: false,
+          version: 1,
+          name: request.name.trim(),
+          hypothesis: request.hypothesis,
+          rules: request.rules,
+          parameters: request.parameters,
+          parameterRanges: request.parameterRanges ?? {},
+          markets: request.markets,
+          trainingPeriod: request.trainingPeriod ?? null,
+          outOfSamplePeriod: request.outOfSamplePeriod ?? null,
+          metricsSummary: null,
+          regime: request.regime,
+          assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          status: 'investigacion',
+          changeNote: note,
+          createdAt: now,
+          updatedAt: now,
+          versionCreatedAt: now,
+        };
+        strategyVersions.push(strategy);
+        addChangelog(strategy.id, 'version', note, { version: 1 });
+        return strategy;
+      },
+      update: async (request) => {
+        if (!isUpdateStrategyRequest(request)) {
+          throw new Error(
+            'Edición de estrategia inválida (nota obligatoria y al menos un campo de la ficha).',
+          );
+        }
+        const current = latestStrategyVersion(request.id);
+        if (!current) {
+          throw new Error(`No existe la estrategia ${request.id}.`);
+        }
+        const { id: _id, note, ...patch } = request;
+        const merged = mergeStrategyDraft(current, patch);
+        const now = new Date().toISOString();
+        const version: Strategy = {
+          ...current,
+          version: current.version + 1,
+          name: merged.name.trim(),
+          hypothesis: merged.hypothesis,
+          rules: merged.rules,
+          parameters: merged.parameters,
+          parameterRanges: merged.parameterRanges ?? {},
+          markets: merged.markets,
+          trainingPeriod: merged.trainingPeriod ?? null,
+          outOfSamplePeriod: merged.outOfSamplePeriod ?? null,
+          metricsSummary: null,
+          regime: merged.regime,
+          assumedCosts: merged.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          changeNote: note.trim(),
+          updatedAt: now,
+          versionCreatedAt: now,
+        };
+        strategyVersions.push(version);
+        touchStrategy(request.id, now);
+        addChangelog(request.id, 'version', note.trim(), { version: version.version });
+        return strategyVersions.find((v) => v.id === request.id && v.version === version.version)!;
+      },
+      setStatus: async (request) => {
+        if (!isSetStrategyStatusRequest(request)) {
+          throw new Error('Cambio de estado inválido.');
+        }
+        const current = latestStrategyVersion(request.id);
+        if (!current) {
+          throw new Error(`No existe la estrategia ${request.id}.`);
+        }
+        if (request.status === current.status) {
+          throw new Error(`La estrategia ${request.id} ya está en estado '${request.status}'.`);
+        }
+        const now = new Date().toISOString();
+        touchStrategy(request.id, now, request.status);
+        addChangelog(
+          request.id,
+          'estado',
+          request.note?.trim() || `Cambio de estado: ${current.status} → ${request.status}`,
+          {
+            fromStatus: current.status,
+            toStatus: request.status,
+          },
+        );
+        return latestStrategyVersion(request.id)!;
+      },
+      history: async (id) => {
+        if (!isStrategyId(id)) {
+          throw new Error('Identificador de estrategia inválido.');
+        }
+        return strategyChangelog
+          .filter((entry) => entry.strategyId === id)
+          .sort((a, b) => b.id - a.id);
+      },
+    },
+    backtest: {
+      run: async (request) => {
+        if (!isBacktestRunRequest(request)) {
+          throw new Error('Petición de backtest inválida.');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null) {
+          throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        }
+        const ticket = `fake-${++progressSeq}`;
+        const range = resolveRunRange(strategy, request);
+        // El informe cubre entrenamiento + validación (división 60/20/20):
+        // el tramo de prueba queda bloqueado como en el servicio real.
+        const dates = Object.values(
+          strategy.markets.reduce<Record<string, EngineBar[]>>((acc, m) => {
+            const ticker = m.trim().toUpperCase();
+            if (isTicker(ticker)) acc[ticker] = fakeBars(ticker, range.desde, range.hasta);
+            return acc;
+          }, {}),
+        ).flatMap((series) => series.map((b) => b.date));
+        const ejecutadoHasta =
+          dates.length >= 3
+            ? splitTimeline([...new Set(dates)].sort()).validation.endDate
+            : range.hasta;
+        const report = runFakeBacktest(
+          strategy,
+          request,
+          { desde: range.desde, hasta: ejecutadoHasta },
+          'completo',
+          { ticket, percentBase: 0 },
+        );
+        // La división usada sí se guarda en el informe del falso.
+        if (dates.length >= 3) {
+          report.split = splitTimeline([...new Set(dates)].sort());
+          report.config.ejecutadoHasta = ejecutadoHasta;
+        }
+        emitProgress(ticket, strategy.id, 'completado', 100);
+        return report;
+      },
+      list: async (query) => {
+        if (!isBacktestListQuery(query)) {
+          throw new Error('Filtros de ejecuciones inválidos.');
+        }
+        let runs = [...backtestRuns].sort((a, b) => b.id - a.id);
+        if (query?.strategyId !== undefined) {
+          runs = runs.filter((r) => r.strategyId === query.strategyId);
+        }
+        if (query?.version !== undefined) {
+          runs = runs.filter((r) => r.version === query.version);
+        }
+        return runs.slice(0, query?.limit ?? 100);
+      },
+      get: async (id) => {
+        if (!isBacktestRunId(id)) {
+          throw new Error('Identificador de ejecución inválido.');
+        }
+        return backtestRuns.find((r) => r.id === id) ?? null;
+      },
+      runFinalTest: async (request) => {
+        if (!isBacktestFinalTestRequest(request)) {
+          throw new Error('Petición de prueba final inválida.');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null) {
+          throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        }
+        const key = `${strategy.id}:${strategy.version}`;
+        if (finalTestRunByKey.has(key)) {
+          throw new Error(
+            `La prueba final ya se ejecutó para la estrategia ${strategy.id} v${strategy.version}; ` +
+              'repetirla exige crear una versión nueva.',
+          );
+        }
+        const ticket = `fake-${++progressSeq}`;
+        const range = resolveRunRange(strategy, {});
+        const dates = Object.values(
+          strategy.markets.reduce<Record<string, EngineBar[]>>((acc, m) => {
+            const ticker = m.trim().toUpperCase();
+            if (isTicker(ticker)) acc[ticker] = fakeBars(ticker, range.desde, range.hasta);
+            return acc;
+          }, {}),
+        ).flatMap((series) => series.map((b) => b.date));
+        if (dates.length < 3) {
+          throw new Error('No hay suficientes sesiones para dividir el periodo.');
+        }
+        const split = splitTimeline([...new Set(dates)].sort());
+        const report = runFakeBacktest(
+          strategy,
+          {},
+          { desde: split.test.startDate, hasta: split.test.endDate },
+          'prueba-final',
+          { ticket, percentBase: 0 },
+        );
+        report.split = split;
+        report.config.ejecutadoHasta = split.test.endDate;
+        finalTestRunByKey.set(key, report.id);
+        emitProgress(ticket, strategy.id, 'completado', 100);
+        return report;
+      },
+      onProgress: (listener) => subscribe(progressListeners, listener),
+    },
+    stress: {
+      get: async (request) => {
+        if (!isStressRequest(request)) {
+          throw new Error('Consulta de estrés inválida.');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null || !strategy.executable) return [];
+        // Como la semilla real: la primera lectura calcula las tres crisis.
+        return stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ?? runFakeStress(strategy);
+      },
+      run: async (request) => {
+        if (!isStressRequest(request)) {
+          throw new Error('Petición de estrés inválida.');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null) {
+          throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        }
+        const ticket = `fake-${++progressSeq}`;
+        emitProgress(ticket, strategy.id, 'estres', 10);
+        const rows = runFakeStress(strategy);
+        emitProgress(ticket, strategy.id, 'completado', 100);
+        return rows;
+      },
     },
   };
   return {

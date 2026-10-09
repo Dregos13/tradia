@@ -5,18 +5,19 @@ import {
 } from '../../../shared/riskDisclaimer';
 
 interface Props {
+  inline?: boolean;
   onAccept?: () => Promise<void>;
   onClose?: () => void;
 }
 
-export function RiskDisclaimer({ onAccept, onClose }: Props) {
+export function RiskDisclaimer({ onAccept, onClose, inline }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => {
-    heading.current?.focus();
-  }, []);
+    if (!inline) heading.current?.focus();
+  }, [inline]);
   const accept = async () => {
     if (!checked || saving || !onAccept) return;
     setSaving(true);
@@ -28,6 +29,15 @@ export function RiskDisclaimer({ onAccept, onClose }: Props) {
       setSaving(false);
     }
   };
+  if (inline)
+    return (
+      <aside className="backtest-notice notice-method" aria-label="Aviso de riesgo">
+        <strong>Aviso de riesgo</strong>
+        {RISK_DISCLAIMER_PARAGRAPHS.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </aside>
+    );
   return (
     <main className="risk-shell">
       <aside className="risk-brand">

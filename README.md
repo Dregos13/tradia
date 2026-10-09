@@ -77,13 +77,15 @@ El empaquetado usa **electron-builder** (`electron-builder.yml`):
 - `resources/` se copia como `extraResources` a `process.resourcesPath/resources`;
   en código se accede con `resourcePath()` de `src/main/resources.ts`
   (la bandeja usa `resources/tray/tray-{estado}[-Template][@2x].png`).
-- `better-sqlite3` se reempaqueta para el Electron de destino (`npmRebuild`)
-  y sus `.node` se desempaquetan del asar (`asarUnpack`).
+- `better-sqlite3` usa sus binarios precompilados N-API (`prebuilds/`), que
+  Electron carga directamente sin recompilar (`npmRebuild: false`); sus `.node`
+  se desempaquetan del asar (`asarUnpack`). No hay rebuild con node-gyp, que
+  además falla en rutas con espacios (nodejs/node-gyp#65).
 
 Para generar el instalador del sistema en local:
 
 ```bash
-npm install        # postinstall ya ejecuta electron-builder install-app-deps
+npm install        # no hay rebuild nativo: better-sqlite3 usa sus prebuilds
 npm run dist       # o dist:mac / dist:win / dist:linux
 ```
 
