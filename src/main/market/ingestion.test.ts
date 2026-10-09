@@ -8,6 +8,7 @@ import * as nyseCalendar from './calendar';
 import {
   createMarketClock,
   createMarketIngestionService,
+  e2eMarketClockBase,
   MARKET_MAX_RETRIES,
   MARKET_RETRY_INTERVAL_MS,
   type MarketIngestionDeps,
@@ -424,5 +425,38 @@ describe('salud del dato', () => {
     expect(list).toEqual([]);
     // Las velas guardadas se conservan (historial del activo).
     expect(repo.getBars('AAPL').length).toBeGreaterThan(0);
+  });
+});
+
+describe('e2eMarketClockBase (TRADIA_E2E_MARKET_NOW)', () => {
+  const PINNED = '2026-10-06T22:00:00.000Z';
+
+  it('solo existe en E2E sin empaquetar y con una fecha válida', () => {
+    expect(
+      e2eMarketClockBase(true, { TRADIA_E2E: '1', TRADIA_E2E_MARKET_NOW: PINNED }),
+    ).toBeUndefined();
+    expect(e2eMarketClockBase(false, { TRADIA_E2E_MARKET_NOW: PINNED })).toBeUndefined();
+    expect(e2eMarketClockBase(false, { TRADIA_E2E: '1' })).toBeUndefined();
+    expect(
+      e2eMarketClockBase(false, { TRADIA_E2E: '1', TRADIA_E2E_MARKET_NOW: 'no-es-fecha' }),
+    ).toBeUndefined();
+  });
+
+  it('ancla el arranque del reloj al instante pedido y sigue el tiempo real', () => {
+    let real = 1_000_000_000_000;
+    const base = e2eMarketClockBase(
+      false,
+      { TRADIA_E2E: '1', TRADIA_E2E_MARKET_NOW: PINNED },
+      () => real,
+    );
+    const clock = createMarketClock(base);
+    const pinnedMs = Date.parse(PINNED);
+
+    expect(clock.now()).toBe(pinnedMs);
+    // El reloj sigue avanzando con el tiempo real…
+    real += 5_000;
+    expect(clock.now()).toBe(pinnedMs + 5_000);
+    // …y con el avance manual del gancho de desarrollo.
+    expect(clock.advance(24 * 3_600_000)).toBe(pinnedMs + 5_000 + 24 * 3_600_000);
   });
 });

@@ -515,19 +515,37 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       quantity: decision.size,
       timeInForce: 'day',
     };
-    const { order } = deps.repository.insertOrder({
-      clientOrderId,
-      signalId: signal.id,
-      strategyId: signal.strategies[0]?.strategyId ?? null,
-      leg: 'entrada',
-      ticker: signal.ticker,
-      type: 'market',
-      side: request.side,
-      quantity: decision.size,
-      requestedPrice: signal.entry,
-      requestedAt: isoNow(),
-      status: 'pendiente',
-    });
+    let order: BrokerOrder;
+    try {
+      order = deps.repository.insertOrder({
+        clientOrderId,
+        signalId: signal.id,
+        strategyId: signal.strategies[0]?.strategyId ?? null,
+        leg: 'entrada',
+        ticker: signal.ticker,
+        type: 'market',
+        side: request.side,
+        quantity: decision.size,
+        requestedPrice: signal.entry,
+        requestedAt: isoNow(),
+        status: 'pendiente',
+      }).order;
+    } catch (error: unknown) {
+      // p. ej. una señal no persistida (senal_id sin fila): el evento no
+      // debe tumbar al emisor; queda registrado para la auditoría.
+      const message = errorMessage(error);
+      logger.error?.(`[ordenes] no se pudo registrar ${clientOrderId}: ${message}`);
+      recordJournal({
+        type: 'error',
+        ticker: signal.ticker,
+        reason: `No se pudo registrar la orden ${clientOrderId}`,
+        dataUsed: { clientOrderId, signalId: signal.id },
+        result: 'error',
+        errors: [message],
+        signalId: signal.id,
+      });
+      return { outcome: 'rechazada', entry: null, exit: null };
+    }
     const entry = await submitWithRetry(order, request);
     const exit = await ensureExitOco(entry, signal);
     return { outcome: outcomeOf(entry), entry, exit };
@@ -688,6 +706,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
         // perdida al enviar), se cancela por el id que reporta.
         const remote = await deps.adapter.getOrderByClientId(order.clientOrderId);
         if (remote === null) return update(order, { status: 'cancelada' });
+        if (!OPEN_STATUSES.has(remote.status)) return adoptRemote(order, remote);
         return adoptRemote(order, await deps.adapter.cancelOrder(remote.brokerOrderId));
       } catch (error: unknown) {
         // La cancelación también es ambigua: tras un timeout o un

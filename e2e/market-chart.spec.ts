@@ -26,8 +26,10 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       // fallos cruzan los cierres de miércoles, jueves y viernes, y el avance
       // final de 72 h cae tras el cierre del lunes. Sin el anclaje, esos
       // saltos dependen de la fecha real y pueden caer en fin de semana o
-      // festivo, donde la ingesta ni siquiera intenta refrescar.
-      TRADIA_E2E_MARKET_NOW: '2026-10-06T22:00:00.000Z',
+      // festivo, donde la ingesta ni siquiera intenta refrescar. La variable
+      // de entorno permite inyectar otra semana equivalente para comprobar
+      // que el resultado no depende del calendario real.
+      TRADIA_E2E_MARKET_NOW: process.env.TRADIA_E2E_MARKET_NOW ?? '2026-10-06T22:00:00.000Z',
       TRADIA_CONNECTIVITY_URLS: JSON.stringify([endpoint, endpoint]),
     },
   });
