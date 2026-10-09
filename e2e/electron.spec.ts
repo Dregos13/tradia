@@ -114,7 +114,10 @@ test.describe('Tradia Electron', () => {
     await page.getByRole('link', { name: 'Ajustes' }).click();
     await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible();
     await page.getByLabel('Nivel de la notificación de prueba').selectOption('info');
-    await page.getByRole('button', { name: 'Enviar prueba' }).click();
+    await page
+      .getByRole('region', { name: 'Notificaciones' })
+      .getByRole('button', { name: 'Enviar prueba', exact: true })
+      .click();
     await expect(page.getByRole('status').filter({ hasText: 'Prueba enviada' })).toBeVisible();
     await expect
       .poll(() =>
@@ -132,7 +135,9 @@ test.describe('Tradia Electron', () => {
     await alertSwitch.click();
     await expect(alertSwitch).not.toBeChecked();
     await page.getByLabel('Nivel de la notificación de prueba').selectOption('alerta');
-    const send = page.getByRole('button', { name: 'Enviar prueba' });
+    const send = page
+      .getByRole('region', { name: 'Notificaciones' })
+      .getByRole('button', { name: 'Enviar prueba', exact: true });
     await expect(send).toBeDisabled();
     await expect
       .poll(() =>

@@ -88,15 +88,20 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       true,
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
+    const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
     const strategiesLink = navigation.getByRole('link', { name: 'Estrategias', exact: true });
     const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
     await strategiesLink.focus();
     await expect(strategiesLink).toBeFocused();
-    // Riesgo precede a Ajustes en la navegación de la fase 3.
+    // La fase 4 inserta Diario entre Riesgo y Ajustes.
     await page.keyboard.press('Tab');
     await expect(riskLink).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(journalLink).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(journalLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(riskLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
