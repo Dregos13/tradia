@@ -18,9 +18,9 @@
  * carpetas del entorno de pruebas).
  */
 
-import { writeFileSync } from 'node:fs';
+import { realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 
@@ -112,9 +112,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * así que una entrada mal formada se rechaza con error legible en vez de
  * persistir basura. Las fechas las pone el servicio.
  */
-export function assertJournalRecordInput(
-  input: unknown,
-): asserts input is JournalRecordInput {
+export function assertJournalRecordInput(input: unknown): asserts input is JournalRecordInput {
   if (!isRecord(input)) {
     throw new JournalServiceError('entrada-invalida', 'la entrada del diario no es un objeto');
   }
@@ -128,14 +126,13 @@ export function assertJournalRecordInput(
   if (v.ticker !== undefined && v.ticker !== null && !isNonEmptyString(v.ticker)) {
     throw new JournalServiceError('entrada-invalida', 'el activo debe ser texto no vacío');
   }
-  if (
-    v.result !== undefined &&
-    v.result !== null &&
-    !isJournalResult(v.result)
-  ) {
+  if (v.result !== undefined && v.result !== null && !isJournalResult(v.result)) {
     throw new JournalServiceError('entrada-invalida', `resultado inválido: ${v.result}`);
   }
-  if (v.strategies !== undefined && (!Array.isArray(v.strategies) || !v.strategies.every(isStrategyRef))) {
+  if (
+    v.strategies !== undefined &&
+    (!Array.isArray(v.strategies) || !v.strategies.every(isStrategyRef))
+  ) {
     throw new JournalServiceError(
       'entrada-invalida',
       'estrategias debe ser una lista de {strategyId, name, version}',
@@ -144,7 +141,10 @@ export function assertJournalRecordInput(
   if (v.errors !== undefined && !isStringList(v.errors)) {
     throw new JournalServiceError('entrada-invalida', 'errores debe ser una lista de texto');
   }
-  if (v.ruleChecks !== undefined && (!Array.isArray(v.ruleChecks) || !v.ruleChecks.every(isRuleCheck))) {
+  if (
+    v.ruleChecks !== undefined &&
+    (!Array.isArray(v.ruleChecks) || !v.ruleChecks.every(isRuleCheck))
+  ) {
     throw new JournalServiceError(
       'entrada-invalida',
       'reglas debe ser una lista de {code, label, cumplida, observed, limit}',
@@ -293,9 +293,31 @@ export interface JournalService {
   stop(): void;
 }
 
+/**
+ * ¿`target` dentro de `dir`? Compara tanto la ruta resuelta como la
+ * canónica (realpath): en macOS `os.tmpdir()` es `/var/…`, un enlace a
+ * `/private/var/…`, y la ruta que llega puede venir en cualquiera de las
+ * dos formas.
+ */
 const isInsideDir = (dir: string, target: string): boolean => {
-  const base = resolve(dir);
-  return target === base || target.startsWith(`${base}${sep}`);
+  const bases = new Set([resolve(dir)]);
+  try {
+    bases.add(realpathSync(dir));
+  } catch {
+    // La carpeta puede no existir todavía: se valida la ruta literal.
+  }
+  return [...bases].some((base) => target === base || target.startsWith(`${base}${sep}`));
+};
+
+/** Ruta candidata a validar: literal resuelta y canónica por su carpeta. */
+const targetVariants = (path: string): string[] => {
+  const variants = [resolve(path)];
+  try {
+    variants.push(join(realpathSync(dirname(path)), basename(path)));
+  } catch {
+    // La carpeta destino no existe: solo queda la forma literal.
+  }
+  return variants;
 };
 
 export function createJournalService(deps: JournalServiceDeps): JournalService {
@@ -357,7 +379,10 @@ export function createJournalService(deps: JournalServiceDeps): JournalService {
       if (deps.e2e === true && request.path !== undefined) {
         const target = resolve(request.path);
         const allowed = deps.allowedExportDirs?.() ?? [];
-        if (!allowed.some((dir) => isInsideDir(dir, target))) {
+        const permitted = targetVariants(request.path).some((candidate) =>
+          allowed.some((dir) => isInsideDir(dir, candidate)),
+        );
+        if (!permitted) {
           throw new JournalServiceError(
             'ruta-no-permitida',
             'la ruta de exportación E2E debe estar dentro del entorno de pruebas',
@@ -407,11 +432,7 @@ export function registerJournal(ctx: ServiceContext): JournalService {
     e2e,
     // La ruta E2E solo puede caer en el temporal del sistema, en el
     // userData aislado de la prueba o en test-results/ del proyecto.
-    allowedExportDirs: () => [
-      tmpdir(),
-      app.getPath('userData'),
-      resolve('test-results'),
-    ],
+    allowedExportDirs: () => [tmpdir(), app.getPath('userData'), resolve('test-results')],
     showSaveDialog: (options) => {
       const win = BrowserWindow.getAllWindows()[0];
       return win && !win.isDestroyed()

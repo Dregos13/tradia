@@ -37,10 +37,7 @@ const SENSITIVE_FIELD =
 /** `token=abc123` en URLs, query strings y pares sueltos. */
 const KV_PATTERN = new RegExp(`\\b(${SENSITIVE_FIELD})=([^\\s&"'\\\\]+)`, 'gi');
 /** `"token": "abc"` / `'token': 'abc'` en JSON y objetos inspeccionados. */
-const JSON_PATTERN = new RegExp(
-  `(["'])(${SENSITIVE_FIELD})(\\1\\s*:\\s*["'])([^"']*)(["'])`,
-  'gi',
-);
+const JSON_PATTERN = new RegExp(`(["'])(${SENSITIVE_FIELD})(\\1\\s*:\\s*["'])([^"']*)(["'])`, 'gi');
 /** Cabeceras `Authorization: Bearer …` ya formateadas. */
 const BEARER_PATTERN = /\bBearer\s+[^\s"',}]+/gi;
 /** Token del bot de Telegram dentro de `…/bot<id>:<token>/…`. */

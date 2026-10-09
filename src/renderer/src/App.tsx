@@ -1,4 +1,5 @@
 import { KillSwitchControl } from './components/risk/KillSwitchControl';
+import { JournalPage } from './components/journal/JournalPage';
 import { RiskPage } from './components/risk/RiskPage';
 import { useRisk } from './hooks/useRisk';
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
 type Page =
+  | 'diario'
   | 'riesgo'
   | 'inicio'
   | 'mercado'
@@ -28,7 +30,8 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
-  return hash === 'riesgo' ||
+  return hash === 'diario' ||
+    hash === 'riesgo' ||
     hash === 'mercado' ||
     hash === 'macro' ||
     hash === 'noticias' ||
@@ -97,6 +100,9 @@ function AppShell() {
           <a href="#riesgo" aria-current={page === 'riesgo' ? 'page' : undefined}>
             Riesgo
           </a>
+          <a href="#diario" aria-current={page === 'diario' ? 'page' : undefined}>
+            Diario
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -106,6 +112,7 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              diario: 'Diario',
               riesgo: 'Riesgo',
               inicio: 'Estado del sistema',
               mercado: 'Mercado',
@@ -137,6 +144,8 @@ function AppShell() {
               requestAnimationFrame(() => legalButton.current?.focus());
             }}
           />
+        ) : page === 'diario' ? (
+          <JournalPage />
         ) : page === 'riesgo' ? (
           <RiskPage risk={risk} />
         ) : page === 'estrategias' ? (

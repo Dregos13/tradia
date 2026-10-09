@@ -5,7 +5,12 @@ export const JOURNAL_PAGE_SIZE = 20;
 export function useJournal() {
   const [query, setQuery] = useState<JournalListQuery>({});
   const [offset, setOffset] = useState(0);
-  const [page, setPage] = useState<JournalPage>({ entries: [], total: 0 });
+  const [page, setPage] = useState<JournalPage>({
+    entries: [],
+    total: 0,
+    limit: JOURNAL_PAGE_SIZE,
+    offset: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -17,7 +22,11 @@ export function useJournal() {
     setLoading(true);
     setError(false);
     try {
-      const result = await window.tradia.journal.list({ ...query, offset, limit: JOURNAL_PAGE_SIZE });
+      const result = await window.tradia.journal.list({
+        ...query,
+        offset,
+        limit: JOURNAL_PAGE_SIZE,
+      });
       if (version !== generation.current) return;
       if (offset > 0 && offset >= result.total) {
         setOffset(Math.max(0, Math.ceil(result.total / JOURNAL_PAGE_SIZE) - 1) * JOURNAL_PAGE_SIZE);
@@ -31,21 +40,45 @@ export function useJournal() {
   useEffect(() => {
     const off = window.tradia.journal.onUpdated(() => void reload());
     void reload();
-    return () => { generation.current++; off(); };
+    return () => {
+      generation.current++;
+      off();
+    };
   }, [reload]);
   const apply = (filters: JournalListQuery) => {
-    setQuery(filters); setOffset(0); setSavedPath(null); setExportError(false);
+    setQuery(filters);
+    setOffset(0);
+    setSavedPath(null);
+    setExportError(false);
   };
   const exportCsv = async () => {
-    setExporting(true); setExportError(false); setSavedPath(null);
+    setExporting(true);
+    setExportError(false);
+    setSavedPath(null);
     try {
       const result = await window.tradia.journal.exportCsv({ query });
       if (!result.canceled) {
         if (!result.path) throw new Error('Missing export path');
         setSavedPath(result.path);
       }
-    } catch { setExportError(true); }
-    finally { setExporting(false); }
+    } catch {
+      setExportError(true);
+    } finally {
+      setExporting(false);
+    }
   };
-  return { ...page, query, offset, setOffset, loading, error, reload, apply, exporting, exportError, savedPath, exportCsv };
+  return {
+    ...page,
+    query,
+    offset,
+    setOffset,
+    loading,
+    error,
+    reload,
+    apply,
+    exporting,
+    exportError,
+    savedPath,
+    exportCsv,
+  };
 }

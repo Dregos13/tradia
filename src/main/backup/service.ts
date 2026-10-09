@@ -61,7 +61,6 @@ export const ERR_BACKUP_DB_UNAVAILABLE = 'la base de datos no está disponible';
 /** Última versión de esquema que conoce esta instalación. */
 export const LATEST_SCHEMA_VERSION = Math.max(...MIGRATIONS.map((m) => m.version));
 
-const DAY_MS = 86_400_000;
 export type TimerHandle = ReturnType<typeof setTimeout>;
 
 export interface BackupLogger {
@@ -175,9 +174,9 @@ export function inspectBackup(path: string): {
     const integrityOk = rows.length === 1 && rows[0]?.integrity_check === 'ok';
     let schemaVersion = 0;
     try {
-      const row = db
-        .prepare('SELECT MAX(version) AS v FROM schema_migrations')
-        .get() as { v: number | null };
+      const row = db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get() as {
+        v: number | null;
+      };
       schemaVersion = row?.v ?? 0;
     } catch {
       schemaVersion = 0;
@@ -212,10 +211,12 @@ export function enforceRetention(backupsDir: string, keep: number): string[] {
 // ---------------------------------------------------------------------------
 
 function parseHHMM(hhmm: string): { hours: number; minutes: number } {
-  const [h, m] = hhmm.split(':').map(Number);
+  const parts = hhmm.split(':');
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
   return {
-    hours: Number.isFinite(h) ? h : 2,
-    minutes: Number.isFinite(m) ? m : 0,
+    hours: Number.isFinite(h) && h >= 0 && h <= 23 ? h : 2,
+    minutes: Number.isFinite(m) && m >= 0 && m <= 59 ? m : 0,
   };
 }
 
@@ -250,8 +251,27 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
   const scheduleHHMM = deps.scheduleHHMM ?? BACKUP_SCHEDULE_HHMM;
   const knownSchemaVersion = deps.knownSchemaVersion ?? LATEST_SCHEMA_VERSION;
 
+  // Restos de una sustitución interrumpida por un cierre inesperado: el
+  // archivo temporal no llegó a reemplazar la base, que sigue intacta.
+  if (deps.dbPath !== ':memory:') {
+    try {
+      rmSync(`${deps.dbPath}.restaurando`, { force: true });
+    } catch {
+      // Sin permisos o ruta inaccesible: no impide el servicio.
+    }
+  }
+
   let timer: TimerHandle | null = null;
   let started = false;
+  // Cola interna: las operaciones que escriben (copia manual, programada,
+  // de puesta al día y restauración) nunca corren en paralelo, así dos
+  // copias no pueden elegir el mismo nombre ni cerrarse la base a medias.
+  let queue: Promise<unknown> = Promise.resolve();
+  const enqueue = <T>(job: () => Promise<T>): Promise<T> => {
+    const run = queue.then(job, job);
+    queue = run.catch(() => undefined);
+    return run;
+  };
 
   const list = (): BackupInfo[] =>
     listBackupFiles(deps.backupsDir).map((entry) => ({
@@ -261,7 +281,7 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
       ...inspectBackup(entry.path),
     }));
 
-  const create = async (): Promise<BackupInfo> => {
+  const doCreate = async (): Promise<BackupInfo> => {
     const db = deps.getDb();
     if (!db?.open) throw new BackupError(ERR_BACKUP_DB_UNAVAILABLE);
     mkdirSync(deps.backupsDir, { recursive: true });
@@ -289,7 +309,7 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
     };
   };
 
-  const restore = async (fileName: string): Promise<BackupRestoreResult> => {
+  const doRestore = async (fileName: string): Promise<BackupRestoreResult> => {
     if (
       typeof fileName !== 'string' ||
       !BACKUP_FILE_PATTERN.test(fileName) ||
@@ -315,10 +335,7 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
     // 1. Copia de seguridad del estado actual, antes de tocar nada.
     const db = deps.getDb();
     if (existsSync(deps.dbPath)) {
-      const safetyPath = join(
-        deps.backupsDir,
-        `tradia-pre-restauracion-${fileStamp(now())}.db`,
-      );
+      const safetyPath = join(deps.backupsDir, `tradia-pre-restauracion-${fileStamp(now())}.db`);
       mkdirSync(deps.backupsDir, { recursive: true });
       if (db?.open) {
         await db.backup(safetyPath);
@@ -355,19 +372,20 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
     return { accepted: true };
   };
 
-  const runIfDue = async (): Promise<BackupInfo | null> => {
-    const dueAt = lastScheduledOccurrence(now(), scheduleHHMM);
-    const latest = listBackupFiles(deps.backupsDir)[0];
-    if (latest && latest.mtimeMs >= dueAt) return null;
-    return create();
-  };
+  const runIfDue = async (): Promise<BackupInfo | null> =>
+    enqueue(async () => {
+      const dueAt = lastScheduledOccurrence(now(), scheduleHHMM);
+      const latest = listBackupFiles(deps.backupsDir)[0];
+      if (latest && latest.mtimeMs >= dueAt) return null;
+      return doCreate();
+    });
 
   const arm = (): void => {
     if (!started) return;
     const delay = Math.max(0, nextScheduledOccurrence(now(), scheduleHHMM) - now());
     timer = setTimer(() => {
       timer = null;
-      void create()
+      void enqueue(doCreate)
         .catch((error: unknown) =>
           logger.warn('[backup] la copia programada falló:', String(error)),
         )
@@ -378,8 +396,8 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
 
   return {
     list,
-    create,
-    restore,
+    create: () => enqueue(doCreate),
+    restore: (fileName) => enqueue(() => doRestore(fileName)),
     runIfDue,
     start: () => {
       if (started) return;

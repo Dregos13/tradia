@@ -1,5 +1,11 @@
 import { DataProvidersSettings } from './DataProvidersSettings';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { SettingsSection as Section } from './settings/SettingsSection';
+import { DeliverySettings } from './settings/DeliverySettings';
+import { RoutineSettings } from './settings/RoutineSettings';
+import { BackupSettings } from './settings/BackupSettings';
+import { LogSettings } from './settings/LogSettings';
+import './settings/settings.css';
 import {
   ALERT_LEAD_MINUTES,
   type AlertPrefs,
@@ -9,25 +15,6 @@ import {
 } from '../../../shared/ipc';
 import type { SystemState } from '../hooks/useSystemState';
 
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="settings-section" aria-label={title}>
-      <div>
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </div>
-      <div className="settings-panel">{children}</div>
-    </section>
-  );
-}
 function Switch({
   label,
   description,
@@ -467,6 +454,10 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <NewsAlertSettings />
       <DataProvidersSettings />
       <ApiKeys />
+      <DeliverySettings />
+      <RoutineSettings />
+      <BackupSettings />
+      <LogSettings />
     </section>
   );
 }

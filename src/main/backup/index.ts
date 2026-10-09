@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { app, ipcMain, shell } from 'electron';
 
 import { IPC_CHANNELS, IpcValidationError, isBackupRestoreRequest } from '../../shared/ipc';
-import { BACKUP_DIR_NAME, LOG_DIR_NAME, type OpenFolderResult } from '../../shared/journal';
+import { BACKUP_DIR_NAME, type OpenFolderResult } from '../../shared/journal';
 import type { ServiceContext } from '../services';
 import { getLogDir } from '../services/logger';
 import { DB_FILENAME } from '../services/storage';
@@ -63,4 +63,3 @@ export function registerBackup(ctx: ServiceContext): BackupService {
 }
 
 export type { BackupService } from './service';
-export { LOG_DIR_NAME };

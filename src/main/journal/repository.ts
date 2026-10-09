@@ -157,9 +157,7 @@ export function createJournalRepository(db: Database.Database): JournalRepositor
       const strategies = input.strategies ?? [];
       const result = insertEntry.run(
         input.type,
-        input.ticker !== undefined && input.ticker !== null
-          ? normalizeTicker(input.ticker)
-          : null,
+        input.ticker !== undefined && input.ticker !== null ? normalizeTicker(input.ticker) : null,
         strategies[0]?.strategyId ?? null,
         JSON.stringify(strategies),
         input.reason,
