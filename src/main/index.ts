@@ -4,6 +4,7 @@ import { isE2eEnabled } from '../shared/ipc';
 import { AUTOSTART_HIDDEN_ARG } from './autostart';
 import { broadcast } from './broadcast';
 import { initServices, type MainServices } from './services';
+import { installMainLogger } from './services/logger';
 import { showMainWindow } from './window';
 
 // Playwright runs each Electron instance with an isolated data directory.
@@ -11,6 +12,10 @@ import { showMainWindow } from './window';
 if (isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E) && process.env.TRADIA_E2E_USER_DATA) {
   app.setPath('userData', process.env.TRADIA_E2E_USER_DATA);
 }
+
+// Registro rotado en userData/logs (fase 4): captura los console.* del
+// proceso principal sin perder la salida de consola en desarrollo.
+installMainLogger();
 
 // Bloqueo de instancia única: la app es residente y no tiene sentido duplicarla.
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -55,6 +60,13 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
+        // Fase 4: la rutina y el motor se paran antes que sus servicios
+        // base (diario, canales, copias) y estos antes que el resto.
+        services?.routine.stop();
+        services?.signals.stop();
+        services?.delivery.stop();
+        services?.backup.stop();
+        services?.journal.stop();
         services?.alerts.stop();
         services?.calendar.stop();
         services?.poller.stop();

@@ -54,12 +54,20 @@ it('guarda preferencias, respeta niveles desactivados y prueba el nivel elegido'
     alerta: true,
     critica: true,
   });
-  expect(screen.getByRole('button', { name: 'Enviar prueba' })).toBeDisabled();
+  expect(
+    within(screen.getByRole('region', { name: 'Notificaciones' })).getByRole('button', {
+      name: 'Enviar prueba',
+    }),
+  ).toBeDisabled();
   await userEvent.selectOptions(
     screen.getByRole('combobox', { name: 'Nivel de la notificación de prueba' }),
     'critica',
   );
-  await userEvent.click(screen.getByRole('button', { name: 'Enviar prueba' }));
+  await userEvent.click(
+    within(screen.getByRole('region', { name: 'Notificaciones' })).getByRole('button', {
+      name: 'Enviar prueba',
+    }),
+  );
   expect(test).toHaveBeenCalledWith('critica');
   expect(await screen.findByText(/Prueba enviada/)).toBeInTheDocument();
 });
@@ -68,7 +76,11 @@ it('mantiene preferencias anteriores si falla guardar y explica fallos de prueba
   await mount();
   await userEvent.click(screen.getByRole('switch', { name: 'Notificaciones: Alerta' }));
   expect(screen.getByRole('switch', { name: 'Notificaciones: Alerta' })).toBeChecked();
-  await userEvent.click(screen.getByRole('button', { name: 'Enviar prueba' }));
+  await userEvent.click(
+    within(screen.getByRole('region', { name: 'Notificaciones' })).getByRole('button', {
+      name: 'Enviar prueba',
+    }),
+  );
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo enviar la prueba');
 });
 it('valida, guarda, limpia la contraseña y borra sin recuperar la clave', async () => {

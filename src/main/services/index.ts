@@ -22,6 +22,11 @@ import type { StrategiesRepository } from '../strategies/repository';
 import { registerBacktest, type BacktestService } from '../backtest/service';
 import { registerKillSwitch, type KillSwitchService } from '../risk/killSwitch';
 import { registerRisk, type RiskService } from '../risk/service';
+import { registerSignals, type SignalsService } from '../signals';
+import { registerJournal, type JournalService } from '../journal';
+import { registerDelivery, type DeliveryService } from '../delivery';
+import { registerRoutine, type RoutineService } from '../routine';
+import { registerBackup, type BackupService } from '../backup';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -54,6 +59,16 @@ export interface MainServices {
   strategies: StrategiesRepository;
   /** Backtests (fase 2): ejecución, informes persistidos, estrés y semilla. */
   backtest: BacktestService;
+  /** Diario automático (fase 4): journal_entries, filtros y exportación CSV. */
+  journal: JournalService;
+  /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
+  signals: SignalsService;
+  /** Canales de entrega (fase 4): escritorio, Telegram y correo. */
+  delivery: DeliveryService;
+  /** Copias y registros (fase 4): backup:list/create/restore y logs. */
+  backup: BackupService;
+  /** Rutina diaria (fase 4): preapertura, cierre y conciliación. */
+  routine: RoutineService;
 }
 
 export interface ServiceContext {
@@ -110,6 +125,17 @@ export function initServices(ctx: ServiceContext): MainServices {
   // Fase 2: el servicio de backtest necesita strategies (fichas y métricas
   // resumen) y secrets (clave de Tiingo); siembra las clásicas al registrar.
   services.backtest = registerBacktest(ctx);
+  // Fase 4 (contrato): esqueletos ya conectados para que las tareas no se
+  // pisen estos archivos. Orden pensado para su implementación: journal
+  // solo necesita storage; signals necesitará market, strategies, backtest,
+  // risk y journal; delivery usa notifications, secrets, settings y
+  // journal; backup usa storage; routine va la última de la fase porque
+  // consume señales, diario y canales.
+  services.journal = registerJournal(ctx);
+  services.signals = registerSignals(ctx);
+  services.delivery = registerDelivery(ctx);
+  services.backup = registerBackup(ctx);
+  services.routine = registerRoutine(ctx);
   // El último: consume notifications, settings, poller (onItemsStored y el
   // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
   services.alerts = registerAlerts(ctx);

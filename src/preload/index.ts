@@ -5,6 +5,9 @@ import type {
   AddSourceRequest,
   AgentsState,
   AlertPrefs,
+  BackupInfo,
+  BackupRestoreRequest,
+  BackupRestoreResult,
   BacktestFinalTestRequest,
   BacktestListQuery,
   BacktestProgressEvent,
@@ -13,7 +16,17 @@ import type {
   CalendarUpdatedEvent,
   ConnectivityState,
   DataStatusEntry,
+  DeliveryConfig,
+  DeliveryConfigInput,
+  DeliveryTestRequest,
+  DeliveryTestResult,
   GetBarsRequest,
+  JournalEntry,
+  JournalExportRequest,
+  JournalExportResult,
+  JournalListQuery,
+  JournalPage,
+  JournalUpdatedEvent,
   KillSwitchCause,
   KillSwitchResumeRequest,
   KillSwitchState,
@@ -25,13 +38,22 @@ import type {
   NotificationPayload,
   NotificationPrefs,
   NotificationRoute,
+  OpenFolderResult,
+  PaperPortfolioOverview,
   RiskLimits,
   RiskOverview,
   RiskVeto,
   RiskVetoesQuery,
+  RoutineClockAdvanceResult,
+  RoutineConfig,
   SeedPortfolioRequest,
   SettingsPatch,
+  Signal,
+  SignalEngineRunResult,
   SignalIntent,
+  SignalNewEvent,
+  SignalStrategyState,
+  SignalsListQuery,
   SimulateCalendarEventRequest,
   StressRequest,
   TestSourceRequest,
@@ -158,6 +180,8 @@ const api: TradiaApi = {
       ipcRenderer.invoke(IPC_CHANNELS.risk.listVetoes, query),
     submitSignal: (signal: SignalIntent) =>
       ipcRenderer.invoke(IPC_CHANNELS.risk.submitSignal, signal),
+    getPortfolio: (): Promise<PaperPortfolioOverview> =>
+      ipcRenderer.invoke(IPC_CHANNELS.risk.getPortfolio),
     getKillSwitch: () => ipcRenderer.invoke(IPC_CHANNELS.risk.getKillSwitch),
     activateKillSwitch: () => ipcRenderer.invoke(IPC_CHANNELS.risk.activateKillSwitch),
     resumeKillSwitch: (request: KillSwitchResumeRequest) =>
@@ -167,6 +191,46 @@ const api: TradiaApi = {
       subscribe<RiskOverview>(IPC_CHANNELS.risk.changed, listener),
     onVetoed: (listener: (veto: RiskVeto) => void) =>
       subscribe<RiskVeto>(IPC_CHANNELS.risk.vetoed, listener),
+  },
+  signals: {
+    list: (query?: SignalsListQuery): Promise<Signal[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.signals.list, query),
+    get: (id: number): Promise<Signal | null> => ipcRenderer.invoke(IPC_CHANNELS.signals.get, id),
+    strategies: (): Promise<SignalStrategyState[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.signals.strategies),
+    onNew: (listener: (event: SignalNewEvent) => void) =>
+      subscribe<SignalNewEvent>(IPC_CHANNELS.signals.new, listener),
+  },
+  journal: {
+    list: (query?: JournalListQuery): Promise<JournalPage> =>
+      ipcRenderer.invoke(IPC_CHANNELS.journal.list, query),
+    get: (id: number): Promise<JournalEntry | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.journal.get, id),
+    exportCsv: (request?: JournalExportRequest): Promise<JournalExportResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.journal.exportCsv, request),
+    onUpdated: (listener: (event: JournalUpdatedEvent) => void) =>
+      subscribe<JournalUpdatedEvent>(IPC_CHANNELS.journal.updated, listener),
+  },
+  delivery: {
+    getConfig: (): Promise<DeliveryConfig> => ipcRenderer.invoke(IPC_CHANNELS.delivery.getConfig),
+    setConfig: (config: DeliveryConfigInput): Promise<DeliveryConfig> =>
+      ipcRenderer.invoke(IPC_CHANNELS.delivery.setConfig, config),
+    test: (request: DeliveryTestRequest): Promise<DeliveryTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.delivery.test, request),
+  },
+  routine: {
+    getConfig: (): Promise<RoutineConfig> => ipcRenderer.invoke(IPC_CHANNELS.routine.getConfig),
+    setConfig: (config: RoutineConfig): Promise<RoutineConfig> =>
+      ipcRenderer.invoke(IPC_CHANNELS.routine.setConfig, config),
+  },
+  backup: {
+    list: (): Promise<BackupInfo[]> => ipcRenderer.invoke(IPC_CHANNELS.backup.list),
+    create: (): Promise<BackupInfo> => ipcRenderer.invoke(IPC_CHANNELS.backup.create),
+    restore: (request: BackupRestoreRequest): Promise<BackupRestoreResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.backup.restore, request),
+  },
+  logs: {
+    openFolder: (): Promise<OpenFolderResult> => ipcRenderer.invoke(IPC_CHANNELS.logs.openFolder),
   },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
@@ -190,6 +254,10 @@ const api: TradiaApi = {
             seedPortfolio: (request: SeedPortfolioRequest) =>
               ipcRenderer.invoke(IPC_CHANNELS.risk.seedPortfolio, request),
           },
+          advanceRoutineClock: (ms: number): Promise<RoutineClockAdvanceResult> =>
+            ipcRenderer.invoke(IPC_CHANNELS.routine.advanceClock, ms),
+          evaluateSignalsNow: (): Promise<SignalEngineRunResult> =>
+            ipcRenderer.invoke(IPC_CHANNELS.signals.evaluateNow),
         },
       }
     : {}),

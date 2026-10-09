@@ -1,0 +1,253 @@
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--dashboard-gap);
+}
+.dashboard-block {
+  grid-column: span 4;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.dashboard-wide {
+  grid-column: span 8;
+}
+.dashboard-block > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.dashboard-block h3 {
+  margin: 0;
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
+}
+.dashboard-block p,
+.dashboard-block a,
+.dashboard-block li,
+.dashboard-block dl {
+  font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
+}
+.dashboard-block a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-controlMin);
+}
+.dashboard-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.dashboard-row > div {
+  min-width: 0;
+}
+.dashboard-row span {
+  text-align: right;
+}
+.dashboard-block time,
+.dashboard-position dd,
+.dashboard-metric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-macro {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.dashboard-macro .macro-card {
+  border: 0;
+  border-radius: 0;
+  padding: 0 var(--space-2);
+  background: transparent;
+  box-shadow: none;
+  border-left: 1px solid var(--color-border);
+}
+.dashboard-macro .macro-card h3 {
+  font-size: var(--type-sm);
+}
+.dashboard-macro .macro-value {
+  font-size: var(--type-xl);
+}
+.dashboard-list,
+.dashboard-signals {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.dashboard-list > li,
+.dashboard-signals > li {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+.dashboard-list > li:last-child,
+.dashboard-signals > li:last-child {
+  border-bottom: 0;
+}
+.dashboard-signal-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.dashboard-badge {
+  display: inline-flex;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+}
+.dashboard-aprobada {
+  color: var(--dashboard-approved);
+  background: var(--dashboard-approved-surface);
+}
+.dashboard-vetada {
+  color: var(--dashboard-vetoed);
+  background: var(--dashboard-vetoed-surface);
+}
+.dashboard-reducida,
+.dashboard-conflict {
+  color: var(--dashboard-conflict);
+  background: var(--dashboard-conflict-surface);
+}
+.dashboard-paper {
+  color: var(--dashboard-paper);
+  background: var(--dashboard-paper-surface);
+}
+.dashboard-positive {
+  color: var(--dashboard-approved);
+}
+.dashboard-negative,
+.dashboard-stop {
+  color: var(--dashboard-vetoed);
+}
+.dashboard-caution {
+  color: var(--dashboard-conflict);
+}
+.dashboard-position {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+.dashboard-position dt {
+  color: var(--color-textMuted);
+}
+.dashboard-position dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dashboard-metric {
+  font-size: var(--type-xl) !important;
+  color: inherit;
+  margin: var(--space-4) 0;
+}
+.dashboard progress {
+  display: block;
+  width: 100%;
+  height: var(--space-2);
+  accent-color: var(--color-accent);
+  margin: var(--space-2) 0;
+}
+.dashboard-segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.dashboard button {
+  min-width: var(--size-controlMin);
+  min-height: var(--size-controlMin);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+.dashboard button[aria-pressed='true'] {
+  background: var(--color-accentSoft);
+  border-color: var(--color-accent);
+}
+.dashboard-error {
+  margin-bottom: var(--space-3);
+}
+.dashboard-skeleton {
+  height: var(--space-6);
+  background: var(--color-border);
+  margin-top: var(--space-3);
+  border-radius: var(--radius-xs);
+}
+.dashboard-offline .dashboard-grid {
+  border-left: var(--space-1) solid var(--color-border);
+  padding-left: var(--space-3);
+}
+.dashboard-disclaimer {
+  margin-top: var(--space-6);
+}
+@media (max-width: 1100px) {
+  .dashboard-block,
+  .dashboard-wide {
+    grid-column: span 12;
+  }
+}
+@media (max-width: 700px) {
+  .dashboard-macro {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-macro .macro-card {
+    padding: var(--space-3) 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+.dashboard-limit-track {
+  position: relative;
+  margin: var(--space-3) 0;
+}
+.dashboard-limit-track::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: calc(-1 * var(--space-1));
+  height: var(--space-4);
+  border-right: 2px solid var(--dashboard-conflict);
+}
+.dashboard-negative progress {
+  accent-color: var(--dashboard-vetoed);
+}
+.dashboard-caution progress {
+  accent-color: var(--dashboard-conflict);
+}
+.dashboard-strategy-activa {
+  color: var(--dashboard-strategy-active);
+  background: var(--dashboard-strategy-active-surface);
+}
+.dashboard-strategy-paper {
+  color: var(--dashboard-strategy-paper);
+  background: var(--dashboard-strategy-paper-surface);
+}
+.dashboard-strategy-degradada {
+  color: var(--dashboard-strategy-degraded);
+  background: var(--dashboard-strategy-degraded-surface);
+}
+.dashboard-strategy-retirada,
+.dashboard-strategy-investigacion {
+  color: var(--dashboard-strategy-paused);
+  background: var(--dashboard-strategy-paused-surface);
+}

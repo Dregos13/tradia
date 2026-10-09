@@ -29,11 +29,17 @@ import {
   type RiskVetoesQuery,
   type SeedPortfolioRequest,
   type SeedPortfolioResult,
+  type SignalDirection,
   type SignalIntent,
 } from '../../shared/ipc';
 import type {
   EquityHistoryPoint,
   InstrumentInfo,
+  NewPaperPosition,
+  PaperCloseRequest,
+  PaperCloseResult,
+  PaperExitReason,
+  PaperPositionRecord,
   PortfolioPosition,
   PortfolioSnapshot,
 } from './portfolio';
@@ -95,6 +101,10 @@ interface PositionRow {
   tamano: number;
   sector: string | null;
   divisa: string;
+  senal_id: number | null;
+  vela_apertura: string | null;
+  salida: number | null;
+  motivo_salida: string | null;
   abierta_en: string;
   cerrada_en: string | null;
 }
@@ -145,6 +155,21 @@ export interface RiskRepository {
    * las posiciones y la curva de capital pedidas, en una transacción.
    */
   seedPortfolio(request: SeedPortfolioRequest, nowIso: string): SeedPortfolioResult;
+  /**
+   * Abre una posición simulada (fase 4): la señal aprobada fija entrada,
+   * stop, objetivo y tamaño; `signalId`/`openedOnBar` la enlazan con ella
+   * para la trazabilidad. Devuelve la fila creada.
+   */
+  openPaperPosition(input: NewPaperPosition): PaperPositionRecord;
+  /** Posiciones abiertas (`cerrada_en IS NULL`), opcionalmente de un activo. */
+  listPaperPositions(ticker?: string): PaperPositionRecord[];
+  /**
+   * Liquida una posición abierta en una transacción: anota el P&L
+   * realizado en la curva de capital (`risk_equity_history`) y marca la
+   * fila con `cerrada_en`/`salida`/`motivo_salida`. Devuelve null si la
+   * posición no existe o ya estaba cerrada (idempotente).
+   */
+  settlePaperPosition(request: PaperCloseRequest): PaperCloseResult | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +193,26 @@ function rowToLimits(row: RiskLimitsRow): RiskLimits {
     maxCorrelation: row.max_correlation,
     maxLeverage: row.max_leverage,
     maxLiquidityPct: row.max_liquidity_pct,
+  };
+}
+
+function rowToPaperPosition(row: PositionRow): PaperPositionRecord {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    direction: row.direccion as SignalDirection,
+    entry: row.entrada,
+    stop: row.stop,
+    target: row.objetivo,
+    size: row.tamano,
+    sector: row.sector,
+    currency: row.divisa,
+    signalId: row.senal_id,
+    openedOnBar: row.vela_apertura,
+    openedAt: row.abierta_en,
+    closedAt: row.cerrada_en,
+    exit: row.salida,
+    exitReason: row.motivo_salida as PaperExitReason | null,
   };
 }
 
@@ -243,6 +288,23 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const deletePositions = db.prepare('DELETE FROM risk_portfolio_positions');
+  const insertPaperPosition = db.prepare(
+    `INSERT INTO risk_portfolio_positions
+       (ticker, direccion, entrada, stop, objetivo, tamano, sector, divisa,
+        senal_id, vela_apertura, abierta_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const listOpenPaperRows = db.prepare(
+    'SELECT * FROM risk_portfolio_positions WHERE cerrada_en IS NULL ORDER BY id',
+  );
+  const listOpenPaperRowsByTicker = db.prepare(
+    'SELECT * FROM risk_portfolio_positions WHERE cerrada_en IS NULL AND ticker = ? ORDER BY id',
+  );
+  const paperRowById = db.prepare('SELECT * FROM risk_portfolio_positions WHERE id = ?');
+  const closePaperRow = db.prepare(
+    `UPDATE risk_portfolio_positions
+     SET cerrada_en = ?, salida = ?, motivo_salida = ? WHERE id = ?`,
+  );
   const listEquity = db.prepare('SELECT fecha, capital FROM risk_equity_history ORDER BY fecha');
   const insertEquity = db.prepare(
     `INSERT INTO risk_equity_history (fecha, capital) VALUES (?, ?)
@@ -432,5 +494,53 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
         equityPoints: history.length,
       };
     },
+
+    openPaperPosition: (input) => {
+      const result = insertPaperPosition.run(
+        normalizeTicker(input.ticker),
+        input.direction,
+        input.entry,
+        input.stop,
+        input.target,
+        input.size,
+        input.sector,
+        input.currency,
+        input.signalId,
+        input.openedOnBar,
+        input.openedAt,
+      );
+      const row = paperRowById.get(Number(result.lastInsertRowid)) as PositionRow;
+      return rowToPaperPosition(row);
+    },
+
+    listPaperPositions: (ticker) => {
+      const rows =
+        ticker === undefined
+          ? (listOpenPaperRows.all() as PositionRow[])
+          : (listOpenPaperRowsByTicker.all(normalizeTicker(ticker)) as PositionRow[]);
+      return rows.map(rowToPaperPosition);
+    },
+
+    settlePaperPosition: (request) =>
+      db.transaction((): PaperCloseResult | null => {
+        const row = paperRowById.get(request.positionId) as PositionRow | undefined;
+        if (row === undefined || row.cerrada_en !== null) return null;
+        const sign = row.direccion === 'largo' ? 1 : -1;
+        const pnl = (request.exit - row.entrada) * row.tamano * sign;
+        const previous =
+          (latestEquityStmt.get() as { capital: number } | undefined)?.capital ??
+          RISK_PAPER_EQUITY_DEFAULT;
+        const equity = previous + pnl;
+        insertEquity.run(request.closedAt, equity);
+        closePaperRow.run(request.closedAt, request.exit, request.exitReason, request.positionId);
+        const updated = paperRowById.get(request.positionId) as PositionRow;
+        return {
+          position: rowToPaperPosition(updated),
+          exit: request.exit,
+          exitReason: request.exitReason,
+          pnl,
+          equity,
+        };
+      })(),
   };
 }

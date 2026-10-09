@@ -61,6 +61,7 @@ import type {
 import {
   KILL_SWITCH_CAUSES,
   RISK_BOUNDS,
+  RISK_DECISION_STATUSES,
   RISK_VETOES_MAX_LIMIT,
   SIGNAL_DIRECTIONS,
   SIGNAL_ORIGINS,
@@ -72,6 +73,7 @@ import type {
   KillSwitchState,
   LoggedRiskDecision,
   RiskDecision,
+  RiskDecisionStatus,
   RiskLimits,
   RiskOverview,
   RiskVeto,
@@ -79,13 +81,60 @@ import type {
   SignalIntent,
   VetoReasonCode,
 } from './risk';
+import { SIGNALS_LIST_MAX_LIMIT } from './signals';
+import type {
+  PaperPortfolioOverview,
+  Signal,
+  SignalEngineRunResult,
+  SignalNewEvent,
+  SignalStrategyState,
+  SignalsListQuery,
+} from './signals';
+import {
+  BACKUP_FILE_PATTERN,
+  DELIVERY_ADDRESS_MAX_LENGTH,
+  DELIVERY_CHAT_ID_MAX_LENGTH,
+  DELIVERY_EVENT_KINDS,
+  DELIVERY_HOST_MAX_LENGTH,
+  DELIVERY_TESTABLE_CHANNELS,
+  HHMM_PATTERN,
+  JOURNAL_ENTRY_TYPES,
+  JOURNAL_LIST_MAX_LIMIT,
+  JOURNAL_RESULTS,
+  SMTP_SECURITY_MODES,
+} from './journal';
+import type {
+  BackupInfo,
+  BackupRestoreRequest,
+  BackupRestoreResult,
+  DeliveryConfig,
+  DeliveryConfigInput,
+  DeliveryEventKind,
+  DeliveryTestRequest,
+  DeliveryTestResult,
+  JournalEntry,
+  JournalEntryType,
+  JournalExportRequest,
+  JournalExportResult,
+  JournalListQuery,
+  JournalPage,
+  JournalResult,
+  JournalUpdatedEvent,
+  OpenFolderResult,
+  RoutineClockAdvanceResult,
+  RoutineConfig,
+} from './journal';
 
 // El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
 // ./backtest; se reexportan aquí para que el renderer y el preload sigan
 // importando de un solo sitio. El dominio de riesgo (fase 3) vive en ./risk.
+// El de señales, diario y configuración operativa (fase 4) vive en
+// ./signals y ./journal.
 export * from './strategy';
 export * from './backtest';
 export * from './risk';
+export * from './signals';
+export * from './journal';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -232,6 +281,11 @@ export const IPC_CHANNELS = {
     listVetoes: 'risk:list-vetoes',
     /** Pasarela única: toda señal u orden entra por aquí. */
     submitSignal: 'risk:submit-signal',
+    /**
+     * Cartera simulada para el panel (fase 4): posiciones con marca,
+     * drawdown frente a su límite y exposición por activo y sector.
+     */
+    getPortfolio: 'risk:get-portfolio',
     getKillSwitch: 'risk:get-kill-switch',
     /** Activa la parada de emergencia al instante, sin confirmación. */
     activateKillSwitch: 'risk:activate-kill-switch',
@@ -257,6 +311,67 @@ export const IPC_CHANNELS = {
     changed: 'risk:changed',
     /** Evento main → renderer: una señal quedó vetada o reducida (RiskVeto). */
     vetoed: 'risk:vetoed',
+  },
+  signals: {
+    /** Señales emitidas, más recientes primero (SignalsListQuery). */
+    list: 'signals:list',
+    /** Detalle de una señal por id. */
+    get: 'signals:get',
+    /** Estado de evaluación por estrategia (bloque «Estrategias» del panel). */
+    strategies: 'signals:strategies',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fuerza una evaluación
+     * inmediata al cierre simulado, sin esperar a una vela nueva.
+     */
+    evaluateNow: 'signals:evaluate-now',
+    /** Evento main → renderer: se emitió una señal nueva (SignalNewEvent). */
+    new: 'signals:new',
+  },
+  journal: {
+    /** Diario paginado con filtros (JournalListQuery) y recuento total. */
+    list: 'journal:list',
+    /** Entrada completa por id (detalle del diario). */
+    get: 'journal:get',
+    /**
+     * Exporta el conjunto filtrado a CSV (RFC 4180, UTF-8 con BOM). Abre el
+     * diálogo de guardar; en modo E2E escribe en la ruta indicada.
+     */
+    exportCsv: 'journal:export-csv',
+    /** Evento main → renderer: se añadió una entrada (JournalUpdatedEvent). */
+    updated: 'journal:updated',
+  },
+  delivery: {
+    /** Config de canales externos (sin secretos: solo «guardado»). */
+    getConfig: 'delivery:get-config',
+    /** Sustituye la config de canales; los secretos van por `secrets:*`. */
+    setConfig: 'delivery:set-config',
+    /** «Enviar prueba» por un canal externo (`{channel}`). */
+    test: 'delivery:test',
+  },
+  routine: {
+    /** Horarios de la rutina diaria ('HH:MM', America/New_York). */
+    getConfig: 'routine:get-config',
+    setConfig: 'routine:set-config',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): adelanta el reloj de
+     * la rutina para recibir los resúmenes sin esperar a la hora real.
+     */
+    advanceClock: 'routine:advance-clock',
+  },
+  backup: {
+    /** Copias guardadas en userData/backups con su estado de integridad. */
+    list: 'backup:list',
+    /** Copia manual inmediata de la base local. */
+    create: 'backup:create',
+    /**
+     * Restaura una copia: guarda antes una del estado actual, sustituye la
+     * base y reinicia la app. Exige `{fileName, confirm: true}`.
+     */
+    restore: 'backup:restore',
+  },
+  logs: {
+    /** Abre la carpeta de registros rotados en el explorador del SO. */
+    openFolder: 'logs:open-folder',
   },
 } as const;
 
@@ -286,10 +401,18 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
 /**
  * Vistas a las que puede llevar el clic de una notificación nativa: el
  * aviso previo de un evento abre Calendario, el de una noticia, Noticias,
- * y la crítica de la parada de emergencia, Riesgo. Son las rutas por hash
- * del renderer (`#noticias`, `#calendario`, `#riesgo`).
+ * la crítica de la parada de emergencia, Riesgo, y las de señales y
+ * resúmenes de la fase 4, el Diario o el panel de Inicio. Son las rutas
+ * por hash del renderer (`#noticias`, `#calendario`, `#riesgo`, `#diario`,
+ * `#inicio`).
  */
-export const NOTIFICATION_ROUTES = ['noticias', 'calendario', 'riesgo'] as const;
+export const NOTIFICATION_ROUTES = [
+  'noticias',
+  'calendario',
+  'riesgo',
+  'diario',
+  'inicio',
+] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
 export interface NotificationPayload {
@@ -947,6 +1070,12 @@ export interface TradiaApi {
      * cautela, y devuelve la decisión con sus motivos.
      */
     submitSignal(signal: SignalIntent): Promise<RiskDecision>;
+    /**
+     * Cartera simulada para el panel (fase 4): posiciones abiertas con su
+     * marca y resultado, drawdown frente a su límite y exposición por
+     * activo y por sector.
+     */
+    getPortfolio(): Promise<PaperPortfolioOverview>;
     getKillSwitch(): Promise<KillSwitchState>;
     /** Detiene señales y órdenes al instante; no pide confirmación. */
     activateKillSwitch(): Promise<KillSwitchState>;
@@ -958,6 +1087,58 @@ export interface TradiaApi {
     onChanged(listener: (overview: RiskOverview) => void): () => void;
     /** Una señal quedó vetada o reducida; llega la entrada del registro. */
     onVetoed(listener: (veto: RiskVeto) => void): () => void;
+  };
+  signals: {
+    /** Señales emitidas, más recientes primero. */
+    list(query?: SignalsListQuery): Promise<Signal[]>;
+    /** Detalle de una señal; null si no existe. */
+    get(id: number): Promise<Signal | null>;
+    /** Estado de evaluación por estrategia (bloque «Estrategias»). */
+    strategies(): Promise<SignalStrategyState[]>;
+    /** El motor emitió una señal nueva (aprobada, reducida o vetada). */
+    onNew(listener: (event: SignalNewEvent) => void): () => void;
+  };
+  journal: {
+    /** Diario paginado con filtros y recuento total del conjunto. */
+    list(query?: JournalListQuery): Promise<JournalPage>;
+    /** Entrada completa; null si no existe. */
+    get(id: number): Promise<JournalEntry | null>;
+    /**
+     * Exporta el conjunto filtrado a CSV (RFC 4180, UTF-8 con BOM). En la
+     * app normal abre el diálogo de guardar; `request.path` solo se
+     * respeta en modo E2E.
+     */
+    exportCsv(request?: JournalExportRequest): Promise<JournalExportResult>;
+    /** Se añadió una entrada al diario. */
+    onUpdated(listener: (event: JournalUpdatedEvent) => void): () => void;
+  };
+  delivery: {
+    /** Config de Telegram y correo; los secretos llegan como «guardado». */
+    getConfig(): Promise<DeliveryConfig>;
+    /** Sustituye la config de canales. Los secretos van por `secrets:*`. */
+    setConfig(config: DeliveryConfigInput): Promise<DeliveryConfig>;
+    /** Envía una prueba por un canal externo. */
+    test(request: DeliveryTestRequest): Promise<DeliveryTestResult>;
+  };
+  routine: {
+    /** Horarios de la rutina ('HH:MM', America/New_York). */
+    getConfig(): Promise<RoutineConfig>;
+    setConfig(config: RoutineConfig): Promise<RoutineConfig>;
+  };
+  backup: {
+    /** Copias guardadas con fecha, tamaño, esquema e integridad. */
+    list(): Promise<BackupInfo[]>;
+    /** Crea una copia ahora y devuelve su ficha. */
+    create(): Promise<BackupInfo>;
+    /**
+     * Restaura una copia: guarda antes una del estado actual, sustituye la
+     * base y reinicia la app. La confirmación es obligatoria.
+     */
+    restore(request: BackupRestoreRequest): Promise<BackupRestoreResult>;
+  };
+  logs: {
+    /** Abre la carpeta de registros rotados en el explorador del SO. */
+    openFolder(): Promise<OpenFolderResult>;
   };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
@@ -983,6 +1164,10 @@ export interface TradiaApi {
       /** Siembra la cartera simulada (posiciones y curva de capital). */
       seedPortfolio(request: SeedPortfolioRequest): Promise<SeedPortfolioResult>;
     };
+    /** Adelanta el reloj de la rutina diaria `ms` y reevalúa los envíos. */
+    advanceRoutineClock(ms: number): Promise<RoutineClockAdvanceResult>;
+    /** Fuerza una evaluación inmediata del motor de señales. */
+    evaluateSignalsNow(): Promise<SignalEngineRunResult>;
   };
 }
 
@@ -1901,6 +2086,251 @@ export function isSeedPortfolioRequest(value: unknown): value is SeedPortfolioRe
     }
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: señales, diario y operativa (fase 4)
+// ---------------------------------------------------------------------------
+
+/** Id entero positivo de una señal (`signals:get`). */
+export function isSignalId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+export function isRiskDecisionStatus(value: unknown): value is RiskDecisionStatus {
+  return typeof value === 'string' && (RISK_DECISION_STATUSES as readonly string[]).includes(value);
+}
+
+export function isSignalsListQuery(value: unknown): value is SignalsListQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['ticker', 'decision', 'strategyId', 'desde', 'hasta', 'limit', 'offset'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('decision' in v && !isRiskDecisionStatus(v.decision)) return false;
+  if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
+  if ('desde' in v && !isIsoDate(v.desde)) return false;
+  if ('hasta' in v && !isIsoDate(v.hasta)) return false;
+  if (typeof v.desde === 'string' && typeof v.hasta === 'string' && v.desde > v.hasta) {
+    return false;
+  }
+  if (
+    'limit' in v &&
+    (typeof v.limit !== 'number' ||
+      !Number.isInteger(v.limit) ||
+      v.limit < 1 ||
+      v.limit > SIGNALS_LIST_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  if (
+    'offset' in v &&
+    (typeof v.offset !== 'number' || !Number.isInteger(v.offset) || v.offset < 0)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Id entero positivo de una entrada del diario (`journal:get`). */
+export function isJournalEntryId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+export function isJournalEntryType(value: unknown): value is JournalEntryType {
+  return typeof value === 'string' && (JOURNAL_ENTRY_TYPES as readonly string[]).includes(value);
+}
+
+export function isJournalResult(value: unknown): value is JournalResult {
+  return typeof value === 'string' && (JOURNAL_RESULTS as readonly string[]).includes(value);
+}
+
+export function isJournalListQuery(value: unknown): value is JournalListQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['desde', 'hasta', 'type', 'ticker', 'strategyId', 'result', 'limit', 'offset'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('desde' in v && !isIsoDate(v.desde)) return false;
+  if ('hasta' in v && !isIsoDate(v.hasta)) return false;
+  if (typeof v.desde === 'string' && typeof v.hasta === 'string' && v.desde > v.hasta) {
+    return false;
+  }
+  if ('type' in v && !isJournalEntryType(v.type)) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
+  if ('result' in v && !isJournalResult(v.result)) return false;
+  if (
+    'limit' in v &&
+    (typeof v.limit !== 'number' ||
+      !Number.isInteger(v.limit) ||
+      v.limit < 1 ||
+      v.limit > JOURNAL_LIST_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  if (
+    'offset' in v &&
+    (typeof v.offset !== 'number' || !Number.isInteger(v.offset) || v.offset < 0)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Exportación del diario: `{query?, path?}`. `path` solo se respeta en
+ * modo E2E y debe ser una ruta absoluta razonable (el proceso principal
+ * además la acota al directorio temporal del entorno de pruebas).
+ */
+export function isJournalExportRequest(value: unknown): value is JournalExportRequest | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'query' && k !== 'path')) return false;
+  if ('query' in v && !isJournalListQuery(v.query)) return false;
+  if ('path' in v) {
+    const p = v.path;
+    if (typeof p !== 'string' || p.length === 0 || p.length > 512) return false;
+    // Rutas absolutas POSIX o Windows; nunca relativas ni con traversal.
+    if (!/^(\/|[A-Za-z]:[\\/])/.test(p) || p.includes('..')) return false;
+  }
+  return true;
+}
+
+// -- Canales de entrega -----------------------------------------------------
+
+export function isDeliveryEventKind(value: unknown): value is DeliveryEventKind {
+  return typeof value === 'string' && (DELIVERY_EVENT_KINDS as readonly string[]).includes(value);
+}
+
+/** Lista de eventos por canal: subconjunto de DELIVERY_EVENT_KINDS sin duplicados. */
+function isDeliveryEventList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= DELIVERY_EVENT_KINDS.length &&
+    value.every(isDeliveryEventKind) &&
+    new Set(value).size === value.length
+  );
+}
+
+export function isDeliveryTestRequest(value: unknown): value is DeliveryTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'channel')) return false;
+  return (
+    typeof v.channel === 'string' &&
+    (DELIVERY_TESTABLE_CHANNELS as readonly string[]).includes(v.channel)
+  );
+}
+
+/** Dirección de correo laxa (local@dominio) dentro del tope del contrato. */
+const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,255}$/;
+
+function isDeliveryChatId(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.trim().length > 0 &&
+    value.length <= DELIVERY_CHAT_ID_MAX_LENGTH &&
+    // Id numérico, @canal o nombre corto; sin espacios ni controles.
+    /^[^\s]{1,128}$/.test(value)
+  );
+}
+
+function isDeliveryHost(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.trim().length > 0 &&
+    value.length <= DELIVERY_HOST_MAX_LENGTH &&
+    // Host o IPv4 literal; sin espacios, credenciales ni path.
+    /^[A-Za-z0-9.-]+$/.test(value)
+  );
+}
+
+function isTelegramConfigInput(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'enabled' && k !== 'chatId' && k !== 'events')) {
+    return false;
+  }
+  if (typeof v.enabled !== 'boolean') return false;
+  // Desactivado admite chatId vacío; activado lo exige válido.
+  if (typeof v.chatId !== 'string' || v.chatId.length > DELIVERY_CHAT_ID_MAX_LENGTH) return false;
+  if (v.enabled && !isDeliveryChatId(v.chatId)) return false;
+  return isDeliveryEventList(v.events);
+}
+
+function isEmailConfigInput(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['enabled', 'host', 'port', 'security', 'user', 'to', 'events'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (typeof v.enabled !== 'boolean') return false;
+  if (typeof v.host !== 'string' || v.host.length > DELIVERY_HOST_MAX_LENGTH) return false;
+  if (typeof v.port !== 'number' || !Number.isInteger(v.port) || v.port < 1 || v.port > 65535) {
+    return false;
+  }
+  if (
+    typeof v.security !== 'string' ||
+    !(SMTP_SECURITY_MODES as readonly string[]).includes(v.security)
+  ) {
+    return false;
+  }
+  if (typeof v.user !== 'string' || v.user.length > DELIVERY_ADDRESS_MAX_LENGTH) return false;
+  if (typeof v.to !== 'string' || v.to.length > DELIVERY_ADDRESS_MAX_LENGTH) return false;
+  // Activado exige servidor, usuario y destinatario con forma correcta.
+  if (v.enabled) {
+    if (!isDeliveryHost(v.host) || !isNonEmptyString(v.user)) return false;
+    if (!EMAIL_PATTERN.test(v.to)) return false;
+  }
+  return isDeliveryEventList(v.events);
+}
+
+/**
+ * Config de canales externos para `delivery:set-config`. Nunca incluye
+ * secretos: el token del bot y la contraseña SMTP entran por `secrets:*`
+ * con los proveedores de `DELIVERY_SECRET_KEYS`.
+ */
+export function isDeliveryConfigInput(value: unknown): value is DeliveryConfigInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'telegram' && k !== 'email')) return false;
+  return isTelegramConfigInput(v.telegram) && isEmailConfigInput(v.email);
+}
+
+// -- Rutina diaria ------------------------------------------------------------
+
+/** Horarios de la rutina: las tres horas 'HH:MM' en America/New_York. */
+export function isRoutineConfig(value: unknown): value is RoutineConfig {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'preapertura' && k !== 'cierre' && k !== 'conciliacion')) {
+    return false;
+  }
+  return (
+    typeof v.preapertura === 'string' &&
+    HHMM_PATTERN.test(v.preapertura) &&
+    typeof v.cierre === 'string' &&
+    HHMM_PATTERN.test(v.cierre) &&
+    typeof v.conciliacion === 'string' &&
+    HHMM_PATTERN.test(v.conciliacion)
+  );
+}
+
+// -- Copias de seguridad y registros ------------------------------------------
+
+/** Nombre de archivo de copia: basename '.db' sin separadores ni '..'. */
+export function isBackupFileName(value: unknown): value is string {
+  return typeof value === 'string' && BACKUP_FILE_PATTERN.test(value) && !value.includes('..');
+}
+
+/** `{fileName, confirm: true}`: la restauración exige confirmación explícita. */
+export function isBackupRestoreRequest(value: unknown): value is BackupRestoreRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'fileName' && k !== 'confirm')) return false;
+  return isBackupFileName(v.fileName) && v.confirm === true;
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

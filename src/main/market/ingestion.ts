@@ -179,6 +179,14 @@ export interface MarketIngestionService {
    * usa para recalcular los resultados de los activos seguidos.
    */
   onWatchlistChanged(listener: (items: WatchlistItem[]) => void): () => void;
+  /**
+   * Listener interno del proceso principal: se emite tras guardar un lote
+   * de velas de un ticker, con la fecha de la última vela del lote (el
+   * mismo instante y contenido que el `market:updated` del renderer). El
+   * motor de señales (fase 4) lo usa para evaluar las estrategias al
+   * cierre de cada vela nueva sin esperar a la siguiente pasada.
+   */
+  onBarsStored(listener: (event: MarketUpdatedEvent) => void): () => void;
   /** Arranca la programación y recupera cierres perdidos; devuelve cuando
    * termina la primera evaluación (útil en pruebas). */
   start(): Promise<void>;
@@ -230,6 +238,8 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingesting = new Set<string>();
   /** Oyentes internos del cambio de watchlist (calendario, fases siguientes). */
   const watchlistListeners = new Set<(items: WatchlistItem[]) => void>();
+  /** Oyentes internos de «lote de velas guardado» (motor de señales). */
+  const barsStoredListeners = new Set<(event: MarketUpdatedEvent) => void>();
 
   const emitWatchlistChanged = (): void => {
     const items = repo.listWatchlist();
@@ -251,6 +261,14 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       updatedAt: isoNow(),
     };
     deps.broadcast(IPC_CHANNELS.market.updated, event);
+    for (const listener of barsStoredListeners) {
+      try {
+        listener(event);
+      } catch (error: unknown) {
+        // Un oyente no puede romper la ingesta: el fallo queda en el log.
+        logger.error?.(`[market] un oyente de velas guardadas falló: ${String(error)}`);
+      }
+    }
   };
 
   // -- Salud del dato --------------------------------------------------------
@@ -763,6 +781,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       watchlistListeners.add(listener);
       return () => {
         watchlistListeners.delete(listener);
+      };
+    },
+
+    onBarsStored: (listener) => {
+      barsStoredListeners.add(listener);
+      return () => {
+        barsStoredListeners.delete(listener);
       };
     },
 
