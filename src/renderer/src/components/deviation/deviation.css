@@ -194,3 +194,7 @@
     align-items: stretch;
   }
 }
+.deviation-table-wrap time,
+.deviation-table-wrap td:nth-child(n + 3):nth-child(-n + 9) {
+  white-space: nowrap;
+}

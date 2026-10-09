@@ -176,7 +176,9 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
 
   const mapStatus = (raw: string, ctx: string): BrokerOrderStatus => {
     const status = ALPACA_STATUS_MAP[raw];
-    if (status === undefined) badData(`${ctx} con estado desconocido: ${JSON.stringify(raw)}`);
+    if (status === undefined) {
+      return badData(`${ctx} con estado desconocido: ${JSON.stringify(raw)}`);
+    }
     return status;
   };
 
@@ -189,15 +191,13 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
     const type =
       orderClass === 'oco'
         ? 'oco'
-        : orderClass === 'simple' || orderClass === ''
-          ? ALPACA_TYPE_MAP[rawType] ?? badData(`${ctx} con tipo no admitido: ${rawType}`)
+        : orderClass === 'simple'
+          ? (ALPACA_TYPE_MAP[rawType] ?? badData(`${ctx} con tipo no admitido: ${rawType}`))
           : badData(`${ctx} con order_class no admitido: ${orderClass}`);
     const sideRaw = reqStr(obj, 'side', ctx);
     if (sideRaw !== 'buy' && sideRaw !== 'sell') badData(`${ctx} con side inválido: ${sideRaw}`);
     const rawLegs = obj['legs'];
-    const legs = Array.isArray(rawLegs)
-      ? rawLegs.map((leg) => mapOrder(leg, id))
-      : null;
+    const legs = Array.isArray(rawLegs) ? rawLegs.map((leg) => mapOrder(leg, id)) : null;
     return {
       brokerOrderId: id,
       clientOrderId: typeof obj['client_order_id'] === 'string' ? obj['client_order_id'] : '',
@@ -226,7 +226,7 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
   /** Petición autenticada a la API paper; devuelve el JSON o null en 204. */
   const request = async (path: string, options: RequestOptions = {}): Promise<unknown> => {
     const creds = await deps.getCredentials();
-    if (!creds || !creds.apiKeyId || !creds.apiSecret) {
+    if (!creds || !creds.apiKeyId.trim() || !creds.apiSecret.trim()) {
       throw fail('auth', 'sin claves del broker guardadas en secrets (cuenta paper no conectada)', {
         clientOrderId: options.clientOrderId,
       });
@@ -280,7 +280,11 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
         );
       }
       if (status === 404) {
-        throw fail('not-found', `recurso no encontrado (HTTP 404)${detail ? `: ${detail}` : ''}`, base);
+        throw fail(
+          'not-found',
+          `recurso no encontrado (HTTP 404)${detail ? `: ${detail}` : ''}`,
+          base,
+        );
       }
       if (status === 429) {
         const retryAfter = Number(response.headers.get('retry-after'));
@@ -327,7 +331,7 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
         stop_loss: { stop_price: String(req.stopPrice) },
       };
     }
-    const body = { ...base, type: req.type };
+    const body: JsonObject = { ...base, type: req.type };
     if (req.type === 'limit') body['limit_price'] = String(req.limitPrice);
     if (req.type === 'stop') body['stop_price'] = String(req.stopPrice);
     return body;
@@ -353,7 +357,8 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
 
     listPositions: async () => {
       const raw = await request('/v2/positions');
-      if (!Array.isArray(raw)) badData(`posiciones no es una lista: ${truncate(JSON.stringify(raw))}`);
+      if (!Array.isArray(raw))
+        badData(`posiciones no es una lista: ${truncate(JSON.stringify(raw))}`);
       return (raw as unknown[]).map((entry): BrokerPosition => {
         const obj = asRecord(entry, 'posición');
         const side = reqStr(obj, 'side', 'posición');

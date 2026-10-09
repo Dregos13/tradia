@@ -7,6 +7,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { BROKER_ORDER_OPEN_STATUSES } from '../../shared/broker';
+import { createAlpacaFakeFetch } from './__fixtures__/fake-server';
+import { createAlpacaBroker } from './alpaca';
 import { createSimulatedBroker } from './simulated';
 import {
   BROKER_ERROR_KINDS,
@@ -22,6 +24,14 @@ const adapters: Array<{ name: string; make: () => BrokerAdapter }> = [
   {
     name: 'simulated',
     make: () => createSimulatedBroker({ seed: 'contract', now: () => SIMULATED_NOW }),
+  },
+  {
+    name: 'alpaca',
+    make: () =>
+      createAlpacaBroker({
+        fetch: createAlpacaFakeFetch(),
+        getCredentials: async () => ({ apiKeyId: 'PK-TEST', apiSecret: 'SK-TEST' }),
+      }),
   },
 ];
 
@@ -72,9 +82,7 @@ describe.each(adapters)('contrato BrokerAdapter — $name', ({ make }) => {
 
   it('una limitada lejos de mercado queda abierta y se cancela', async () => {
     const adapter = make();
-    const order = await adapter.submitOrder(
-      request({ type: 'limit', limitPrice: 0.01 }),
-    );
+    const order = await adapter.submitOrder(request({ type: 'limit', limitPrice: 0.01 }));
     expect(order.status).toBe('enviada');
     expect(order.filledQuantity).toBe(0);
     expect(order.filledAvgPrice).toBeNull();
@@ -152,9 +160,9 @@ describe.each(adapters)('contrato BrokerAdapter — $name', ({ make }) => {
     await expect(adapter.submitOrder(request({ quantity: 0 }))).rejects.toMatchObject({
       kind: 'bad-data',
     });
-    await expect(
-      adapter.submitOrder(request({ type: 'limit' })),
-    ).rejects.toMatchObject({ kind: 'bad-data' });
+    await expect(adapter.submitOrder(request({ type: 'limit' }))).rejects.toMatchObject({
+      kind: 'bad-data',
+    });
     await expect(
       adapter.submitOrder(request({ type: 'oco', limitPrice: 100 })),
     ).rejects.toMatchObject({ kind: 'bad-data' });

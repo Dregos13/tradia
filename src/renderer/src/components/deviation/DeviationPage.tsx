@@ -41,7 +41,9 @@ function DeviationRow({ row, report }: { row: DeviationReportRow; report: Deviat
         <span
           className={`deviation-status ${row.outOfMargin ? 'deviation-outside' : partial ? '' : 'deviation-within'}`}
         >
-          <DeviationIcon kind={row.outOfMargin ? 'outside' : 'within'} />
+          {(!partial || row.outOfMargin) && (
+            <DeviationIcon kind={row.outOfMargin ? 'outside' : 'within'} />
+          )}
           {row.outOfMargin ? 'Fuera de margen' : partial ? 'No calculado' : 'Dentro del margen'}
         </span>
         <small>{reasons.join('; ') || (partial ? 'Falta la expectativa del backtest.' : '')}</small>
@@ -114,10 +116,12 @@ export function DeviationPage() {
         </div>
       </dl>
       <p role="status" aria-live="polite">
-        {report && !state.loading
+        {report && report.rows.length > 0 && !state.loading && !state.error
           ? alerts.length
             ? `${alerts.length} periodos fuera de margen: ${[...new Set(alerts.map((row) => row.strategyName))].join(', ')}.`
-            : 'Informe calculado. Todas las estrategias dentro del margen.'
+            : report.rows.some((row) => row.deviationPp === null || row.expectedReturnPct === null)
+              ? 'Informe parcial. Hay estrategias sin expectativa de backtest.'
+              : 'Informe calculado. Todas las estrategias dentro del margen.'
           : ''}
       </p>
       {state.error && (
