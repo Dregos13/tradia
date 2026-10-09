@@ -40,13 +40,7 @@
  */
 import { runBacktest } from './engine';
 import { computeMetrics, type BacktestMetrics, type MetricTrade } from './metrics';
-import type {
-  BacktestInput,
-  BacktestResult,
-  EngineBar,
-  Strategy,
-  StrategyParams,
-} from './types';
+import type { BacktestInput, BacktestResult, EngineBar, Strategy, StrategyParams } from './types';
 import type { SessionDate } from '../market/providers/types';
 import type { StrategyParameterRange } from '../../shared/strategy';
 
@@ -297,7 +291,7 @@ export function expandParamGrid(
   }
   const combos: StrategyParams[] = [];
   const current: number[] = new Array(names.length).fill(0);
-  for (let done = false; !done; ) {
+  for (let done = false; !done;) {
     const params: StrategyParams = { ...base };
     for (let k = 0; k < names.length; k++) params[names[k]!] = axis[k]![current[k]!]!;
     combos.push(params);
@@ -399,7 +393,9 @@ function meanFinite(values: readonly (number | null)[]): number | null {
  */
 export function runWalkForward(input: WalkForwardInput): WalkForwardResult {
   if (typeof input?.strategy !== 'function') {
-    throw new TypeError('validación: se espera una factoría de estrategia `strategy: () => Strategy`');
+    throw new TypeError(
+      'validación: se espera una factoría de estrategia `strategy: () => Strategy`',
+    );
   }
   const dates = input.dates ?? unionDates(input.bars);
   const windows = buildWalkForwardWindows(dates, input.window);
@@ -431,7 +427,7 @@ export function runWalkForward(input: WalkForwardInput): WalkForwardResult {
       });
       const metrics = computeMetrics(result.equityCurve, result.trades);
       const value = metricValue(metrics, objective) ?? Number.NEGATIVE_INFINITY;
-      if (value > bestValue) {
+      if (bestMetrics === null || value > bestValue) {
         bestValue = value;
         bestParams = params;
         bestMetrics = metrics;
@@ -529,7 +525,9 @@ function nearestIndex(values: readonly number[], target: number | undefined): nu
  */
 export function runSensitivityMap(input: SensitivityInput): SensitivityMap {
   if (typeof input?.strategy !== 'function') {
-    throw new TypeError('validación: se espera una factoría de estrategia `strategy: () => Strategy`');
+    throw new TypeError(
+      'validación: se espera una factoría de estrategia `strategy: () => Strategy`',
+    );
   }
   if (input.x.param === input.y.param) {
     throw new RangeError(`validación: los ejes del mapa repiten el parámetro '${input.x.param}'`);
@@ -770,8 +768,7 @@ export interface OverfitInput {
   monteCarlo?: MonteCarloResult | null;
 }
 
-const fmtNumber = (v: number): string =>
-  Number.isFinite(v) ? v.toFixed(2) : v > 0 ? '∞' : '-∞';
+const fmtNumber = (v: number): string => (Number.isFinite(v) ? v.toFixed(2) : v > 0 ? '∞' : '-∞');
 const fmtPct = (v: number): string => `${(v * 100).toFixed(1)} %`;
 
 /**
