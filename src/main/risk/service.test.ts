@@ -197,6 +197,170 @@ describe('createRiskService', () => {
   });
 });
 
+describe('cartera simulada (fase 4)', () => {
+  const makeService = () => {
+    const repo = createRiskRepository(db);
+    const cautionSource = createCautionContextSource({
+      listEvents: () => [],
+      getPortfolioTickers: () => repo.openTickers(),
+      getVix: () => null,
+    });
+    return createRiskService({
+      repo,
+      cautionSource,
+      killSwitch: stubKillSwitch(),
+      broadcast: (channel, payload) => sent.push({ channel, payload }),
+      now: () => NOW,
+    });
+  };
+
+  /** Una barra diaria para que la posición tenga precio de marca. */
+  const seedBar = (ticker: string, close: number): void => {
+    const batch = db
+      .prepare(
+        `INSERT INTO data_batches (version, hash, proveedor, ambito, ticker, desde, hasta, recibido_en)
+         VALUES (1, 'h', 'test', 'bars', ?, '2026-01-01', '2026-12-31', ?)`,
+      )
+      .run(ticker, '2026-10-09T00:00:00.000Z');
+    db.prepare(
+      `INSERT INTO bars (ticker, fecha, fuente, lote_id, open, high, low, close, volume)
+       VALUES (?, '2026-10-09', 'test', ?, ?, ?, ?, ?, 1000)`,
+    ).run(ticker, Number(batch.lastInsertRowid), close, close, close, close);
+  };
+
+  const openInput = {
+    ticker: 'AAPL',
+    direction: 'largo' as const,
+    entry: 100,
+    stop: 95,
+    target: 120,
+    size: 10,
+    sector: null,
+    currency: 'USD',
+    signalId: null,
+    openedOnBar: '2026-10-08',
+    openedAt: '2026-10-09T14:00:00.000Z',
+  };
+
+  it('openPaperPosition valida y persiste la posición con su trazabilidad', () => {
+    const service = makeService();
+    const position = service.openPaperPosition({ ...openInput, signalId: null });
+    expect(position).toMatchObject({
+      ticker: 'AAPL',
+      direction: 'largo',
+      entry: 100,
+      size: 10,
+      sector: 'tecnologia',
+      signalId: null,
+      openedOnBar: '2026-10-08',
+      closedAt: null,
+    });
+    expect(service.listPaperPositions()).toHaveLength(1);
+    expect(service.listPaperPositions('MSFT')).toHaveLength(0);
+    expect(service.listPaperPositions('AAPL')[0]!.id).toBe(position.id);
+
+    for (const bad of [
+      { ...openInput, ticker: 'no es un ticker!' },
+      { ...openInput, entry: 0 },
+      { ...openInput, size: -1 },
+      { ...openInput, stop: Number.NaN },
+      { ...openInput, openedOnBar: 'ayer' },
+      { ...openInput, signalId: -3 },
+    ]) {
+      expect(() => service.openPaperPosition(bad)).toThrowError(RiskServiceError);
+    }
+    expect(service.listPaperPositions()).toHaveLength(1);
+  });
+
+  it('closePaperPosition anota el P&L en la curva de capital y es idempotente', () => {
+    const service = makeService();
+    const position = service.openPaperPosition(openInput);
+    const closed = service.closePaperPosition({
+      positionId: position.id,
+      exit: 95,
+      exitReason: 'stop',
+      closedAt: '2026-10-09T21:00:00.000Z',
+    });
+    // 10 uds × (95 − 100) = −50 sobre los 100 000 por defecto.
+    expect(closed).toMatchObject({ exit: 95, exitReason: 'stop', pnl: -50, equity: 99_950 });
+    expect(closed?.position.closedAt).toBe('2026-10-09T21:00:00.000Z');
+    expect(service.listPaperPositions()).toHaveLength(0);
+
+    // Segunda llamada sobre la misma posición: null, sin otro punto de capital.
+    expect(
+      service.closePaperPosition({
+        positionId: position.id,
+        exit: 95,
+        exitReason: 'stop',
+        closedAt: '2026-10-09T22:00:00.000Z',
+      }),
+    ).toBeNull();
+    const count = db.prepare('SELECT COUNT(*) AS n FROM risk_equity_history').get() as {
+      n: number;
+    };
+    expect(count.n).toBe(1);
+
+    expect(() =>
+      service.closePaperPosition({ positionId: 1.5, exit: 1, exitReason: 'stop', closedAt: 'x' }),
+    ).toThrowError(RiskServiceError);
+  });
+
+  it('getPortfolio devuelve posiciones con marca, drawdown y exposición', () => {
+    seedBar('AAPL', 110);
+    const service = makeService();
+    service.seedPortfolio({
+      equity: 100_000,
+      equityHistory: [{ at: '2026-10-01T00:00:00.000Z', equity: 120_000 }],
+    });
+    service.openPaperPosition(openInput);
+
+    const portfolio = service.getPortfolio();
+    expect(portfolio.openPositions).toBe(1);
+    expect(portfolio.maxOpenPositions).toBe(RISK_DEFAULTS.maxOpenPositions);
+    const [position] = portfolio.positions;
+    expect(position).toMatchObject({
+      ticker: 'AAPL',
+      markPrice: 110,
+      pnl: 100,
+      pnlPct: 10,
+      sector: 'tecnologia',
+      signalId: null,
+    });
+    // Drawdown: 100 000 frente al pico de 120 000 = 16,67 %.
+    expect(portfolio.drawdownPct).toBeCloseTo(16.67, 1);
+    expect(portfolio.drawdownLimitPct).toBe(RISK_DEFAULTS.maxDrawdownPct);
+    // Exposición: 10 × 110 = 1 100 sobre 100 000 = 1,1 %.
+    expect(portfolio.exposureByAsset[0]).toMatchObject({
+      key: 'AAPL',
+      notional: 1100,
+      pct: 1.1,
+      limitPct: RISK_DEFAULTS.maxAssetExposurePct,
+    });
+    expect(portfolio.exposureBySector[0]).toMatchObject({
+      key: 'tecnologia',
+      limitPct: RISK_DEFAULTS.maxSectorExposurePct,
+    });
+    expect(portfolio.dailyLossLimitPct).toBe(RISK_DEFAULTS.maxDailyLossPct);
+  });
+
+  it('getPaperRiskState mide pérdidas por periodo y drawdown sobre la curva', () => {
+    const service = makeService();
+    service.seedPortfolio({
+      equity: 90_000,
+      equityHistory: [
+        { at: '2026-10-01T00:00:00.000Z', equity: 100_000 },
+        { at: '2026-10-08T00:00:00.000Z', equity: 95_000 },
+      ],
+    });
+    const state = service.getPaperRiskState();
+    expect(state.equity).toBe(90_000);
+    expect(state.dailyLossPct).toBeCloseTo(5.26, 1);
+    expect(state.weeklyLossPct).toBeCloseTo(10, 0);
+    expect(state.monthlyLossPct).toBeCloseTo(10, 0);
+    expect(state.drawdownPct).toBeCloseTo(10, 0);
+  });
+});
+
 describe('registerRisk · IPC y cableado', () => {
   it('registra los handlers del contrato y enlaza los extras de la parada', () => {
     registerRisk(makeCtx());
@@ -206,6 +370,7 @@ describe('registerRisk · IPC y cableado', () => {
       IPC_CHANNELS.risk.listVetoes,
       IPC_CHANNELS.risk.submitSignal,
       IPC_CHANNELS.risk.getCaution,
+      IPC_CHANNELS.risk.getPortfolio,
     ]) {
       expect(electron.handlers.has(channel)).toBe(true);
     }

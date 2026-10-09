@@ -102,6 +102,87 @@ export interface EquityHistoryPoint {
   equity: number;
 }
 
+// ---------------------------------------------------------------------------
+// Cartera simulada: filas persistidas (migraciones 007 y 009)
+// ---------------------------------------------------------------------------
+
+/** Por qué se cerró la posición simulada: 'stop' (protección) u 'objetivo'. */
+export type PaperExitReason = 'stop' | 'objetivo';
+
+/** Datos de apertura de una posición simulada (los fija la señal aprobada). */
+export interface NewPaperPosition {
+  ticker: string;
+  direction: SignalDirection;
+  /** Precio de entrada (> 0); el de la señal. */
+  entry: number;
+  stop: number | null;
+  target: number | null;
+  /** Tamaño en unidades que asignó la pasarela (`decision.size`). */
+  size: number;
+  /** Sector para la exposición; null = desconocido. */
+  sector: string | null;
+  currency: string;
+  /** Señal que la abrió; null en las sembradas a mano (E2E). */
+  signalId: number | null;
+  /** Vela cuyo cierre emitió la señal ('YYYY-MM-DD'); null en las sembradas. */
+  openedOnBar: string | null;
+  openedAt: string;
+}
+
+/** Fila de `risk_portfolio_positions` ya leída. */
+export interface PaperPositionRecord {
+  id: number;
+  ticker: string;
+  direction: SignalDirection;
+  entry: number;
+  stop: number | null;
+  target: number | null;
+  size: number;
+  sector: string | null;
+  currency: string;
+  signalId: number | null;
+  openedOnBar: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  exit: number | null;
+  exitReason: PaperExitReason | null;
+}
+
+/** Resultado de liquidar una posición: P&L realizado y capital resultante. */
+export interface PaperCloseResult {
+  position: PaperPositionRecord;
+  exit: number;
+  exitReason: PaperExitReason;
+  /** Resultado realizado en la divisa de la cuenta. */
+  pnl: number;
+  /** Capital de la cartera tras anotar el resultado. */
+  equity: number;
+}
+
+/** Petición de cierre simulado de una posición abierta. */
+export interface PaperCloseRequest {
+  positionId: number;
+  exit: number;
+  exitReason: PaperExitReason;
+  /** Instante del cierre (ISO 8601); fija el punto de la curva de capital. */
+  closedAt: string;
+}
+
+/**
+ * Medidas de pérdida y drawdown de la cartera en el instante actual, ya
+ * calculadas sobre la curva de capital: las compara el seguimiento de
+ * posiciones (`signals/paper.ts`) con los límites vigentes.
+ */
+export interface PaperRiskState {
+  equity: number;
+  /** Pérdidas realizadas del día/semana/mes en % del capital (0 si va en positivo). */
+  dailyLossPct: number;
+  weeklyLossPct: number;
+  monthlyLossPct: number;
+  /** Caída del capital frente a su máximo histórico, en %. */
+  drawdownPct: number;
+}
+
 /** Metadatos de un activo para los límites de exposición y liquidez. */
 export interface InstrumentInfo {
   /** Sector para el límite sectorial; null = desconocido. */

@@ -48,11 +48,14 @@ import {
   type SignalEngine,
   type SignalSourceBar,
 } from './engine';
+import { createPaperTracker, type PaperTracker } from './paper';
 import { createSignalsRepository } from './repository';
 
 export interface SignalsService {
   /** El núcleo, expuesto para pruebas del propio servicio. */
   engine: SignalEngine;
+  /** Seguimiento de posiciones simuladas (apertura por señal, cierre por vela). */
+  paper: PaperTracker;
   stop(): void;
 }
 
@@ -161,6 +164,37 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
   const journal = ctx.services.journal as
     { record?(input: JournalRecordInput): unknown } | undefined;
 
+  // La cartera simulada solo la escribe el motor de riesgo (la regla de
+  // imports lo exige): el tracker la usa por la interfaz de servicio y
+  // queda inerte si esa API no está (degradación segura).
+  const risk = ctx.services.risk;
+  const gateway =
+    risk !== undefined && typeof risk.openPaperPosition === 'function' ? risk : undefined;
+
+  // La vela recién guardada que evalúan las posiciones abiertas: la de la
+  // fuente del lote disparador, o la de la fuente más reciente del activo.
+  const barAt = (ticker: string, date: string, source: string | null): SignalSourceBar | null => {
+    const rows = market.getBars(ticker, { desde: date, hasta: date });
+    if (rows.length === 0) return null;
+    const effective = source ?? rows[rows.length - 1]!.source;
+    const bar = rows.find((row) => row.source === effective) ?? rows[rows.length - 1]!;
+    return toSourceBar(bar);
+  };
+
+  const tracker = createPaperTracker({
+    gateway,
+    barAt,
+    getSignal: (id) => repo.getSignal(id),
+    recordJournal: (input) => journal?.record?.(input),
+    sendLimitAlert: (message) =>
+      ctx.services.delivery?.sendEvent?.('limite-alcanzado', {
+        ...message,
+        navigateTo: 'riesgo',
+      }),
+    observeDailyLoss: (lossPct) => ctx.services.killSwitch?.observeDailyLoss?.(lossPct),
+    observeDrawdown: (drawdownPct) => ctx.services.killSwitch?.observeDrawdown?.(drawdownPct),
+  });
+
   const engine = createSignalEngine({
     repo,
     listEvaluables,
@@ -180,8 +214,12 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     },
     recordJournal: (input) => journal?.record?.(input),
     // Perezoso a propósito: delivery envuelve ctx.broadcast al registrarse
-    // después y necesita ver los `signals:new`.
-    broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    // después y necesita ver los `signals:new`. Cada señal persistida la
+    // ve también el seguimiento de posiciones (abre la simulada).
+    broadcast: (channel, payload) => {
+      ctx.broadcast(channel, payload);
+      if (channel === IPC_CHANNELS.signals.new) tracker.handleSignalEvent(payload);
+    },
     isAgentsPaused: () => ctx.services.scheduler?.getState().paused ?? false,
     isOffline: () => ctx.services.connectivity?.getState().status === 'offline',
     isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
@@ -189,8 +227,11 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     markProcessed,
   });
 
-  // Disparo: cada lote guardado de un activo evalúa su última vela.
+  // Disparo: cada lote guardado de un activo cierra primero las
+  // posiciones que la vela toque (stop/objetivo) y después evalúa las
+  // estrategias sobre su última vela.
   const unsubscribe = ctx.services.market?.onBarsStored((event: MarketUpdatedEvent) => {
+    tracker.handleBarStored(event);
     engine.handleBarStored(event);
   });
 
@@ -219,9 +260,11 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
 
   return {
     engine,
+    paper: tracker,
     stop: () => {
       unsubscribe?.();
       engine.stop();
+      tracker.stop();
     },
   };
 }

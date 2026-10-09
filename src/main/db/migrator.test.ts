@@ -18,8 +18,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     db.close();
   });
 
@@ -28,7 +28,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(8);
+    expect(appliedMigrations(db)).toHaveLength(9);
     db.close();
   });
 
@@ -91,6 +91,10 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(9);
+    expect(tableNames(db)).toContain('journal_entries');
+    expect(tableNames(db)).toContain('risk_vetoes');
+
     expect(rollbackLast(db, MIGRATIONS)).toBe(8);
     expect(tableNames(db)).not.toContain('journal_entries');
     expect(tableNames(db)).toContain('risk_vetoes');
@@ -130,7 +134,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([8]);
+    expect(migrate(db, MIGRATIONS)).toEqual([9]);
     expect(tableNames(db)).toContain('watchlist');
     db.close();
   });

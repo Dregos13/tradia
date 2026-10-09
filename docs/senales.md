@@ -113,6 +113,49 @@ Los errores de evaluación (una estrategia que lanza) se anotan como
 entrada `error` con el activo y la estrategia, marcan esa estrategia con
 resultado `error` en el panel y **no** detienen a las demás.
 
+## Posiciones simuladas (`signals/paper.ts`)
+
+Cada señal persistida con decisión **aprobada** o **reducida** y tamaño
+> 0 abre una posición en la cartera simulada (`risk_portfolio_positions`,
+fase 3 + columnas de la migración 009). La apertura copia la entrada, el
+stop, el objetivo y el tamaño de la decisión de la pasarela y enlaza la
+posición con la señal (`senal_id`) y con la vela que la emitió
+(`vela_apertura`). **Nunca se envía una orden a un broker.**
+
+- **Seguimiento**: cada lote guardado (`onBarsStored`) evalúa las
+  posiciones abiertas del activo contra la vela recién llegada, siempre
+  que sea estrictamente posterior a la de la apertura (la vela de la
+  señal ya cotizó antes de que existiera la posición).
+- **Cierre**: misma semántica que el motor de backtest y la sonda —
+  intrabarra, **el stop primero** si la vela toca los dos niveles, y un
+  hueco más allá del nivel ejecuta a la apertura (`largo`: salida
+  `min(apertura, stop)` / `max(apertura, objetivo)`; `corto`, simétrico).
+- **Liquidación**: en una sola transacción se marca la fila
+  (`cerrada_en`, `salida`, `motivo_salida`) y se anota el P&L realizado
+  en la curva de capital (`risk_equity_history`); la curva solo registra
+  resultados realizados.
+- **Diario**: cada cierre escribe una entrada `operacion` con el motivo,
+  los datos de la operación (entrada, salida, tamaño, P&L y %, velas de
+  apertura/cierre), el resultado (`ganancia`/`perdida`/`empate`), las
+  reglas cumplidas y la señal enlazada.
+- **Límites**: tras cada vela se comparan la pérdida diaria, semanal y
+  mensual realizadas y el drawdown con los límites vigentes. Cada límite
+  que **pasa a estar alcanzado** (transición, no estado) escribe una
+  entrada `limite` del diario y un aviso `limite-alcanzado` por los
+  canales de entrega; las medidas se reportan además a los observadores
+  de la parada (`observeDailyLoss`, `observeDrawdown`), que la activan
+  sola según sus umbrales (drawdown ≥ máximo, pérdida ≥ 1,5 × diaria).
+
+La escritura de la cartera sigue siendo exclusiva del módulo de riesgo
+(la regla `no-restricted-imports` impide importarla desde `signals/`):
+el tracker la usa a través de `services.risk`
+(`openPaperPosition`/`listPaperPositions`/`closePaperPosition`/
+`getPaperRiskState`/`getLimits`) y queda inerte si esa API falta.
+
+`risk:get-portfolio` devuelve al panel la cartera completa: posiciones
+abiertas con marca y P&L no realizado, drawdown y pérdida diaria frente a
+su límite, y exposición por activo y por sector frente a su límite.
+
 ## Estado por estrategia (`signals:strategies`)
 
 El bloque «Estrategias» del panel lista todas las fichas con su estado y

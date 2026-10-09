@@ -34,8 +34,12 @@ import {
   isSimulateCalendarEventRequest,
   RISK_BOUNDS,
   riskLimitViolations,
+  SIGNAL_DIRECTIONS,
   type CautionState,
+  type ExposureSlice,
   type KillSwitchState,
+  type PaperPortfolioOverview,
+  type PaperPosition,
   type RiskDecision,
   type RiskLimits,
   type RiskOverview,
@@ -47,7 +51,23 @@ import {
   type SimulateCalendarEventRequest,
 } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
+import { TICKER_PATTERN } from '../market/providers/types';
 import type { ServiceContext } from '../services';
+import {
+  drawdownPct,
+  lossPctSince,
+  pctOfEquity,
+  periodStartUtc,
+  TRADIA_UNIVERSE_SECTORS,
+  UNIVERSE_CURRENCY,
+  UNKNOWN_SECTOR,
+  type LossPeriod,
+  type NewPaperPosition,
+  type PaperCloseRequest,
+  type PaperCloseResult,
+  type PaperPositionRecord,
+  type PaperRiskState,
+} from './portfolio';
 import {
   createCautionContextSource,
   type CautionContextSource,
@@ -61,7 +81,11 @@ import { createRiskRepository, type RiskRepository } from './repository';
 // Errores y etiquetas legibles
 // ---------------------------------------------------------------------------
 
-export const RISK_SERVICE_ERROR_CODES = ['limites-invalidos', 'limites-fuera-de-margen'] as const;
+export const RISK_SERVICE_ERROR_CODES = [
+  'limites-invalidos',
+  'limites-fuera-de-margen',
+  'posicion-invalida',
+] as const;
 export type RiskServiceErrorCode = (typeof RISK_SERVICE_ERROR_CODES)[number];
 
 export class RiskServiceError extends Error {
@@ -162,11 +186,34 @@ export interface RiskService {
   seedPortfolio(request: SeedPortfolioRequest): SeedPortfolioResult;
   /** Gancho E2E: inyecta un evento y devuelve la cautela resultante. */
   simulateCalendarEvent(event: SimulateCalendarEventRequest): CautionState;
+  /**
+   * Cartera simulada para el panel (`risk:get-portfolio`): posiciones con
+   * marca, P&L no realizado, drawdown y pérdida diaria frente a su límite
+   * y exposición por activo y por sector.
+   */
+  getPortfolio(): PaperPortfolioOverview;
+  /**
+   * Abre una posición simulada a partir de una señal aprobada (el
+   * seguimiento de `signals/paper.ts` la llama; nunca envía orden real).
+   * Rechaza datos inválidos con `RiskServiceError` 'posicion-invalida'.
+   */
+  openPaperPosition(input: NewPaperPosition): PaperPositionRecord;
+  /** Posiciones abiertas de la cartera simulada, opcionalmente de un activo. */
+  listPaperPositions(ticker?: string): PaperPositionRecord[];
+  /**
+   * Liquida una posición simulada: anota el P&L en la curva de capital y
+   * cierra la fila. Devuelve null si no existe o ya estaba cerrada.
+   */
+  closePaperPosition(request: PaperCloseRequest): PaperCloseResult | null;
+  /** Pérdidas por periodo y drawdown de la cartera (límites del seguimiento). */
+  getPaperRiskState(): PaperRiskState;
   stop(): void;
 }
 
 export function createRiskService(deps: RiskServiceDeps): RiskService {
   const now = deps.now ?? (() => Date.now());
+  const isoNow = (): string => new Date(now()).toISOString();
+  const round2 = (value: number): number => Math.round(value * 100) / 100;
 
   const caution = (): CautionState => deps.cautionSource.evaluate(now());
 
@@ -178,6 +225,55 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
 
   const emitChanged = (): void => {
     deps.broadcast(IPC_CHANNELS.risk.changed, overview());
+  };
+
+  // -- Cartera simulada (fase 4): seguimiento y lectura para el panel ---------
+
+  const paperRiskState = (): PaperRiskState => {
+    const snapshot = deps.repo.buildSnapshot(isoNow());
+    const lossPct = (period: LossPeriod): number => {
+      const start = periodStartUtc(snapshot.now, period);
+      return start === null
+        ? 0
+        : lossPctSince(snapshot.equityHistory, snapshot.equity, start.toISOString());
+    };
+    return {
+      equity: snapshot.equity,
+      dailyLossPct: lossPct('day'),
+      weeklyLossPct: lossPct('week'),
+      monthlyLossPct: lossPct('month'),
+      drawdownPct: drawdownPct(snapshot.equityHistory, snapshot.equity),
+    };
+  };
+
+  const invalidPosition = (message: string): RiskServiceError =>
+    new RiskServiceError('posicion-invalida', message);
+
+  const assertFinitePositive = (value: number, name: string): void => {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw invalidPosition(`${name} debe ser un número finito mayor que 0`);
+    }
+  };
+
+  const exposureSlices = (
+    positions: readonly PaperPosition[],
+    equity: number,
+    keyOf: (position: PaperPosition) => string,
+    limitPct: number,
+  ): ExposureSlice[] => {
+    const totals = new Map<string, number>();
+    for (const position of positions) {
+      const notional = Math.abs(position.size * (position.markPrice ?? position.entry));
+      totals.set(keyOf(position), (totals.get(keyOf(position)) ?? 0) + notional);
+    }
+    return [...totals.entries()]
+      .map(([key, notional]) => ({
+        key,
+        notional: round2(notional),
+        pct: round2(pctOfEquity(notional, equity)),
+        limitPct,
+      }))
+      .sort((a, b) => b.pct - a.pct);
   };
 
   const engine = createRiskEngine({
@@ -219,6 +315,97 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
       emitChanged();
       return caution();
     },
+
+    getPortfolio: () => {
+      const nowIso = isoNow();
+      const snapshot = deps.repo.buildSnapshot(nowIso);
+      const limits = deps.repo.getLimits();
+      const state = paperRiskState();
+      const marks = new Map(snapshot.positions.map((p) => [p.ticker, p.markPrice]));
+      const positions: PaperPosition[] = deps.repo.listPaperPositions().map((row) => {
+        const mark = marks.get(row.ticker) ?? null;
+        const sign = row.direction === 'largo' ? 1 : -1;
+        return {
+          id: row.id,
+          ticker: row.ticker,
+          direction: row.direction,
+          size: row.size,
+          entry: row.entry,
+          markPrice: mark,
+          pnl: mark === null ? null : round2((mark - row.entry) * row.size * sign),
+          pnlPct:
+            mark === null || !(row.entry > 0)
+              ? null
+              : round2(((mark - row.entry) / row.entry) * 100 * sign),
+          sector: row.sector ?? TRADIA_UNIVERSE_SECTORS[row.ticker] ?? null,
+          currency: row.currency,
+          signalId: row.signalId,
+          openedAt: row.openedAt,
+        };
+      });
+      return {
+        equity: snapshot.equity,
+        currency: UNIVERSE_CURRENCY,
+        positions,
+        drawdownPct: state.drawdownPct,
+        drawdownLimitPct: limits.maxDrawdownPct,
+        dailyLossPct: state.dailyLossPct,
+        dailyLossLimitPct: limits.maxDailyLossPct,
+        exposureByAsset: exposureSlices(
+          positions,
+          snapshot.equity,
+          (p) => p.ticker,
+          limits.maxAssetExposurePct,
+        ),
+        exposureBySector: exposureSlices(
+          positions,
+          snapshot.equity,
+          (p) => p.sector ?? UNKNOWN_SECTOR,
+          limits.maxSectorExposurePct,
+        ),
+        openPositions: positions.length,
+        maxOpenPositions: limits.maxOpenPositions,
+        updatedAt: nowIso,
+      };
+    },
+
+    openPaperPosition: (input) => {
+      const ticker = input.ticker.trim().toUpperCase();
+      if (!TICKER_PATTERN.test(ticker)) {
+        throw invalidPosition(`activo inválido: ${input.ticker}`);
+      }
+      if (!(SIGNAL_DIRECTIONS as readonly string[]).includes(input.direction)) {
+        throw invalidPosition(`dirección inválida: ${input.direction}`);
+      }
+      assertFinitePositive(input.entry, 'la entrada');
+      assertFinitePositive(input.size, 'el tamaño');
+      if (input.stop !== null) assertFinitePositive(input.stop, 'el stop');
+      if (input.target !== null) assertFinitePositive(input.target, 'el objetivo');
+      if (input.signalId !== null && !(Number.isInteger(input.signalId) && input.signalId > 0)) {
+        throw invalidPosition('senal_id debe ser un entero positivo');
+      }
+      if (input.openedOnBar !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.openedOnBar)) {
+        throw invalidPosition('vela_apertura debe tener formato YYYY-MM-DD');
+      }
+      return deps.repo.openPaperPosition({
+        ...input,
+        ticker,
+        sector: input.sector ?? TRADIA_UNIVERSE_SECTORS[ticker] ?? null,
+        currency: input.currency || UNIVERSE_CURRENCY,
+      });
+    },
+
+    listPaperPositions: (ticker) => deps.repo.listPaperPositions(ticker),
+
+    closePaperPosition: (request) => {
+      if (!Number.isInteger(request.positionId) || request.positionId <= 0) {
+        throw invalidPosition('positionId debe ser un entero positivo');
+      }
+      assertFinitePositive(request.exit, 'la salida');
+      return deps.repo.settlePaperPosition(request);
+    },
+
+    getPaperRiskState: paperRiskState,
 
     stop: () => {
       deps.cautionSource.clearSimulatedEvents();
@@ -291,6 +478,7 @@ export function registerRisk(ctx: ServiceContext): RiskService {
     return service.submitSignal(signal);
   });
   ipcMain.handle(IPC_CHANNELS.risk.getCaution, () => service.getCaution());
+  ipcMain.handle(IPC_CHANNELS.risk.getPortfolio, () => service.getPortfolio());
 
   // Ganchos E2E: la app empaquetada no los registra (mismo patrón que
   // simulateOffline y risk:simulate-cause de killSwitch).

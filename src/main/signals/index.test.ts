@@ -309,4 +309,80 @@ describe('registerSignals: cableado en la app', () => {
     fireBarStored();
     expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(0);
   });
+
+  it('la señal aprobada abre posición simulada y la vela siguiente la cierra por stop', () => {
+    seedAaplBars();
+    seedStrategy();
+
+    // Pasarela simulada (decisión fija) + cartera paper en memoria con la
+    // interfaz de services.risk: el tracker la usa vía ctx.services.risk.
+    const positions = new Map<
+      number,
+      { ticker: string; signalId: number | null; closedAt: string | null; exit: number | null }
+    >();
+    let nextPositionId = 1;
+    const openedInputs: unknown[] = [];
+    const ctx = makeCtx();
+    ctx.services.risk = {
+      submitSignal: (intent: unknown) => (submitted.push(intent), DECISION),
+      openPaperPosition: (input: {
+        ticker: string;
+        signalId: number | null;
+        openedOnBar: string | null;
+      }) => {
+        openedInputs.push(input);
+        const position = {
+          ticker: input.ticker,
+          signalId: input.signalId,
+          openedOnBar: input.openedOnBar,
+          closedAt: null as string | null,
+          exit: null as number | null,
+        };
+        positions.set(nextPositionId, position);
+        return { ...position, id: nextPositionId++ };
+      },
+      listPaperPositions: (ticker?: string) =>
+        [...positions.entries()]
+          .filter(([, p]) => p.closedAt === null && (ticker === undefined || p.ticker === ticker))
+          .map(([id, p]) => ({ ...p, id, direction: 'largo', entry: 12, stop: 10, target: 20 })),
+      closePaperPosition: (request: { positionId: number; exit: number; closedAt: string }) => {
+        const position = positions.get(request.positionId);
+        if (position === undefined || position.closedAt !== null) return null;
+        position.closedAt = request.closedAt;
+        position.exit = request.exit;
+        return { position, exit: request.exit, exitReason: 'stop', pnl: -14, equity: 99_986 };
+      },
+      getPaperRiskState: () => ({
+        equity: 100_000,
+        dailyLossPct: 0,
+        weeklyLossPct: 0,
+        monthlyLossPct: 0,
+        drawdownPct: 0,
+      }),
+      getLimits: () => ({}),
+    } as unknown as ServiceContext['services']['risk'];
+    const service = registerSignals(ctx);
+
+    // Vela que genera la señal (entrada = cierre 12, tamaño DECISION.size).
+    fireBarStored();
+    expect(openedInputs).toHaveLength(1);
+    expect(openedInputs[0]).toMatchObject({
+      ticker: 'AAPL',
+      openedOnBar: '2026-10-08',
+    });
+    const { signalId } = openedInputs[0] as { signalId: number };
+    expect(signalId).toBeGreaterThan(0);
+
+    // Vela siguiente: el tracker la pide al repositorio y cierra la
+    // posición abierta (el stop del fake queda por encima de la apertura).
+    const market = createMarketRepository(db);
+    market.upsertBars('AAPL', 'simulado', 1, [
+      { date: '2026-10-09', open: 5, high: 6, low: 4, close: 5, volume: 1_000 },
+    ]);
+    fireBarStored('AAPL', '2026-10-09');
+
+    expect(positions.get(1)?.closedAt).not.toBeNull();
+    expect(journalEntries.some((e) => e.type === 'operacion' && e.result === 'perdida')).toBe(true);
+    service.stop();
+  });
 });
