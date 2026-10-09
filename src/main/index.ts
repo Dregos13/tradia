@@ -55,6 +55,13 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
+        // Fase 4: la rutina y el motor se paran antes que sus servicios
+        // base (diario, canales, copias) y estos antes que el resto.
+        services?.routine.stop();
+        services?.signals.stop();
+        services?.delivery.stop();
+        services?.backup.stop();
+        services?.journal.stop();
         services?.alerts.stop();
         services?.calendar.stop();
         services?.poller.stop();

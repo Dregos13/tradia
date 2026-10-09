@@ -8,6 +8,7 @@ import raw004 from './004_news.sql?raw';
 import raw005 from './005_strategies.sql?raw';
 import raw006 from './006_backtests.sql?raw';
 import raw007 from './007_risk.sql?raw';
+import raw008 from './008_signals_journal.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -43,4 +44,5 @@ export const MIGRATIONS: Migration[] = [
   parseSqlMigration(5, 'strategies', raw005),
   parseSqlMigration(6, 'backtests', raw006),
   parseSqlMigration(7, 'risk', raw007),
+  parseSqlMigration(8, 'signals-journal', raw008),
 ];

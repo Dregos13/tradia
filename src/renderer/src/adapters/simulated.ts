@@ -1,23 +1,33 @@
 import {
   dataStatusKey,
   DEFAULT_STRATEGY_COSTS,
+  DELIVERY_CONFIG_DEFAULTS,
   INITIAL_UNIVERSE_TICKERS,
   isAddSourceRequest,
   isBacktestFinalTestRequest,
   isBacktestListQuery,
   isBacktestRunId,
   isBacktestRunRequest,
+  isBackupRestoreRequest,
   isCalendarListQuery,
   isCreateStrategyRequest,
+  isDeliveryConfigInput,
+  isDeliveryTestRequest,
   isGetBarsRequest,
   isGetStrategyRequest,
   isIsoDate,
+  isJournalEntryId,
+  isJournalExportRequest,
+  isJournalListQuery,
   isNewsListQuery,
   isResumeKillSwitchRequest,
   isRiskLimits,
   isRiskVetoesQuery,
+  isRoutineConfig,
   isSetStrategyStatusRequest,
+  isSignalId,
   isSignalIntent,
+  isSignalsListQuery,
   isSourceId,
   isStrategyId,
   isStressRequest,
@@ -26,7 +36,10 @@ import {
   isUpdateSourceRequest,
   isUpdateStrategyRequest,
   CAUTION_REDUCED_SIZE_FACTOR,
+  JOURNAL_LIST_MAX_LIMIT,
   RISK_DEFAULTS,
+  ROUTINE_DEFAULTS,
+  SIGNALS_LIST_MAX_LIMIT,
   VETO_REASON_MESSAGES,
   WATCHLIST_MAX_ITEMS,
 } from '../../../shared/ipc';
@@ -34,6 +47,7 @@ import type {
   AgentsState,
   AlertPrefs,
   AppSettings,
+  BackupInfo,
   BacktestMetricsDto,
   BacktestProgressEvent,
   BacktestReport,
@@ -43,8 +57,13 @@ import type {
   CautionState,
   ConnectivityState,
   DataStatusEntry,
+  DeliveryConfig,
   EquityPointDto,
+  ExposureSlice,
   GetBarsRequest,
+  JournalEntry,
+  JournalListQuery,
+  JournalUpdatedEvent,
   KillSwitchState,
   LoggedRiskDecision,
   MacroObservation,
@@ -57,13 +76,20 @@ import type {
   NewsUpdatedEvent,
   NotificationPrefs,
   NotificationRoute,
+  PaperPortfolioOverview,
+  PaperPosition,
   RiskDecision,
   RiskDecisionReason,
   RiskLimits,
   RiskOverview,
   RiskVeto,
+  RoutineConfig,
   SeedRiskPosition,
+  Signal,
   SignalIntent,
+  SignalNewEvent,
+  SignalStrategyState,
+  SignalsListQuery,
   Strategy,
   StrategyChangelogEntry,
   StrategyDraft,
@@ -926,6 +952,46 @@ export function createSimulatedAdapter() {
     riskVetoedListeners.forEach((listener) => listener(veto));
   };
 
+  // -- Fase 4: señales, diario, canales, rutina y copias (en memoria) ----
+  const signalsList: Signal[] = [];
+  const signalNewListeners = new Set<(event: SignalNewEvent) => void>();
+  const journalEntries: JournalEntry[] = [];
+  const journalUpdatedListeners = new Set<(event: JournalUpdatedEvent) => void>();
+  let deliveryConfig: DeliveryConfig = {
+    telegram: { ...DELIVERY_CONFIG_DEFAULTS.telegram, hasToken: false },
+    email: { ...DELIVERY_CONFIG_DEFAULTS.email, hasPassword: false },
+  };
+  let routineConfig: RoutineConfig = { ...ROUTINE_DEFAULTS };
+  const backups: BackupInfo[] = [];
+
+  /** Señales filtradas según SignalsListQuery (fecha sobre la vela). */
+  const filterSignals = (query?: SignalsListQuery): Signal[] => {
+    let rows = [...signalsList].sort((a, b) => b.id - a.id);
+    if (query?.ticker) rows = rows.filter((s) => s.ticker === query.ticker!.trim().toUpperCase());
+    if (query?.decision) rows = rows.filter((s) => s.decision.status === query.decision);
+    if (query?.strategyId !== undefined) {
+      rows = rows.filter((s) => s.strategies.some((st) => st.strategyId === query.strategyId));
+    }
+    if (query?.desde) rows = rows.filter((s) => s.dataUsed.barDate >= query.desde!);
+    if (query?.hasta) rows = rows.filter((s) => s.dataUsed.barDate <= query.hasta!);
+    const offset = query?.offset ?? 0;
+    return rows.slice(offset, offset + (query?.limit ?? SIGNALS_LIST_MAX_LIMIT));
+  };
+
+  /** Entradas del diario filtradas según JournalListQuery (fecha de creación). */
+  const filterJournal = (query?: JournalListQuery): JournalEntry[] => {
+    let rows = [...journalEntries].sort((a, b) => b.id - a.id);
+    if (query?.desde) rows = rows.filter((e) => e.createdAt.slice(0, 10) >= query.desde!);
+    if (query?.hasta) rows = rows.filter((e) => e.createdAt.slice(0, 10) <= query.hasta!);
+    if (query?.type) rows = rows.filter((e) => e.type === query.type);
+    if (query?.ticker) rows = rows.filter((e) => e.ticker === query.ticker!.trim().toUpperCase());
+    if (query?.strategyId !== undefined) {
+      rows = rows.filter((e) => e.strategies.some((st) => st.strategyId === query.strategyId));
+    }
+    if (query?.result) rows = rows.filter((e) => e.result === query.result);
+    return rows;
+  };
+
   /** Evaluación del falso: mismo orden que la pasarela del contrato. */
   const evaluateSignal = (signal: SignalIntent): RiskDecision => {
     const decidedAt = new Date().toISOString();
@@ -1610,8 +1676,181 @@ export function createSimulatedAdapter() {
         return { ...killSwitch };
       },
       getCaution: async () => ({ ...caution }),
+      getPortfolio: async (): Promise<PaperPortfolioOverview> => {
+        const open = riskPositions.filter((p) => p.closedAt === undefined);
+        const positions: PaperPosition[] = open.map((p, index) => {
+          const mark = generateBars(p.ticker.trim().toUpperCase()).at(-1)?.close ?? null;
+          const sign = p.direction === 'largo' ? 1 : -1;
+          const pnl = mark === null ? null : round((mark - p.entry) * p.size * sign, 2);
+          return {
+            id: index + 1,
+            ticker: p.ticker.trim().toUpperCase(),
+            direction: p.direction,
+            size: p.size,
+            entry: p.entry,
+            markPrice: mark,
+            pnl,
+            pnlPct: mark === null ? null : round(((mark - p.entry) / p.entry) * 100 * sign, 2),
+            sector: p.sector ?? null,
+            currency: p.currency ?? 'USD',
+            signalId: null,
+            openedAt: p.openedAt ?? new Date().toISOString(),
+          };
+        });
+        const notionalBy = (key: (p: PaperPosition) => string): ExposureSlice[] => {
+          const totals = new Map<string, number>();
+          for (const p of positions) {
+            totals.set(key(p), (totals.get(key(p)) ?? 0) + p.size * p.entry);
+          }
+          return [...totals.entries()]
+            .map(([k, notional]) => ({
+              key: k,
+              notional: round(notional, 2),
+              pct: round((notional / riskEquity) * 100, 2),
+              limitPct: null,
+            }))
+            .sort((a, b) => b.pct - a.pct);
+        };
+        return {
+          equity: riskEquity,
+          currency: 'USD',
+          positions,
+          drawdownPct: 0,
+          drawdownLimitPct: riskLimits.maxDrawdownPct,
+          dailyLossPct: 0,
+          dailyLossLimitPct: riskLimits.maxDailyLossPct,
+          exposureByAsset: notionalBy((p) => p.ticker).map((s) => ({
+            ...s,
+            limitPct: riskLimits.maxAssetExposurePct,
+          })),
+          exposureBySector: notionalBy((p) => p.sector ?? 'desconocido').map((s) => ({
+            ...s,
+            limitPct: riskLimits.maxSectorExposurePct,
+          })),
+          openPositions: positions.length,
+          maxOpenPositions: riskLimits.maxOpenPositions,
+          updatedAt: new Date().toISOString(),
+        };
+      },
       onChanged: (listener) => subscribe(riskChangedListeners, listener),
       onVetoed: (listener) => subscribe(riskVetoedListeners, listener),
+    },
+    signals: {
+      list: async (query) => {
+        if (query !== undefined && !isSignalsListQuery(query)) {
+          throw new Error('Filtros de señales inválidos.');
+        }
+        return filterSignals(query);
+      },
+      get: async (id) => {
+        if (!isSignalId(id)) {
+          throw new Error('Id de señal inválido.');
+        }
+        return signalsList.find((s) => s.id === id) ?? null;
+      },
+      strategies: async (): Promise<SignalStrategyState[]> =>
+        [...new Set(strategyVersions.map((v) => v.id))].map((id) => {
+          const latest = latestStrategyVersion(id)!;
+          return {
+            strategyId: id,
+            name: latest.name,
+            version: latest.version,
+            status: latest.status,
+            lastBarDate: null,
+            lastEvaluatedAt: null,
+            lastOutcome: null,
+            lastSignalId: null,
+          };
+        }),
+      onNew: (listener) => subscribe(signalNewListeners, listener),
+    },
+    journal: {
+      list: async (query) => {
+        if (query !== undefined && !isJournalListQuery(query)) {
+          throw new Error('Filtros del diario inválidos.');
+        }
+        const rows = filterJournal(query);
+        const offset = query?.offset ?? 0;
+        return {
+          entries: rows.slice(offset, offset + (query?.limit ?? JOURNAL_LIST_MAX_LIMIT)),
+          total: rows.length,
+          limit: query?.limit ?? JOURNAL_LIST_MAX_LIMIT,
+          offset,
+        };
+      },
+      get: async (id) => {
+        if (!isJournalEntryId(id)) {
+          throw new Error('Id de entrada inválido.');
+        }
+        return journalEntries.find((e) => e.id === id) ?? null;
+      },
+      exportCsv: async (request) => {
+        if (request !== undefined && !isJournalExportRequest(request)) {
+          throw new Error('Petición de exportación inválida.');
+        }
+        const rows = filterJournal(request?.query);
+        return {
+          canceled: false,
+          path: request?.path ?? '/tmp/tradia-diario.csv',
+          entries: rows.length,
+        };
+      },
+      onUpdated: (listener) => subscribe(journalUpdatedListeners, listener),
+    },
+    delivery: {
+      getConfig: async () => ({
+        telegram: { ...deliveryConfig.telegram, events: [...deliveryConfig.telegram.events] },
+        email: { ...deliveryConfig.email, events: [...deliveryConfig.email.events] },
+      }),
+      setConfig: async (config) => {
+        if (!isDeliveryConfigInput(config)) {
+          throw new Error('Configuración de canales inválida.');
+        }
+        deliveryConfig = {
+          telegram: { ...config.telegram, hasToken: deliveryConfig.telegram.hasToken },
+          email: { ...config.email, hasPassword: deliveryConfig.email.hasPassword },
+        };
+        return api.delivery.getConfig();
+      },
+      test: async (request) => {
+        if (!isDeliveryTestRequest(request)) {
+          throw new Error('Canal de prueba inválido.');
+        }
+        return { ok: true, error: null, latencyMs: 12 };
+      },
+    },
+    routine: {
+      getConfig: async () => ({ ...routineConfig }),
+      setConfig: async (config) => {
+        if (!isRoutineConfig(config)) {
+          throw new Error('Horarios de la rutina inválidos (HH:MM).');
+        }
+        routineConfig = { ...config };
+        return { ...routineConfig };
+      },
+    },
+    backup: {
+      list: async () => [...backups],
+      create: async () => {
+        const backup: BackupInfo = {
+          fileName: `tradia-${new Date().toISOString().replace(/[:.]/g, '-')}.db`,
+          sizeBytes: 0,
+          createdAt: new Date().toISOString(),
+          schemaVersion: 8,
+          integrityOk: true,
+        };
+        backups.unshift(backup);
+        return backup;
+      },
+      restore: async (request) => {
+        if (!isBackupRestoreRequest(request)) {
+          throw new Error('La restauración exige {fileName, confirm: true}.');
+        }
+        return { accepted: true };
+      },
+    },
+    logs: {
+      openFolder: async () => ({ ok: true, path: '/tmp/tradia-logs' }),
     },
   };
   return {

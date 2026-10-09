@@ -3,30 +3,47 @@ import { describe, expect, it } from 'vitest';
 import {
   allIpcChannels,
   ALERT_LEAD_MINUTES,
+  BACKUP_FILE_PATTERN,
   CALENDAR_EVENT_KINDS,
+  DELIVERY_EVENT_KINDS,
   IMPACT_LEVELS,
   INITIAL_UNIVERSE_TICKERS,
   IPC_CHANNELS,
   isAddSourceRequest,
   isAlertPrefs,
+  isBackupFileName,
+  isBackupRestoreRequest,
   isCalendarListQuery,
   isDataStatusState,
+  isDeliveryConfigInput,
+  isDeliveryEventKind,
+  isDeliveryTestRequest,
   isE2eEnabled,
   isGetBarsRequest,
   isImpactLevel,
   isIsoDate,
+  isJournalEntryId,
+  isJournalEntryType,
+  isJournalExportRequest,
+  isJournalListQuery,
+  isJournalResult,
   isMacroSeriesQuery,
   isNewsListQuery,
   isNewsPriority,
   isNotificationLevel,
   isNotificationPayload,
   isNotificationPrefs,
+  isNotificationRoute,
   isReliability,
   isResumeKillSwitchRequest,
+  isRiskDecisionStatus,
   isRiskLimits,
   isRiskVetoesQuery,
+  isRoutineConfig,
   isSeedPortfolioRequest,
+  isSignalId,
   isSignalIntent,
+  isSignalsListQuery,
   isSimulateCalendarEventRequest,
   isKillSwitchCause,
   isVetoReasonCode,
@@ -53,12 +70,16 @@ import {
   isStrategyPeriod,
   isStrategyStatus,
   isUpdateStrategyRequest,
+  JOURNAL_ENTRY_TYPES,
+  JOURNAL_LIST_MAX_LIMIT,
   NEWS_LIST_MAX_LIMIT,
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
   RELIABILITY_LEVELS,
   RISK_DEFAULTS,
   RISK_VETOES_MAX_LIMIT,
+  ROUTINE_DEFAULTS,
+  SIGNALS_LIST_MAX_LIMIT,
   SOURCE_KINDS,
   WATCHLIST_MAX_ITEMS,
 } from './ipc';
@@ -76,21 +97,27 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress y risk', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup y logs', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'alerts',
       'backtest',
+      'backup',
       'calendar',
       'connectivity',
       'dataStatus',
+      'delivery',
+      'journal',
+      'logs',
       'macro',
       'market',
       'news',
       'notifications',
       'risk',
+      'routine',
       'secrets',
       'settings',
+      'signals',
       'sources',
       'strategies',
       'stress',
@@ -172,6 +199,7 @@ describe('contrato IPC', () => {
       setLimits: 'risk:set-limits',
       listVetoes: 'risk:list-vetoes',
       submitSignal: 'risk:submit-signal',
+      getPortfolio: 'risk:get-portfolio',
       getKillSwitch: 'risk:get-kill-switch',
       activateKillSwitch: 'risk:activate-kill-switch',
       resumeKillSwitch: 'risk:resume-kill-switch',
@@ -188,6 +216,43 @@ describe('contrato IPC', () => {
     // poll-now y advance-clock los registra main únicamente sin empaquetar.
     expect(IPC_CHANNELS.news.pollNow).toBe('news:poll-now');
     expect(IPC_CHANNELS.news.advanceClock).toBe('news:advance-clock');
+  });
+
+  it('incluye los canales de la fase 4: señales, diario, canales, rutina, copias y registros', () => {
+    expect(IPC_CHANNELS.signals).toEqual({
+      list: 'signals:list',
+      get: 'signals:get',
+      strategies: 'signals:strategies',
+      evaluateNow: 'signals:evaluate-now',
+      new: 'signals:new',
+    });
+    expect(IPC_CHANNELS.journal).toEqual({
+      list: 'journal:list',
+      get: 'journal:get',
+      exportCsv: 'journal:export-csv',
+      updated: 'journal:updated',
+    });
+    expect(IPC_CHANNELS.delivery).toEqual({
+      getConfig: 'delivery:get-config',
+      setConfig: 'delivery:set-config',
+      test: 'delivery:test',
+    });
+    expect(IPC_CHANNELS.routine).toEqual({
+      getConfig: 'routine:get-config',
+      setConfig: 'routine:set-config',
+      advanceClock: 'routine:advance-clock',
+    });
+    expect(IPC_CHANNELS.backup).toEqual({
+      list: 'backup:list',
+      create: 'backup:create',
+      restore: 'backup:restore',
+    });
+    expect(IPC_CHANNELS.logs).toEqual({ openFolder: 'logs:open-folder' });
+  });
+
+  it('los ganchos E2E de la fase 4 son canales marcados como solo desarrollo', () => {
+    expect(IPC_CHANNELS.signals.evaluateNow).toBe('signals:evaluate-now');
+    expect(IPC_CHANNELS.routine.advanceClock).toBe('routine:advance-clock');
   });
 
   it('el universo inicial cabe en el límite de la lista', () => {
@@ -809,6 +874,198 @@ describe('guardas del motor de riesgo (fase 3)', () => {
     ).toBe(false);
     expect(isSeedPortfolioRequest({ extra: 1 })).toBe(false);
     expect(isSeedPortfolioRequest(null)).toBe(false);
+  });
+});
+
+describe('guardas de señales, diario y operativa (fase 4)', () => {
+  it('valida la consulta de señales con filtros combinables', () => {
+    expect(isSignalsListQuery(undefined)).toBe(true);
+    expect(isSignalsListQuery({})).toBe(true);
+    expect(
+      isSignalsListQuery({
+        ticker: 'AAPL',
+        decision: 'vetada',
+        strategyId: 3,
+        desde: '2026-10-01',
+        hasta: '2026-10-09',
+        limit: 50,
+        offset: 10,
+      }),
+    ).toBe(true);
+    expect(isSignalsListQuery({ decision: 'pendiente' })).toBe(false);
+    expect(isSignalsListQuery({ ticker: 'no ticker' })).toBe(false);
+    expect(isSignalsListQuery({ strategyId: 'x' })).toBe(false);
+    expect(isSignalsListQuery({ desde: '2026-10-09', hasta: '2026-10-01' })).toBe(false);
+    expect(isSignalsListQuery({ limit: 0 })).toBe(false);
+    expect(isSignalsListQuery({ limit: SIGNALS_LIST_MAX_LIMIT + 1 })).toBe(false);
+    expect(isSignalsListQuery({ offset: -1 })).toBe(false);
+    expect(isSignalsListQuery({ extra: 1 })).toBe(false);
+    expect(isSignalsListQuery(null)).toBe(false);
+
+    for (const status of ['aprobada', 'reducida', 'vetada'] as const) {
+      expect(isRiskDecisionStatus(status)).toBe(true);
+    }
+    expect(isRiskDecisionStatus('cancelada')).toBe(false);
+    expect(isSignalId(1)).toBe(true);
+    expect(isSignalId(0)).toBe(false);
+    expect(isSignalId('1')).toBe(false);
+  });
+
+  it('valida la consulta y la exportación del diario', () => {
+    for (const type of JOURNAL_ENTRY_TYPES) {
+      expect(isJournalEntryType(type)).toBe(true);
+    }
+    expect(isJournalEntryType('aviso')).toBe(false);
+    expect(isJournalResult('ganancia')).toBe(true);
+    expect(isJournalResult('con-retraso')).toBe(true);
+    expect(isJournalResult('quizas')).toBe(false);
+
+    expect(isJournalListQuery(undefined)).toBe(true);
+    expect(
+      isJournalListQuery({
+        desde: '2026-10-01',
+        hasta: '2026-10-09',
+        type: 'senal',
+        ticker: 'AAPL',
+        strategyId: 2,
+        result: 'vetada',
+        limit: 100,
+        offset: 50,
+      }),
+    ).toBe(true);
+    expect(isJournalListQuery({ type: 'aviso' })).toBe(false);
+    expect(isJournalListQuery({ result: 'quizas' })).toBe(false);
+    expect(isJournalListQuery({ ticker: 'DROP TABLE' })).toBe(false);
+    expect(isJournalListQuery({ limit: JOURNAL_LIST_MAX_LIMIT + 1 })).toBe(false);
+    expect(isJournalListQuery({ desde: '2026-10-09', hasta: '2026-10-01' })).toBe(false);
+    expect(isJournalListQuery({ extra: 1 })).toBe(false);
+    expect(isJournalEntryId(7)).toBe(true);
+    expect(isJournalEntryId(-1)).toBe(false);
+
+    // La exportación acepta el conjunto filtrado y, solo en E2E, una ruta.
+    expect(isJournalExportRequest(undefined)).toBe(true);
+    expect(isJournalExportRequest({})).toBe(true);
+    expect(isJournalExportRequest({ query: { type: 'senal' } })).toBe(true);
+    expect(isJournalExportRequest({ path: '/tmp/diario.csv' })).toBe(true);
+    expect(isJournalExportRequest({ path: 'C:\\tmp\\diario.csv' })).toBe(true);
+    expect(isJournalExportRequest({ path: 'relativo.csv' })).toBe(false);
+    expect(isJournalExportRequest({ path: '/tmp/../etc/passwd' })).toBe(false);
+    expect(isJournalExportRequest({ query: { type: 'aviso' } })).toBe(false);
+    expect(isJournalExportRequest({ extra: 1 })).toBe(false);
+    expect(isJournalExportRequest(null)).toBe(false);
+  });
+
+  it('valida la configuración de canales sin admitir secretos inline', () => {
+    for (const kind of DELIVERY_EVENT_KINDS) {
+      expect(isDeliveryEventKind(kind)).toBe(true);
+    }
+    expect(isDeliveryEventKind('todo')).toBe(false);
+
+    const off = {
+      telegram: { enabled: false, chatId: '', events: [] },
+      email: {
+        enabled: false,
+        host: '',
+        port: 587,
+        security: 'starttls',
+        user: '',
+        to: '',
+        events: ['senal-aprobada'],
+      },
+    };
+    expect(isDeliveryConfigInput(off)).toBe(true);
+
+    const on = {
+      telegram: {
+        enabled: true,
+        chatId: '123456789',
+        events: ['senal-aprobada', 'resumen-diario'],
+      },
+      email: {
+        enabled: true,
+        host: 'smtp.example.com',
+        port: 465,
+        security: 'tls',
+        user: 'tradia@example.com',
+        to: 'usuario@example.com',
+        events: [...DELIVERY_EVENT_KINDS],
+      },
+    };
+    expect(isDeliveryConfigInput(on)).toBe(true);
+
+    // Activado sin los campos requeridos queda rechazado.
+    expect(isDeliveryConfigInput({ ...on, telegram: { ...on.telegram, chatId: '' } })).toBe(false);
+    expect(isDeliveryConfigInput({ ...on, email: { ...on.email, host: '' } })).toBe(false);
+    expect(isDeliveryConfigInput({ ...on, email: { ...on.email, to: 'no-correo' } })).toBe(false);
+    expect(isDeliveryConfigInput({ ...on, email: { ...on.email, port: 0 } })).toBe(false);
+    expect(isDeliveryConfigInput({ ...on, email: { ...on.email, security: 'ssl3' } })).toBe(false);
+    // Eventos desconocidos o duplicados.
+    expect(
+      isDeliveryConfigInput({
+        ...on,
+        telegram: { ...on.telegram, events: ['senal-aprobada', 'senal-aprobada'] },
+      }),
+    ).toBe(false);
+    expect(isDeliveryConfigInput({ ...on, telegram: { ...on.telegram, events: ['otro'] } })).toBe(
+      false,
+    );
+    // Los secretos nunca viajan en la configuración.
+    expect(isDeliveryConfigInput({ ...on, telegram: { ...on.telegram, token: '123:abc' } })).toBe(
+      false,
+    );
+    expect(isDeliveryConfigInput({ ...on, email: { ...on.email, password: 'secreto' } })).toBe(
+      false,
+    );
+    expect(isDeliveryConfigInput(null)).toBe(false);
+    expect(isDeliveryConfigInput({ telegram: on.telegram })).toBe(false);
+  });
+
+  it('valida la prueba de canal y los horarios de la rutina', () => {
+    expect(isDeliveryTestRequest({ channel: 'telegram' })).toBe(true);
+    expect(isDeliveryTestRequest({ channel: 'correo' })).toBe(true);
+    expect(isDeliveryTestRequest({ channel: 'escritorio' })).toBe(false);
+    expect(isDeliveryTestRequest({})).toBe(false);
+    expect(isDeliveryTestRequest({ channel: 'telegram', extra: 1 })).toBe(false);
+
+    expect(isRoutineConfig(ROUTINE_DEFAULTS)).toBe(true);
+    expect(isRoutineConfig({ preapertura: '08:30', cierre: '16:15', conciliacion: '17:30' })).toBe(
+      true,
+    );
+    expect(isRoutineConfig({ preapertura: '8:30', cierre: '16:15', conciliacion: '17:30' })).toBe(
+      false,
+    );
+    expect(isRoutineConfig({ preapertura: '24:00', cierre: '16:15', conciliacion: '17:30' })).toBe(
+      false,
+    );
+    expect(isRoutineConfig({ preapertura: '08:30', cierre: '16:15' })).toBe(false);
+    expect(isRoutineConfig({ ...ROUTINE_DEFAULTS, timezone: 'Europe/Madrid' })).toBe(false);
+    expect(isRoutineConfig(null)).toBe(false);
+  });
+
+  it('valida nombres de copia y la restauración con confirmación', () => {
+    expect(isBackupFileName('tradia-2026-10-09T02-00-00.db')).toBe(true);
+    expect(BACKUP_FILE_PATTERN.test('copia.db')).toBe(true);
+    expect(isBackupFileName('tradia.db')).toBe(true);
+    expect(isBackupFileName('../tradia.db')).toBe(false);
+    expect(isBackupFileName('carpeta/tradia.db')).toBe(false);
+    expect(isBackupFileName('tradia.db.bak')).toBe(false);
+    expect(isBackupFileName('.db')).toBe(false);
+    expect(isBackupFileName(42)).toBe(false);
+
+    expect(isBackupRestoreRequest({ fileName: 'tradia-1.db', confirm: true })).toBe(true);
+    expect(isBackupRestoreRequest({ fileName: 'tradia-1.db' })).toBe(false);
+    expect(isBackupRestoreRequest({ fileName: 'tradia-1.db', confirm: false })).toBe(false);
+    expect(isBackupRestoreRequest({ fileName: '../otra.db', confirm: true })).toBe(false);
+    expect(isBackupRestoreRequest({ fileName: 'a.db', confirm: true, extra: 1 })).toBe(false);
+    expect(isBackupRestoreRequest(null)).toBe(false);
+  });
+
+  it('las rutas de notificación incluyen las vistas de la fase 4', () => {
+    for (const route of ['noticias', 'calendario', 'riesgo', 'diario', 'inicio'] as const) {
+      expect(isNotificationRoute(route)).toBe(true);
+    }
+    expect(isNotificationRoute('senales')).toBe(false);
+    expect(isNotificationRoute(null)).toBe(false);
   });
 });
 
