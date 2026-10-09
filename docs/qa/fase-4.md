@@ -1,15 +1,24 @@
 # QA · Fase 4 · Señales informativas, panel y diario
 
-## Alcance de la prueba
+## Alcance y rectificación
 
-Se revisa el comportamiento entregado por la fase 4 en dos perfiles de usuario, con una batería automática de validación y un conjunto de pruebas de regresión E2E. La comprobación no corrige código de producto; documenta pruebas, resultados y fallos que deben resolver los roles responsables.
+Este informe recoge la batería automática y los escenarios de los dos perfiles de usuario. No acredita sesiones con usuarios reales: el canal del equipo indica que ambos perfiles estaban sin sesión. Las comprobaciones con servicios y notificaciones reales siguen correspondiendo al usuario.
 
-## Evidencias automáticas ejecutadas
+La revisión independiente rectifica el diagnóstico inicial: el fallo de `e2e/signals-dashboard.spec.ts` era un defecto de la prueba, no una pérdida de trazabilidad del motor. Se retira la incidencia funcional y la captura que la presentaba como tal. La corrección de la prueba corresponde a la tarea de backend; su resultado posterior debe distinguirse de la ejecución histórica siguiente.
 
-- `npm run typecheck` → OK
-- `npm run lint` → OK
-- `npm test -- --run` → 116 archivos, 1413 pruebas correctas
-- `npm run test:e2e` → 22 aprobadas, 1 fallida
+## Evidencias automáticas históricas
+
+- `npm run typecheck` → OK.
+- `npm run lint` → OK.
+- `npm test -- --run` → 116 archivos, 1413 pruebas correctas.
+- `npm run test:e2e` → 22 aprobadas, 1 fallida en la ejecución original.
+- La revisión independiente repitió typecheck, lint y las pruebas unitarias, y reprodujo los dos errores de aserción de la spec de señales sobre una compilación nueva. No repitió el resto de la batería E2E.
+
+El 22/23 describe la ejecución anterior a la corrección; no es evidencia de un fallo funcional ni de una nueva ejecución en verde.
+
+## Validación de esta rectificación documental
+
+El 9 de octubre de 2026 se ejecutaron `npm run typecheck`, `npm run lint` y `npm test`: todos pasan, con 116 archivos y 1413 pruebas. `git diff --check` pasa y no quedan referencias al archivo de captura retirado en docs, scripts ni E2E. Esta tarea no modifica ni vuelve a ejecutar la spec E2E, cuya corrección está asignada a backend.
 
 ## Capturas relevantes
 
@@ -18,105 +27,62 @@ Se revisa el comportamiento entregado por la fase 4 en dos perfiles de usuario, 
 - `docs/qa/capturas/fase-4-diario-1440.png`
 - `docs/qa/capturas/fase-4-diario-700.png`
 - `docs/qa/capturas/fase-4-ajustes-1440.png`
-- `docs/qa/capturas/fase-4-senales-fallo-1440.png`
 
-## Sesión 1: Profesional independiente que organiza varios proyectos
+Se retira la captura del supuesto fallo de señales: mostraba el resultado de una consulta con un ticker incorrecto y no demostraba que faltara la entrada de la señal automática.
 
-- Pasos:
-  1. Abrir la app y aceptar el aviso legal.
-  2. Añadir los activos `SPY` y `QQQ` al seguimiento.
-  3. Activar la estrategia semilla `Reversión RSI/Bollinger` y dejar que la ventana se cierre para que la evaluación siga en segundo plano.
-  4. Avanzar el reloj al cierre de una vela nueva y comprobar panel, señales vivas y diario.
-  5. Validar que el sistema emite notificación de señal y de límite.
-- Esperado:
-  - La nueva vela cierra y se genera una señal aprobada o, al menos, una decisión válida enlazada al diario.
-  - El panel muestra señales vivas con motivo y confianza.
-  - La entrada del diario referencia la `signalId` y no un veto sin vínculo.
-  - Las notificaciones de señal y límite llegan con el contenido correcto.
-- Observado:
-  - La señal emitida queda vetada por `RR_TOO_LOW`, sin objetivo y con `target: null`.
-  - El panel y el diario solo reflejan un veto con `signalId: null`.
-  - No aparece ninguna señal aprobada; la prueba E2E falla en la comprobación de enlace al diario y de la notificación aprobada.
-- Evidencia:
-  - `e2e/signals-dashboard.spec.ts:58-230`
-  - `npm run test:e2e` → 1 fallo en `e2e/signals-dashboard.spec.ts`
-  - `test-results/signals-dashboard.png`
-  - Error reproducible: `la señal no aparece enlazada en el diario; entradas: [{"type":"veto","signalId":null,"result":"vetada"}]`
-- Resultado: `passed: false`
+## Escenario 1: Profesional independiente que organiza varios proyectos
 
-## Sesión 2: Responsable de equipo que revisa entregas
+1. Abrir la app y aceptar el aviso legal.
+2. Añadir `SPY` y `QQQ` al seguimiento.
+3. Activar `Reversión RSI/Bollinger`, ocultar la ventana y avanzar el reloj al cierre de una vela nueva.
+4. Comprobar la señal emitida, el panel y su entrada de diario por ticker e identificador de la señal.
+5. Comprobar la notificación de señal vetada y el aviso de límite.
 
-- Pasos:
-  1. Abrir la app con el usuario de equipo y validar que se puede filtrar el diario por activo y resultado.
-  2. Enviar una decisión de riesgo de prueba `AAPL` y comprobar la vista de detalle con motivo, datos usados y cumplimiento de reglas.
-  3. Exportar el diario a CSV y validar columnas y filas.
-  4. Ejecutar la rutina diaria simulada para comprobar los tres resúmenes (preapertura, cierre y conciliación).
-  5. Revisar la restauración de copia y la rotación de registros con la batería de regresión.
-- Esperado:
-  - El diario presenta filtros y detalle del motivo y la regla aplicada.
-  - El CSV exportado incluye cabecera y filas válidas.
-  - Las tres rutinas aparecen como entradas del diario y notificaciones.
-  - La restauración y la copia de seguridad tienen los mismos datos en una instalación limpia.
-- Observado:
-  - El filtrado, exportación CSV y rutina diaria cumplen las expectativas.
-  - La restauración de backup también pasa.
-  - La regresión real de la fase 4 está casi completa; los fallos se concentran en la generación automática de la señal de cierre de vela y en su trazabilidad.
-- Evidencia:
-  - `e2e/journal-export.spec.ts` → OK
-  - `e2e/daily-routine.spec.ts` → OK
-  - `e2e/backup-restore.spec.ts` → OK
-  - `npm run test:e2e` → 22/23 pruebas OK; la única caída es la señal automática del perfil independiente.
-- Resultado: `passed: true`
+La señal automática observada fue de **QQQ**, vetada por `RR_TOO_LOW`, con `target: null`. Es el resultado esperado de la estrategia semilla sin objetivo bajo un mínimo de beneficio/riesgo de 2. La aprobación no es una condición de éxito de este escenario.
 
-## Hallazgos confirmados
+El motor registra la señal como una entrada de tipo `senal`, con `signalId: signal.id`, motivo, datos usados, referencias de estrategia, resultado y comprobaciones de riesgo (`src/main/signals/engine.ts`, bloque `recordJournal` posterior a `insertSignal`). La revisión sustentó el ticker en el log del proceso principal y el enlace en el código; no consultó directamente la entrada de QQQ.
 
-### Hallazgo 1 · La señal automática no se enlaza al diario y no se aprueba
+La prueba original consultaba `journal.list({ ticker: 'SPY', limit: 1000 })`. Encontraba el veto manual de SPY, generado mediante `risk.submitSignal`, cuyo `signalId: null` no demuestra un defecto de la señal automática de QQQ. Además, exigía simultáneamente una señal vetada y una notificación «Señal aprobada».
 
-- Severidad: high
-- Rol: backend
-- Persona: Profesional independiente que organiza varios proyectos
-- Pasos:
-  1. Activar estrategia válida en segundo plano.
-  2. Cerrar una nueva vela con la ventana oculta.
-  3. Esperar al motor de señales y consultar el panel y el diario.
-- Esperado:
-  - La evaluación emite una señal con `signalId` y razón suficiente para mostrarla en panel y diario.
-  - La notificación de señal aprobada aparece.
-- Observado:
-  - La única entrada relevante es un veto con `signalId: null` y razón `RR_TOO_LOW`.
-  - La decisión no llega a una señal aprobada ni al diario enlazado.
-- Evidencia:
-  - `e2e/signals-dashboard.spec.ts:223-230`
-  - `e2e/signals-dashboard.spec.ts` expect soft falla con `la señal no aparece enlazada en el diario...`
-  - `e2e/signals-dashboard.spec.ts` expect soft falla con `no hubo señal aprobada...`
-  - `test-results/signals-dashboard.png`
+Resultado histórico: E2E fallido por dos expectativas incorrectas. La rectificación documental elimina la atribución al motor. La regresión de la spec corregida debe verificar la entrada `senal` enlazada y la notificación coherente con el veto.
 
-### Hallazgo 2 · El motor de riesgo vetó la señal por objetivo ausente, no por una contradicción funcional
+## Escenario 2: Responsable de equipo que revisa entregas
 
-- Severidad: medium
-- Rol: backend
-- Persona: Profesional independiente que organiza varios proyectos
-- Pasos:
-  1. Ejecutar la señal automática en la nueva vela.
-  2. Ver la decisión de riesgo del motor.
-- Esperado:
-  - La estrategia activa genera una señal válida con motivo/objetivo y confianza coherente.
-- Observado:
-  - El motor devuelve `RR_TOO_LOW` con `ratio: "sin objetivo"`, `mínimo: 2`.
-  - Eso convierte la decisión en veto y bloquea la notificación aprobada.
-- Evidencia:
-  - `e2e/signals-dashboard.spec.ts` y el contexto de error de la ejecución E2E.
-  - `decision.reasons[0].code === "RR_TOO_LOW"`
+1. Filtrar el diario por activo y resultado.
+2. Enviar una decisión de riesgo de prueba de `AAPL` y consultar motivo, datos usados y cumplimiento de reglas.
+3. Exportar el diario y validar cabecera y filas del CSV.
+4. Ejecutar preapertura, cierre y conciliación con reloj simulado y comprobar entradas y notificaciones.
+5. Restaurar una copia en un directorio limpio y comprobar la rotación de registros.
+
+La ejecución original informó resultados correctos para filtrado, detalle, CSV, rutina diaria y restauración. Evidencias: `e2e/journal-export.spec.ts`, `e2e/daily-routine.spec.ts` y `e2e/backup-restore.spec.ts`. La revisión independiente no volvió a ejecutar estas specs; mantiene como referencia el informe de testing.
+
+## Incidencia de la prueba y corrección
+
+### Filtro de ticker y expectativa de notificación incorrectos
+
+- Clasificación: defecto del E2E; se retira la clasificación de fallo funcional del motor.
+- Archivo: `e2e/signals-dashboard.spec.ts`.
+- Causa: consulta de SPY para comprobar una señal de QQQ y expectativa de aprobación incompatible con el veto previamente exigido.
+- Corrección: consultar por el ticker emitido (o sin filtro de ticker), exigir `entry.type === 'senal'` y el `signalId` de la señal emitida, y comprobar la notificación de veto.
+- Validación de cierre: ejecutar la spec corregida y la batería general hasta obtener 23/23. El resultado posterior se debe registrar con la evidencia del responsable de la corrección, sin sustituir silenciosamente el resultado histórico.
+
+El veto `RR_TOO_LOW` por objetivo ausente es una decisión válida de la pasarela de riesgo, no una segunda incidencia. No requiere modificar el motor para forzar una aprobación.
+
+## Cobertura pendiente y comprobaciones del usuario
+
+La señal aprobada generada automáticamente en segundo plano no estaba cubierta por este escenario original. La aprobación se cubre en pruebas unitarias del motor y en `e2e/risk-engine.spec.ts`; ello no equivale a observar una aprobación automática con la ventana oculta.
+
+Siguen pendientes las comprobaciones del usuario de notificaciones nativas en macOS, Windows y Linux, Telegram y SMTP reales, los tres resúmenes durante un día de mercado, restauración entre instalaciones y revisión visual con Tiingo y FRED reales.
 
 ## Resumen para el equipo
 
-- Se ejecutó la batería de validación del proyecto: typecheck, lint y unit test pasan en verde.
-- La regresión E2E de la fase 4 queda en 22 pruebas correctas y 1 fallida.
-- El único fallo reproducible está en la señal automática del perfil independiente, no en la exportación, la rutina diaria ni las copias.
-- El problema principal aparece en la generación del cierre de vela con la ventana cerrada: la decisión se vetó por riesgo y no se enlaza al diario.
-- El panel principal y el diario de la fase 4 quedan validados por la batería existente salvo este fallo concreto.
-- El perfil de equipo pasa las pruebas de exportación CSV, resumen diario y restauración de copia.
-- El perfil independiente no cumple la expectativa de “señal automática aprobada + diario enlazado + notificación”.
-- El bloque funcional pendiente corresponde al backend del motor de señales y a la integración con la pasarela de riesgo.
-- El área visual y la UI del panel/diario no se señala como causa principal; el ajuste requerido está en la lógica del cierre de vela y la trazabilidad con el diario.
-- El entregable de documentación queda en `docs/qa/fase-4.md`; la captura del error queda en `docs/qa/capturas/fase-4-senales-fallo-1440.png`.
+- El diagnóstico inicial de pérdida de trazabilidad era incorrecto y queda retirado.
+- El fallo histórico 22/23 corresponde a la prueba de señales.
+- La señal automática observada era QQQ; la consulta original filtraba SPY.
+- El veto manual de SPY sin `signalId` no era la entrada de esa señal.
+- El motor registra la entrada `senal` con el identificador de la señal.
+- El veto por objetivo ausente es coherente con la estrategia y los límites.
+- La expectativa de notificación aprobada contradecía el veto esperado.
+- La captura del supuesto fallo se retira para evitar evidencia engañosa.
+- Backend corrige la spec y aporta la evidencia de regresión posterior.
+- Las validaciones con servicios reales permanecen a cargo del usuario.
