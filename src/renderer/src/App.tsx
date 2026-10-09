@@ -1,3 +1,6 @@
+import { KillSwitchControl } from './components/risk/KillSwitchControl';
+import { RiskPage } from './components/risk/RiskPage';
+import { useRisk } from './hooks/useRisk';
 import { useEffect, useRef, useState } from 'react';
 import { StrategiesPage } from './components/strategies/StrategiesPage';
 import { RiskGate } from './components/RiskGate';
@@ -13,6 +16,7 @@ import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
 type Page =
+  | 'riesgo'
   | 'inicio'
   | 'mercado'
   | 'macro'
@@ -24,7 +28,8 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
-  return hash === 'mercado' ||
+  return hash === 'riesgo' ||
+    hash === 'mercado' ||
     hash === 'macro' ||
     hash === 'noticias' ||
     hash === 'calendario' ||
@@ -48,6 +53,7 @@ function AppShell() {
   const [page, setPage] = useState<Page>(currentPage);
   const heading = useRef<HTMLHeadingElement>(null);
   const state = useSystemState();
+  const risk = useRisk();
   useEffect(() => {
     const navigate = () => {
       setPage(currentPage());
@@ -61,17 +67,10 @@ function AppShell() {
     previousPage.current = page;
     heading.current?.focus();
   }, [page]);
-  if (legalOpen)
-    return (
-      <RiskDisclaimer
-        onClose={() => {
-          setLegalOpen(false);
-          requestAnimationFrame(() => legalButton.current?.focus());
-        }}
-      />
-    );
   return (
-    <div className={`app${state.connectivity?.status === 'offline' ? ' has-banner' : ''}`}>
+    <div
+      className={`app${state.connectivity?.status === 'offline' || risk.killSwitch?.active ? ' has-banner' : ''}`}
+    >
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
@@ -95,6 +94,9 @@ function AppShell() {
           <a href="#estrategias" aria-current={page === 'estrategias' ? 'page' : undefined}>
             Estrategias
           </a>
+          <a href="#riesgo" aria-current={page === 'riesgo' ? 'page' : undefined}>
+            Riesgo
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -104,6 +106,7 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              riesgo: 'Riesgo',
               inicio: 'Estado del sistema',
               mercado: 'Mercado',
               macro: 'Contexto macro',
@@ -116,11 +119,27 @@ function AppShell() {
           }
         </h1>
         <span className="mode">Señales + paper trading</span>
+        <KillSwitchControl state={risk.killSwitch} onChange={risk.updateKillSwitch} />
       </header>
-      <OfflineBanner state={state} />
+      <div
+        className="app-global-banners"
+        hidden={!risk.killSwitch?.active && state.connectivity?.status !== 'offline'}
+      >
+        <div id="risk-global-banner" />
+        <OfflineBanner state={state} />
+      </div>
       <main id="contenido" className="main" tabIndex={-1}>
         <ProviderBanner />
-        {page === 'estrategias' ? (
+        {legalOpen ? (
+          <RiskDisclaimer
+            onClose={() => {
+              setLegalOpen(false);
+              requestAnimationFrame(() => legalButton.current?.focus());
+            }}
+          />
+        ) : page === 'riesgo' ? (
+          <RiskPage risk={risk} />
+        ) : page === 'estrategias' ? (
           <StrategiesPage />
         ) : page === 'inicio' ? (
           <HomePage state={state} />

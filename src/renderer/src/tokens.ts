@@ -1,3 +1,4 @@
+import risk from './design/risk.tokens.json';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
 import market from './design/market.tokens.json';
@@ -15,6 +16,15 @@ export function tokenStylesheet(): string {
         Object.entries(tokens.color[mode]).map(([key, token]) => [key, token.value]),
       ),
       'color',
+    ) +
+    declarations(
+      Object.fromEntries(
+        Object.entries(risk.color.riskStatus).flatMap(([key, token]) => [
+          [key, token[mode]],
+          [`${key}-surface`, token[`${mode}Surface`]],
+        ]),
+      ),
+      'riskStatus',
     ) +
     declarations(
       Object.fromEntries(
