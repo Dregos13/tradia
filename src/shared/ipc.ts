@@ -58,12 +58,34 @@ import type {
   StressRequest,
   StressResultDto,
 } from './backtest';
+import {
+  KILL_SWITCH_CAUSES,
+  RISK_BOUNDS,
+  RISK_VETOES_MAX_LIMIT,
+  SIGNAL_DIRECTIONS,
+  SIGNAL_ORIGINS,
+  VETO_REASON_CODES,
+} from './risk';
+import type {
+  CautionState,
+  KillSwitchCause,
+  KillSwitchState,
+  LoggedRiskDecision,
+  RiskDecision,
+  RiskLimits,
+  RiskOverview,
+  RiskVeto,
+  SignalDirection,
+  SignalIntent,
+  VetoReasonCode,
+} from './risk';
 
 // El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
 // ./backtest; se reexportan aquí para que el renderer y el preload sigan
-// importando de un solo sitio.
+// importando de un solo sitio. El dominio de riesgo (fase 3) vive en ./risk.
 export * from './strategy';
 export * from './backtest';
+export * from './risk';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -201,6 +223,40 @@ export const IPC_CHANNELS = {
     get: 'stress:get',
     /** Ejecuta de nuevo las tres crisis y las guarda en la ficha. */
     run: 'stress:run',
+  },
+  risk: {
+    getLimits: 'risk:get-limits',
+    /** Sustituye los límites; el proceso principal exige RISK_BOUNDS. */
+    setLimits: 'risk:set-limits',
+    /** Registro de vetos (`{rule?, limit?, offset?}`), más reciente primero. */
+    listVetoes: 'risk:list-vetoes',
+    /** Pasarela única: toda señal u orden entra por aquí. */
+    submitSignal: 'risk:submit-signal',
+    getKillSwitch: 'risk:get-kill-switch',
+    /** Activa la parada de emergencia al instante, sin confirmación. */
+    activateKillSwitch: 'risk:activate-kill-switch',
+    /** Reanuda solo con `{confirm: true}`; nunca automática. */
+    resumeKillSwitch: 'risk:resume-kill-switch',
+    getCaution: 'risk:get-caution',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): activa la parada como
+     * si la hubiera disparado la causa automática dada.
+     */
+    simulateCause: 'risk:simulate-cause',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): inyecta un evento del
+     * calendario para que el modo cautela lo evalúe al instante.
+     */
+    simulateCalendarEvent: 'risk:simulate-calendar-event',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): siembra la cartera
+     * simulada (posiciones y curva de capital) para las pruebas.
+     */
+    seedPortfolio: 'risk:seed-portfolio',
+    /** Evento main → renderer: cambió cualquier estado de riesgo (RiskOverview). */
+    changed: 'risk:changed',
+    /** Evento main → renderer: una señal quedó vetada o reducida (RiskVeto). */
+    vetoed: 'risk:vetoed',
   },
 } as const;
 
@@ -678,6 +734,89 @@ export interface AlertPrefs {
 }
 
 // ---------------------------------------------------------------------------
+// Dominio: motor de riesgo (fase 3)
+// ---------------------------------------------------------------------------
+
+/** Filtros de `risk:list-vetoes`; todos opcionales y combinables. */
+export interface RiskVetoesQuery {
+  /** Filtra por la regla incumplida (código de veto). */
+  rule?: VetoReasonCode;
+  /** Filtra por el tipo de decisión registrada. */
+  decision?: LoggedRiskDecision;
+  /** Filtra por el activo de la señal. */
+  ticker?: string;
+  /** Máximo de resultados; tope `RISK_VETOES_MAX_LIMIT`. */
+  limit?: number;
+  /** Desplazamiento para paginar (≥ 0). */
+  offset?: number;
+}
+
+/**
+ * Reanudación de la parada de emergencia: exige una confirmación
+ * explícita (`confirm: true`); el tipo ya impide el reinicio automático.
+ */
+export interface KillSwitchResumeRequest {
+  /** Confirmación explícita del usuario; tiene que ser true. */
+  confirm: true;
+  /** Nota opcional que queda registrada en kill_switch_events. */
+  note?: string;
+}
+
+/**
+ * Evento inyectado por el gancho E2E `risk:simulate-calendar-event`:
+ * la misma forma que `CalendarEvent` sin los campos que rellena el
+ * servicio (id, país y origen, fijado a 'simulado').
+ */
+export interface SimulateCalendarEventRequest {
+  kind: CalendarEventKind;
+  title: string;
+  /** Instante UTC (ISO 8601). */
+  dateUtc: string;
+  impact: ImpactLevel;
+  /** Ticker relacionado en eventos de resultados. */
+  asset?: string;
+}
+
+/** Posición con la que sembrar la cartera simulada (gancho E2E). */
+export interface SeedRiskPosition {
+  ticker: string;
+  direction: SignalDirection;
+  /** Precio de entrada (> 0). */
+  entry: number;
+  /** Stop de protección, si lo tiene. */
+  stop?: number | null;
+  /** Objetivo de beneficio, si lo tiene. */
+  target?: number | null;
+  /** Tamaño en unidades (> 0). */
+  size: number;
+  /** Sector y divisa para los límites de exposición (opcionales). */
+  sector?: string;
+  currency?: string;
+  /** Fecha de apertura (ISO 8601); 'ahora' por defecto. */
+  openedAt?: string;
+  /** Fecha de cierre (ISO 8601); sin ella la posición queda abierta. */
+  closedAt?: string;
+}
+
+/** Petición del gancho E2E `risk:seed-portfolio`. */
+export interface SeedPortfolioRequest {
+  /** Capital actual de la cartera (crea un punto de equity «ahora»). */
+  equity?: number;
+  /** Posiciones con las que arrancar la cartera simulada. */
+  positions?: SeedRiskPosition[];
+  /** Puntos de la curva de capital (para pérdidas y drawdown). */
+  equityHistory?: { at: string; equity: number }[];
+}
+
+/** Resultado del gancho `risk:seed-portfolio`. */
+export interface SeedPortfolioResult {
+  /** Posiciones abiertas tras la siembra. */
+  openPositions: number;
+  /** Puntos de capital guardados en total. */
+  equityPoints: number;
+}
+
+// ---------------------------------------------------------------------------
 // API expuesta al renderer como window.tradia
 // ---------------------------------------------------------------------------
 
@@ -790,6 +929,35 @@ export interface TradiaApi {
     /** Ejecuta de nuevo las pruebas de estrés y las guarda. */
     run(request: StressRequest): Promise<StressResultDto[]>;
   };
+  risk: {
+    /** Límites vigentes (RISK_DEFAULTS si el usuario nunca los cambió). */
+    getLimits(): Promise<RiskLimits>;
+    /**
+     * Sustituye los límites. El proceso principal valida los márgenes
+     * duros (RISK_BOUNDS) y rechaza con un error legible los valores
+     * fuera de ellos. Devuelve los límites ya guardados.
+     */
+    setLimits(limits: RiskLimits): Promise<RiskLimits>;
+    /** Registro de vetos, más reciente primero. */
+    listVetoes(query?: RiskVetoesQuery): Promise<RiskVeto[]>;
+    /**
+     * Pasarela única del motor de riesgo: evalúa la señal contra la
+     * parada, las reglas por operación, los límites de cartera y la
+     * cautela, y devuelve la decisión con sus motivos.
+     */
+    submitSignal(signal: SignalIntent): Promise<RiskDecision>;
+    getKillSwitch(): Promise<KillSwitchState>;
+    /** Detiene señales y órdenes al instante; no pide confirmación. */
+    activateKillSwitch(): Promise<KillSwitchState>;
+    /** Reanuda solo con confirmación explícita; queda registrada. */
+    resumeKillSwitch(request: KillSwitchResumeRequest): Promise<KillSwitchState>;
+    /** Estado actual del modo cautela por calendario/mercado. */
+    getCaution(): Promise<CautionState>;
+    /** Cambió cualquier estado de riesgo (límites, parada o cautela). */
+    onChanged(listener: (overview: RiskOverview) => void): () => void;
+    /** Una señal quedó vetada o reducida; llega la entrada del registro. */
+    onVetoed(listener: (veto: RiskVeto) => void): () => void;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -805,6 +973,15 @@ export interface TradiaApi {
     pollNewsNow(): Promise<NewsPollResult>;
     /** Adelanta el reloj del lector de noticias y del calendario `ms`. */
     advanceNewsClock(ms: number): Promise<NewsClockAdvanceResult>;
+    /** Ganchos del motor de riesgo (fase 3). */
+    risk: {
+      /** Activa la parada como si la hubiera disparado la causa dada. */
+      simulateCause(cause: KillSwitchCause): Promise<KillSwitchState>;
+      /** Inyecta un evento del calendario y devuelve la cautela resultante. */
+      simulateCalendarEvent(event: SimulateCalendarEventRequest): Promise<CautionState>;
+      /** Siembra la cartera simulada (posiciones y curva de capital). */
+      seedPortfolio(request: SeedPortfolioRequest): Promise<SeedPortfolioResult>;
+    };
   };
 }
 
@@ -1366,9 +1543,7 @@ function isPartialCosts(value: unknown): value is Partial<StrategyCosts> {
   const v = value as Record<string, unknown>;
   const allowed = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
-  return Object.values(v).every(
-    (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0,
-  );
+  return Object.values(v).every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
 }
 
 function isSplitRatiosInput(value: unknown): boolean {
@@ -1400,9 +1575,7 @@ function isSensitivityAxes(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   if (Object.keys(v).some((k) => k !== 'xParam' && k !== 'yParam')) return false;
-  return ['xParam', 'yParam'].every(
-    (k) => !(k in v) || isNonEmptyString(v[k]),
-  );
+  return ['xParam', 'yParam'].every((k) => !(k in v) || isNonEmptyString(v[k]));
 }
 
 function isMonteCarloOptions(value: unknown): boolean {
@@ -1513,16 +1686,16 @@ export function isBacktestListQuery(value: unknown): value is BacktestListQuery 
   if ('version' in v && !isStrategyId(v.version)) return false;
   if (
     'limit' in v &&
-    (!Number.isInteger(v.limit) || (v.limit as number) < 1 || (v.limit as number) > BACKTEST_MAX_LIMIT)
+    (!Number.isInteger(v.limit) ||
+      (v.limit as number) < 1 ||
+      (v.limit as number) > BACKTEST_MAX_LIMIT)
   ) {
     return false;
   }
   return true;
 }
 
-export function isBacktestFinalTestRequest(
-  value: unknown,
-): value is BacktestFinalTestRequest {
+export function isBacktestFinalTestRequest(value: unknown): value is BacktestFinalTestRequest {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
@@ -1537,6 +1710,196 @@ export function isStressRequest(value: unknown): value is StressRequest {
   if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
   if (!isStrategyId(v.strategyId)) return false;
   return !('version' in v) || isStrategyId(v.version);
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: motor de riesgo (fase 3)
+// ---------------------------------------------------------------------------
+
+export function isSignalDirection(value: unknown): value is SignalIntent['direction'] {
+  return typeof value === 'string' && (SIGNAL_DIRECTIONS as readonly string[]).includes(value);
+}
+
+export function isSignalOrigin(value: unknown): value is SignalIntent['origin'] {
+  return typeof value === 'string' && (SIGNAL_ORIGINS as readonly string[]).includes(value);
+}
+
+export function isVetoReasonCode(value: unknown): value is VetoReasonCode {
+  return typeof value === 'string' && (VETO_REASON_CODES as readonly string[]).includes(value);
+}
+
+export function isKillSwitchCause(value: unknown): value is KillSwitchCause {
+  return typeof value === 'string' && (KILL_SWITCH_CAUSES as readonly string[]).includes(value);
+}
+
+const isPositivePrice = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+const isNullablePrice = (value: unknown): boolean => value === null || isPositivePrice(value);
+
+/**
+ * Instante ISO 8601 con hora ('2026-10-09T12:30:00.000Z'); el guarda de
+ * fechas `isIsoDate` solo admite el día. `Date.parse` ya rechaza horas
+ * imposibles ('…T25:00').
+ */
+export function isIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+}
+
+/**
+ * Forma de la señal que llega a `risk:submit-signal`. Aquí solo se exige
+ * la forma: un stop ausente o una confianza fuera de 0–1 no se rechazan en
+ * el borde porque tienen que llegar al motor (veto `STOP_MISSING` /
+ * `SIGNAL_INVALID`, y la confianza anómala puede disparar la parada por
+ * 'modelo-erratico').
+ */
+export function isSignalIntent(value: unknown): value is SignalIntent {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['ticker', 'direction', 'entry', 'stop', 'target', 'confidence', 'origin'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isTicker(v.ticker)) return false;
+  if (!isSignalDirection(v.direction)) return false;
+  if (!isPositivePrice(v.entry)) return false;
+  if (!isNullablePrice(v.stop)) return false;
+  if (!isNullablePrice(v.target)) return false;
+  // La confianza fuera de 0–1 es una señal anómala del modelo, no una
+  // forma inválida: el motor decide el veto y la posible parada.
+  if (typeof v.confidence !== 'number' || !Number.isFinite(v.confidence)) return false;
+  return isSignalOrigin(v.origin);
+}
+
+/**
+ * Límites completos dentro de los márgenes duros: `risk:set-limits`
+ * sustituye la configuración entera, así que todos los campos son
+ * obligatorios y cada uno tiene que respetar su RISK_BOUNDS.
+ */
+export function isRiskLimits(value: unknown): value is RiskLimits {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(RISK_BOUNDS);
+  if (Object.keys(v).some((k) => !keys.includes(k))) return false;
+  return (keys as (keyof RiskLimits)[]).every((key) => {
+    const bound = RISK_BOUNDS[key];
+    const n = v[key];
+    return typeof n === 'number' && Number.isFinite(n) && n >= bound.min && n <= bound.max;
+  });
+}
+
+export function isRiskVetoesQuery(value: unknown): value is RiskVetoesQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['rule', 'decision', 'ticker', 'limit', 'offset'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('rule' in v && !isVetoReasonCode(v.rule)) return false;
+  if ('decision' in v && v.decision !== 'vetada' && v.decision !== 'reducida') return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (typeof v.limit !== 'number' ||
+      !Number.isInteger(v.limit) ||
+      v.limit < 1 ||
+      v.limit > RISK_VETOES_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  if (
+    'offset' in v &&
+    (typeof v.offset !== 'number' || !Number.isInteger(v.offset) || v.offset < 0)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** `{confirm: true, note?}`: la reanudación exige confirmación explícita. */
+export function isResumeKillSwitchRequest(value: unknown): value is KillSwitchResumeRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'confirm' && k !== 'note')) return false;
+  if (v.confirm !== true) return false;
+  return !('note' in v) || isNonEmptyString(v.note);
+}
+
+export function isSimulateCalendarEventRequest(
+  value: unknown,
+): value is SimulateCalendarEventRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['kind', 'title', 'dateUtc', 'impact', 'asset'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isCalendarEventKind(v.kind)) return false;
+  if (!isNonEmptyString(v.title) || v.title.length > 120) return false;
+  if (!isIsoTimestamp(v.dateUtc)) return false;
+  if (!isImpactLevel(v.impact)) return false;
+  return !('asset' in v) || isTicker(v.asset);
+}
+
+const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
+
+function isSeedRiskPosition(value: unknown): value is SeedRiskPosition {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'ticker',
+    'direction',
+    'entry',
+    'stop',
+    'target',
+    'size',
+    'sector',
+    'currency',
+    'openedAt',
+    'closedAt',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isTicker(v.ticker)) return false;
+  if (!isSignalDirection(v.direction)) return false;
+  if (!isPositivePrice(v.entry)) return false;
+  if (!isPositivePrice(v.size)) return false;
+  if ('stop' in v && !isNullablePrice(v.stop)) return false;
+  if ('target' in v && !isNullablePrice(v.target)) return false;
+  if ('sector' in v && !(typeof v.sector === 'string' && v.sector.length <= 60)) return false;
+  if (
+    'currency' in v &&
+    !(typeof v.currency === 'string' && CURRENCY_CODE_PATTERN.test(v.currency))
+  ) {
+    return false;
+  }
+  if ('openedAt' in v && !isIsoTimestamp(v.openedAt)) return false;
+  if ('closedAt' in v && !isIsoTimestamp(v.closedAt)) return false;
+  return true;
+}
+
+export function isSeedPortfolioRequest(value: unknown): value is SeedPortfolioRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['equity', 'positions', 'equityHistory'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('equity' in v && !isPositivePrice(v.equity)) return false;
+  if (
+    'positions' in v &&
+    (!Array.isArray(v.positions) ||
+      v.positions.length > 64 ||
+      !v.positions.every(isSeedRiskPosition))
+  ) {
+    return false;
+  }
+  if ('equityHistory' in v) {
+    const history = v.equityHistory;
+    if (!Array.isArray(history) || history.length > 400) return false;
+    for (const point of history) {
+      if (typeof point !== 'object' || point === null) return false;
+      const p = point as Record<string, unknown>;
+      if (Object.keys(p).some((k) => k !== 'at' && k !== 'equity')) return false;
+      if (!isIsoTimestamp(p.at) || !isPositivePrice(p.equity)) return false;
+    }
+  }
+  return true;
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

@@ -14,6 +14,9 @@ import type {
   ConnectivityState,
   DataStatusEntry,
   GetBarsRequest,
+  KillSwitchCause,
+  KillSwitchResumeRequest,
+  KillSwitchState,
   MacroSeriesQuery,
   MarketUpdatedEvent,
   NewsListQuery,
@@ -22,7 +25,14 @@ import type {
   NotificationPayload,
   NotificationPrefs,
   NotificationRoute,
+  RiskLimits,
+  RiskOverview,
+  RiskVeto,
+  RiskVetoesQuery,
+  SeedPortfolioRequest,
   SettingsPatch,
+  SignalIntent,
+  SimulateCalendarEventRequest,
   StressRequest,
   TestSourceRequest,
   TradiaApi,
@@ -141,6 +151,23 @@ const api: TradiaApi = {
     get: (request: StressRequest) => ipcRenderer.invoke(IPC_CHANNELS.stress.get, request),
     run: (request: StressRequest) => ipcRenderer.invoke(IPC_CHANNELS.stress.run, request),
   },
+  risk: {
+    getLimits: () => ipcRenderer.invoke(IPC_CHANNELS.risk.getLimits),
+    setLimits: (limits: RiskLimits) => ipcRenderer.invoke(IPC_CHANNELS.risk.setLimits, limits),
+    listVetoes: (query?: RiskVetoesQuery) =>
+      ipcRenderer.invoke(IPC_CHANNELS.risk.listVetoes, query),
+    submitSignal: (signal: SignalIntent) =>
+      ipcRenderer.invoke(IPC_CHANNELS.risk.submitSignal, signal),
+    getKillSwitch: () => ipcRenderer.invoke(IPC_CHANNELS.risk.getKillSwitch),
+    activateKillSwitch: () => ipcRenderer.invoke(IPC_CHANNELS.risk.activateKillSwitch),
+    resumeKillSwitch: (request: KillSwitchResumeRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.risk.resumeKillSwitch, request),
+    getCaution: () => ipcRenderer.invoke(IPC_CHANNELS.risk.getCaution),
+    onChanged: (listener: (overview: RiskOverview) => void) =>
+      subscribe<RiskOverview>(IPC_CHANNELS.risk.changed, listener),
+    onVetoed: (listener: (veto: RiskVeto) => void) =>
+      subscribe<RiskVeto>(IPC_CHANNELS.risk.vetoed, listener),
+  },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
   ...(process.argv.includes(E2E_FLAG_ARG)
@@ -155,6 +182,14 @@ const api: TradiaApi = {
             ipcRenderer.invoke(IPC_CHANNELS.dataStatus.simulateProviderFailure, failing),
           pollNewsNow: () => ipcRenderer.invoke(IPC_CHANNELS.news.pollNow),
           advanceNewsClock: (ms: number) => ipcRenderer.invoke(IPC_CHANNELS.news.advanceClock, ms),
+          risk: {
+            simulateCause: (cause: KillSwitchCause): Promise<KillSwitchState> =>
+              ipcRenderer.invoke(IPC_CHANNELS.risk.simulateCause, cause),
+            simulateCalendarEvent: (event: SimulateCalendarEventRequest) =>
+              ipcRenderer.invoke(IPC_CHANNELS.risk.simulateCalendarEvent, event),
+            seedPortfolio: (request: SeedPortfolioRequest) =>
+              ipcRenderer.invoke(IPC_CHANNELS.risk.seedPortfolio, request),
+          },
         },
       }
     : {}),

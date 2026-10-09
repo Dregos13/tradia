@@ -22,6 +22,14 @@ import {
   isNotificationPayload,
   isNotificationPrefs,
   isReliability,
+  isResumeKillSwitchRequest,
+  isRiskLimits,
+  isRiskVetoesQuery,
+  isSeedPortfolioRequest,
+  isSignalIntent,
+  isSimulateCalendarEventRequest,
+  isKillSwitchCause,
+  isVetoReasonCode,
   isSettingsPatch,
   isSourceConnector,
   isSourceId,
@@ -49,6 +57,8 @@ import {
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
   RELIABILITY_LEVELS,
+  RISK_DEFAULTS,
+  RISK_VETOES_MAX_LIMIT,
   SOURCE_KINDS,
   WATCHLIST_MAX_ITEMS,
 } from './ipc';
@@ -66,7 +76,7 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest y stress', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress y risk', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'alerts',
@@ -78,6 +88,7 @@ describe('contrato IPC', () => {
       'market',
       'news',
       'notifications',
+      'risk',
       'secrets',
       'settings',
       'sources',
@@ -153,6 +164,24 @@ describe('contrato IPC', () => {
       progress: 'backtest:progress',
     });
     expect(IPC_CHANNELS.stress).toEqual({ get: 'stress:get', run: 'stress:run' });
+  });
+
+  it('incluye los canales del motor de riesgo del contrato (fase 3)', () => {
+    expect(IPC_CHANNELS.risk).toEqual({
+      getLimits: 'risk:get-limits',
+      setLimits: 'risk:set-limits',
+      listVetoes: 'risk:list-vetoes',
+      submitSignal: 'risk:submit-signal',
+      getKillSwitch: 'risk:get-kill-switch',
+      activateKillSwitch: 'risk:activate-kill-switch',
+      resumeKillSwitch: 'risk:resume-kill-switch',
+      getCaution: 'risk:get-caution',
+      simulateCause: 'risk:simulate-cause',
+      simulateCalendarEvent: 'risk:simulate-calendar-event',
+      seedPortfolio: 'risk:seed-portfolio',
+      changed: 'risk:changed',
+      vetoed: 'risk:vetoed',
+    });
   });
 
   it('los ganchos E2E de noticias son canales marcados como solo desarrollo', () => {
@@ -560,15 +589,20 @@ describe('guardas del backtest y del estrés', () => {
       }),
     ).toBe(true);
     expect(
-      isBacktestRunRequest({ strategyId: 1, walkForward: false, sensitivity: false, monteCarlo: false }),
+      isBacktestRunRequest({
+        strategyId: 1,
+        walkForward: false,
+        sensitivity: false,
+        monteCarlo: false,
+      }),
     ).toBe(true);
 
     expect(isBacktestRunRequest({})).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 0 })).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 1, truco: true })).toBe(false);
-    expect(
-      isBacktestRunRequest({ strategyId: 1, desde: '2024-01-01', hasta: '2020-01-01' }),
-    ).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, desde: '2024-01-01', hasta: '2020-01-01' })).toBe(
+      false,
+    );
     expect(isBacktestRunRequest({ strategyId: 1, universe: [] })).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 1, universe: ['no es ticker'] })).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 1, initialCash: 0 })).toBe(false);
@@ -576,15 +610,9 @@ describe('guardas del backtest y del estrés', () => {
     expect(isBacktestRunRequest({ strategyId: 1, maxPositions: 0 })).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 1, costs: { commissionPct: -1 } })).toBe(false);
     expect(isBacktestRunRequest({ strategyId: 1, split: { train: 1.5 } })).toBe(false);
-    expect(
-      isBacktestRunRequest({ strategyId: 1, monteCarlo: { simulations: 0 } }),
-    ).toBe(false);
-    expect(
-      isBacktestRunRequest({ strategyId: 1, monteCarlo: { method: 'azar' } }),
-    ).toBe(false);
-    expect(
-      isBacktestRunRequest({ strategyId: 1, walkForward: { trainSize: 2.5 } }),
-    ).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, monteCarlo: { simulations: 0 } })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, monteCarlo: { method: 'azar' } })).toBe(false);
+    expect(isBacktestRunRequest({ strategyId: 1, walkForward: { trainSize: 2.5 } })).toBe(false);
     expect(
       isBacktestRunRequest({ strategyId: 1, walkForward: { objective: 'rentabilidad' } }),
     ).toBe(false);
@@ -613,6 +641,174 @@ describe('guardas del backtest y del estrés', () => {
     expect(isStressRequest({ strategyId: 1, version: 2 })).toBe(true);
     expect(isStressRequest({ strategyId: -1 })).toBe(false);
     expect(isStressRequest({ strategyId: 1, crisis: '2008' })).toBe(false);
+  });
+});
+
+describe('guardas del motor de riesgo (fase 3)', () => {
+  const senal = {
+    ticker: 'AAPL',
+    direction: 'largo',
+    entry: 200,
+    stop: 190,
+    target: 220,
+    confidence: 0.8,
+    origin: 'estrategia',
+  };
+
+  it('valida la forma de la señal sin rechazar las anomalías del motor', () => {
+    expect(isSignalIntent(senal)).toBe(true);
+    // Sin stop ni objetivo: la forma es válida; el veto lo decide el motor.
+    expect(isSignalIntent({ ...senal, stop: null, target: null })).toBe(true);
+    // La confianza fuera de 0–1 llega al motor (modelo errático), no se rechaza.
+    expect(isSignalIntent({ ...senal, confidence: 1.7 })).toBe(true);
+    expect(isSignalIntent({ ...senal, direction: 'corto', origin: 'probador' })).toBe(true);
+    expect(isSignalIntent({ ...senal, origin: 'e2e' })).toBe(true);
+
+    expect(isSignalIntent({ ...senal, ticker: 'DROP TABLE' })).toBe(false);
+    expect(isSignalIntent({ ...senal, direction: 'compra' })).toBe(false);
+    expect(isSignalIntent({ ...senal, entry: 0 })).toBe(false);
+    expect(isSignalIntent({ ...senal, entry: -5 })).toBe(false);
+    expect(isSignalIntent({ ...senal, stop: -1 })).toBe(false);
+    expect(isSignalIntent({ ...senal, confidence: 'alta' })).toBe(false);
+    expect(isSignalIntent({ ...senal, confidence: Number.NaN })).toBe(false);
+    expect(isSignalIntent({ ...senal, origin: 'usuario' })).toBe(false);
+    expect(isSignalIntent({ ...senal, apiKey: 'x' })).toBe(false);
+    expect(isSignalIntent({ ticker: 'AAPL' })).toBe(false);
+    expect(isSignalIntent(null)).toBe(false);
+  });
+
+  it('exige los límites completos dentro de los márgenes duros', () => {
+    expect(isRiskLimits({ ...RISK_DEFAULTS })).toBe(true);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, riskPerTradePct: 2 })).toBe(true);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, riskPerTradePct: 0.5 })).toBe(true);
+    // Los ejemplos de los criterios: 3 % por operación y ratio 1:1,5.
+    expect(isRiskLimits({ ...RISK_DEFAULTS, riskPerTradePct: 3 })).toBe(false);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, riskPerTradePct: 0.4 })).toBe(false);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, minRewardRiskRatio: 1.5 })).toBe(false);
+    // Apalancamiento fijo 1x.
+    expect(isRiskLimits({ ...RISK_DEFAULTS, maxLeverage: 2 })).toBe(false);
+    // Objeto incompleto, claves ajenas y no números.
+    const { maxLeverage: _omitido, ...incompletos } = RISK_DEFAULTS;
+    expect(isRiskLimits(incompletos)).toBe(false);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, truco: 1 })).toBe(false);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, maxOpenPositions: '5' })).toBe(false);
+    expect(isRiskLimits({ ...RISK_DEFAULTS, maxDrawdownPct: Number.NaN })).toBe(false);
+    expect(isRiskLimits(null)).toBe(false);
+  });
+
+  it('valida la consulta del registro de vetos', () => {
+    expect(isRiskVetoesQuery(undefined)).toBe(true);
+    expect(isRiskVetoesQuery({})).toBe(true);
+    expect(
+      isRiskVetoesQuery({
+        rule: 'RR_TOO_LOW',
+        decision: 'vetada',
+        ticker: 'AAPL',
+        limit: 50,
+        offset: 10,
+      }),
+    ).toBe(true);
+    expect(isRiskVetoesQuery({ rule: 'TODO_MAL' })).toBe(false);
+    expect(isRiskVetoesQuery({ decision: 'aprobada' })).toBe(false);
+    expect(isRiskVetoesQuery({ ticker: 'no ticker' })).toBe(false);
+    expect(isRiskVetoesQuery({ limit: 0 })).toBe(false);
+    expect(isRiskVetoesQuery({ limit: RISK_VETOES_MAX_LIMIT + 1 })).toBe(false);
+    expect(isRiskVetoesQuery({ offset: -1 })).toBe(false);
+    expect(isRiskVetoesQuery({ offset: 1.5 })).toBe(false);
+    expect(isRiskVetoesQuery({ extra: 1 })).toBe(false);
+    expect(isRiskVetoesQuery(null)).toBe(false);
+  });
+
+  it('la reanudación de la parada exige una confirmación explícita', () => {
+    expect(isResumeKillSwitchRequest({ confirm: true })).toBe(true);
+    expect(isResumeKillSwitchRequest({ confirm: true, note: 'Revisado' })).toBe(true);
+    expect(isResumeKillSwitchRequest({ confirm: false })).toBe(false);
+    expect(isResumeKillSwitchRequest({})).toBe(false);
+    expect(isResumeKillSwitchRequest({ confirm: 'true' })).toBe(false);
+    expect(isResumeKillSwitchRequest({ confirm: true, note: ' ' })).toBe(false);
+    expect(isResumeKillSwitchRequest({ confirm: true, forzar: 1 })).toBe(false);
+    expect(isResumeKillSwitchRequest(null)).toBe(false);
+  });
+
+  it('valida los ganchos E2E de la parada, el calendario y la cartera', () => {
+    for (const cause of [
+      'manual',
+      'perdida-anomala',
+      'dato-anomalo',
+      'sin-conexion',
+      'modelo-erratico',
+    ] as const) {
+      expect(isKillSwitchCause(cause)).toBe(true);
+    }
+    expect(isKillSwitchCause('bug')).toBe(false);
+    expect(isKillSwitchCause(null)).toBe(false);
+
+    const evento = {
+      kind: 'ipc',
+      title: 'IPC de EE. UU. (mensual)',
+      dateUtc: '2026-10-09T12:30:00.000Z',
+      impact: 'alto',
+    };
+    expect(isSimulateCalendarEventRequest(evento)).toBe(true);
+    expect(isSimulateCalendarEventRequest({ ...evento, asset: 'AAPL' })).toBe(true);
+    expect(isSimulateCalendarEventRequest({ ...evento, kind: 'fiesta' })).toBe(false);
+    expect(isSimulateCalendarEventRequest({ ...evento, title: '' })).toBe(false);
+    expect(isSimulateCalendarEventRequest({ ...evento, dateUtc: '2026-10-09' })).toBe(false);
+    expect(isSimulateCalendarEventRequest({ ...evento, dateUtc: 'no-fecha' })).toBe(false);
+    expect(isSimulateCalendarEventRequest({ ...evento, impact: 'brutal' })).toBe(false);
+    expect(isSimulateCalendarEventRequest({ ...evento, asset: 'no ticker' })).toBe(false);
+    expect(isSimulateCalendarEventRequest(null)).toBe(false);
+
+    expect(isVetoReasonCode('STOP_MISSING')).toBe(true);
+    expect(isVetoReasonCode('CAUTION_MODE')).toBe(true);
+    expect(isVetoReasonCode('TODO_MAL')).toBe(false);
+  });
+
+  it('valida la siembra de la cartera simulada', () => {
+    expect(isSeedPortfolioRequest({})).toBe(true);
+    expect(isSeedPortfolioRequest({ equity: 100_000 })).toBe(true);
+    expect(
+      isSeedPortfolioRequest({
+        equity: 100_000,
+        positions: [
+          { ticker: 'AAPL', direction: 'largo', entry: 200, size: 10, sector: 'tecnologia' },
+          { ticker: 'MSFT', direction: 'corto', entry: 400, size: 5, currency: 'USD' },
+        ],
+        equityHistory: [
+          { at: '2026-10-08T20:00:00.000Z', equity: 100_000 },
+          { at: '2026-10-09T20:00:00.000Z', equity: 98_000 },
+        ],
+      }),
+    ).toBe(true);
+
+    expect(isSeedPortfolioRequest({ equity: 0 })).toBe(false);
+    expect(isSeedPortfolioRequest({ equity: -1 })).toBe(false);
+    expect(
+      isSeedPortfolioRequest({
+        positions: [{ ticker: 'AAPL', direction: 'compra', entry: 1, size: 1 }],
+      }),
+    ).toBe(false);
+    expect(
+      isSeedPortfolioRequest({
+        positions: [{ ticker: 'AAPL', direction: 'largo', entry: 0, size: 1 }],
+      }),
+    ).toBe(false);
+    expect(
+      isSeedPortfolioRequest({
+        positions: [{ ticker: 'AAPL', direction: 'largo', entry: 1, size: -1 }],
+      }),
+    ).toBe(false);
+    expect(
+      isSeedPortfolioRequest({
+        positions: [{ ticker: 'AAPL', direction: 'largo', entry: 1, size: 1, currency: 'us' }],
+      }),
+    ).toBe(false);
+    expect(isSeedPortfolioRequest({ equityHistory: [{ at: 'ayer', equity: 100 }] })).toBe(false);
+    expect(
+      isSeedPortfolioRequest({ equityHistory: [{ at: '2026-10-09T00:00:00.000Z', equity: 0 }] }),
+    ).toBe(false);
+    expect(isSeedPortfolioRequest({ extra: 1 })).toBe(false);
+    expect(isSeedPortfolioRequest(null)).toBe(false);
   });
 });
 
