@@ -1,0 +1,196 @@
+.deviation-page {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.deviation-top,
+.deviation-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+.deviation-top {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.deviation-title h1 {
+  margin: 0;
+  font-family: var(--font-editorial);
+}
+.deviation-top header {
+  flex: 1;
+}
+.deviation-top p,
+.deviation-margins p,
+.deviation-summary dt,
+.deviation-summary small {
+  color: var(--color-textMuted);
+}
+.deviation-paper,
+.deviation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+}
+.deviation-page svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex-shrink: 0;
+}
+.deviation-paper {
+  color: var(--deviation-paper);
+  background: var(--deviation-paper-surface);
+}
+.deviation-segments {
+  display: flex;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.deviation-segments button {
+  border: 0;
+}
+.deviation-segments [aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-inverse);
+}
+.deviation-summary {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  background: var(--color-surface);
+  border-top: var(--space-1) solid var(--color-text);
+  margin: 0;
+}
+.deviation-summary > div {
+  padding: var(--space-4);
+  border-right: 1px solid var(--color-border);
+}
+.deviation-summary dt {
+  font-size: var(--type-xs);
+}
+.deviation-summary dd {
+  margin: var(--space-1) 0;
+  font-weight: var(--weight-semibold);
+  font-size: var(--type-lg);
+}
+.deviation-summary dd,
+.deviation-table-wrap td {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.deviation-table-wrap {
+  overflow: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.deviation-table-wrap table {
+  width: 100%;
+  min-width: var(--deviation-table-min);
+  border-collapse: collapse;
+}
+.deviation-table-wrap caption {
+  text-align: left;
+  padding: var(--space-3);
+  color: var(--color-textMuted);
+}
+.deviation-table-wrap td,
+.deviation-table-wrap th {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.deviation-table-wrap thead {
+  background: var(--color-surfaceSubtle);
+  color: var(--color-textMuted);
+  font-size: var(--type-xs);
+}
+.deviation-table-wrap td:last-child {
+  font-family: var(--font-interface);
+}
+.deviation-table-wrap small {
+  display: block;
+  margin-top: var(--space-1);
+}
+.deviation-within,
+.deviation-saved {
+  color: var(--deviation-within);
+  background: var(--deviation-within-surface);
+}
+.deviation-outside,
+.deviation-error {
+  color: var(--deviation-outside);
+  background: var(--deviation-outside-surface);
+}
+.deviation-error,
+.deviation-saved,
+.deviation-empty {
+  padding: var(--space-4);
+}
+.deviation-margins {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: var(--space-6);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-6);
+}
+.deviation-margins h2 {
+  margin-top: 0;
+}
+.deviation-margins form {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.deviation-fields {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.deviation-fields label {
+  display: grid;
+  gap: var(--space-2);
+  flex: 1;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+}
+.deviation-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-controlMin);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-borderStrong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+.deviation-page :focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.deviation-scroll-hint {
+  font-size: var(--type-xs);
+  color: var(--color-textMuted);
+}
+@media (max-width: 850px) {
+  .deviation-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .deviation-margins {
+    grid-template-columns: 1fr;
+  }
+  .deviation-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
