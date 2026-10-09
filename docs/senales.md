@@ -96,7 +96,12 @@ Tabla `signals` (migración 008). Cada fila guarda:
 Idempotencia en dos niveles: marcas persistentes `ticker|vela` en settings
 (`signals.processedBars`, acotadas a las 2 000 más recientes) y el
 `UNIQUE (ticker, vela_fecha)` de la tabla, reafirmado por el repositorio
-(un conflicto devuelve la fila existente sin reemitir eventos).
+(un conflicto devuelve la fila existente sin reemitir eventos). La marca
+solo se escribe cuando la evaluación llega a un **resultado definitivo**
+(señal persistida, contradicción o evaluación completa sin votos): un
+fallo temporal de la pasarela de riesgo, de la persistencia o de una
+estrategia deja la vela sin marcar, y una reentrega del mismo cierre
+reintenta la evaluación completa.
 
 ## Emisión y diario
 

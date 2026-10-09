@@ -384,6 +384,60 @@ describe('motor de señales al cierre de vela', () => {
     expect(states[1]!.lastOutcome).toBe('senal');
   });
 
+  it('un fallo temporal de la pasarela no marca la vela y la reentrega emite la señal', () => {
+    let fail = true;
+    const deps = makeDeps();
+    deps.submitSignal = (intent) => {
+      if (fail) throw new Error('riesgo temporalmente no disponible');
+      submitted.push(intent);
+      return decisionToReturn;
+    };
+    evaluables = [evaluable(1, () => buyer('AAPL', 190))];
+    const engine = createSignalEngine(deps);
+
+    // Sin decisión de riesgo: error anotado en el diario, sin marca.
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('error');
+    expect(repo.listSignals()).toHaveLength(0);
+    expect(submitted).toHaveLength(0);
+    expect(processedMarks.size).toBe(0);
+    expect(journalEntries[0]).toMatchObject({ type: 'error', ticker: 'AAPL' });
+
+    // Con la pasarela restablecida, la misma vela se reevalúa y emite.
+    fail = false;
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(repo.listSignals()).toHaveLength(1);
+    expect(submitted).toHaveLength(1);
+    expect(processedMarks.has(`AAPL|${BAR_DATE}`)).toBe(true);
+    expect(journalEntries.map((entry) => entry.type)).toEqual(['error', 'senal']);
+    expect(engine.listStrategyStates()[0]!.lastOutcome).toBe('senal');
+
+    // Y a partir de ahí la vela sí queda deduplicada.
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('already-processed');
+    expect(submitted).toHaveLength(1);
+  });
+
+  it('una vela cuya evaluación falló por completo tampoco queda marcada', () => {
+    let fail = true;
+    evaluables = [
+      evaluable(1, () => ({
+        init: () => undefined,
+        onBar: (ctx) => {
+          if (fail) throw new Error('indicador roto');
+          ctx.buy('AAPL', { stop: 190 });
+        },
+      })),
+    ];
+    const engine = createSignalEngine(makeDeps());
+
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('error');
+    expect(repo.listSignals()).toHaveLength(0);
+    expect(processedMarks.size).toBe(0);
+
+    fail = false;
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(repo.listSignals()).toHaveLength(1);
+  });
+
   it('una venda (sell) propone dirección corto y entra en la pasarela como tal', () => {
     evaluables = [evaluable(1, () => seller('AAPL'))];
     const engine = createSignalEngine(makeDeps());

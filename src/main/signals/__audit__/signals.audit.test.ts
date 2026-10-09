@@ -207,19 +207,27 @@ const makeHarness = (): Harness => {
 };
 
 describe('auditoría de invariantes del motor de señales', () => {
-  it('reproduce la pérdida de una vela al fallar la pasarela de riesgo', () => {
+  it('reintenta la vela tras un fallo temporal de la pasarela de riesgo', () => {
     const harness = makeHarness();
     harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
     harness.setSubmitFailure(new Error('riesgo temporalmente no disponible'));
 
+    // Sin decisión de riesgo no hay señal ni marca: la vela queda pendiente.
     expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('error');
     expect(harness.repo.listSignals()).toHaveLength(0);
     expect(harness.submitted).toHaveLength(0);
 
+    // Pasarela restablecida: la reentrega del mismo cierre se reevalúa.
     harness.setSubmitFailure(null);
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(harness.repo.listSignals()).toHaveLength(1);
+    expect(harness.submitted).toHaveLength(1);
+    expect(harness.journal.map((entry) => entry.type)).toEqual(['error', 'senal']);
+
+    // La vela ya emitida sí queda deduplicada.
     expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('already-processed');
-    expect(harness.repo.listSignals()).toHaveLength(0);
-    expect(harness.submitted).toHaveLength(0);
+    expect(harness.repo.listSignals()).toHaveLength(1);
+    expect(harness.submitted).toHaveLength(1);
   });
 
   it('no emite ni persiste señal cuando las estrategias activas se contradicen', () => {

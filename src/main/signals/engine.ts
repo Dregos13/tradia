@@ -27,6 +27,11 @@
  * - Persistencia en `signals`: votos con versión, datos usados (ventana,
  *   lote y versión limpia, fuente), motivo, confianza y decisión
  *   completa. Idempotente: (ticker, vela_fecha) no produce dos filas.
+ * - La marca de «vela evaluada» solo se escribe con un resultado
+ *   definitivo (señal persistida, contradicción o evaluación completa
+ *   sin votos): un fallo temporal —de la pasarela, de la persistencia o
+ *   de una estrategia— deja la vela sin marcar y una reentrega del
+ *   mismo cierre reintenta la evaluación completa.
  * - Emite `signals:new` (por el `broadcast` perezoso, que delivery
  *   intercepta para los avisos) y registra la entrada del diario.
  */
@@ -389,7 +394,13 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       signalId: signal.id,
     });
     const event: SignalNewEvent = { signal };
-    deps.broadcast(IPC_CHANNELS.signals.new, event);
+    try {
+      deps.broadcast(IPC_CHANNELS.signals.new, event);
+    } catch (error: unknown) {
+      // La señal ya está persistida: un fallo de difusión no la convierte
+      // en error (mismo criterio que el diario, que tolera su escritura).
+      logger.warn?.(`[signals] no se pudo difundir signals:new: ${String(error)}`);
+    }
     return signal;
   };
 
@@ -409,6 +420,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       .filter((evaluable) => executableMarkets(evaluable.ficha.markets).includes(ticker));
 
     const proposals: VoteWithOrder[] = [];
+    let evalErrors = 0;
     for (const evaluable of evaluables) {
       try {
         const own = collectVotes(evaluable, ticker, barDate, preferSource);
@@ -418,6 +430,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         }
         proposals.push(...own);
       } catch (error: unknown) {
+        evalErrors += 1;
         const message = error instanceof Error ? error.message : String(error);
         logger.error?.(
           `[signals] falló la evaluación de '${evaluable.ficha.name}' ` +
@@ -442,9 +455,15 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       }
     }
 
-    deps.markProcessed(ticker, barDate);
-
-    if (proposals.length === 0) return 'no-votes';
+    if (proposals.length === 0) {
+      // La vela solo se marca si la evaluación terminó completa: con un
+      // fallo de estrategia queda pendiente y una reentrega la reintenta.
+      if (evalErrors === 0) {
+        deps.markProcessed(ticker, barDate);
+        return 'no-votes';
+      }
+      return 'error';
+    }
 
     const votes = proposals.map((proposal) => proposal.vote);
     const directions = new Set(votes.map((vote) => vote.direction));
@@ -463,6 +482,9 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         })
         .filter((part): part is string => part !== null)
         .join(' · ');
+      // Resultado definitivo (otro voto no puede deshacer el desacuerdo):
+      // la vela queda marcada aunque alguna estrategia hubiera fallado.
+      deps.markProcessed(ticker, barDate);
       for (const vote of votes) markState(vote.strategyId, barDate, 'sin-senal', null);
       recordJournal({
         type: 'contradiccion',
@@ -496,6 +518,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
 
     if (!(entry > 0)) {
       // La señal exige entrada > 0 (CHECK de la tabla y guarda de riesgo).
+      // Sin marca: una corrección de la serie puede completarla después.
       logger.warn?.(`[signals] ${ticker} ${barDate}: sin precio de referencia; no se emite`);
       for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
       return 'error';
@@ -505,8 +528,9 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     try {
       signal = emitSignal(intent, votes, dataUsed, barDate);
     } catch (error: unknown) {
-      // La pasarela o la persistencia fallaron: queda como error en el
-      // diario, la vela no se reevalúa (ya está marcada) y se sigue.
+      // La pasarela o la persistencia fallaron sin dejar decisión
+      // guardada: queda como error en el diario y la vela NO se marca,
+      // de modo que una reentrega del mismo cierre la reintenta.
       const message = error instanceof Error ? error.message : String(error);
       logger.error?.(`[signals] ${ticker} ${barDate}: no se pudo emitir la señal: ${message}`);
       for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
@@ -521,6 +545,8 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       });
       return 'error';
     }
+    // Resultado definitivo (señal persistida o ya existente): se marca.
+    deps.markProcessed(ticker, barDate);
     const outcome: SignalStrategyOutcome =
       signal === null ? 'sin-senal' : signal.decision.status === 'vetada' ? 'vetada' : 'senal';
     for (const vote of votes) markState(vote.strategyId, barDate, outcome, signal?.id ?? null);

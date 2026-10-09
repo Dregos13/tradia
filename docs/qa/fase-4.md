@@ -29,6 +29,7 @@ Auditoría del motor de señales y la cartera simulada en el proceso principal; 
 - **Esperado:** reintentar la vela porque no se obtuvo una decisión de riesgo.
 - **Observado:** `evaluateTicker` devuelve `error` en el primer intento y `already-processed` en el segundo; no existe señal en `signals`. `markProcessed` se ejecuta antes de llamar a la pasarela.
 - **Evidencia:** `src/main/signals/engine.ts:403-405`, `445` y `504-525`; prueba de guardado seguro ante fallo de pasarela en `src/main/signals/__audit__/signals.audit.test.ts`. Bug abierto: [#7](https://github.com/Dregos13/tradia/issues/7).
+- **Corrección:** resuelto. `markProcessed` ya no se ejecuta antes de la pasarela: la marca solo se escribe cuando la evaluación llega a un resultado definitivo (señal persistida, contradicción o evaluación completa sin votos). Un fallo temporal de `submitSignal` o de la persistencia deja la vela sin marcar y la reentrega del mismo cierre reintenta la evaluación (en el primer intento `error` con entrada `error` en el diario; al repetir, `emitted`). La misma regla cubre los fallos de evaluación de estrategia (un `no-votes` con errores no marca). Regresión cubierta por el caso «reintenta la vela tras un fallo temporal de la pasarela de riesgo» de `signals.audit.test.ts` y por dos casos de `engine.test.ts`.
 
 ### Resultado de la batería
 
