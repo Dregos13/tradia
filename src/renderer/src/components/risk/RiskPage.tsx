@@ -1,37 +1,34 @@
 import type { RiskState } from '../../hooks/useRisk';
-
-/** Provisional route; the limits editor and veto tester are delivered next. */
+import { LimitsForm } from './LimitsForm';
+import { VetoLog } from './VetoLog';
+import { SignalTester } from './SignalTester';
+import { CautionBanner } from './CautionBanner';
+import './risk.css';
 export function RiskPage({ risk }: { risk: RiskState }) {
   return (
-    <section aria-labelledby="risk-page-title">
+    <section className="risk-page" aria-labelledby="risk-page-title">
       <h2 id="risk-page-title">Control de riesgo</h2>
-      <p>Estas reglas no las puede cambiar la IA</p>
+      <p className="risk-muted">Límites independientes y registro de cada decisión vetada.</p>
+      <CautionBanner caution={risk.caution} />
       {risk.loading && <p role="status">Cargando estado de riesgo…</p>}
       {risk.error && (
-        <div role="alert">
+        <div className="risk-error" role="alert">
           <p>{risk.error}</p>
           <button className="button" onClick={() => void risk.reload()}>
             Reintentar
           </button>
         </div>
       )}
-      {risk.killSwitch && (
-        <p>{risk.killSwitch.active ? 'Señales y órdenes detenidas' : 'Parada desactivada'}</p>
-      )}
-      {risk.caution?.active && (
-        <div className="risk-caution" role="status">
-          <strong>Modo cautela activo</strong>
-          <p>
-            {risk.caution.eventTitle} ·{' '}
-            {risk.caution.effect === 'bloquear'
-              ? 'Entradas bloqueadas'
-              : `Tamaño × ${risk.caution.sizeFactor}`}
-          </p>
-        </div>
-      )}
-      <p>
-        La configuración de límites y el registro de vetos se incorporarán en la siguiente entrega.
-      </p>
+      <div className="risk-grid">
+        {risk.limits && <LimitsForm limits={risk.limits} caution={risk.caution} />}
+        <VetoLog
+          vetoes={risk.vetoes}
+          loading={risk.loading}
+          error={risk.error}
+          onRetry={() => void risk.reload()}
+        />
+        <SignalTester />
+      </div>
     </section>
   );
 }
