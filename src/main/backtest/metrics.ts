@@ -80,7 +80,7 @@ export interface BacktestMetrics {
   totalReturn: number | null;
   /** Rentabilidad anualizada componiendo a `tradingDaysPerYear`. */
   annualizedReturn: number | null;
-  /** Episodio de drawdown máximo; `null` si la curva está vacía. */
+  /** Episodio de drawdown máximo; `null` si la curva está vacía o nunca cae. */
   maxDrawdown: DrawdownEpisode | null;
   /** Sharpe anualizado; `null` si no está definido, ±Infinity con varianza 0. */
   sharpe: number | null;
