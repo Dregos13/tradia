@@ -38,5 +38,30 @@ export default tseslint.config(
       globals: { ...globals.browser },
     },
   },
+  {
+    // Motor de riesgo de solo lectura para la IA y las estrategias: ni
+    // strategies ni backtest pueden importar los escritores del motor
+    // (repositorio de límites/vetos/cartera, servicio IPC ni la parada).
+    // Las señales entran por la pasarela (risk/engine via ctx.services.risk)
+    // y los evaluadores puros (tradeRules, portfolio*, caution) sí son
+    // importables.
+    files: ['src/main/strategies/**/*.ts', 'src/main/backtest/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/risk/repository', '**/risk/service', '**/risk/killSwitch'],
+              message:
+                'El motor de riesgo es de solo lectura para la IA y las estrategias: ' +
+                'envía señales por la pasarela (ctx.services.risk.submitSignal) en vez de ' +
+                'importar los escritores de riesgo.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );

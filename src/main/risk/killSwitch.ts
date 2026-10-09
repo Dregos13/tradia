@@ -490,7 +490,20 @@ const isDataStatusEntryLike = (value: unknown): value is DataStatusEntry =>
   typeof (value as { key?: unknown }).key === 'string' &&
   isDataStatusState((value as { state?: unknown }).state);
 
-export function registerKillSwitch(ctx: ServiceContext): KillSwitchService {
+/** Dependencias opcionales del registro; la pasarela aporta los límites reales. */
+export interface RegisterKillSwitchDeps {
+  /**
+   * Límites vigentes para los umbrales automáticos (pérdida anómala y
+   * drawdown). Se consulta en cada observación: la pasarela lo enlaza con
+   * el repositorio de límites cuando se registra. Por defecto RISK_DEFAULTS.
+   */
+  getLimits?(): RiskLimits;
+}
+
+export function registerKillSwitch(
+  ctx: ServiceContext,
+  deps: RegisterKillSwitchDeps = {},
+): KillSwitchService {
   // Sin base de datos la parada degrada a memoria (mismo patrón que
   // registerHealth): la app sigue arrancando, aunque el estado no sobreviva.
   let db = ctx.services.storage?.getDb() ?? null;
@@ -501,6 +514,7 @@ export function registerKillSwitch(ctx: ServiceContext): KillSwitchService {
 
   const service = createKillSwitchService({
     store: createKillSwitchStore(db),
+    getLimits: deps.getLimits,
     // Indirección: usa el ctx.broadcast vigente en cada emisión.
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
     pauseAgents: () => {

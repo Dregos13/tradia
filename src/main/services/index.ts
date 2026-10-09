@@ -1,3 +1,4 @@
+import { RISK_DEFAULTS } from '../../shared/ipc';
 import { registerConnectivity, type ConnectivityService } from './connectivity';
 import { registerNotifications, type NotificationsService } from './notifications';
 import { registerScheduler, type SchedulerService } from './scheduler';
@@ -20,6 +21,7 @@ import { registerStrategies } from '../strategies/service';
 import type { StrategiesRepository } from '../strategies/repository';
 import { registerBacktest, type BacktestService } from '../backtest/service';
 import { registerKillSwitch, type KillSwitchService } from '../risk/killSwitch';
+import { registerRisk, type RiskService } from '../risk/service';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -34,6 +36,8 @@ export interface MainServices {
   health: DataHealthService;
   /** Parada de emergencia (fase 3): veto total, disparadores automáticos. */
   killSwitch: KillSwitchService;
+  /** Pasarela única del motor de riesgo (fase 3): límites, vetos y cautela. */
+  risk: RiskService;
   /** Series macro (FRED/VIX): refresco diario programado y `macro:get-series`. */
   macro: MacroService;
   /** Ingesta de velas: histórico, actualización diaria y watchlist/getBars. */
@@ -83,7 +87,11 @@ export function initServices(ctx: ServiceContext): MainServices {
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial
   // de kill_switch_events); envuelve ctx.broadcast antes de macro/market.
-  services.killSwitch = registerKillSwitch(ctx);
+  // getLimits es perezoso: se enlaza con los límites reales cuando `risk`
+  // se registra unas líneas más abajo.
+  services.killSwitch = registerKillSwitch(ctx, {
+    getLimits: () => services.risk?.getLimits() ?? RISK_DEFAULTS,
+  });
   services.macro = registerMacro(ctx);
   services.market = registerMarket(ctx, { clock: marketClock });
   // Tras secrets: los conectores piden sus claves por getApiKey. La app
@@ -93,6 +101,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.poller = registerNews(ctx);
   // Tras market (watchlist), secrets (clave Finnhub) y poller (news:advance-clock).
   services.calendar = registerCalendar(ctx);
+  // Fase 3: la pasarela del motor de riesgo va tras killSwitch (instala
+  // los overviewExtras reales) y tras calendar (su listEvents alimenta la
+  // cautela); la cartera simulada y los vetos viven en storage.
+  services.risk = registerRisk(ctx);
   // Fase 2: la biblioteca de estrategias solo necesita storage.
   services.strategies = registerStrategies(ctx);
   // Fase 2: el servicio de backtest necesita strategies (fichas y métricas
