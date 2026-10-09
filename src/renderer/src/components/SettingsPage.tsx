@@ -1,3 +1,4 @@
+import { BrokerSettings } from './settings/BrokerSettings';
 import { DataProvidersSettings } from './DataProvidersSettings';
 import { useEffect, useState } from 'react';
 import { SettingsSection as Section } from './settings/SettingsSection';
@@ -454,6 +455,7 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <NewsAlertSettings />
       <DataProvidersSettings />
       <ApiKeys />
+      <BrokerSettings />
       <DeliverySettings />
       <RoutineSettings />
       <BackupSettings />

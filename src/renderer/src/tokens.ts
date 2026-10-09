@@ -1,3 +1,4 @@
+import broker from './design/broker.tokens.json';
 import risk from './design/risk.tokens.json';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
@@ -11,6 +12,10 @@ export function tokenStylesheet(): string {
       .map(([key, value]) => `--${prefix}-${key}:${value};`)
       .join('');
   const theme = (mode: 'light' | 'dark') =>
+    declarations(
+      { paper: broker.color.paper[mode], 'paper-surface': broker.color.paper[`${mode}Surface`] },
+      'broker',
+    ) +
     declarations(
       Object.fromEntries(
         Object.entries(tokens.color[mode]).map(([key, token]) => [key, token.value]),
@@ -73,6 +78,10 @@ export function tokenStylesheet(): string {
       )
       .join('');
   const common =
+    declarations(
+      { dialogMax: broker.size.dialogMax, floating: broker.shadow.floating.value },
+      'broker',
+    ) +
     declarations(tokens.spacing, 'space') +
     declarations(tokens.radius, 'radius') +
     declarations(tokens.size, 'size') +
