@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3';
 import { ipcMain } from 'electron';
 
 import {
+  DEVIATION_MARGIN_PP_DEFAULT,
+  DEVIATION_SLIPPAGE_BPS_DEFAULT,
   IPC_CHANNELS,
   IpcValidationError,
   isNotificationPrefs,
@@ -18,10 +20,11 @@ import { applyOsAutostart, readOsAutostart } from './tray';
  * secretos). Si el almacén no está disponible se degrada a memoria para que
  * el resto de la app siga funcionando durante la sesión.
  *
- * Claves conocidas: `autostart`, `disclaimerAcceptedVersion` y
- * `notifications.prefs`. `getValue`/`setValue` quedan para uso interno del
- * proceso principal (p. ej. el servicio de notificaciones); el IPC solo
- * acepta `SettingsPatch` validado.
+ * Claves conocidas: `autostart`, `disclaimerAcceptedVersion`,
+ * `notifications.prefs`, `broker.execution.enabled`,
+ * `deviation.margin.pp` y `deviation.slippage.bps`. `getValue`/`setValue`
+ * quedan para uso interno del proceso principal (p. ej. el servicio de
+ * notificaciones); el IPC solo acepta `SettingsPatch` validado.
  */
 export interface SettingsService {
   get(): AppSettings;
@@ -44,6 +47,9 @@ const KEYS = {
   disclaimerAcceptedVersion: 'disclaimerAcceptedVersion',
   disclaimerAcceptedAt: 'disclaimerAcceptedAt',
   notificationPrefs: 'notifications.prefs',
+  brokerExecutionEnabled: 'broker.execution.enabled',
+  deviationMarginPp: 'deviation.margin.pp',
+  deviationSlippageBps: 'deviation.slippage.bps',
 } as const;
 
 interface KeyValueStore {
@@ -84,11 +90,25 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
   }
   const store = db ? sqliteStore(db) : memoryStore();
 
+  /** Número persistido con su valor por defecto si falta o está corrupto. */
+  const getNumber = (key: string, fallback: number): number => {
+    const raw = store.getValue(key);
+    if (raw === null) return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
   const service: SettingsService = {
     get: () => ({
       autostart: store.getValue(KEYS.autostart) === 'true',
       disclaimerAcceptedVersion: store.getValue(KEYS.disclaimerAcceptedVersion) || null,
       disclaimerAcceptedAt: store.getValue(KEYS.disclaimerAcceptedAt) || null,
+      brokerExecutionEnabled: store.getValue(KEYS.brokerExecutionEnabled) !== 'false',
+      deviationMarginPp: getNumber(KEYS.deviationMarginPp, DEVIATION_MARGIN_PP_DEFAULT),
+      deviationSlippageBps: getNumber(
+        KEYS.deviationSlippageBps,
+        DEVIATION_SLIPPAGE_BPS_DEFAULT,
+      ),
     }),
     set: (patch) => {
       if (patch.autostart !== undefined) {
@@ -106,6 +126,15 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
         };
         if (db) db.transaction(saveAcceptance)();
         else saveAcceptance();
+      }
+      if (patch.brokerExecutionEnabled !== undefined) {
+        store.setValue(KEYS.brokerExecutionEnabled, String(patch.brokerExecutionEnabled));
+      }
+      if (patch.deviationMarginPp !== undefined) {
+        store.setValue(KEYS.deviationMarginPp, String(patch.deviationMarginPp));
+      }
+      if (patch.deviationSlippageBps !== undefined) {
+        store.setValue(KEYS.deviationSlippageBps, String(patch.deviationSlippageBps));
       }
       return service.get();
     },

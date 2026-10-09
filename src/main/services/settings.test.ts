@@ -35,6 +35,9 @@ describe('servicio de ajustes', () => {
       autostart: false,
       disclaimerAcceptedVersion: null,
       disclaimerAcceptedAt: null,
+      brokerExecutionEnabled: true,
+      deviationMarginPp: 2,
+      deviationSlippageBps: 10,
     });
     expect(settings.getNotificationPrefs()).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
@@ -48,6 +51,9 @@ describe('servicio de ajustes', () => {
       autostart: true,
       disclaimerAcceptedVersion: '2026-10',
       disclaimerAcceptedAt: expect.any(String),
+      brokerExecutionEnabled: true,
+      deviationMarginPp: 2,
+      deviationSlippageBps: 10,
     });
     expect(Number.isNaN(Date.parse(updated.disclaimerAcceptedAt!))).toBe(false);
     expect(createSettingsService(db).get().disclaimerAcceptedAt).toBe(updated.disclaimerAcceptedAt);
@@ -78,12 +84,32 @@ describe('servicio de ajustes', () => {
     expect(reset.disclaimerAcceptedAt).toBeNull();
   });
 
+  it('persiste el interruptor de ejecución y los márgenes de desviación', () => {
+    const { db } = fileDb();
+    const settings = createSettingsService(db);
+    settings.set({
+      brokerExecutionEnabled: false,
+      deviationMarginPp: 3.5,
+      deviationSlippageBps: 15,
+    });
+    const reloaded = createSettingsService(db);
+    expect(reloaded.get().brokerExecutionEnabled).toBe(false);
+    expect(reloaded.get().deviationMarginPp).toBe(3.5);
+    expect(reloaded.get().deviationSlippageBps).toBe(15);
+    // Un valor corrupto en la base cae al valor por defecto, no a NaN.
+    settings.setValue('deviation.margin.pp', 'corrupto');
+    expect(createSettingsService(db).get().deviationMarginPp).toBe(2);
+  });
+
   it('degrada a memoria cuando el almacén no está disponible', () => {
     const settings = createSettingsService(null);
     expect(settings.get()).toEqual({
       autostart: false,
       disclaimerAcceptedVersion: null,
       disclaimerAcceptedAt: null,
+      brokerExecutionEnabled: true,
+      deviationMarginPp: 2,
+      deviationSlippageBps: 10,
     });
     expect(settings.set({ autostart: true }).autostart).toBe(true);
     expect(settings.get().autostart).toBe(true);

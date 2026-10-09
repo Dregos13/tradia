@@ -2,6 +2,8 @@ import {
   dataStatusKey,
   DEFAULT_STRATEGY_COSTS,
   DELIVERY_CONFIG_DEFAULTS,
+  DEVIATION_MARGIN_PP_DEFAULT,
+  DEVIATION_SLIPPAGE_BPS_DEFAULT,
   INITIAL_UNIVERSE_TICKERS,
   isAddSourceRequest,
   isBacktestFinalTestRequest,
@@ -9,10 +11,15 @@ import {
   isBacktestRunId,
   isBacktestRunRequest,
   isBackupRestoreRequest,
+  isBrokerConnectRequest,
+  isBrokerOrdersQuery,
+  isBrokerTestRequest,
   isCalendarListQuery,
+  isCancelOrderRequest,
   isCreateStrategyRequest,
   isDeliveryConfigInput,
   isDeliveryTestRequest,
+  isDeviationReportQuery,
   isGetBarsRequest,
   isGetStrategyRequest,
   isIsoDate,
@@ -35,6 +42,7 @@ import {
   isTicker,
   isUpdateSourceRequest,
   isUpdateStrategyRequest,
+  BROKER_ORDER_OPEN_STATUSES,
   CAUTION_REDUCED_SIZE_FACTOR,
   JOURNAL_LIST_MAX_LIMIT,
   RISK_DEFAULTS,
@@ -52,12 +60,16 @@ import type {
   BacktestProgressEvent,
   BacktestReport,
   BacktestStage,
+  BrokerOrder,
+  BrokerStatus,
   CalendarEvent,
   CalendarUpdatedEvent,
   CautionState,
   ConnectivityState,
   DataStatusEntry,
   DeliveryConfig,
+  DeviationPeriod,
+  DeviationReportRow,
   EquityPointDto,
   ExposureSlice,
   GetBarsRequest,
@@ -78,6 +90,9 @@ import type {
   NotificationRoute,
   PaperPortfolioOverview,
   PaperPosition,
+  ReconcileDiscrepancy,
+  ReconcileDiscrepancyEvent,
+  ReconcileRun,
   RiskDecision,
   RiskDecisionReason,
   RiskLimits,
@@ -431,6 +446,9 @@ export function createSimulatedAdapter() {
     autostart: false,
     disclaimerAcceptedVersion: null,
     disclaimerAcceptedAt: null,
+    brokerExecutionEnabled: true,
+    deviationMarginPp: DEVIATION_MARGIN_PP_DEFAULT,
+    deviationSlippageBps: DEVIATION_SLIPPAGE_BPS_DEFAULT,
   };
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
   let alertPrefs: AlertPrefs = { leadMinutes: 30 };
@@ -963,6 +981,149 @@ export function createSimulatedAdapter() {
   };
   let routineConfig: RoutineConfig = { ...ROUTINE_DEFAULTS };
   const backups: BackupInfo[] = [];
+
+  // -- Fase 5: broker paper, órdenes, conciliación y desviación (en memoria) --
+  const brokerOrderUpdatedListeners = new Set<(order: BrokerOrder) => void>();
+  const reconcileDiscrepancyListeners = new Set<(event: ReconcileDiscrepancyEvent) => void>();
+  let brokerStatus: BrokerStatus = {
+    state: 'desconectada',
+    adapter: null,
+    account: null,
+    executionEnabled: true,
+    error: null,
+    checkedAt: null,
+  };
+  let brokerOrderSeq = 0;
+  let reconcileSeq = 0;
+  let discrepancySeq = 0;
+  let lastReconcileRun: ReconcileRun | null = null;
+  let openDiscrepancies: ReconcileDiscrepancy[] = [];
+  const nowIso = () => new Date().toISOString();
+  const fakeAccount = () => ({
+    accountId: 'SIM-PAPER-001',
+    status: 'ACTIVE',
+    currency: 'USD',
+    cash: 100_000,
+    equity: 100_000,
+    buyingPower: 100_000,
+    paper: true as const,
+  });
+  const makeFakeOrder = (patch: Partial<BrokerOrder> = {}): BrokerOrder => ({
+    id: ++brokerOrderSeq,
+    clientOrderId: `tradia-fake-${brokerOrderSeq}`,
+    brokerOrderId: `sim-${brokerOrderSeq}`,
+    signalId: null,
+    strategyId: null,
+    leg: null,
+    ticker: 'AAPL',
+    type: 'market',
+    side: 'buy',
+    quantity: 10,
+    filledQuantity: 0,
+    limitPrice: null,
+    stopPrice: null,
+    ocoGroupId: null,
+    execution: {
+      requestedAt: nowIso(),
+      requestedPrice: null,
+      executedAt: null,
+      executedPrice: null,
+      slippageBps: null,
+    },
+    status: 'pendiente',
+    attempts: 1,
+    rejectReason: null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    ...patch,
+  });
+  // Semilla visible en la página «Órdenes»: una ejecutada con slippage,
+  // un OCO de salida y una limitada pendiente cancelable.
+  const brokerOrders: BrokerOrder[] = [
+    makeFakeOrder({
+      clientOrderId: 'tradia-1-entrada',
+      leg: 'entrada',
+      signalId: 1,
+      strategyId: 1,
+      filledQuantity: 10,
+      status: 'ejecutada',
+      execution: {
+        requestedAt: hoursAgo(26),
+        requestedPrice: 200,
+        executedAt: hoursAgo(26),
+        executedPrice: 200.2,
+        slippageBps: 10,
+      },
+    }),
+    makeFakeOrder({
+      clientOrderId: 'tradia-1-salida',
+      leg: 'salida',
+      signalId: 1,
+      strategyId: 1,
+      type: 'oco',
+      side: 'sell',
+      limitPrice: 220,
+      stopPrice: 190,
+      ocoGroupId: 'sim-oco-1',
+      status: 'enviada',
+    }),
+    makeFakeOrder({
+      clientOrderId: 'tradia-manual-1',
+      type: 'limit',
+      limitPrice: 150,
+      status: 'enviada',
+      execution: {
+        requestedAt: hoursAgo(1),
+        requestedPrice: 150,
+        executedAt: null,
+        executedPrice: null,
+        slippageBps: null,
+      },
+    }),
+  ];
+
+  /** Filas del informe real vs backtest: 8 semanas o 2 meses por estrategia. */
+  const fakeDeviationRows = (period: DeviationPeriod): DeviationReportRow[] => {
+    const strategies = [
+      { strategyId: 1, strategyName: 'Cruce de medias', drift: 0.1 },
+      { strategyId: 2, strategyName: 'RSI sobreventa', drift: -0.9 },
+    ];
+    const rows: DeviationReportRow[] = [];
+    const day = 86_400_000;
+    for (const s of strategies) {
+      const count = period === 'semanal' ? 8 : 2;
+      const span = period === 'semanal' ? 7 : 30;
+      for (let i = 0; i < count; i++) {
+        const hastaMs =
+          period === 'semanal'
+            ? Date.now() - (i + 1) * span * day
+            : Date.now() - (i + 1) * span * day;
+        const hasta = toDate(hastaMs);
+        const desde = toDate(hastaMs - (span - 1) * day);
+        const real = round(1.2 + s.drift + (i % 3) * 0.3, 2);
+        const expected = 1.2;
+        const deviation = round(real - expected, 2);
+        const slippage = s.strategyId === 2 && i === 1 ? 14 : 6;
+        rows.push({
+          strategyId: s.strategyId,
+          strategyName: s.strategyName,
+          desde,
+          hasta,
+          trades: 3 + (i % 2),
+          expectedReturnPct: expected,
+          realReturnPct: real,
+          deviationPp: deviation,
+          expectedWinRate: 0.55,
+          realWinRate: round(0.55 + s.drift / 10, 2),
+          avgSlippageBps: slippage,
+          outOfMargin:
+            Math.abs(deviation) > settings.deviationMarginPp ||
+            slippage > settings.deviationSlippageBps,
+        });
+      }
+    }
+    return rows.sort((a, b) => b.hasta.localeCompare(a.hasta));
+  };
 
   /** Señales filtradas según SignalsListQuery (fecha sobre la vela). */
   const filterSignals = (query?: SignalsListQuery): Signal[] => {
@@ -1849,6 +2010,125 @@ export function createSimulatedAdapter() {
         return { accepted: true };
       },
     },
+    broker: {
+      connect: async (request) => {
+        if (!isBrokerConnectRequest(request)) {
+          throw new Error('Claves del broker inválidas (alfanuméricas, sin espacios).');
+        }
+        brokerStatus = {
+          state: 'conectada',
+          adapter: 'simulado',
+          account: fakeAccount(),
+          executionEnabled: settings.brokerExecutionEnabled,
+          error: null,
+          checkedAt: nowIso(),
+        };
+        return { ...brokerStatus };
+      },
+      disconnect: async () => {
+        brokerStatus = { ...brokerStatus, state: 'desconectada', account: null, error: null };
+        return { ...brokerStatus };
+      },
+      status: async () => ({
+        ...brokerStatus,
+        executionEnabled: settings.brokerExecutionEnabled,
+      }),
+      test: async (request) => {
+        if (!isBrokerTestRequest(request)) {
+          throw new Error('Petición de prueba inválida (las dos claves o ninguna).');
+        }
+        if (request?.apiKeyId !== undefined && !isBrokerConnectRequest(request)) {
+          return { ok: false, account: null, error: 'Claves inválidas.', latencyMs: 5 };
+        }
+        if (brokerStatus.state !== 'conectada' && request?.apiKeyId === undefined) {
+          return { ok: false, account: null, error: 'No hay cuenta conectada.', latencyMs: 5 };
+        }
+        return { ok: true, account: fakeAccount(), error: null, latencyMs: 21 };
+      },
+      onOrderUpdated: (listener) => subscribe(brokerOrderUpdatedListeners, listener),
+    },
+    orders: {
+      list: async (query) => {
+        if (query !== undefined && !isBrokerOrdersQuery(query)) {
+          throw new Error('Filtros de órdenes inválidos.');
+        }
+        let rows = [...brokerOrders].sort((a, b) => b.id - a.id);
+        if (query?.status) rows = rows.filter((o) => o.status === query.status);
+        if (query?.strategyId !== undefined) {
+          rows = rows.filter((o) => o.strategyId === query.strategyId);
+        }
+        if (query?.ticker) {
+          rows = rows.filter((o) => o.ticker === query.ticker!.trim().toUpperCase());
+        }
+        const offset = query?.offset ?? 0;
+        return rows.slice(offset, offset + (query?.limit ?? rows.length));
+      },
+      cancel: async (request) => {
+        if (!isCancelOrderRequest(request)) {
+          throw new Error('Orden a cancelar inválida.');
+        }
+        const order = brokerOrders.find((o) => o.id === request.id);
+        if (order === undefined) {
+          throw new Error(`No existe la orden ${request.id}.`);
+        }
+        if (!(BROKER_ORDER_OPEN_STATUSES as readonly string[]).includes(order.status)) {
+          throw new Error(`La orden ${request.id} ya está ${order.status} y no se puede cancelar.`);
+        }
+        order.status = 'cancelada';
+        order.updatedAt = nowIso();
+        brokerOrderUpdatedListeners.forEach((listener) => listener({ ...order }));
+        return { ...order };
+      },
+    },
+    reconcile: {
+      run: async () => {
+        const run: ReconcileRun = {
+          id: ++reconcileSeq,
+          trigger: 'manual',
+          startedAt: nowIso(),
+          finishedAt: nowIso(),
+          result: 'ok',
+          positionsApp: 0,
+          positionsBroker: 0,
+          ordersApp: brokerOrders.filter((o) =>
+            (BROKER_ORDER_OPEN_STATUSES as readonly string[]).includes(o.status),
+          ).length,
+          ordersBroker: brokerOrders.filter((o) =>
+            (BROKER_ORDER_OPEN_STATUSES as readonly string[]).includes(o.status),
+          ).length,
+          discrepancies: 0,
+          error: null,
+        };
+        lastReconcileRun = run;
+        // Una ejecución limpia cierra los descuadres abiertos y avisa.
+        if (openDiscrepancies.length > 0) {
+          const event: ReconcileDiscrepancyEvent = {
+            runId: run.id,
+            at: nowIso(),
+            discrepancies: [],
+          };
+          openDiscrepancies = [];
+          reconcileDiscrepancyListeners.forEach((listener) => listener(event));
+        }
+        return run;
+      },
+      status: async () => ({ lastRun: lastReconcileRun, openDiscrepancies }),
+      onDiscrepancy: (listener) => subscribe(reconcileDiscrepancyListeners, listener),
+    },
+    deviation: {
+      report: async (query) => {
+        if (!isDeviationReportQuery(query)) {
+          throw new Error('Consulta del informe inválida (periodo semanal o mensual).');
+        }
+        return {
+          period: query.period,
+          marginPp: settings.deviationMarginPp,
+          maxSlippageBps: settings.deviationSlippageBps,
+          generatedAt: nowIso(),
+          rows: fakeDeviationRows(query.period),
+        };
+      },
+    },
     logs: {
       openFolder: async () => ({ ok: true, path: '/tmp/tradia-logs' }),
     },
@@ -1877,6 +2157,20 @@ export function createSimulatedAdapter() {
     emitCalendarUpdated(event: CalendarUpdatedEvent) {
       calendarUpdatedListeners.forEach((listener) => listener(event));
     },
+    /** Notifica un broker:order-updated (fase 5). */
+    emitOrderUpdated(order: BrokerOrder) {
+      brokerOrderUpdatedListeners.forEach((listener) => listener(order));
+    },
+    /** Notifica un reconcile:discrepancy y deja el descuadre abierto (fase 5). */
+    emitReconcileDiscrepancy(discrepancies: ReconcileDiscrepancy[]) {
+      openDiscrepancies = discrepancies.map((d) => ({ ...d, id: ++discrepancySeq }));
+      const event: ReconcileDiscrepancyEvent = {
+        runId: lastReconcileRun?.id ?? 0,
+        at: new Date().toISOString(),
+        discrepancies: openDiscrepancies,
+      };
+      reconcileDiscrepancyListeners.forEach((listener) => listener(event));
+    },
     listenerCount: () =>
       connectionListeners.size +
       agentListeners.size +
@@ -1885,6 +2179,8 @@ export function createSimulatedAdapter() {
       marketUpdatedListeners.size +
       newsUpdatedListeners.size +
       calendarUpdatedListeners.size +
-      alertNavigateListeners.size,
+      alertNavigateListeners.size +
+      brokerOrderUpdatedListeners.size +
+      reconcileDiscrepancyListeners.size,
   };
 }
