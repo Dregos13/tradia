@@ -335,8 +335,11 @@ export function createBackupService(deps: BackupServiceDeps): BackupService {
     // 1. Copia de seguridad del estado actual, antes de tocar nada.
     const db = deps.getDb();
     if (existsSync(deps.dbPath)) {
-      const safetyPath = join(deps.backupsDir, `tradia-pre-restauracion-${fileStamp(now())}.db`);
       mkdirSync(deps.backupsDir, { recursive: true });
+      let safetyPath = join(deps.backupsDir, `tradia-pre-restauracion-${fileStamp(now())}.db`);
+      for (let i = 2; existsSync(safetyPath); i++) {
+        safetyPath = join(deps.backupsDir, `tradia-pre-restauracion-${fileStamp(now())}-${i}.db`);
+      }
       if (db?.open) {
         await db.backup(safetyPath);
       } else {

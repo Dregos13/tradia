@@ -36,7 +36,6 @@ import type { SessionDate } from '../market/providers/types';
 import { TICKER_PATTERN } from '../market/providers/types';
 import type {
   JournalRecordInput,
-  JournalResult,
   JournalRuleCheck,
   JournalStrategyRef,
 } from '../../shared/journal';
@@ -54,7 +53,7 @@ import type {
   SignalsListQuery,
 } from '../../shared/signals';
 import type { Strategy } from '../../shared/strategy';
-import { collectLastBarOrders } from './probe';
+import { collectLastBarOrders, type ProbeOrder } from './probe';
 import type { NewSignal, SignalsRepository } from './repository';
 
 // ---------------------------------------------------------------------------
@@ -97,8 +96,10 @@ export interface SignalEngineLogger {
 
 export interface SignalEngineDeps {
   repo: SignalsRepository;
-  /** Estrategias 'activa'/'paper' ejecutables, reevaluadas en cada pasada. */
+  /** Estrategias 'activa'/'paper' ejecutables, releídas en cada pasada. */
   listEvaluables(): EvaluableStrategy[];
+  /** Todas las fichas de la biblioteca (bloque «Estrategias» del panel). */
+  listStrategies(): { id: number; name: string; version: number; status: Strategy['status'] }[];
   /** Tickers del seguimiento (watchlist). */
   listWatchlistTickers(): string[];
   /**
@@ -156,6 +157,12 @@ export interface SignalEngine {
   listSignals(query?: SignalsListQuery): Signal[];
   getSignal(id: number): Signal | null;
   stop(): void;
+}
+
+/** Voto más la propuesta que lo originó (stop/objetivo no viajan en el voto). */
+interface VoteWithOrder {
+  vote: SignalStrategyVote;
+  order: ProbeOrder;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +223,7 @@ const toStrategyRef = (vote: SignalStrategyVote): JournalStrategyRef => ({
   version: vote.version,
 });
 
+/** Las reglas incumplidas de la decisión, como cumplimiento del diario. */
 function riskRuleChecks(decision: RiskDecision): JournalRuleCheck[] {
   return decision.reasons.map((reason) => {
     const details = Object.entries(reason.details);
@@ -280,16 +288,20 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     }
   };
 
-  /** Los votos de una estrategia sobre el activo al cierre de `barDate`. */
+  /**
+   * Las propuestas de una estrategia sobre el activo al cierre de
+   * `barDate`: rejuega la estrategia con su versión vigente sobre sus
+   * mercados (velas truncadas a `barDate`, una sola fuente por serie) y
+   * recoge las órdenes emitidas en la última sesión.
+   */
   const collectVotes = (
     evaluable: EvaluableStrategy,
     ticker: string,
     barDate: SessionDate,
     preferSource: string | null,
-  ): SignalStrategyVote[] => {
-    const markets = executableMarkets(evaluable.ficha.markets);
+  ): VoteWithOrder[] => {
     const bars: Record<string, readonly SignalSourceBar[]> = {};
-    for (const market of markets) {
+    for (const market of executableMarkets(evaluable.ficha.markets)) {
       const rows = deps.barsFor(market, barDate, preferSource);
       if (rows.length > 0) bars[market] = rows;
     }
@@ -307,20 +319,18 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     });
 
     const confidence = voteConfidence(evaluable.ficha);
-    return orders
-      .filter((order) => order.ticker === ticker)
-      .map(
-        (order): SignalStrategyVote => ({
-          strategyId: evaluable.ficha.id,
-          name: evaluable.ficha.name,
-          version: evaluable.ficha.version,
-          direction: order.kind === 'buy' ? 'largo' : 'corto',
-          confidence,
-          reason: voteReason(evaluable.ficha, order.kind),
-        }),
-      )
-      .slice(0, 1)
-      .map((vote) => vote);
+    const own = orders.filter((order) => order.ticker === ticker).slice(0, 1);
+    return own.map((order) => ({
+      order,
+      vote: {
+        strategyId: evaluable.ficha.id,
+        name: evaluable.ficha.name,
+        version: evaluable.ficha.version,
+        direction: order.kind === 'buy' ? 'largo' : 'corto',
+        confidence,
+        reason: voteReason(evaluable.ficha, order.kind),
+      },
+    }));
   };
 
   /** Ventana y lote que originan la señal (trazabilidad de SignalDataUsed). */
@@ -328,24 +338,62 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     ticker: string,
     barDate: SessionDate,
     preferSource: string | null,
-  ): SignalDataUsed => {
+  ): { dataUsed: SignalDataUsed; lastBar: SignalSourceBar | null } => {
     const rows = deps.barsFor(ticker, barDate, preferSource);
-    const first = rows[0];
-    const last = rows[rows.length - 1];
+    const first = rows[0] ?? null;
+    const last = rows[rows.length - 1] ?? null;
     return {
-      barDate,
-      desde: first?.date ?? barDate,
-      hasta: last?.date ?? barDate,
-      barCount: rows.length,
-      batchId: last?.batchId ?? null,
-      batchVersion: last ? deps.getBatchVersion(last.batchId) : null,
-      source: last?.source ?? preferSource,
+      lastBar: last,
+      dataUsed: {
+        barDate,
+        desde: first?.date ?? barDate,
+        hasta: last?.date ?? barDate,
+        barCount: rows.length,
+        batchId: last?.batchId ?? null,
+        batchVersion: last ? deps.getBatchVersion(last.batchId) : null,
+        source: last?.source ?? preferSource,
+      },
     };
   };
 
-  const persistSignal = (input: NewSignal): Signal | null => {
+  /**
+   * Persiste la señal ya decidida y, si el insert realmente creó la fila,
+   * registra el diario y emite `signals:new`. Devuelve la señal o null
+   * cuando la vela ya tenía la suya (idempotencia).
+   */
+  const emitSignal = (
+    intent: SignalIntent,
+    votes: readonly SignalStrategyVote[],
+    dataUsed: SignalDataUsed,
+    barDate: SessionDate,
+  ): Signal | null => {
+    const decision = deps.submitSignal(intent);
+    const input: NewSignal = {
+      ticker: intent.ticker,
+      direction: intent.direction,
+      entry: intent.entry,
+      stop: intent.stop,
+      target: intent.target,
+      confidence: intent.confidence,
+      reason: aggregateReason(votes),
+      strategies: [...votes],
+      dataUsed,
+      decision,
+      barDate,
+    };
     const { signal, inserted } = deps.repo.insertSignal(input);
     if (!inserted) return null;
+
+    recordJournal({
+      type: 'senal',
+      ticker: signal.ticker,
+      strategies: [...votes.map(toStrategyRef)],
+      reason: signal.reason,
+      dataUsed: { ...(dataUsed as unknown as Record<string, unknown>) },
+      result: decision.status,
+      ruleChecks: riskRuleChecks(decision),
+      signalId: signal.id,
+    });
     const event: SignalNewEvent = { signal };
     deps.broadcast(IPC_CHANNELS.signals.new, event);
     return signal;
@@ -366,9 +414,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       .listEvaluables()
       .filter((evaluable) => executableMarkets(evaluable.ficha.markets).includes(ticker));
 
-    const votes: SignalStrategyVote[] = [];
-    /** Estrategias que votaron, pendientes de la decisión agregada. */
-    const voters = new Set<number>();
+    const proposals: VoteWithOrder[] = [];
     for (const evaluable of evaluables) {
       try {
         const own = collectVotes(evaluable, ticker, barDate, preferSource);
@@ -376,12 +422,12 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
           markState(evaluable.ficha.id, barDate, 'sin-senal', null);
           continue;
         }
-        votes.push(...own);
-        voters.add(evaluable.ficha.id);
+        proposals.push(...own);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         logger.error?.(
-          `[signals] falló la evaluación de '${evaluable.ficha.name}' v${evaluable.ficha.version} en ${ticker}: ${message}`,
+          `[signals] falló la evaluación de '${evaluable.ficha.name}' ` +
+            `v${evaluable.ficha.version} en ${ticker}: ${message}`,
         );
         markState(evaluable.ficha.id, barDate, 'error', null);
         recordJournal({
@@ -404,11 +450,11 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
 
     deps.markProcessed(ticker, barDate);
 
-    if (votes.length === 0) return 'no-votes';
+    if (proposals.length === 0) return 'no-votes';
 
+    const votes = proposals.map((proposal) => proposal.vote);
     const directions = new Set(votes.map((vote) => vote.direction));
-    const dataUsed = dataUsedFor(ticker, barDate, preferSource);
-    const strategies = votes.map(toStrategyRef);
+    const { dataUsed, lastBar } = dataUsedFor(ticker, barDate, preferSource);
 
     if (directions.size > 1) {
       // Contradicción: no hay señal; queda en el diario con las propuestas.
@@ -423,11 +469,11 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         })
         .filter((part): part is string => part !== null)
         .join(' · ');
-      for (const strategyId of voters) markState(strategyId, barDate, 'sin-senal', null);
+      for (const vote of votes) markState(vote.strategyId, barDate, 'sin-senal', null);
       recordJournal({
         type: 'contradiccion',
         ticker,
-        strategies,
+        strategies: votes.map(toStrategyRef),
         reason: `Estrategias en desacuerdo sobre ${ticker} (${summary}); no se emite señal`,
         dataUsed: { ...(dataUsed as unknown as Record<string, unknown>), propuestas: votes },
         result: 'sin-senal',
@@ -437,7 +483,6 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     }
 
     const direction = votes[0]!.direction;
-    const lastBar = deps.barsFor(ticker, barDate, preferSource).at(-1);
     const entry = lastBar?.close ?? 0;
     const intent: SignalIntent = {
       ticker,
@@ -445,14 +490,93 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       entry,
       stop: aggregateStop(
         direction,
-        votes.flatMap(() => [] as number[]),
+        proposals.flatMap((p) => (p.order.stop === null ? [] : [p.order.stop])),
       ),
-      target: null,
+      target: aggregateTarget(
+        direction,
+        proposals.flatMap((p) => (p.order.target === null ? [] : [p.order.target])),
+      ),
       confidence: votes.reduce((acc, vote) => acc + vote.confidence, 0) / votes.length,
       origin: 'estrategia',
     };
-    return intent, emitSignal(intent, votes, dataUsed, strategies, barDate);
+
+    if (!(entry > 0)) {
+      // La señal exige entrada > 0 (CHECK de la tabla y guarda de riesgo).
+      logger.warn?.(`[signals] ${ticker} ${barDate}: sin precio de referencia; no se emite`);
+      for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
+      return 'no-votes';
+    }
+
+    const signal = emitSignal(intent, votes, dataUsed, barDate);
+    const outcome: SignalStrategyOutcome =
+      signal === null
+        ? 'sin-senal'
+        : signal.decision.status === 'vetada'
+          ? 'vetada'
+          : 'senal';
+    for (const vote of votes) markState(vote.strategyId, barDate, outcome, signal?.id ?? null);
+    if (signal !== null) {
+      logger.info?.(
+        `[signals] ${ticker} ${barDate}: señal ${direction} ${signal.decision.status} ` +
+          `(confianza ${signal.confidence.toFixed(2)})`,
+      );
+    }
+    return signal === null ? 'already-processed' : 'emitted';
   };
 
-  return { evaluateTicker } as never;
+  const engine: SignalEngine = {
+    handleBarStored: (event) => {
+      if (event.lastDate === null) return;
+      try {
+        engine.evaluateTicker(event.ticker, event.lastDate, event.source);
+      } catch (error: unknown) {
+        logger.error?.(
+          `[signals] la evaluación de ${event.ticker} en ${event.lastDate} falló: ${String(error)}`,
+        );
+      }
+    },
+
+    evaluateTicker,
+
+    evaluateNow: () => {
+      const at = isoNow();
+      const result: SignalEngineRunResult = { tickers: 0, emitted: 0, contradictions: 0, at };
+      if (stopped || blocked()) return result;
+      for (const ticker of deps.listWatchlistTickers()) {
+        const barDate = deps.lastBarDate(ticker);
+        if (barDate === null) continue;
+        const outcome = evaluateTicker(ticker, barDate, null);
+        if (outcome === 'blocked') break;
+        if (outcome === 'already-processed') continue;
+        result.tickers += 1;
+        if (outcome === 'emitted') result.emitted += 1;
+        if (outcome === 'contradiction') result.contradictions += 1;
+      }
+      return result;
+    },
+
+    listStrategyStates: () =>
+      deps.listStrategies().map((ficha) => {
+        const state = strategyStates.get(ficha.id);
+        return {
+          strategyId: ficha.id,
+          name: ficha.name,
+          version: ficha.version,
+          status: ficha.status,
+          lastBarDate: state?.lastBarDate ?? null,
+          lastEvaluatedAt: state?.lastEvaluatedAt ?? null,
+          lastOutcome: state?.lastOutcome ?? null,
+          lastSignalId: state?.lastSignalId ?? null,
+        } satisfies SignalStrategyState;
+      }),
+
+    listSignals: (query) => deps.repo.listSignals(query),
+    getSignal: (id) => deps.repo.getSignal(id),
+
+    stop: () => {
+      stopped = true;
+    },
+  };
+
+  return engine;
 }
