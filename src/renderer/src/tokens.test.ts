@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import news from '../../../.orquesta/design/e2a636ad/tokens.json';
-import base from '../../../.orquesta/design/fase-0-1/tokens.json';
-import market from '../../../.orquesta/design/fase-1/tokens.json';
+import news from './design/news.tokens.json';
+import base from './design/base.tokens.json';
+import market from './design/market.tokens.json';
 const tokens = { ...market, color: { ...market.color, state: base.color.state } };
 import { tokenStylesheet } from './tokens';
 

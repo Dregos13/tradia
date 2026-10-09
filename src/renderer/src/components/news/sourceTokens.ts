@@ -1,4 +1,4 @@
-import tokens from '../../../../../.orquesta/design/e2a636ad/tokens.json';
+import tokens from '../../design/news.tokens.json';
 /** Keep this surface scoped so other phase screens can adopt tokens independently. */
 export function sourceTokenStylesheet(): string {
   const theme = (mode: 'light' | 'dark') =>
