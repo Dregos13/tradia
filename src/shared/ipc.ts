@@ -285,10 +285,11 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
 
 /**
  * Vistas a las que puede llevar el clic de una notificación nativa: el
- * aviso previo de un evento abre Calendario y el de una noticia, Noticias.
- * Son las rutas por hash del renderer (`#noticias`, `#calendario`).
+ * aviso previo de un evento abre Calendario, el de una noticia, Noticias,
+ * y la crítica de la parada de emergencia, Riesgo. Son las rutas por hash
+ * del renderer (`#noticias`, `#calendario`, `#riesgo`).
  */
-export const NOTIFICATION_ROUTES = ['noticias', 'calendario'] as const;
+export const NOTIFICATION_ROUTES = ['noticias', 'calendario', 'riesgo'] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
 export interface NotificationPayload {

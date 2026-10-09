@@ -198,8 +198,9 @@ const api: TradiaApi = {
 contextBridge.exposeInMainWorld('tradia', api);
 
 // Clic en una notificación nativa: el proceso principal emite
-// alerts:navigate y la app navega por hash (#noticias / #calendario,
-// ver App.tsx). Funciona también con la ventana oculta en la bandeja.
+// alerts:navigate y la app navega por hash (#noticias / #calendario /
+// #riesgo, ver App.tsx). Funciona también con la ventana oculta en la
+// bandeja.
 ipcRenderer.on(IPC_CHANNELS.alerts.navigate, (_event, route: unknown) => {
   if (isNotificationRoute(route)) {
     window.location.hash = `#${route}`;
