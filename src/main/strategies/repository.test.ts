@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CreateStrategyRequest } from '../../shared/strategy';
+import { createBacktestRepository } from '../backtest/repository';
 import { openDatabase } from '../db/database';
 import { createStrategiesRepository, StrategiesError } from './repository';
 
@@ -258,4 +259,18 @@ describe('consultas y métricas', () => {
     repo.setVersionMetrics(created.id, { ...metrics, trades: 21 }, 1);
     expect(repo.get(created.id, 1)?.metricsSummary?.trades).toBe(21);
   });
+});
+
+it('deriva executable del registro y lo conserva al consultar versiones', () => {
+  const runs = createBacktestRepository(db);
+  const strategies = createStrategiesRepository(db, (id) => runs.implementationKey(id) !== null);
+  const own = strategies.create(BASE);
+  expect(own.executable).toBe(false);
+  runs.setImplementation(own.id, 'trend-sma-cross');
+  expect(strategies.get(own.id)?.executable).toBe(true);
+  expect(strategies.update({ id: own.id, name: 'Versión 2', note: 'Renombrada' }).executable).toBe(
+    true,
+  );
+  expect(strategies.get(own.id, 1)?.executable).toBe(true);
+  expect(strategies.create(BASE).executable).toBe(false);
 });

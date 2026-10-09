@@ -21,6 +21,7 @@ import {
   isStrategyId,
   isUpdateStrategyRequest,
 } from '../../shared/ipc';
+import { createBacktestRepository } from '../backtest/repository';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import { createStrategiesRepository, type StrategiesRepository } from './repository';
@@ -31,7 +32,8 @@ export function registerStrategies(ctx: ServiceContext): StrategiesRepository {
     console.error('[strategies] almacén no disponible: las estrategias solo vivirán en memoria');
     db = openDatabase(':memory:');
   }
-  const repo = createStrategiesRepository(db);
+  const runs = createBacktestRepository(db);
+  const repo = createStrategiesRepository(db, (id) => runs.implementationKey(id) !== null);
 
   ipcMain.handle(IPC_CHANNELS.strategies.list, () => repo.list());
   ipcMain.handle(IPC_CHANNELS.strategies.get, (_event, request: unknown) => {

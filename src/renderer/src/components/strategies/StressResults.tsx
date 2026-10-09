@@ -3,6 +3,8 @@ import type { StressResultDto } from '../../../../shared/backtest';
 import { useIpcList } from '../../hooks/useIpcList';
 import { number } from './model';
 
+import { ExecutionNotice } from './ExecutionNotice';
+
 const crises = ['2008', '2020', '2022'] as const;
 const percent = (value: number | null) => number(value == null ? null : value * 100, ' %');
 
@@ -87,10 +89,12 @@ export function StressResults({
   strategyId,
   version,
   readOnly = false,
+  executable,
 }: {
   strategyId: number;
   version: number;
   readOnly?: boolean;
+  executable: boolean;
 }) {
   const read = useCallback(
     () => window.tradia.stress.get({ strategyId, version }),
@@ -115,7 +119,7 @@ export function StressResults({
   }, []);
   const items = results ?? state.items;
   const run = async () => {
-    if (running.current) return;
+    if (!executable || readOnly || running.current) return;
     running.current = true;
     setBusy(true);
     setError('');
@@ -143,6 +147,7 @@ export function StressResults({
       aria-busy={state.loading || busy}
     >
       <h3 id="stress-heading">Comportamiento en crisis</h3>
+      {!executable && <ExecutionNotice />}
       {state.loading && <p role="status">Cargando pruebas de estrés…</p>}
       {state.error && results === null && (
         <div role="alert">
@@ -176,7 +181,7 @@ export function StressResults({
       {readOnly ? (
         <p>Versión histórica · pruebas guardadas en solo lectura.</p>
       ) : (
-        <button disabled={state.loading || busy} onClick={() => void run()}>
+        <button disabled={!executable || state.loading || busy} onClick={() => void run()}>
           {busy ? 'Ejecutando pruebas de estrés…' : 'Ejecutar pruebas de estrés'}
         </button>
       )}

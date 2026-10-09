@@ -499,13 +499,9 @@ export function createSimulatedAdapter() {
     progressListeners.forEach((listener) => listener(event));
   };
 
-  /** La implementación clásica cuyo perfil de parámetros encaja con la ficha. */
-  const implForStrategy = (strategy: Strategy) =>
-    CLASSIC_STRATEGIES.find((entry) => {
-      const seedParams = entry.seed.parameters ?? {};
-      const keys = Object.keys(seedParams);
-      return keys.length > 0 && keys.every((key) => key in strategy.parameters);
-    }) ?? null;
+  // El adaptador no registra implementaciones para las fichas creadas por el usuario.
+  const implementations = new Map<number, (typeof CLASSIC_STRATEGIES)[number]>();
+  const implForStrategy = (strategy: Strategy) => implementations.get(strategy.id) ?? null;
 
   const findStrategyVersion = (id: number, version?: number): Strategy | null =>
     version !== undefined
@@ -534,8 +530,7 @@ export function createSimulatedAdapter() {
     annualizedReturn: m.annualizedReturn,
     maxDrawdown: m.maxDrawdown,
     sharpe: m.sharpe !== null && Number.isFinite(m.sharpe) ? m.sharpe : null,
-    sharpeInfinite:
-      m.sharpe === Infinity ? 'positive' : m.sharpe === -Infinity ? 'negative' : null,
+    sharpeInfinite: m.sharpe === Infinity ? 'positive' : m.sharpe === -Infinity ? 'negative' : null,
     profitFactor:
       m.profitFactor !== null && Number.isFinite(m.profitFactor) ? m.profitFactor : null,
     profitFactorInfinite: m.profitFactor === Infinity,
@@ -635,8 +630,7 @@ export function createSimulatedAdapter() {
         spreadBp: costs.spreadBps,
       },
       riskPerTrade: 0.01,
-      maxPositions:
-        Number.isInteger(params['topN']) && params['topN']! >= 1 ? params['topN']! : 5,
+      maxPositions: Number.isInteger(params['topN']) && params['topN']! >= 1 ? params['topN']! : 5,
       startDate: range.desde,
       endDate: range.hasta,
     });
@@ -744,6 +738,10 @@ export function createSimulatedAdapter() {
   /** Ejecuta las tres crisis con el motor real sobre datos simulados. */
   const runFakeStress = (strategy: Strategy): StressResultDto[] => {
     const impl = implForStrategy(strategy);
+    if (!impl)
+      throw new Error(
+        `La estrategia ${strategy.id} no tiene una implementación ejecutable registrada.`,
+      );
     const markets = strategy.markets.map((m) => m.trim().toUpperCase()).filter(isTicker);
     const params = strategy.parameters;
     const rows: StressResultDto[] = CRISIS_WINDOWS_FAKE.map((crisis) => {
@@ -1135,6 +1133,7 @@ export function createSimulatedAdapter() {
         const note = request.note?.trim() || 'Alta de la estrategia';
         const strategy: Strategy = {
           id: nextStrategyId++,
+          executable: false,
           version: 1,
           name: request.name.trim(),
           hypothesis: request.hypothesis,
@@ -1333,11 +1332,9 @@ export function createSimulatedAdapter() {
           throw new Error('Consulta de estrés inválida.');
         }
         const strategy = findStrategyVersion(request.strategyId, request.version);
-        if (strategy === null) return [];
+        if (strategy === null || !strategy.executable) return [];
         // Como la semilla real: la primera lectura calcula las tres crisis.
-        return (
-          stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ?? runFakeStress(strategy)
-        );
+        return stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ?? runFakeStress(strategy);
       },
       run: async (request) => {
         if (!isStressRequest(request)) {

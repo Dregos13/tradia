@@ -135,10 +135,11 @@ function period(desde: string | null, hasta: string | null): StrategyPeriod | nu
   return desde !== null && hasta !== null ? { desde, hasta } : null;
 }
 
-function toStrategy(strategy: StrategyRow, row: VersionRow): Strategy {
+function toStrategy(strategy: StrategyRow, row: VersionRow, executable: boolean): Strategy {
   const ref = `estrategia ${row.strategy_id} v${row.version}`;
   return {
     id: strategy.id,
+    executable,
     version: row.version,
     name: row.nombre,
     hypothesis: row.hipotesis,
@@ -344,7 +345,10 @@ export interface StrategiesRepository {
 
 const UPDATE_TOUCH = "actualizado_en = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
-export function createStrategiesRepository(db: Database.Database): StrategiesRepository {
+export function createStrategiesRepository(
+  db: Database.Database,
+  isExecutable: (id: number) => boolean = () => false,
+): StrategiesRepository {
   const selectStrategy = db.prepare(
     'SELECT id, estado, creado_en, actualizado_en FROM strategies WHERE id = ?',
   );
@@ -456,7 +460,7 @@ export function createStrategiesRepository(db: Database.Database): StrategiesRep
       const strategy = getStrategyRow(id);
       if (!strategy) return null;
       const row = getVersionRow(id, version);
-      return row ? toStrategy(strategy, row) : null;
+      return row ? toStrategy(strategy, row, isExecutable(id)) : null;
     },
 
     listVersions: (id) =>

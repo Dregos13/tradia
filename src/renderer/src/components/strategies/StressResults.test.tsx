@@ -36,7 +36,7 @@ afterEach(() => {
 
 it('muestra las tres crisis con cifras, comparación SPY y curvas accesibles', async () => {
   const get = vi.spyOn(window.tradia.stress, 'get').mockResolvedValue(rows);
-  render(<StressResults strategyId={7} version={2} />);
+  render(<StressResults executable strategyId={7} version={2} />);
   expect(screen.getByRole('status')).toHaveTextContent('Cargando');
   const expected = [
     ['-4,8 %', '-13,2 %', '6', '-37 %', '+32,2 pp'],
@@ -61,7 +61,7 @@ it('el vacío permite ejecutar y guarda los resultados de la versión', async ()
         finish = resolve;
       }),
   );
-  render(<StressResults strategyId={7} version={2} />);
+  render(<StressResults executable strategyId={7} version={2} />);
   expect(await screen.findByText(/Aún no hay pruebas/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Ejecutar pruebas de estrés' }));
   expect(run).toHaveBeenCalledWith({ strategyId: 7, version: 2 });
@@ -75,7 +75,7 @@ it('recupera una consulta fallida y conserva resultados si la ejecución falla',
     .mockRejectedValueOnce(new Error('IPC'))
     .mockResolvedValue(rows);
   vi.spyOn(window.tradia.stress, 'run').mockRejectedValue(new Error('Sin conexión'));
-  render(<StressResults strategyId={7} version={2} />);
+  render(<StressResults executable strategyId={7} version={2} />);
   expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos consultar');
   await userEvent.click(screen.getByRole('button', { name: 'Reintentar consulta de estrés' }));
   await screen.findByRole('article', { name: '2008' });
@@ -97,7 +97,7 @@ it('distingue datos reales y resultados ausentes sin convertirlos en ceros', asy
       equityCurve: [],
     },
   ]);
-  render(<StressResults strategyId={7} version={2} />);
+  render(<StressResults executable strategyId={7} version={2} />);
   const crisis = within(await screen.findByRole('article', { name: '2008' }));
   expect(crisis.getByText('Datos reales')).toBeInTheDocument();
   expect(crisis.getByText('Fuente: tiingo')).toBeInTheDocument();
@@ -108,7 +108,7 @@ it('distingue datos reales y resultados ausentes sin convertirlos en ceros', asy
 });
 it('consulta versiones históricas sin ofrecer ejecución', async () => {
   vi.spyOn(window.tradia.stress, 'get').mockResolvedValue(rows);
-  render(<StressResults strategyId={7} version={1} readOnly />);
+  render(<StressResults executable strategyId={7} version={1} readOnly />);
   await screen.findByRole('article', { name: '2008' });
   expect(
     screen.queryByRole('button', { name: 'Ejecutar pruebas de estrés' }),
@@ -124,10 +124,10 @@ it('ignora una ejecución pendiente al cambiar de versión', async () => {
         finish = resolve;
       }),
   );
-  const view = render(<StressResults key="v1" strategyId={7} version={1} />);
+  const view = render(<StressResults executable key="v1" strategyId={7} version={1} />);
   await screen.findByText(/Aún no hay pruebas/);
   await userEvent.click(screen.getByRole('button', { name: 'Ejecutar pruebas de estrés' }));
-  view.rerender(<StressResults key="v2" strategyId={7} version={2} />);
+  view.rerender(<StressResults executable key="v2" strategyId={7} version={2} />);
   await screen.findByText(/Aún no hay pruebas/);
   await act(async () => finish(rows));
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
@@ -144,8 +144,22 @@ it('muestra drawdown cero en un resultado antiguo sin operaciones y con curva pl
       equityCurve: rows[1]!.equityCurve.map((point) => ({ ...point, equity: 10000, cash: 10000 })),
     },
   ]);
-  render(<StressResults strategyId={7} version={2} />);
+  render(<StressResults executable strategyId={7} version={2} />);
   const crisis = within(await screen.findByRole('article', { name: '2020' }));
   expect(crisis.getAllByText('0 %')).toHaveLength(2);
   expect(crisis.queryByText('Sin datos')).not.toBeInTheDocument();
+});
+
+it('avisa y bloquea estrés sin implementación ejecutable', async () => {
+  vi.spyOn(window.tradia.stress, 'get').mockResolvedValue([]);
+  const run = vi.spyOn(window.tradia.stress, 'run');
+  render(<StressResults executable={false} strategyId={7} version={1} />);
+  expect(
+    screen.getByText(/Sin implementación ejecutable: el backtest de estrategias propias/),
+  ).toBeInTheDocument();
+  await screen.findByText(/Aún no hay pruebas/);
+  const button = screen.getByRole('button', { name: 'Ejecutar pruebas de estrés' });
+  expect(button).toBeDisabled();
+  await userEvent.click(button);
+  expect(run).not.toHaveBeenCalled();
 });

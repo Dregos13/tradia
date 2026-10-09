@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
+import { report } from '../backtest/testFixtures';
 import { StrategiesPage } from './StrategiesPage';
 import type { BacktestProgressEvent } from '../../../../shared/backtest';
 import type { StrategyDraft } from '../../../../shared/strategy';
@@ -186,16 +187,11 @@ describe('Biblioteca y ficha versionada', () => {
 });
 
 it('identifica fuente, periodo ejecutado y validación del último resultado de la versión', async () => {
-  const strategy = await window.tradia.strategies.create({
-    ...draft,
-    parameters: { fastPeriod: 50, slowPeriod: 200, atrPeriod: 14, stopAtr: 3 },
-  });
-  const report = await window.tradia.backtest.run({
-    strategyId: strategy.id,
-    desde: '2020-01-01',
-    hasta: '2024-01-01',
-  });
-  const list = vi.spyOn(window.tradia.backtest, 'list');
+  await window.tradia.strategies.create(draft);
+  const list = vi
+    .spyOn(window.tradia.backtest, 'list')
+    .mockImplementation(async (query) => (query?.version === 2 ? [] : [report]));
+  vi.spyOn(window.tradia.backtest, 'get').mockResolvedValue(report);
   window.location.hash = '#estrategias/1';
   render(<StrategiesPage />);
   expect(await screen.findByText(/Último resultado: Datos simulados/)).toHaveTextContent(
@@ -229,4 +225,23 @@ it('permite reintentar una consulta de evidencia fallida', async () => {
   expect(
     await screen.findByText('Aún no hay resultados guardados para esta versión.'),
   ).toBeInTheDocument();
+});
+
+it('el adaptador no ejecuta una estrategia propia aunque copie parámetros clásicos', async () => {
+  const own = await window.tradia.strategies.create({
+    ...draft,
+    parameters: { fastPeriod: 50, slowPeriod: 200, atrPeriod: 14, stopAtr: 3 },
+  });
+  expect(own.executable).toBe(false);
+  const edited = await window.tradia.strategies.update({
+    id: own.id,
+    note: 'Nueva versión',
+    name: 'Propia v2',
+  });
+  expect(edited.executable).toBe(false);
+  expect((await window.tradia.strategies.get({ id: own.id, version: 1 }))?.executable).toBe(false);
+  await expect(
+    window.tradia.backtest.run({ strategyId: own.id, desde: '2020-01-01', hasta: '2024-01-01' }),
+  ).rejects.toThrow(/implementación ejecutable/);
+  await expect(window.tradia.stress.run({ strategyId: own.id })).rejects.toThrow(/implementación/);
 });

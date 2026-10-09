@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Strategy, StrategyCosts } from '../../../../shared/strategy';
 import { useBacktest, useBacktestHistory } from '../../hooks/useBacktest';
+import { ExecutionNotice } from '../strategies/ExecutionNotice';
 import { BacktestHistory } from './BacktestHistory';
 import './backtest.css';
 const costLabels: Record<keyof StrategyCosts, string> = {
@@ -30,11 +31,12 @@ export function BacktestLauncher({
           Entrenamiento 60 % · validación 20 % · prueba final reservada 20 %. El backtest deja
           intacta la prueba final.
         </p>
+        {!s.executable && <ExecutionNotice />}
         {readOnly && <p>Versión histórica · lanzador en solo lectura.</p>}
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (readOnly || state.busy) return;
+            if (!s.executable || readOnly || state.busy) return;
             const data = new FormData(event.currentTarget);
             const desde = String(data.get('desde'));
             const hasta = String(data.get('hasta'));
@@ -69,7 +71,7 @@ export function BacktestLauncher({
             });
           }}
         >
-          <fieldset disabled={state.busy || readOnly} className="backtest-fields">
+          <fieldset disabled={!s.executable || state.busy || readOnly} className="backtest-fields">
             <legend>Periodo, parámetros y costes</legend>
             <div className="strategy-grid">
               <label>
@@ -174,6 +176,7 @@ export function BacktestLauncher({
             <button
               ref={confirmButton}
               disabled={
+                !s.executable ||
                 readOnly ||
                 state.busy ||
                 history.loading ||
@@ -214,10 +217,10 @@ export function BacktestLauncher({
                   Cancelar
                 </button>
                 <button
-                  disabled={state.busy}
+                  disabled={!s.executable || readOnly || state.busy}
                   onClick={() => {
                     setConfirm(false);
-                    void state.launch();
+                    if (s.executable && !readOnly) void state.launch();
                   }}
                 >
                   Confirmar y ejecutar prueba final

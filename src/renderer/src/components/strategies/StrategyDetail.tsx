@@ -228,6 +228,7 @@ export function StrategyDetail({
       )}
       <StressResults
         key={`${s.id}:${s.version}`}
+        executable={s.executable}
         strategyId={s.id}
         version={s.version}
         readOnly={historical}

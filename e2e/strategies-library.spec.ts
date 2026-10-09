@@ -17,6 +17,27 @@ test('biblioteca, edición versionada y ventana de 700 px', async () => {
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
     await page.getByRole('link', { name: 'Estrategias', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Biblioteca de estrategias' })).toBeVisible();
+    for (const name of [
+      'Cruce de medias',
+      'Reversión RSI/Bollinger',
+      'Ruptura de rangos',
+      'Momentum entre activos',
+    ]) {
+      await page.getByRole('link', { name, exact: true }).click();
+      await expect(page.getByText(/Sin implementación ejecutable/)).toHaveCount(0);
+      await expect(
+        page.getByRole('button', { name: 'Ejecutar pruebas de estrés', exact: true }),
+      ).toBeEnabled();
+      await page.getByLabel('Desde', { exact: true }).fill('2015-01-01');
+      await page.getByLabel('Hasta', { exact: true }).fill('2024-12-31');
+      await page.getByLabel('Simulaciones Monte Carlo').fill('100');
+      await page.getByRole('button', { name: 'Lanzar backtest', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Informe de backtest', exact: true }),
+      ).toBeVisible({ timeout: 60000 });
+      await page.getByRole('link', { name: 'Volver a la ficha · v1' }).click();
+      await page.getByRole('link', { name: 'Volver a la biblioteca', exact: true }).click();
+    }
     await page.getByRole('link', { name: 'Nueva estrategia' }).click();
     await page.setViewportSize({ width: 700, height: 900 });
     for (const [label, value] of Object.entries({
@@ -39,6 +60,15 @@ test('biblioteca, edición versionada y ventana de 700 px', async () => {
     await page.screenshot({ path: 'test-results/strategy-form-700.png' });
     await page.getByRole('button', { name: 'Crear estrategia', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Evidencia E2E' })).toBeVisible();
+    await expect(
+      page
+        .getByText(
+          'Sin implementación ejecutable: el backtest de estrategias propias llegará en la próxima fase',
+        )
+        .first(),
+    ).toBeVisible();
+    for (const name of ['Lanzar backtest', 'Ejecutar prueba final', 'Ejecutar pruebas de estrés'])
+      await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
     await page.getByRole('link', { name: 'Editar', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Editar estrategia' })).toBeVisible({
       timeout: 5000,

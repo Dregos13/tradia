@@ -110,6 +110,8 @@ export interface StrategyMetricsSummary {
 /** Ficha completa: la estrategia en una versión concreta. */
 export interface Strategy {
   id: number;
+  /** Hay una implementación registrada para ejecutar esta estrategia. */
+  executable: boolean;
   /** Número de la versión mostrada (1, 2…). */
   version: number;
   name: string;
