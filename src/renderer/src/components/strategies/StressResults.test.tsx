@@ -133,3 +133,19 @@ it('ignora una ejecución pendiente al cambiar de versión', async () => {
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
   expect(screen.queryByText('Pruebas de estrés guardadas.')).not.toBeInTheDocument();
 });
+
+it('muestra drawdown cero en un resultado antiguo sin operaciones y con curva plana', async () => {
+  vi.spyOn(window.tradia.stress, 'get').mockResolvedValue([
+    {
+      ...rows[1]!,
+      totalReturn: 0,
+      maxDrawdown: null,
+      trades: 0,
+      equityCurve: rows[1]!.equityCurve.map((point) => ({ ...point, equity: 10000, cash: 10000 })),
+    },
+  ]);
+  render(<StressResults strategyId={7} version={2} />);
+  const crisis = within(await screen.findByRole('article', { name: '2020' }));
+  expect(crisis.getAllByText('0 %')).toHaveLength(2);
+  expect(crisis.queryByText('Sin datos')).not.toBeInTheDocument();
+});

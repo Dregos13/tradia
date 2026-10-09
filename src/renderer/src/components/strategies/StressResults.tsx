@@ -33,6 +33,15 @@ function MiniEquity({ result }: { result: StressResultDto }) {
 }
 
 function CrisisResult({ result }: { result: StressResultDto }) {
+  // Older persisted runs used null for both missing curves and no drawdown episode.
+  const curve = result.equityCurve;
+  const flatOrRising =
+    curve.length > 0 &&
+    curve.every(
+      (point, index) =>
+        Number.isFinite(point.equity) && (index === 0 || point.equity >= curve[index - 1]!.equity),
+    );
+  const drawdown = result.maxDrawdown ?? (flatOrRising ? 0 : null);
   const difference =
     result.totalReturn == null || result.benchmarkReturn == null
       ? null
@@ -58,7 +67,7 @@ function CrisisResult({ result }: { result: StressResultDto }) {
         <dt>Rentabilidad</dt>
         <dd>{percent(result.totalReturn)}</dd>
         <dt>Drawdown máximo</dt>
-        <dd>{percent(result.maxDrawdown == null ? null : -result.maxDrawdown)}</dd>
+        <dd>{percent(drawdown == null ? null : drawdown === 0 ? 0 : -drawdown)}</dd>
         <dt>Operaciones</dt>
         <dd>{number(result.trades)}</dd>
         <dt>Comprar y mantener {result.benchmarkTicker}</dt>

@@ -184,3 +184,49 @@ describe('Biblioteca y ficha versionada', () => {
     );
   });
 });
+
+it('identifica fuente, periodo ejecutado y validación del último resultado de la versión', async () => {
+  const strategy = await window.tradia.strategies.create({
+    ...draft,
+    parameters: { fastPeriod: 50, slowPeriod: 200, atrPeriod: 14, stopAtr: 3 },
+  });
+  const report = await window.tradia.backtest.run({
+    strategyId: strategy.id,
+    desde: '2020-01-01',
+    hasta: '2024-01-01',
+  });
+  const list = vi.spyOn(window.tradia.backtest, 'list');
+  window.location.hash = '#estrategias/1';
+  render(<StrategiesPage />);
+  expect(await screen.findByText(/Último resultado: Datos simulados/)).toHaveTextContent(
+    'Fuente: simulated',
+  );
+  expect(screen.getByText(/Periodo ejecutado:/)).toHaveTextContent(report.config.ejecutadoHasta!);
+  expect(screen.getByText('Temporalidad: sesiones diarias.')).toBeInTheDocument();
+  expect(screen.getByText(/Prueba final reservada:/)).toHaveTextContent(
+    report.split!.validation.endDate,
+  );
+  expect(list).toHaveBeenCalledWith({ strategyId: 1, version: 1 });
+  await window.tradia.strategies.update({
+    id: 1,
+    note: 'Cambio de hipótesis',
+    hypothesis: 'Otra hipótesis',
+  });
+  await navigate('#estrategias/1/v2');
+  expect(
+    await screen.findByText('Aún no hay resultados guardados para esta versión.'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Último resultado:/)).not.toBeInTheDocument();
+});
+it('permite reintentar una consulta de evidencia fallida', async () => {
+  await window.tradia.strategies.create(draft);
+  const read = vi.spyOn(window.tradia.backtest, 'list').mockRejectedValue(new Error('IPC'));
+  window.location.hash = '#estrategias/1';
+  render(<StrategiesPage />);
+  await screen.findByRole('button', { name: 'Reintentar evidencia' });
+  read.mockResolvedValue([]);
+  await userEvent.click(screen.getByRole('button', { name: 'Reintentar evidencia' }));
+  expect(
+    await screen.findByText('Aún no hay resultados guardados para esta versión.'),
+  ).toBeInTheDocument();
+});

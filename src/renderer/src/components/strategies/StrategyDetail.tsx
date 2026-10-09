@@ -1,6 +1,7 @@
 import { StressResults } from './StressResults';
 import { BacktestLauncher } from '../backtest/BacktestLauncher';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useIpcList } from '../../hooks/useIpcList';
 import {
   STRATEGY_STATUSES,
   type Strategy,
@@ -20,6 +21,19 @@ export function StrategyDetail({
   history: StrategyChangelogEntry[];
   changeStatus: (status: StrategyStatus) => Promise<void>;
 }) {
+  const readEvidence = useCallback(async () => {
+    const runs = await window.tradia.backtest.list({ strategyId: s.id, version: s.version });
+    const latestRun = [...runs].sort((a, b) => b.id - a.id)[0];
+    if (!latestRun) return [];
+    const report = await window.tradia.backtest.get(latestRun.id);
+    return report ? [report] : [];
+  }, [s.id, s.version]);
+  const evidence = useIpcList(
+    readEvidence,
+    undefined,
+    'No pudimos consultar la evidencia guardada.',
+  );
+  const report = evidence.items[0];
   const historical = s.version !== latest.version;
   const [status, setStatus] = useState(s.status);
   const [busy, setBusy] = useState(false);
@@ -61,7 +75,24 @@ export function StrategyDetail({
       {historical && <p className="strategy-section">Versión histórica · solo lectura</p>}
       <section className="strategy-section" aria-labelledby="strategy-evidence">
         <h3 id="strategy-evidence">Resumen de evidencia</h3>
-        <p>Procedencia y periodo del último resultado: no disponibles.</p>
+        {evidence.loading ? (
+          <p role="status">Cargando evidencia…</p>
+        ) : evidence.error ? (
+          <p role="alert">
+            {evidence.error}{' '}
+            <button onClick={() => void evidence.reload()}>Reintentar evidencia</button>
+          </p>
+        ) : report ? (
+          <p>
+            Último resultado:{' '}
+            {report.dataSource === 'simulated' ? 'Datos simulados' : 'Datos reales'} · Fuente:{' '}
+            {report.providerId} · Periodo ejecutado: {report.config.desde} →{' '}
+            {report.config.ejecutadoHasta ?? report.config.hasta} ·{' '}
+            <a href={`#estrategias/${s.id}/backtest/${report.id}`}>Consultar informe</a>
+          </p>
+        ) : (
+          <p>Aún no hay resultados guardados para esta versión.</p>
+        )}
         <dl className="strategy-metrics">
           {metrics.map(([key, label, unit]) => (
             <div key={key}>
@@ -101,7 +132,26 @@ export function StrategyDetail({
             </div>
           ))}
         </dl>
-        <p>Validación y temporalidad: no documentadas en el contrato actual.</p>
+        {report && (
+          <>
+            <p>Temporalidad: sesiones diarias.</p>
+            {report.split ? (
+              <p>
+                Validación: {report.split.validation.startDate} → {report.split.validation.endDate}.
+                Prueba final reservada: {report.split.test.startDate} → {report.split.test.endDate}.
+              </p>
+            ) : (
+              <p>Resultado de prueba final.</p>
+            )}
+            <p>
+              Walk-forward:{' '}
+              {report.walkForward
+                ? `${report.walkForward.windows.length} ventanas evaluadas`
+                : 'no ejecutado'}
+              .
+            </p>
+          </>
+        )}
       </section>
       <section className="strategy-section">
         <h3>Régimen</h3>

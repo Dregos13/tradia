@@ -250,7 +250,7 @@ describe('resultado conocido sobre datos sintéticos', () => {
     expect(r.benchmarkReturn).toBeCloseTo(-0.2, 10);
     // Estrategia en efectivo: rentabilidad 0, sin drawdown ni operaciones.
     expect(r.totalReturn).toBe(0);
-    expect(r.maxDrawdown).toBeNull();
+    expect(r.maxDrawdown).toBe(0);
     expect(r.trades).toBe(0);
     expect(r.sessions).toBe(5); // 2024-01-08 … 2024-01-12
     expect(r.equityCurve[0]!.date).toBe('2024-01-08');

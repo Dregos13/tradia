@@ -367,7 +367,7 @@ export async function runStressTests(input: StressTestInput): Promise<StressTest
       crisis: { ...window },
       sessions: result.equityCurve.length,
       totalReturn: metrics.totalReturn,
-      maxDrawdown: metrics.maxDrawdown?.pct ?? null,
+      maxDrawdown: metrics.maxDrawdown?.pct ?? (result.equityCurve.length ? 0 : null),
       trades: metrics.tradeCount,
       benchmarkTicker,
       benchmarkReturn: buyAndHoldReturn(fetched.get(benchmarkTicker) ?? [], window),
