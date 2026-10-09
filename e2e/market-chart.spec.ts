@@ -21,6 +21,13 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       ...process.env,
       TRADIA_E2E: '1',
       TRADIA_E2E_USER_DATA: userData,
+      // El reloj de mercado arranca el martes 2026-10-06 tras el cierre y la
+      // actualización diaria (18:00 ET): los saltos de 24 h del bloque de
+      // fallos cruzan los cierres de miércoles, jueves y viernes, y el avance
+      // final de 72 h cae tras el cierre del lunes. Sin el anclaje, esos
+      // saltos dependen de la fecha real y pueden caer en fin de semana o
+      // festivo, donde la ingesta ni siquiera intenta refrescar.
+      TRADIA_E2E_MARKET_NOW: '2026-10-06T22:00:00.000Z',
       TRADIA_CONNECTIVITY_URLS: JSON.stringify([endpoint, endpoint]),
     },
   });

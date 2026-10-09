@@ -1,3 +1,5 @@
+import { app } from 'electron';
+
 import { RISK_DEFAULTS } from '../../shared/ipc';
 import { registerConnectivity, type ConnectivityService } from './connectivity';
 import { registerNotifications, type NotificationsService } from './notifications';
@@ -13,6 +15,7 @@ import { registerAlerts, type NewsAlertsService } from '../news/alerts';
 import { registerMacro, type MacroService } from '../market/macro';
 import {
   createMarketClock,
+  e2eMarketClockBase,
   registerMarket,
   type MarketIngestionService,
 } from '../market/ingestion';
@@ -97,7 +100,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.scheduler = registerScheduler(ctx);
   services.tray = registerTray(ctx);
   services.connectivity = registerConnectivity(ctx);
-  const marketClock = createMarketClock();
+  // Con TRADIA_E2E_MARKET_NOW el reloj arranca en ese instante (gancho E2E);
+  // si no, parte del tiempo real.
+  const marketClock = createMarketClock(e2eMarketClockBase(app.isPackaged));
   services.health = registerHealth(ctx, { clock: marketClock });
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial

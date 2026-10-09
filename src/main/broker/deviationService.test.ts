@@ -165,7 +165,9 @@ describe('alertas de desviación', () => {
     const monthly = repo.listDeviationAlerts({ period: 'mensual' });
     expect(weekly).toHaveLength(8);
     expect(monthly).toHaveLength(2);
-    expect(weekly.every((a) => a.strategyId === 2 && a.strategyName === 'RSI sobreventa')).toBe(true);
+    expect(weekly.every((a) => a.strategyId === 2 && a.strategyName === 'RSI sobreventa')).toBe(
+      true,
+    );
     expect(weekly[0]).toMatchObject({
       period: 'semanal',
       expectedReturnPct: 2,

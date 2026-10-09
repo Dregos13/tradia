@@ -28,9 +28,10 @@ import {
   type DeviationReport,
   type DeviationReportQuery,
   type DeviationReportRow,
+  type JournalEntry,
+  type JournalRecordInput,
   type NotificationPayload,
 } from '../../shared/ipc';
-import type { JournalEntry, JournalRecordInput } from '../../shared/journal';
 import { buildSeedWeeksOrders } from './__fixtures__/weeks';
 import {
   NO_EXPECTATION,
@@ -102,8 +103,7 @@ export interface DeviationService {
 // Formato legible (español, como el resto del diario y los avisos)
 // ---------------------------------------------------------------------------
 
-const fmtNum = (value: number, decimals = 2): string =>
-  value.toFixed(decimals).replace('.', ',');
+const fmtNum = (value: number, decimals = 2): string => value.toFixed(decimals).replace('.', ',');
 
 const fmtSignedPct = (value: number): string =>
   `${value < 0 ? '−' : '+'}${fmtNum(Math.abs(value))} %`;
@@ -147,7 +147,9 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
   ): JournalRecordInput => {
     const reasons: string[] = [];
     if (row.deviationPp !== null && Math.abs(row.deviationPp) > margins.marginPp) {
-      reasons.push(`desviación ${fmtSignedPp(row.deviationPp)} (margen ±${fmtNum(margins.marginPp, 1)} pp)`);
+      reasons.push(
+        `desviación ${fmtSignedPp(row.deviationPp)} (margen ±${fmtNum(margins.marginPp, 1)} pp)`,
+      );
     }
     if (row.avgSlippageBps !== null && row.avgSlippageBps > margins.maxSlippageBps) {
       reasons.push(
@@ -155,7 +157,9 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
       );
     }
     const expected =
-      row.expectedReturnPct === null ? 'sin backtest de referencia' : fmtSignedPct(row.expectedReturnPct);
+      row.expectedReturnPct === null
+        ? 'sin backtest de referencia'
+        : fmtSignedPct(row.expectedReturnPct);
     return {
       type: 'limite',
       result: 'alcanzado',
@@ -195,8 +199,7 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
         {
           code: 'DEVIATION_SLIPPAGE_BPS',
           label: 'Slippage medio de las ejecuciones',
-          cumplida:
-            row.avgSlippageBps === null || row.avgSlippageBps <= margins.maxSlippageBps,
+          cumplida: row.avgSlippageBps === null || row.avgSlippageBps <= margins.maxSlippageBps,
           observed: row.avgSlippageBps === null ? null : `${fmtNum(row.avgSlippageBps)} pb`,
           limit: `máx. ${fmtNum(margins.maxSlippageBps)} pb`,
         },
@@ -212,10 +215,14 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
   ): NotificationPayload => {
     const parts: string[] = [];
     if (row.deviationPp !== null) {
-      parts.push(`desviación ${fmtSignedPp(row.deviationPp)} (margen ±${fmtNum(margins.marginPp, 1)} pp)`);
+      parts.push(
+        `desviación ${fmtSignedPp(row.deviationPp)} (margen ±${fmtNum(margins.marginPp, 1)} pp)`,
+      );
     }
     if (row.avgSlippageBps !== null) {
-      parts.push(`slippage medio ${fmtNum(row.avgSlippageBps)} pb (máx. ${fmtNum(margins.maxSlippageBps)} pb)`);
+      parts.push(
+        `slippage medio ${fmtNum(row.avgSlippageBps)} pb (máx. ${fmtNum(margins.maxSlippageBps)} pb)`,
+      );
     }
     return {
       level: 'alerta',
@@ -254,9 +261,7 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
         );
         continue;
       }
-      const journal = deps.recordJournal?.(
-        journalInputFor(row, period, expectation, margins),
-      );
+      const journal = deps.recordJournal?.(journalInputFor(row, period, expectation, margins));
       const { inserted } = deps.repo.insertDeviationAlert({
         strategyId: row.strategyId,
         strategyName: row.strategyName,

@@ -54,10 +54,22 @@ const SEED_PLAN: Record<
     stopPrice: number;
   }
 > = {
-  // +4,00 pb de slippage en la entrada (99,96 → 100,00), salida a 101,00 (+1 %).
-  1: { entryRequested: 99.96, entryExecuted: 100, exitExecuted: 101, limitPrice: 104, stopPrice: 96 },
-  // ≈ +16,03 pb en la entrada (99,84 → 100,00), salida a 96,00 (−4 %).
-  2: { entryRequested: 99.84, entryExecuted: 100, exitExecuted: 96, limitPrice: 105, stopPrice: 96 },
+  // +4,00 pb de slippage en la entrada (99,96 → 100,00), objetivo a 101,00 (+1 %).
+  1: {
+    entryRequested: 99.96,
+    entryExecuted: 100,
+    exitExecuted: 101,
+    limitPrice: 101,
+    stopPrice: 96,
+  },
+  // ≈ +16,03 pb en la entrada (99,84 → 100,00), stop a 96,00 (−4 %).
+  2: {
+    entryRequested: 99.84,
+    entryExecuted: 100,
+    exitExecuted: 96,
+    limitPrice: 105,
+    stopPrice: 96,
+  },
 };
 
 const parseDay = (date: string): { year: number; month: number; day: number } => ({
@@ -78,7 +90,11 @@ const atNy = (date: string, hour: number, minute: number): string => {
  */
 const lastClosedSunday = (todayNy: string): string => {
   const dow = new Date(
-    Date.UTC(Number(todayNy.slice(0, 4)), Number(todayNy.slice(5, 7)) - 1, Number(todayNy.slice(8, 10))),
+    Date.UTC(
+      Number(todayNy.slice(0, 4)),
+      Number(todayNy.slice(5, 7)) - 1,
+      Number(todayNy.slice(8, 10)),
+    ),
   ).getUTCDay();
   return addDays(todayNy, dow === 0 ? -7 : -dow);
 };

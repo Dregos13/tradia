@@ -25,11 +25,7 @@
  * - Un periodo solo informa cuando está CERRADO (su `hasta` ya pasó en
  *   Nueva York): el mes/semana en curso nunca genera fila ni alerta.
  */
-import type {
-  BrokerOrder,
-  DeviationPeriod,
-  DeviationReportRow,
-} from '../../shared/broker';
+import type { BrokerOrder, DeviationPeriod, DeviationReportRow } from '../../shared/broker';
 import type { BacktestReport } from '../../shared/backtest';
 import { nySessionDate } from '../market/calendar';
 
@@ -75,7 +71,8 @@ const parseDay = (date: string): number => {
 };
 
 /** Suma `delta` días civiles a una fecha 'YYYY-MM-DD'. */
-export const addDays = (date: string, delta: number): string => isoDay(parseDay(date) + delta * DAY_MS);
+export const addDays = (date: string, delta: number): string =>
+  isoDay(parseDay(date) + delta * DAY_MS);
 
 const dayOfWeek = (date: string): number => new Date(parseDay(date)).getUTCDay();
 
@@ -238,8 +235,7 @@ export function expectationFromReport(report: BacktestReport | null): StrategyEx
   let perTradeReturnPct: number | null = null;
   if (report.trades.length > 0) {
     const total = report.trades.reduce(
-      (sum, trade) =>
-        sum + ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100,
+      (sum, trade) => sum + ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100,
       0,
     );
     perTradeReturnPct = total / report.trades.length;
@@ -325,7 +321,7 @@ export function buildDeviationRows(
     const strategyId = Number(key.slice(0, key.indexOf('|')));
     const expectation = ctx.expectationFor(strategyId);
     const realReturnPct = round2(bucket.returnPctSum);
-    const realWinRate = round2(bucket.wins / bucket.trades);
+    const realWinRate = bucket.wins / bucket.trades;
     const avgSlippageBps =
       bucket.slippage.length === 0
         ? null

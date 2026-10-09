@@ -25,6 +25,8 @@
  * Gancho de desarrollo: `market:advance-clock` (solo sin empaquetar) mueve
  * el reloj del servicio y reevalúa el trabajo pendiente al instante; en el
  * preload se expone como `testing.advanceMarketClock` bajo TRADIA_E2E.
+ * Además, `TRADIA_E2E_MARKET_NOW` fija el instante de arranque del reloj
+ * (ver `e2eMarketClockBase`).
  */
 import { app, ipcMain, powerMonitor } from 'electron';
 
@@ -99,6 +101,28 @@ export function createMarketClock(base: () => number = () => Date.now()): Market
       return base() + offset;
     },
   };
+}
+
+/**
+ * Gancho E2E (`TRADIA_E2E_MARKET_NOW`, instante ISO 8601): fija el instante
+ * en que arranca el reloj de mercado; desde ahí sigue el tiempo real más los
+ * avances de `market:advance-clock`. Permite que una prueba viva en una
+ * semana de sesiones conocida sin depender de la fecha del sistema (un salto
+ * de 24 h en fin de semana no cruza ningún cierre y no ejercita nada).
+ *
+ * Devuelve la base para `createMarketClock`, o undefined fuera de E2E, sin
+ * la variable o con una fecha inválida. `realNow` es inyectable en pruebas.
+ */
+export function e2eMarketClockBase(
+  isPackaged: boolean,
+  env: NodeJS.ProcessEnv = process.env,
+  realNow: () => number = () => Date.now(),
+): (() => number) | undefined {
+  if (!isE2eEnabled(isPackaged, env.TRADIA_E2E)) return undefined;
+  const pinned = Date.parse(env.TRADIA_E2E_MARKET_NOW ?? '');
+  if (Number.isNaN(pinned)) return undefined;
+  const realStart = realNow();
+  return () => pinned + (realNow() - realStart);
 }
 
 /** Mínimo de `Electron.PowerMonitor` que usa el servicio (inyectable). */

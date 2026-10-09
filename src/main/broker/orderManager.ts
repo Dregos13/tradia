@@ -588,7 +588,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
           const stalePending = order.status === 'pendiente' && ageMs > orphanAfterMs;
           const lostAck = order.status !== 'pendiente';
           if (stalePending || lostAck) {
-            const orphan = update(order, { status: 'huerfana' });
+            update(order, { status: 'huerfana' });
             result.orphanedLocal += 1;
             logger.warn?.(
               `[ordenes] ${order.clientOrderId} huérfana: ` +
@@ -596,13 +596,16 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
                   ? `pendiente sin respuesta del broker hace ${Math.round(ageMs / 1000)} s`
                   : `la app la tiene ${order.status} y el broker no la conoce`),
             );
-            void orphan;
           }
           continue;
         }
         remoteByClientId.set(remote.clientOrderId, remote);
-        const updated = adoptRemote(order, remote);
-        result.synced += 1;
+        const unchanged =
+          remote.status === order.status &&
+          remote.filledQuantity === order.filledQuantity &&
+          remote.brokerOrderId === order.brokerOrderId;
+        const updated = unchanged ? order : adoptRemote(order, remote);
+        if (!unchanged) result.synced += 1;
         if (updated.leg === 'entrada' && updated.status === 'ejecutada') {
           const exit = await ensureExitOco(updated, null);
           if (exit !== null && exit.status !== 'huerfana') result.exitsCreated += 1;
@@ -676,10 +679,16 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       }
 
       try {
-        const remote = order.brokerOrderId
-          ? await deps.adapter.cancelOrder(order.brokerOrderId)
-          : await cancelByClientId(order);
-        return adoptRemote(order, remote);
+        if (order.brokerOrderId !== null) {
+          const remote = await deps.adapter.cancelOrder(order.brokerOrderId);
+          return adoptRemote(order, remote);
+        }
+        // 'pendiente' sin id del broker: si el broker tampoco la conoce,
+        // cancelarla es solo cerrarla en local; si sí la conoce (respuesta
+        // perdida al enviar), se cancela por el id que reporta.
+        const remote = await deps.adapter.getOrderByClientId(order.clientOrderId);
+        if (remote === null) return update(order, { status: 'cancelada' });
+        return adoptRemote(order, await deps.adapter.cancelOrder(remote.brokerOrderId));
       } catch (error: unknown) {
         // La cancelación también es ambigua: tras un timeout o un
         // not-found se consulta el estado real antes de decidir.
@@ -695,32 +704,6 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       stopped = true;
     },
   };
-
-  /** Cancela una 'pendiente' sin broker_order_id local consultando al broker. */
-  async function cancelByClientId(order: BrokerOrder): Promise<RemoteOrder> {
-    const remote = await deps.adapter.getOrderByClientId(order.clientOrderId);
-    if (remote === null || remote.brokerOrderId === '') {
-      // Nunca llegó al broker: cancelarla es solo cerrarla en local.
-      return {
-        brokerOrderId: order.brokerOrderId ?? '',
-        clientOrderId: order.clientOrderId,
-        ticker: order.ticker,
-        type: order.type,
-        side: order.side,
-        quantity: order.quantity,
-        filledQuantity: order.filledQuantity,
-        limitPrice: order.limitPrice,
-        stopPrice: order.stopPrice,
-        status: 'cancelada',
-        submittedAt: order.execution.requestedAt,
-        filledAt: null,
-        filledAvgPrice: null,
-        ocoGroupId: order.ocoGroupId,
-        legs: null,
-      };
-    }
-    return deps.adapter.cancelOrder(remote.brokerOrderId);
-  }
 
   async function findRemote(order: BrokerOrder): Promise<RemoteOrder | null> {
     try {

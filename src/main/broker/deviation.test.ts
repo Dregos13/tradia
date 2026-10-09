@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type {
-  BrokerOrder,
-  DeviationReportRow,
-  OrderExecution,
-} from '../../shared/broker';
+import type { BrokerOrder, DeviationReportRow, OrderExecution } from '../../shared/broker';
 import type { BacktestReport, BacktestRunConfig, TradeDto } from '../../shared/backtest';
 import {
   NO_EXPECTATION,
@@ -349,11 +345,7 @@ describe('expectativa del último backtest', () => {
   it('la tasa de acierto sale de las operaciones si las métricas no la traen', () => {
     const report = fakeReport({
       metrics: { ...fakeReport().metrics, winRate: null },
-      trades: [
-        fakeTrade({ pnl: 10 }),
-        fakeTrade({ pnl: -5 }),
-        fakeTrade({ pnl: 2 }),
-      ],
+      trades: [fakeTrade({ pnl: 10 }), fakeTrade({ pnl: -5 }), fakeTrade({ pnl: 2 })],
     });
     expect(expectationFromReport(report).winRate).toBeCloseTo(2 / 3, 6);
   });
