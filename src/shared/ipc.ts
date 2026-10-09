@@ -2519,7 +2519,7 @@ export function isBackupRestoreRequest(value: unknown): value is BackupRestoreRe
  */
 const BROKER_KEY_PATTERN = /^[A-Za-z0-9-]{6,256}$/;
 
-function isBrokerKey(value: unknown): value is string {
+export function isBrokerKey(value: unknown): value is string {
   return typeof value === 'string' && BROKER_KEY_PATTERN.test(value);
 }
 

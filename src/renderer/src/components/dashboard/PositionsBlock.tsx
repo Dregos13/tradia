@@ -1,9 +1,17 @@
 import type { PaperPosition } from '../../../../shared/signals';
 import { direction, number } from './model';
-export function PositionsBlock({ positions }: { positions: PaperPosition[] }) {
+export function PositionsBlock({
+  positions,
+  paperConnected = false,
+}: {
+  positions: PaperPosition[];
+  paperConnected?: boolean;
+}) {
   return (
     <>
-      <span className="dashboard-badge dashboard-paper">◇ Simulación</span>
+      <span className="dashboard-badge dashboard-paper">
+        {paperConnected ? 'Paper conectado' : '◇ Simulación'}
+      </span>
       {!positions.length ? (
         <p>No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.</p>
       ) : (

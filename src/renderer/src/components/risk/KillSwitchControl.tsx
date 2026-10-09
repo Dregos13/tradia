@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { KILL_SWITCH_CAUSE_MESSAGES, type KillSwitchState } from '../../../../shared/risk';
 import './risk.css';
@@ -24,8 +24,10 @@ export function stopSummary(state: KillSwitchState) {
 export function KillSwitchControl({
   state,
   onChange,
+  summary,
 }: {
   state?: KillSwitchState;
+  summary?: ReactNode;
   onChange: (state: KillSwitchState) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -106,6 +108,7 @@ export function KillSwitchControl({
           <div className="risk-stop-banner" role="alert">
             <strong>Parada activa: {stopSummary(state)}</strong>
             {state.detail && <span>{state.detail}</span>}
+            {summary}
             <div className="risk-actions">
               <a href="#riesgo">Ver en Riesgo</a>
               <button className="button" disabled={pending !== null} onClick={requestResume}>

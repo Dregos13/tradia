@@ -14,7 +14,7 @@
   justify-content: space-between;
   align-items: flex-start;
 }
-.deviation-title h1 {
+.deviation-title h2 {
   margin: 0;
   font-family: var(--font-editorial);
 }

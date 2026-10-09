@@ -1,4 +1,4 @@
-import { useReconciliation } from '../../hooks/useOrders';
+import { useReconciliation, type ReconciliationState } from '../../hooks/useOrders';
 import type { ReconcileDiscrepancy } from '../../../../shared/broker';
 import './orders.css';
 function Difference({ value }: { value: ReconcileDiscrepancy }) {
@@ -13,6 +13,9 @@ function Difference({ value }: { value: ReconcileDiscrepancy }) {
 /** Mount once in the application shell; owns its IPC subscription. */
 export function ReconcileBanner() {
   const state = useReconciliation();
+  return <ReconcileBannerContent state={state} />;
+}
+export function ReconcileBannerContent({ state }: { state: ReconciliationState }) {
   const [first, ...rest] = state.openDiscrepancies;
   return (
     <>

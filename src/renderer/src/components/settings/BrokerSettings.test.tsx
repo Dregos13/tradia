@@ -40,6 +40,35 @@ it('enmascara los dos campos, valida vacíos y no llama al broker', async () => 
   expect(screen.getByLabelText('Clave de API')).toHaveFocus();
   expect(test).not.toHaveBeenCalled();
 });
+it.each([
+  ['corta', 'SecretPaper123', 'Clave de API'],
+  ['PKPAPER123', 'mal secreto', 'Secreto de API'],
+])('enfoca el campo inválido con clave %s y secreto %s', async (key, secret, field) => {
+  const test = vi.spyOn(window.tradia.broker, 'test');
+  const save = vi.spyOn(window.tradia.broker, 'connect');
+  await mount();
+  await userEvent.type(screen.getByLabelText('Clave de API'), key);
+  await userEvent.type(screen.getByLabelText('Secreto de API'), secret);
+  expect(screen.getByRole('button', { name: 'Probar conexión' })).toBeDisabled();
+  fireEvent.submit(screen.getByLabelText('Clave de API').closest('form')!);
+  expect(screen.getByLabelText(field)).toHaveFocus();
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Usa claves de 6 a 256 caracteres alfanuméricos o guiones, sin espacios.',
+  );
+  expect(test).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+});
+it('enfoca el secreto vacío cuando la clave es válida', async () => {
+  const test = vi.spyOn(window.tradia.broker, 'test');
+  const save = vi.spyOn(window.tradia.broker, 'connect');
+  await mount();
+  await userEvent.type(screen.getByLabelText('Clave de API'), 'PKPAPER123');
+  fireEvent.submit(screen.getByLabelText('Clave de API').closest('form')!);
+  expect(screen.getByLabelText('Secreto de API')).toHaveFocus();
+  expect(screen.getByText('Introduce el secreto de API')).toBeInTheDocument();
+  expect(test).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+});
 it('prueba, conecta y borra los borradores sin recuperar secretos', async () => {
   const test = vi.spyOn(window.tradia.broker, 'test');
   const save = vi.spyOn(window.tradia.broker, 'connect');

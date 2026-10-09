@@ -62,7 +62,7 @@ export function DeviationPage() {
       <div className="deviation-top">
         <header>
           <div className="deviation-title">
-            <h1>Real vs backtest</h1>
+            <h2>Real vs backtest</h2>
             <span className="deviation-paper">
               <DeviationIcon kind="paper" />
               Solo paper · sin dinero real

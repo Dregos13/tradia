@@ -10,7 +10,13 @@ import { useDashboard } from './useDashboard';
 import { time } from './model';
 import { dashboardTokenStylesheet } from './dashboardTokens';
 import './dashboard.css';
-export function Dashboard({ system }: { system: SystemState }) {
+export function Dashboard({
+  system,
+  paperConnected = false,
+}: {
+  system: SystemState;
+  paperConnected?: boolean;
+}) {
   const offline = system.connectivity?.status === 'offline';
   const { state, updatedAt, reload } = useDashboard(offline);
   const stopped = state.stop.data?.active ?? false;
@@ -77,7 +83,10 @@ export function Dashboard({ system }: { system: SystemState }) {
           snapshot={state.portfolio}
           reload={reload}
         >
-          <PositionsBlock positions={state.portfolio.data?.positions ?? []} />
+          <PositionsBlock
+            positions={state.portfolio.data?.positions ?? []}
+            paperConnected={paperConnected}
+          />
         </DashboardBlock>
         <DashboardBlock id="drawdown" title="Drawdown" snapshot={state.portfolio} reload={reload}>
           <DrawdownBlock portfolio={state.portfolio.data} />

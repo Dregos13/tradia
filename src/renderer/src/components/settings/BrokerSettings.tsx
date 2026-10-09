@@ -20,13 +20,11 @@ export function BrokerSettings() {
   const connected = broker.status?.state === 'conectada';
   const credentials = { apiKeyId: key.trim(), apiSecret: secret.trim() };
   const valid = isBrokerCredentials(credentials);
+  const keyValid = isBrokerCredentials({ apiKeyId: key.trim(), apiSecret: 'valid00' });
   async function connect() {
     setValidation(true);
     if (!valid) {
-      (!isBrokerCredentials({ ...credentials, apiSecret: 'valid00' })
-        ? keyInput
-        : secretInput
-      ).current?.focus();
+      (keyValid ? secretInput : keyInput).current?.focus();
       return;
     }
     setMessage('');

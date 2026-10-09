@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { SystemState } from '../hooks/useSystemState';
 
-export function OfflineBanner({ state }: { state: SystemState }) {
+export function OfflineBanner({ state, summary }: { state: SystemState; summary?: ReactNode }) {
   const offline = state.connectivity?.status === 'offline';
   const retryAt = state.connectivity?.nextRetryAt;
   const [now, setNow] = useState(Date.now);
@@ -39,6 +39,7 @@ export function OfflineBanner({ state }: { state: SystemState }) {
                 ? `Reintentando en ${seconds} s.`
                 : 'Reintentando ahora…'}
             </span>
+            {summary}
             {error && <p>No pudimos comprobar la conexión. Vuelve a intentarlo.</p>}
           </div>
           <button className="button" disabled={checking} onClick={() => void retry()}>

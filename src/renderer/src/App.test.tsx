@@ -137,7 +137,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(7);
+    expect(simulation.listenerCount()).toBe(8);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });
@@ -229,4 +229,120 @@ it('muestra carga y permite reintentar una consulta fallida de noticias', async 
   expect(screen.getByRole('alert')).toHaveTextContent('No pudimos consultar las noticias.');
   await userEvent.setup().click(screen.getByRole('button', { name: 'Reintentar' }));
   expect(await screen.findByText('3 titulares disponibles.')).toBeInTheDocument();
+});
+
+it('navega con teclado a las páginas paper después de Diario', async () => {
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  const links = within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link');
+  const journalIndex = links.findIndex((link) => link.textContent === 'Diario');
+  expect(
+    links.slice(journalIndex + 1, journalIndex + 3).map((link) => link.getAttribute('href')),
+  ).toEqual(['#ordenes', '#real-vs-backtest']);
+  for (const name of ['Órdenes', 'Real vs backtest']) {
+    const link = screen.getByRole('link', { name });
+    link.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
+  }
+});
+
+it.each(['ordenes', 'real-vs-backtest'])('abre directamente #%s', async (route) => {
+  window.location.hash = `#${route}`;
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+    route === 'ordenes' ? 'Órdenes' : 'Real vs backtest',
+  );
+});
+
+const emitDifference = () =>
+  simulation.emitReconcileDiscrepancy([
+    {
+      id: 1,
+      runId: 1,
+      type: 'posicion-cantidad',
+      ticker: 'AAPL',
+      detail: 'Cantidad distinta',
+      appValue: '10 acciones',
+      brokerValue: '8 acciones',
+      status: 'abierta',
+      createdAt: '2026-10-09T12:00:00Z',
+      resolvedAt: null,
+    },
+  ]);
+
+it('muestra el descuadre global, conserva el aviso al navegar y lo retira al resolverse', async () => {
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  await act(async () => {
+    emitDifference();
+  });
+  const banner = screen.getByRole('alert', { name: 'Descuadre con el broker' });
+  expect(banner).toHaveTextContent('AAPL: Tradia registra 10 acciones; broker paper, 8 acciones');
+  expect(banner.closest('.app-global-banners')).toBeVisible();
+  expect(banner.closest('.app')).toHaveClass('has-banner');
+  await user.click(within(banner).getByRole('link', { name: 'Ver en Órdenes' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Órdenes' })).toHaveFocus();
+  expect(banner).toBeVisible();
+  await act(async () => {
+    simulation.emitReconcileDiscrepancy([]);
+  });
+  expect(screen.queryByRole('alert', { name: 'Descuadre con el broker' })).not.toBeInTheDocument();
+  expect(document.querySelector('.app-global-banners')).not.toBeVisible();
+});
+
+it('prioriza parada y desconexión y resume el descuadre sin un tercer banner', async () => {
+  await act(async () => {
+    render(<App />);
+  });
+  await act(async () => {
+    await simulation.api.risk.activateKillSwitch();
+    simulation.emitConnectivity({
+      status: 'offline',
+      attempt: 1,
+      lastCheckedAt: null,
+      nextRetryAt: null,
+    });
+    emitDifference();
+  });
+  const banners = document.querySelector('.app-global-banners')!;
+  const stop = within(banners as HTMLElement).getByRole('alert');
+  expect(stop).toHaveTextContent('Parada activa');
+  expect(stop).toHaveTextContent('Sin conexión');
+  expect(within(stop).getByRole('link', { name: 'Ver en Órdenes' })).toHaveAttribute(
+    'href',
+    '#ordenes',
+  );
+  expect(screen.queryByRole('alert', { name: 'Descuadre con el broker' })).not.toBeInTheDocument();
+  expect(banners.querySelector('.offline-banner')).toBeVisible();
+  await act(async () => {
+    await simulation.api.risk.resumeKillSwitch({ confirm: true });
+  });
+  expect(screen.getByRole('alert', { name: 'Descuadre con el broker' })).toBeVisible();
+});
+
+it('marca Posiciones simuladas solo cuando hay una cuenta paper conectada', async () => {
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.queryByText('Paper conectado')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('link', { name: 'Ajustes' }));
+  await act(async () => {
+    await simulation.api.broker.connect({ apiKeyId: 'paper-key', apiSecret: 'paper-secret' });
+  });
+  await user.click(screen.getByRole('link', { name: 'Inicio' }));
+  expect(
+    await within(screen.getByRole('region', { name: 'Posiciones simuladas' })).findByText(
+      'Paper conectado',
+    ),
+  ).toBeVisible();
 });

@@ -87,7 +87,7 @@ export function OrdersPage() {
       <div className="orders-top">
         <header>
           <div className="orders-title">
-            <h1>Órdenes</h1>
+            <h2>Órdenes</h2>
             <span className="orders-paper">♢ Solo paper · sin dinero real</span>
           </div>
           <p>Ejecuciones simuladas enviadas por Tradia</p>
