@@ -7,5 +7,16 @@ export function strategyTokenStylesheet() {
           `--strategy-${key}:${value[mode]};--strategy-${key}-surface:${value[`${mode}Surface`]};`,
       )
       .join('');
-  return `.strategies-page{${theme('light')}}@media(prefers-color-scheme:dark){.strategies-page{${theme('dark')}}}`;
+  const evidence = (mode: 'light' | 'dark') =>
+    (['chart', 'heatmap', 'notice'] as const)
+      .map((group) =>
+        Object.entries(tokens.color[group])
+          .map(
+            ([key, value]) =>
+              `--${group}-${key}:${value[mode]};${'lightSurface' in value ? `--${group}-${key}-surface:${value[`${mode}Surface`]};` : ''}`,
+          )
+          .join(''),
+      )
+      .join('');
+  return `.strategies-page{${theme('light')}${evidence('light')}}@media(prefers-color-scheme:dark){.strategies-page{${theme('dark')}${evidence('dark')}}}`;
 }

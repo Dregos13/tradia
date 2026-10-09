@@ -1,3 +1,4 @@
+import { BacktestReportPage } from '../backtest/BacktestReportPage';
 import { useEffect, useRef, useState } from 'react';
 import { useStrategies, useStrategy } from '../../hooks/useStrategies';
 import { StrategyLibrary } from './StrategyLibrary';
@@ -21,11 +22,18 @@ export function StrategiesPage() {
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, [library.reload]);
+  const reportMatch = /^#estrategias\/(\d+)\/backtest\/(\d+)$/.exec(route);
   const match = /^#estrategias\/(\d+)(?:\/(v[1-9]\d*|editar))?$/.exec(route);
   return (
     <div className="strategies-page" ref={heading} tabIndex={-1}>
       <style>{strategyTokenStylesheet()}</style>
-      {route === '#estrategias/nueva' ? (
+      {reportMatch ? (
+        <BacktestReportPage
+          key={route}
+          strategyId={Number(reportMatch[1])}
+          runId={Number(reportMatch[2])}
+        />
+      ) : route === '#estrategias/nueva' ? (
         <StrategyForm
           save={async (draft) => {
             const result = await library.create(draft);

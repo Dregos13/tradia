@@ -1,3 +1,4 @@
+import { BacktestLauncher } from '../backtest/BacktestLauncher';
 import { useState } from 'react';
 import {
   STRATEGY_STATUSES,
@@ -174,6 +175,7 @@ export function StrategyDetail({
           {error && <p role="alert">{error}</p>}
         </section>
       )}
+      <BacktestLauncher strategy={s} readOnly={historical} />
       <section className="strategy-section">
         <h3>Registro de cambios</h3>
         <ol className="strategy-history">
