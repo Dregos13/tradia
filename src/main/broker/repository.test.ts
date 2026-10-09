@@ -197,6 +197,30 @@ describe('repositorio de conciliación', () => {
     expect(resolved[0]!.status).toBe('resuelta');
     expect(resolved[0]!.resolvedAt).toBe('2026-10-08T21:15:00.000Z');
   });
+
+  it('resuelve una discrepancia suelta sin tocar las demás', () => {
+    const run = repo.startReconcileRun('programada', '2026-10-08T21:00:00.000Z');
+    const first = repo.insertDiscrepancy({
+      runId: run.id,
+      type: 'posicion-cantidad',
+      ticker: 'AAPL',
+      detail: 'AAPL: la app registra 10 uds y el broker 8 uds',
+    });
+    const second = repo.insertDiscrepancy({
+      runId: run.id,
+      type: 'orden-faltante-app',
+      ticker: 'MSFT',
+      detail: 'La orden tradia-fantasma-1 no tiene registro local',
+    });
+
+    const closed = repo.resolveDiscrepancy(first.id, '2026-10-08T21:05:00.000Z');
+    expect(closed.status).toBe('resuelta');
+    expect(closed.resolvedAt).toBe('2026-10-08T21:05:00.000Z');
+    expect(repo.listOpenDiscrepancies().map((d) => d.id)).toEqual([second.id]);
+    expect(() => repo.resolveDiscrepancy(999, '2026-10-08T21:06:00.000Z')).toThrow();
+    // Resolver dos veces la misma no revienta ni la reabre.
+    expect(repo.resolveDiscrepancy(first.id, '2026-10-08T21:07:00.000Z').status).toBe('resuelta');
+  });
 });
 
 describe('repositorio de alertas de desviación', () => {

@@ -326,6 +326,8 @@ export interface BrokerRepository {
   listRunDiscrepancies(runId: number): ReconcileDiscrepancy[];
   /** Descuadres aún abiertos, más antiguos primero. */
   listOpenDiscrepancies(): ReconcileDiscrepancy[];
+  /** Marca 'resuelta' una discrepancia concreta; devuelve la fila cerrada. */
+  resolveDiscrepancy(id: number, resolvedAt: string): ReconcileDiscrepancy;
   /** Marca 'resuelta' toda discrepancia abierta; devuelve cuántas cerró. */
   resolveOpenDiscrepancies(resolvedAt: string): number;
 
@@ -573,6 +575,18 @@ export function createBrokerRepository(db: Database.Database): BrokerRepository 
         )
         .all() as ReconcileDiscrepancyRow[];
       return rows.map(toDiscrepancy);
+    },
+
+    resolveDiscrepancy: (id, resolvedAt) => {
+      db.prepare(
+        `UPDATE reconcile_discrepancies SET estado = 'resuelta', resuelta_en = ?
+         WHERE id = ? AND estado = 'abierta'`,
+      ).run(resolvedAt, id);
+      const row = db
+        .prepare(`SELECT ${DISCREPANCY_COLUMNS} FROM reconcile_discrepancies WHERE id = ?`)
+        .get(id) as ReconcileDiscrepancyRow | undefined;
+      if (row === undefined) throw new Error(`reconcile_discrepancies: la fila ${id} no existe`);
+      return toDiscrepancy(row);
     },
 
     resolveOpenDiscrepancies: (resolvedAt) => {
