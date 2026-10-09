@@ -1,3 +1,4 @@
+import { StressResults } from './StressResults';
 import { BacktestLauncher } from '../backtest/BacktestLauncher';
 import { useState } from 'react';
 import {
@@ -175,6 +176,12 @@ export function StrategyDetail({
           {error && <p role="alert">{error}</p>}
         </section>
       )}
+      <StressResults
+        key={`${s.id}:${s.version}`}
+        strategyId={s.id}
+        version={s.version}
+        readOnly={historical}
+      />
       <BacktestLauncher strategy={s} readOnly={historical} />
       <section className="strategy-section">
         <h3>Registro de cambios</h3>

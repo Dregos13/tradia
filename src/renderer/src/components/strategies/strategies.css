@@ -238,3 +238,66 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
+.stress-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-border);
+  margin-bottom: var(--space-6);
+}
+.stress-result {
+  min-width: 0;
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+.stress-result h4 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-numeric);
+  font-size: var(--type-lg);
+}
+.stress-result p {
+  font-size: var(--type-sm);
+  color: var(--color-textMuted);
+}
+.stress-equity {
+  width: 100%;
+  height: var(--space-12);
+  margin-top: var(--space-3);
+}
+.stress-equity path {
+  fill: none;
+  stroke: var(--chart-equity);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.stress-equity circle {
+  fill: var(--chart-equity);
+}
+.stress-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  font-size: var(--type-sm);
+}
+.stress-metrics dt {
+  font-weight: var(--weight-medium);
+}
+.strategies-page .stress-metrics dd {
+  margin: 0;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+@media (max-width: 1000px) {
+  .stress-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stress-period {
+  display: block;
+  margin-top: var(--space-1);
+}
