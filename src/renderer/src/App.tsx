@@ -1,3 +1,11 @@
+import { AiPage } from './components/ai/AiPage';
+import { ModelHealthPage } from './components/model-health/ModelHealthPage';
+import { ChecklistPage } from './components/live/ChecklistPage';
+import { LiveBanner } from './components/live/LiveBanner';
+import { SmokeTestPanel } from './components/live/SmokeTestPanel';
+import { ScalingStatus } from './components/live/ScalingStatus';
+import { useLiveState } from './components/live/useLiveState';
+import { HomePhaseNotices } from './components/HomePhaseNotices';
 import { OrdersPage } from './components/orders/OrdersPage';
 import { ReconcileBannerContent } from './components/orders/ReconcileBanner';
 import { DeviationPage } from './components/deviation/DeviationPage';
@@ -21,6 +29,9 @@ import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
 type Page =
+  | 'ia'
+  | 'salud-modelos'
+  | 'dinero-real'
   | 'ordenes'
   | 'real-vs-backtest'
   | 'diario'
@@ -36,7 +47,10 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
-  return hash === 'ordenes' ||
+  return hash === 'ia' ||
+    hash === 'salud-modelos' ||
+    hash === 'dinero-real' ||
+    hash === 'ordenes' ||
     hash === 'real-vs-backtest' ||
     hash === 'diario' ||
     hash === 'riesgo' ||
@@ -66,10 +80,12 @@ function AppShell() {
   const state = useSystemState();
   const risk = useRisk();
   const reconciliation = useReconciliation();
+  const live = useLiveState();
+  const real = live.state?.mode === 'activo' || live.state?.mode === 'suspendido';
   const stopped = Boolean(risk.killSwitch?.active);
   const offline = state.connectivity?.status === 'offline';
   const discrepancy = reconciliation.openDiscrepancies[0];
-  const hasBanner = stopped || offline || Boolean(discrepancy);
+  const hasBanner = real || stopped || offline || Boolean(discrepancy);
   const summary = discrepancy ? (
     <p>
       Descuadre con el broker: {discrepancy.ticker ?? 'Activo no disponible'}.{' '}
@@ -79,6 +95,7 @@ function AppShell() {
   useEffect(() => {
     const navigate = () => {
       setPage(currentPage());
+      setLegalOpen(false);
     };
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
@@ -102,6 +119,12 @@ function AppShell() {
           </a>
           <a href="#mercado" aria-current={page === 'mercado' ? 'page' : undefined}>
             Mercado
+          </a>
+          <a href="#ia" aria-current={page === 'ia' ? 'page' : undefined}>
+            IA
+          </a>
+          <a href="#salud-modelos" aria-current={page === 'salud-modelos' ? 'page' : undefined}>
+            Salud de modelos
           </a>
           <a href="#macro" aria-current={page === 'macro' ? 'page' : undefined}>
             Macro
@@ -129,6 +152,9 @@ function AppShell() {
           >
             Real vs backtest
           </a>
+          <a href="#dinero-real" aria-current={page === 'dinero-real' ? 'page' : undefined}>
+            Dinero real
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -138,6 +164,9 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              ia: 'IA',
+              'salud-modelos': 'Salud de modelos',
+              'dinero-real': 'Dinero real',
               ordenes: 'Órdenes',
               'real-vs-backtest': 'Real vs backtest',
               diario: 'Diario',
@@ -153,7 +182,17 @@ function AppShell() {
             }[page]
           }
         </h1>
-        <span className="mode">Señales + paper trading</span>
+        <span className="mode">
+          {live.error
+            ? 'Modo no disponible · verifica Dinero real'
+            : !live.state
+              ? 'Comprobando modo…'
+              : real
+                ? live.state.mode === 'suspendido'
+                  ? 'Dinero real suspendido'
+                  : 'Dinero real activo'
+                : 'Señales + paper trading'}
+        </span>
         <KillSwitchControl
           state={risk.killSwitch}
           onChange={risk.updateKillSwitch}
@@ -171,10 +210,15 @@ function AppShell() {
           }
         />
       </header>
-      <div className="app-global-banners" hidden={!hasBanner}>
-        <div id="risk-global-banner" />
-        <OfflineBanner state={state} summary={!stopped ? summary : undefined} />
-        {discrepancy && !(stopped && offline) && <ReconcileBannerContent state={reconciliation} />}
+      <div className="app-banner-stack">
+        <LiveBanner />
+        <div className="app-global-banners" hidden={!(stopped || offline || discrepancy)}>
+          <div id="risk-global-banner" />
+          <OfflineBanner state={state} summary={!stopped ? summary : undefined} />
+          {discrepancy && !(stopped && offline) && (
+            <ReconcileBannerContent state={reconciliation} />
+          )}
+        </div>
       </div>
       {!discrepancy && <ReconcileBannerContent state={reconciliation} />}
       <main id="contenido" className="main" tabIndex={-1}>
@@ -186,6 +230,40 @@ function AppShell() {
               requestAnimationFrame(() => legalButton.current?.focus());
             }}
           />
+        ) : page === 'ia' ? (
+          <AiPage
+            onOpenStrategy={(id) => {
+              window.location.hash = `estrategias/${id}`;
+            }}
+            onOpenMarketSources={() => {
+              window.location.hash = 'mercado';
+            }}
+          />
+        ) : page === 'salud-modelos' ? (
+          <ModelHealthPage />
+        ) : page === 'dinero-real' ? (
+          <>
+            <ChecklistPage
+              onOpenValidation={() => {
+                window.location.hash = 'estrategias';
+              }}
+              onOpenPaper={() => {
+                window.location.hash = 'real-vs-backtest';
+              }}
+              onOpenAlerts={() => {
+                window.location.hash = 'ajustes';
+              }}
+              onOpenStrategies={() => {
+                window.location.hash = 'estrategias';
+              }}
+            />
+            <SmokeTestPanel />
+            <ScalingStatus
+              onOpenEvidence={() => {
+                window.location.hash = 'real-vs-backtest';
+              }}
+            />
+          </>
         ) : page === 'ordenes' ? (
           <OrdersPage />
         ) : page === 'real-vs-backtest' ? (
@@ -197,7 +275,10 @@ function AppShell() {
         ) : page === 'estrategias' ? (
           <StrategiesPage />
         ) : page === 'inicio' ? (
-          <HomePage state={state} />
+          <>
+            <HomePhaseNotices live={live} />
+            <HomePage state={state} />
+          </>
         ) : page === 'mercado' || page === 'macro' ? (
           <MarketDataPage kind={page} />
         ) : page === 'noticias' ? (

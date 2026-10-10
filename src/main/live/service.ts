@@ -165,6 +165,8 @@ export interface LiveStore {
     cuenta: string | null;
     actualizadoEn: string;
   }): void;
+  /** Persiste la última prueba de humo (`live_mode.prueba_humo`, JSON). */
+  setSmokeTest(patch: { pruebaHumo: string | null; actualizadoEn: string }): void;
   /** Estrategias candidatas (paper/activa) con su versión vigente. */
   listCandidates(): { strategyId: number; version: number; name: string }[];
   /** true si la versión tiene un run 'prueba-final' guardado. */
@@ -217,6 +219,9 @@ export function createLiveStore(db: Database.Database): LiveStore {
   );
   const setConnectionStmt = db.prepare(
     `UPDATE live_mode SET broker = ?, cuenta = ?, actualizado_en = ? WHERE id = 1`,
+  );
+  const setSmokeTestStmt = db.prepare(
+    `UPDATE live_mode SET prueba_humo = ?, actualizado_en = ? WHERE id = 1`,
   );
   const candidatesStmt = db.prepare(
     `SELECT s.id AS strategy_id, v.version AS version, v.nombre AS name
@@ -292,6 +297,10 @@ export function createLiveStore(db: Database.Database): LiveStore {
 
     setConnection: (patch) => {
       setConnectionStmt.run(patch.broker, patch.cuenta, patch.actualizadoEn);
+    },
+
+    setSmokeTest: (patch) => {
+      setSmokeTestStmt.run(patch.pruebaHumo, patch.actualizadoEn);
     },
 
     listCandidates: () =>

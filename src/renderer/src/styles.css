@@ -30,10 +30,16 @@ button:focus-visible,
   height: 100dvh;
   display: grid;
   grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.app-banner-stack {
+  grid-column: 2;
+  min-width: 0;
 }
 .side {
-  grid-row: 1 / 4;
+  grid-row: 1 / 5;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--space-8) var(--space-4);
   background: var(--color-text);
   color: var(--color-canvas);
@@ -209,9 +215,12 @@ h3 {
   }
 }
 @media (max-width: 760px) {
+  .app-banner-stack {
+    grid-column: 1;
+  }
   .app {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
   .side {
     grid-row: auto;
