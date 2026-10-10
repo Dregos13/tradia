@@ -11,16 +11,9 @@
  * renderer: los requisitos automáticos se calculan en el proceso
  * principal.
  */
-import type {
-  LiveRequirement,
-  LiveRequirementState,
-} from '../../shared/live';
+import type { LiveRequirement, LiveRequirementState } from '../../shared/live';
 import type { BrokerOrder } from '../../shared/ipc';
-import {
-  closedTradesFromOrders,
-  nyDateOf,
-  type StrategyExpectation,
-} from '../broker/deviation';
+import { closedTradesFromOrders, type StrategyExpectation } from '../broker/deviation';
 
 // ---------------------------------------------------------------------------
 // Umbrales fijos (sección 18 y §4.4)
@@ -73,20 +66,7 @@ const review = (evidence: string, reasons: string[]): RequirementVerdict => ({
 });
 
 /** 'YYYY-MM-DD' → fecha legible '10 oct 2026' (sin depender del locale). */
-const MESES = [
-  'ene',
-  'feb',
-  'mar',
-  'abr',
-  'may',
-  'jun',
-  'jul',
-  'ago',
-  'sep',
-  'oct',
-  'nov',
-  'dic',
-];
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export const formatLiveDate = (iso: string): string => {
   const d = new Date(iso);
@@ -125,8 +105,7 @@ export function evaluateFinalTest(
     return pending(null, ['No hay estrategias candidatas (en paper o activas) para validar.']);
   }
   if (coverage.done < coverage.total) {
-    const missing =
-      coverage.missing.length > 0 ? ` Falta: ${coverage.missing.join(', ')}.` : '';
+    const missing = coverage.missing.length > 0 ? ` Falta: ${coverage.missing.join(', ')}.` : '';
     return pending(
       `${coverage.done} de ${coverage.total} estrategias candidatas con prueba final.`,
       [
@@ -158,7 +137,9 @@ export interface PaperProgressStats {
 
 const paperEvidence = (stats: PaperProgressStats): string => {
   const deviation =
-    stats.deviationPct === null ? 'sin referencia' : `desviación ${fmtSignedPct(stats.deviationPct)}`;
+    stats.deviationPct === null
+      ? 'sin referencia'
+      : `desviación ${fmtSignedPct(stats.deviationPct)}`;
   return (
     `${stats.daysActive} de ${LIVE_PAPER_MIN_DAYS} días · ` +
     `${stats.closedTrades} de ${LIVE_PAPER_MIN_TRADES} operaciones · ${deviation}`
@@ -182,10 +163,10 @@ export function evaluatePaperProgress(stats: PaperProgressStats): RequirementVer
     // Tiempo y operaciones pueden cumplir pero sin backtest no se puede
     // medir el ±30 %: la evidencia pide atención.
     if (stats.closedTrades > 0) {
-      return review(
-        paperEvidence(stats),
-        [...reasons, 'Sin backtest de referencia para medir la desviación del ±30 %.'],
-      );
+      return review(paperEvidence(stats), [
+        ...reasons,
+        'Sin backtest de referencia para medir la desviación del ±30 %.',
+      ]);
     }
     reasons.push('Sin backtest de referencia para medir la desviación del ±30 %.');
   } else if (Math.abs(stats.deviationPct) > LIVE_DEVIATION_MAX_PCT) {
@@ -243,7 +224,11 @@ export function paperStatsFromOrders(
     const realAvg = realWeighted / weighted;
     const expectedAvg = expectedWeighted / weighted;
     deviationPct =
-      expectedAvg === 0 ? (realAvg === 0 ? 0 : null) : ((realAvg - expectedAvg) / Math.abs(expectedAvg)) * 100;
+      expectedAvg === 0
+        ? realAvg === 0
+          ? 0
+          : null
+        : ((realAvg - expectedAvg) / Math.abs(expectedAvg)) * 100;
   }
 
   return { daysActive, closedTrades: trades.length, deviationPct };

@@ -93,8 +93,7 @@ export function createNewsAnalysisRepository(db: Database.Database): NewsAnalysi
   return {
     getNewsItem: (id) => {
       const row = itemStmt.get(id) as
-        | { id: number; titulo: string; resumen: string | null; confirmada: number }
-        | undefined;
+        { id: number; titulo: string; resumen: string | null; confirmada: number } | undefined;
       if (!row) return null;
       return {
         id: row.id,
@@ -113,7 +112,7 @@ export function createNewsAnalysisRepository(db: Database.Database): NewsAnalysi
         input.newsItemId,
         input.ticker,
         input.summary,
-        input.sentimiento,
+        input.sentiment,
         input.analyzer,
         input.model,
         input.analyzedAt,

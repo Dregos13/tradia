@@ -177,20 +177,44 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
   };
 
   /**
+   * Regla del Diario para el mercado: una entrada cuando la sesión que
+   * cambia es la vigente (la última guardada o posterior) y su etiqueta
+   * difiere de la sesión anterior. `priorLatest` es la última sesión
+   * guardada antes de la escritura — null en el primer llenado, que no
+   * genera entradas históricas (no es un cambio, es el primer cálculo).
+   */
+  const maybeJournal = (
+    scope: RegimeScope,
+    ticker: string,
+    session: string,
+    previous: RegimeSnapshot | null,
+    snapshot: RegimeSnapshot,
+    priorLatest: string | null,
+  ): void => {
+    if (
+      scope !== 'mercado' ||
+      previous === null ||
+      priorLatest === null ||
+      session < priorLatest ||
+      sameLabels(labelsOf(previous), labelsOf(snapshot))
+    ) {
+      return;
+    }
+    journalMarketChange(labelsOf(previous), snapshot, ticker);
+  };
+
+  /**
    * Recalcula las sesiones pendientes de un ámbito/ticker. Devuelve true
-   * si se escribió o actualizó alguna fila. Regla del Diario: entra una
-   * entrada cuando la sesión que cambia es la última guardada del
-   * ámbito (la que representa el régimen vigente) y su etiqueta difiere
-   * de la sesión anterior — una sola entrada por cambio real.
+   * si se escribió o actualizó alguna fila.
    */
   const recompute = (scope: RegimeScope, ticker: string, preferSource: string | null): boolean => {
     const candles = deps.barsFor(ticker, preferSource);
     if (candles.length < REGIME_MIN_BARS) return false;
 
-    const lastStored = deps.repo.latestSession(scope, ticker);
+    const priorLatest = deps.repo.latestSession(scope, ticker);
     let startIndex = REGIME_MIN_BARS - 1;
-    if (lastStored !== null) {
-      const storedIndex = candles.findIndex((candle) => candle.date === lastStored);
+    if (priorLatest !== null) {
+      const storedIndex = candles.findIndex((candle) => candle.date === priorLatest);
       // Recalcula también la última sesión guardada: la vela pudo llegar
       // corregida. Si ya no está en la serie se recalcula desde el inicio.
       if (storedIndex >= startIndex) startIndex = storedIndex;
@@ -220,21 +244,14 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
         computedAt: isoNow(),
       });
       written = true;
-      if (
-        scope === 'mercado' &&
-        previous !== null &&
-        !sameLabels(labelsOf(previous), classification) &&
-        deps.repo.latestSession(scope, ticker) === session
-      ) {
-        journalMarketChange(labelsOf(previous), snapshot, ticker);
-      }
+      maybeJournal(scope, ticker, session, previous, snapshot, priorLatest);
     }
     return written;
   };
 
   const recalculateTicker = (rawTicker: string, preferSource: string | null = null): void => {
     const ticker = rawTicker.trim().toUpperCase();
-    let written = false;
+    let written: boolean;
     try {
       written = recompute('activo', ticker, preferSource);
       if (ticker === REGIME_MARKET_TICKER) {
@@ -279,9 +296,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
         .map((ticker) => deps.repo.latest('activo', ticker.trim().toUpperCase()))
         .filter((snapshot): snapshot is RegimeSnapshot => snapshot !== null);
       const current =
-        market === null
-          ? null
-          : { direction: market.direction, volatility: market.volatility };
+        market === null ? null : { direction: market.direction, volatility: market.volatility };
       const strategies: StrategyRegimeStatus[] = deps
         .listStrategies()
         .filter((strategy) => strategy.status !== 'retirada')
@@ -322,9 +337,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
         throw new Error('simulate-regime: el ámbito activo exige ticker');
       }
       const session =
-        request.sessionDate ??
-        deps.repo.latestSession(scope, ticker) ??
-        deps.lastBarDate(ticker);
+        request.sessionDate ?? deps.repo.latestSession(scope, ticker) ?? deps.lastBarDate(ticker);
       if (session === null) {
         throw new Error(`simulate-regime: ${ticker} no tiene sesiones que fijar`);
       }
@@ -332,6 +345,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
       const direction = request.direction ?? existing?.direction ?? 'lateral';
       const volatility = request.volatility ?? existing?.volatility ?? 'volatilidad-baja';
       const previous = deps.repo.previousSession(scope, ticker, session);
+      const priorLatest = deps.repo.latestSession(scope, ticker);
       const snapshot = deps.repo.upsert({
         scope,
         ticker,
@@ -346,13 +360,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
         },
         computedAt: isoNow(),
       });
-      if (
-        scope === 'mercado' &&
-        previous !== null &&
-        !sameLabels(labelsOf(previous), labelsOf(snapshot))
-      ) {
-        journalMarketChange(labelsOf(previous), snapshot, ticker);
-      }
+      maybeJournal(scope, ticker, session, previous, snapshot, priorLatest);
       emitChanged();
       return snapshot;
     },

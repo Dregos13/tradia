@@ -35,53 +35,158 @@ function seriesFromReturns(n: number, ret: (i: number) => number, wick = 0.001):
   return candles;
 }
 
-/** Une dos funciones de rendimiento: antes de `cut` usa `calm`, desde `cut` usa `hot`. */
+/** Une dos tramos: antes de `cut` usa `first`, desde `cut` usa `second`. */
 const phased =
-  (calm: (i: number) => number, hot: (i: number) => number, cut: number) =>
+  (first: (i: number) => number, second: (i: number) => number, cut: number) =>
   (i: number): number =>
-    i < cut ? calm(i) : hot(i);
-
-/** Tendencia alcista limpia: +0,45 % diario constante (volatilidad nula). */
-const trendUp = (): number => 0.0045;
-
-/**
- * Diente de sierra simétrico ±amplitude: la bajada es la inversa
- * multiplicativa de la subida, así el precio vuelve al mismo nivel cada
- * par de sesiones (sin deriva) y +DM/−DM se alternan con igual magnitud.
- */
-const zigzag = (amplitude: number) => (i: number): number =>
-  i % 2 === 0 ? amplitude : -amplitude / (1 + amplitude);
-
-/** Tendencia con sacudidas: días fuertes al alza y retrocesos moderados. */
-const trendVolatile = (i: number): number =>
-  i % 2 === 0 ? 0.028 : -0.011 / 1.028;
+    i < cut ? first(i) : second(i);
 
 const N = 340;
-const TREND_CALM = seriesFromReturns(N, trendUp);
-const LATERAL_CALM = seriesFromReturns(N, zigzag(0.002));
-const LATERAL_HOT = seriesFromReturns(N, phased(zigzag(0.002), zigzag(0.03), N - 40));
-const TREND_HOT = seriesFromReturns(N, phased(trendUp, trendVolatile, N - 40));
-/** Calm tras la tormenta: volatilidad baja con una mediana alta de verdad. */
-const CALM_AFTER_HOT = seriesFromReturns(N, phased(zigzag(0.03), zigzag(0.002), N - 40));
 
-describe('diagnóstico de métricas en las series sintéticas', () => {
-  it('imprime ADX, pendiente y volatilidad de cada serie', () => {
-    for (const [name, candles] of [
-      ['trendCalm', TREND_CALM],
-      ['lateralCalm', LATERAL_CALM],
-      ['lateralHot', LATERAL_HOT],
-      ['trendHot', TREND_HOT],
-      ['calmAfterHot', CALM_AFTER_HOT],
-    ] as const) {
-      const c = classifyRegime(candles);
-      console.log(
-        name,
-        'adx=', c.metrics.adx?.toFixed(2),
-        'slope=', c.metrics.smaSlope?.toPrecision(3),
-        'vol=', c.metrics.realizedVolatility?.toPrecision(3),
-        'med=', c.metrics.volatilityMedian?.toPrecision(3),
-        '→', c.direction, c.volatility,
-      );
+/** Tendencia alcista limpia de volatilidad nula: +0,45 % diario constante. */
+const TREND_LOW_VOL = seriesFromReturns(N, () => 0.0045);
+
+/**
+ * Tendencia de volatilidad alta: deriva constante las 300 primeras
+ * sesiones y un tramo final con deriva más fuerte y sacudidas en seno
+ * (ADX > 25 con volatilidad muy por encima de la mediana previa).
+ */
+const TREND_HIGH_VOL = seriesFromReturns(
+  N,
+  phased(
+    () => 0.0045,
+    (i) => 0.006 + 0.025 * Math.sin(i * 0.9),
+    N - 40,
+  ),
+);
+
+/** Lateral de volatilidad alta: seno calmado que se desboca al final. */
+const LATERAL_HIGH_VOL = seriesFromReturns(
+  N,
+  phased(
+    (i) => 0.002 * Math.sin(i * 0.7),
+    (i) => 0.03 * Math.sin(i * 0.7),
+    N - 40,
+  ),
+);
+
+/** Lateral de volatilidad baja: seno amplio que se calma al final (la
+ *  mediana de 252 conserva el tramo amplio → comparación de verdad). */
+const LATERAL_LOW_VOL = seriesFromReturns(
+  N,
+  phased(
+    (i) => 0.03 * Math.sin(i * 0.7),
+    (i) => 0.002 * Math.sin(i * 0.7),
+    N - 40,
+  ),
+);
+
+describe('clasificador de régimen: los cuatro casos', () => {
+  it.each([
+    ['tendencia + volatilidad baja', TREND_LOW_VOL, 'tendencia', 'volatilidad-baja'],
+    ['tendencia + volatilidad alta', TREND_HIGH_VOL, 'tendencia', 'volatilidad-alta'],
+    ['lateral + volatilidad alta', LATERAL_HIGH_VOL, 'lateral', 'volatilidad-alta'],
+    ['lateral + volatilidad baja', LATERAL_LOW_VOL, 'lateral', 'volatilidad-baja'],
+  ])('%s', (_name, candles, direction, volatility) => {
+    const classification = classifyRegime(candles);
+    expect(classification.direction).toBe(direction);
+    expect(classification.volatility).toBe(volatility);
+  });
+
+  it('las etiquetas vienen de las medidas: ADX, pendiente y volatilidad documentan el porqué', () => {
+    const trend = classifyRegime(TREND_LOW_VOL);
+    expect(trend.metrics.adx).toBeGreaterThan(25);
+    expect(trend.metrics.smaSlope).toBeGreaterThan(0);
+    const lateral = classifyRegime(LATERAL_LOW_VOL);
+    expect(lateral.metrics.adx).toBeLessThan(25);
+    const highVol = classifyRegime(LATERAL_HIGH_VOL);
+    expect(highVol.metrics.realizedVolatility).toBeGreaterThan(highVol.metrics.volatilityMedian!);
+    const lowVol = classifyRegime(LATERAL_LOW_VOL);
+    expect(lowVol.metrics.volatilityMedian).not.toBeNull();
+    expect(lowVol.metrics.realizedVolatility).toBeLessThanOrEqual(lowVol.metrics.volatilityMedian!);
+  });
+});
+
+describe('fronteras de las funciones de decisión', () => {
+  it('tendencia exige ADX estrictamente mayor que 25 con pendiente no nula', () => {
+    expect(directionLabel(25, 0.01)).toBe('lateral');
+    expect(directionLabel(25.0001, 0.01)).toBe('tendencia');
+    expect(directionLabel(60, -0.5)).toBe('tendencia'); // el signo no importa
+  });
+
+  it('pendiente nula o sin datos frena la tendencia aunque el ADX sea alto', () => {
+    expect(directionLabel(60, 0)).toBe('lateral');
+    expect(directionLabel(60, null)).toBe('lateral');
+    expect(directionLabel(null, 0.5)).toBe('lateral');
+  });
+
+  it('volatilidad alta exige superar estrictamente la mediana', () => {
+    expect(volatilityLabel(0.02, 0.02)).toBe('volatilidad-baja');
+    expect(volatilityLabel(0.0201, 0.02)).toBe('volatilidad-alta');
+    expect(volatilityLabel(0.05, null)).toBe('volatilidad-baja');
+    expect(volatilityLabel(null, 0.02)).toBe('volatilidad-baja');
+  });
+});
+
+describe('indicadores del clasificador', () => {
+  it('adx: primer valor en el índice 2·period−1, alto en tendencia y bajo en lateral', () => {
+    const series = adx(TREND_LOW_VOL, 14);
+    expect(series.slice(0, 27).every((value) => value === null)).toBe(true);
+    expect(series[27]).not.toBeNull();
+    expect(series[N - 1]!).toBeGreaterThan(50);
+    const lateral = adx(LATERAL_LOW_VOL, 14);
+    expect(lateral[N - 1]!).toBeLessThan(25);
+  });
+
+  it('pendiente de la SMA50: null hasta el índice 50, positiva en tendencia', () => {
+    const slope = smaSlopeSeries(TREND_LOW_VOL, 50);
+    expect(slope.slice(0, 50).every((value) => value === null)).toBe(true);
+    expect(slope[50]).toBeGreaterThan(0);
+    const flat = smaSlopeSeries(LATERAL_LOW_VOL, 50);
+    expect(flat[N - 1]).not.toBeNull();
+  });
+
+  it('volatilidad realizada: primer valor en el índice 20 con la desviación de los retornos', () => {
+    const vol = realizedVolatilitySeries(LATERAL_HIGH_VOL, 20);
+    expect(vol.slice(0, 20).every((value) => value === null)).toBe(true);
+    expect(vol[20]).not.toBeNull();
+    expect(vol[N - 1]!).toBeGreaterThan(vol[100]!);
+  });
+
+  it('mediana: centro en impares, media de los centrales en pares, null sin datos', () => {
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([4, 1, 3, 2])).toBe(2.5);
+    expect(median([])).toBeNull();
+  });
+});
+
+describe('sin look-ahead', () => {
+  it('añadir velas posteriores a la sesión t no cambia su clasificación', () => {
+    for (const candles of [TREND_LOW_VOL, TREND_HIGH_VOL, LATERAL_HIGH_VOL, LATERAL_LOW_VOL]) {
+      const full = createRegimeClassifier(candles);
+      for (const t of [80, 150, 250, candles.length - 1]) {
+        const truncated = createRegimeClassifier(candles.slice(0, t + 1));
+        expect(truncated.classifyAt(t)).toEqual(full.classifyAt(t));
+      }
     }
+  });
+});
+
+describe('datos insuficientes', () => {
+  it('las etiquetas caen al valor por defecto y las medidas quedan null', () => {
+    const short = classifyRegime(TREND_LOW_VOL.slice(0, 20));
+    expect(short.direction).toBe('lateral');
+    expect(short.volatility).toBe('volatilidad-baja');
+    expect(short.metrics.adx).toBeNull();
+    expect(short.metrics.smaSlope).toBeNull();
+    expect(short.metrics.realizedVolatility).toBeNull();
+    expect(short.metrics.volatilityMedian).toBeNull();
+  });
+
+  it('lanza RangeError fuera de rango o con la serie vacía', () => {
+    const classifier = createRegimeClassifier(TREND_LOW_VOL);
+    expect(() => classifier.classifyAt(-1)).toThrow(RangeError);
+    expect(() => classifier.classifyAt(N)).toThrow(RangeError);
+    expect(() => classifyRegime([])).toThrow(RangeError);
   });
 });

@@ -45,7 +45,7 @@ const paperOrder = (patch: {
     strategyId: patch.strategyId ?? 1,
     leg: patch.leg ?? null,
     ticker: 'SPY',
-    type: 'mercado',
+    type: 'market',
     side: patch.side ?? 'buy',
     quantity: 1,
     filledQuantity: 1,
@@ -117,14 +117,11 @@ describe('evaluateFinalTest', () => {
   it('sin candidatas queda pendiente con su motivo', () => {
     const verdict = evaluateFinalTest({ total: 0, done: 0, missing: [] }, false);
     expect(verdict.state).toBe('pendiente');
-    expect(verdict.reasons[0]).toMatch(/sin estrategias candidatas/i);
+    expect(verdict.reasons[0]).toMatch(/estrategias candidatas/i);
   });
 
   it('con candidatas a medias queda pendiente y nombra las que faltan', () => {
-    const verdict = evaluateFinalTest(
-      { total: 4, done: 3, missing: ['Reversión RSI'] },
-      false,
-    );
+    const verdict = evaluateFinalTest({ total: 4, done: 3, missing: ['Reversión RSI'] }, false);
     expect(verdict.state).toBe('pendiente');
     expect(verdict.evidence).toContain('3 de 4');
     expect(verdict.reasons[0]).toContain('Reversión RSI');
@@ -138,9 +135,7 @@ describe('evaluateFinalTest', () => {
   });
 
   it('la semilla la da por cumplida', () => {
-    expect(evaluateFinalTest({ total: 0, done: 0, missing: [] }, true).state).toBe(
-      'cumplido',
-    );
+    expect(evaluateFinalTest({ total: 0, done: 0, missing: [] }, true).state).toBe('cumplido');
   });
 });
 

@@ -79,8 +79,7 @@ export function registerRegime(ctx: ServiceContext): AiRegimeService {
   const market = createMarketRepository(db);
 
   const journal = ctx.services.journal as
-    | { record?(input: JournalRecordInput): unknown }
-    | undefined;
+    { record?(input: JournalRecordInput): unknown } | undefined;
 
   // Una sola fuente por serie: la del lote disparador si la tiene, si no
   // la más reciente que tenga datos (mismo criterio que signals/index).

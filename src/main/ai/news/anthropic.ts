@@ -159,7 +159,12 @@ export function parseNewsAnalysisOutput(
     );
   }
   const obj = payload as JsonObject;
-  if (typeof obj !== 'object' || obj === null || Array.isArray(obj) || !Array.isArray(obj['assets'])) {
+  if (
+    typeof obj !== 'object' ||
+    obj === null ||
+    Array.isArray(obj) ||
+    !Array.isArray(obj['assets'])
+  ) {
     throw new NewsLlmError('bad-data', "la salida no es un objeto con lista 'assets'");
   }
   const allowed = new Set(candidateTickers.map((t) => t.toUpperCase()));
@@ -174,10 +179,16 @@ export function parseNewsAnalysisOutput(
     const sentiment = item['sentiment'];
     const summary = item['summary'];
     if (!TICKER_PATTERN.test(ticker)) {
-      throw new NewsLlmError('bad-data', `ticker inválido: ${truncateExternal(String(item['ticker']), 30)}`);
+      throw new NewsLlmError(
+        'bad-data',
+        `ticker inválido: ${truncateExternal(String(item['ticker']), 30)}`,
+      );
     }
     if (!(NEWS_SENTIMENTS as readonly string[]).includes(sentiment as string)) {
-      throw new NewsLlmError('bad-data', `sentimiento inválido: ${truncateExternal(String(sentiment), 30)}`);
+      throw new NewsLlmError(
+        'bad-data',
+        `sentimiento inválido: ${truncateExternal(String(sentiment), 30)}`,
+      );
     }
     if (typeof summary !== 'string' || summary.trim().length === 0) {
       throw new NewsLlmError('bad-data', 'resumen vacío o de tipo incorrecto');
@@ -186,7 +197,11 @@ export function parseNewsAnalysisOutput(
     if (allowed.size > 0 && !allowed.has(ticker)) continue;
     if (seen.has(ticker)) continue;
     seen.add(ticker);
-    assets.push({ ticker, summary: normalizeSummary(summary), sentiment: sentiment as NewsSentiment });
+    assets.push({
+      ticker,
+      summary: normalizeSummary(summary),
+      sentiment: sentiment as NewsSentiment,
+    });
   }
   return { assets };
 }
@@ -245,7 +260,11 @@ export function createAnthropicNewsAnalyzer(
   };
 
   /** Una llamada a Messages con reintentos; devuelve el cuerpo JSON. */
-  const request = async (body: JsonObject, apiKey: string, attempts: number): Promise<JsonObject> => {
+  const request = async (
+    body: JsonObject,
+    apiKey: string,
+    attempts: number,
+  ): Promise<JsonObject> => {
     const headers: Record<string, string> = {
       'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_API_VERSION,
@@ -278,7 +297,7 @@ export function createAnthropicNewsAnalyzer(
       }
 
       if (!response.ok) {
-        let bodyText = '';
+        let bodyText: string;
         try {
           bodyText = truncateExternal(await response.text());
         } catch {

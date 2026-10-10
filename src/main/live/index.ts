@@ -28,13 +28,7 @@ import {
   isLiveLimitsInput,
   isLiveSeedProgressRequest,
 } from '../../shared/ipc';
-import {
-  LIVE_BROKER_SECRET_KEYS,
-  type LiveActivateRequest,
-  type LiveDeclareRequest,
-  type LiveLimitsInput,
-  type LiveSeedProgressRequest,
-} from '../../shared/live';
+import { LIVE_BROKER_SECRET_KEYS } from '../../shared/live';
 import { expectationFromReport } from '../broker/deviation';
 import { openDatabase } from '../db/database';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
@@ -146,8 +140,7 @@ export function registerLive(ctx: ServiceContext): LiveService {
         }
       : undefined,
     hasLiveCredentials: () =>
-      ctx.services.secrets?.hasKey(LIVE_BROKER_SECRET_KEYS.apiKeyId) ??
-      Promise.resolve(false),
+      ctx.services.secrets?.hasKey(LIVE_BROKER_SECRET_KEYS.apiKeyId) ?? Promise.resolve(false),
     recordJournal: (input) => ctx.services.journal?.record(input),
     notify: (payload) => ctx.services.notifications?.notify(payload),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
@@ -174,7 +167,7 @@ export function registerLive(ctx: ServiceContext): LiveService {
         'se esperaba {requirement: declaración, confirmed: boolean, detail?}',
       );
     }
-    return service.declare(request as LiveDeclareRequest);
+    return service.declare(request);
   });
   ipcMain.handle(IPC_CHANNELS.live.setLimits, (_event, input: unknown) => {
     if (!isLiveLimitsInput(input)) {
@@ -183,13 +176,13 @@ export function registerLive(ctx: ServiceContext): LiveService {
         'se esperaba {capitalUsd, orderUsd, dailyLossUsd, openPositions} dentro de los techos fijos',
       );
     }
-    return service.setLimits(input as LiveLimitsInput);
+    return service.setLimits(input);
   });
   ipcMain.handle(IPC_CHANNELS.live.activate, (_event, request: unknown) => {
     if (!isLiveActivateRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.live.activate, 'se esperaba {phrase}');
     }
-    return service.activate(request as LiveActivateRequest);
+    return service.activate(request);
   });
   ipcMain.handle(IPC_CHANNELS.live.deactivate, () => service.deactivate());
   ipcMain.handle(IPC_CHANNELS.live.testKillSwitch, () => service.testKillSwitch());
@@ -204,7 +197,7 @@ export function registerLive(ctx: ServiceContext): LiveService {
           'se esperaba {paperMonths?, paperTrades?, deviationPct?, finalTestDone?, killSwitchTested?, alertsTested?} o nada',
         );
       }
-      return service.seedProgress(request as LiveSeedProgressRequest | undefined);
+      return service.seedProgress(request);
     });
   }
 

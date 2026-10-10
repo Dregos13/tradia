@@ -26,13 +26,13 @@ python3 -m venv .venv-ml
 
 ## Piezas
 
-| Archivo | Qué hace |
-| --- | --- |
+| Archivo             | Qué hace                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `export_candles.py` | Lee `userData/tradia.db` en solo lectura y escribe el CSV de velas limpias (precios ajustados, una fuente por serie: la de la vela más reciente del ticker). |
-| `make_synthetic.py` | Genera un CSV sintético determinista para desarrollar el pipeline sin datos reales. |
-| `features.py` | Las 16 variables, espejo de `src/shared/indicators.ts` (ver `FEATURES.md`). |
-| `train.py` | Corte 60/20/20, LightGBM clasificador + regresor de volatilidad, calibración isotónica sobre validación, exportación ONNX y todos los artefactos. |
-| `FEATURES.md` | Especificación exacta de variables y salidas (el contrato con el servicio de Node). |
+| `make_synthetic.py` | Genera un CSV sintético determinista para desarrollar el pipeline sin datos reales.                                                                          |
+| `features.py`       | Las 16 variables, espejo de `src/shared/indicators.ts` (ver `FEATURES.md`).                                                                                  |
+| `train.py`          | Corte 60/20/20, LightGBM clasificador + regresor de volatilidad, calibración isotónica sobre validación, exportación ONNX y todos los artefactos.            |
+| `FEATURES.md`       | Especificación exacta de variables y salidas (el contrato con el servicio de Node).                                                                          |
 
 ## Entrenar con datos reales
 
@@ -102,7 +102,7 @@ pero solo informa: no influye en señales.
   métricas de la ficha se calculan sobre ella con el pipeline servido
   (ONNX + calibración).
 - La aptitud es la de `isModelEligible`: `eligible = origen 'real' y
-  brierOos < brierBaseline`. Con origen sintético la ficha queda
+brierOos < brierBaseline`. Con origen sintético la ficha queda
   `Datos sintéticos · no apto`; con datos reales que no superan la
   referencia, `No supera la referencia · no apto para apoyar señales`.
 - Reproducible: con la misma semilla (`--seed`, def. 42) y el mismo CSV, el

@@ -13,7 +13,7 @@
  * - Elección de analizador por titular: simulado en E2E; si no, LLM solo
  *   cuando `enabled` + clave guardada + presupuesto mensual > 0; si no,
  *   siempre el léxico local (sin coste). Cualquier error del LLM —'quota'
-   *   incluida— cae al local con un aviso por clase de fallo.
+ *   incluida— cae al local con un aviso por clase de fallo.
  * - Persistencia: una fila por activo en `news_analysis`, solo para los
  *   tickers que aún no tienen análisis (UNIQUE noticia × ticker), con el
  *   método que lo produjo ('llm' + modelo o 'local').
@@ -39,11 +39,7 @@ import {
 } from '../../../shared/ipc';
 import type { SecretsService } from '../../services/secrets';
 import type { NewsAnalysisRepository } from './repository';
-import {
-  isNewsLlmError,
-  type KeyValueStore,
-  type NewsHeadlineAnalyzer,
-} from './types';
+import { isNewsLlmError, type KeyValueStore, type NewsHeadlineAnalyzer } from './types';
 
 // ---------------------------------------------------------------------------
 // Ajustes persistidos
@@ -68,13 +64,15 @@ const clampInt = (value: number, min: number, max: number): number =>
 const readSettings = (store: KeyValueStore): StoredLlmSettings => {
   const enabled = store.getValue(NEWS_LLM_SETTINGS_KEYS.enabled) === 'true';
   const rawCap = Number(store.getValue(NEWS_LLM_SETTINGS_KEYS.dailyCap));
-  const dailyCap = Number.isFinite(rawCap) && rawCap > 0
-    ? clampInt(rawCap, NEWS_LLM_DAILY_CAP_BOUNDS.min, NEWS_LLM_DAILY_CAP_BOUNDS.max)
-    : NEWS_LLM_DAILY_CAP_DEFAULT;
+  const dailyCap =
+    Number.isFinite(rawCap) && rawCap > 0
+      ? clampInt(rawCap, NEWS_LLM_DAILY_CAP_BOUNDS.min, NEWS_LLM_DAILY_CAP_BOUNDS.max)
+      : NEWS_LLM_DAILY_CAP_DEFAULT;
   const rawBudget = Number(store.getValue(NEWS_LLM_SETTINGS_KEYS.monthlyBudgetEur));
-  const monthlyBudgetEur = Number.isFinite(rawBudget) && rawBudget > 0
-    ? Math.min(rawBudget, NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max)
-    : 0;
+  const monthlyBudgetEur =
+    Number.isFinite(rawBudget) && rawBudget > 0
+      ? Math.min(rawBudget, NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max)
+      : 0;
   return { enabled, dailyCap, monthlyBudgetEur };
 };
 

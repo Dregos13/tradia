@@ -77,10 +77,7 @@ import type { StrategyExpectation } from '../broker/deviation';
 // Errores
 // ---------------------------------------------------------------------------
 
-export const LIVE_SERVICE_ERROR_CODES = [
-  'limites-fuera-techo',
-  'declaracion-invalida',
-] as const;
+export const LIVE_SERVICE_ERROR_CODES = ['limites-fuera-techo', 'declaracion-invalida'] as const;
 export type LiveServiceErrorCode = (typeof LIVE_SERVICE_ERROR_CODES)[number];
 
 export class LiveServiceError extends Error {
@@ -282,7 +279,9 @@ export function createLiveStore(db: Database.Database): LiveStore {
     },
 
     listCandidates: () =>
-      candidatesStmt.all() as { strategyId: number; version: number; name: string }[],
+      (candidatesStmt.all() as { strategy_id: number; version: number; name: string }[]).map(
+        (row) => ({ strategyId: row.strategy_id, version: row.version, name: row.name }),
+      ),
 
     hasFinalTest: (strategyId, version) =>
       (finalTestStmt.get(strategyId, version) as { found: number } | undefined) !== undefined,
@@ -501,13 +500,14 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
 
     // 1. Validación fuera de muestra: prueba final de cada candidata.
     const candidates = deps.store.listCandidates();
-    const coverage: FinalTestCoverage = {
-      total: candidates.length,
-      done: candidates.filter((c) => deps.store.hasFinalTest(c.strategyId, c.version)).length,
-      missing: candidates
-        .filter((c) => !deps.store.hasFinalTest(c.strategyId, c.version))
-        .map((c) => c.name),
-    };
+    const coverage: FinalTestCoverage = { total: candidates.length, done: 0, missing: [] };
+    for (const candidate of candidates) {
+      if (deps.store.hasFinalTest(candidate.strategyId, candidate.version)) {
+        coverage.done += 1;
+      } else {
+        coverage.missing.push(candidate.name);
+      }
+    }
     verdicts.set(
       'validacion-fuera-muestra',
       evaluateFinalTest(coverage, evidence.finalTestDoneAt !== undefined),
@@ -647,9 +647,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     if (raw === null) return null;
     try {
       const parsed: unknown = JSON.parse(raw);
-      return typeof parsed === 'object' && parsed !== null
-        ? (parsed as LiveSmokeTestResult)
-        : null;
+      return typeof parsed === 'object' && parsed !== null ? (parsed as LiveSmokeTestResult) : null;
     } catch {
       return null;
     }
@@ -666,10 +664,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
           : null,
       hasCredentials,
       accountMasked: mode.cuenta,
-      limits:
-        limits !== null && limits.confirmados === 1
-          ? limitsOf(limits)
-          : null,
+      limits: limits !== null && limits.confirmados === 1 ? limitsOf(limits) : null,
       caps: { ...LIVE_FIXED_CAPS } as LiveFixedCaps,
       smokeTest: parseSmokeTest(mode.prueba_humo),
       activatedAt: mode.activado_en,
@@ -714,14 +709,10 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
         );
       }
       const detail =
-        request.detail !== undefined && request.detail.trim() !== ''
-          ? request.detail.trim()
-          : null;
+        request.detail !== undefined && request.detail.trim() !== '' ? request.detail.trim() : null;
       deps.store.setDeclaration(request.requirement, {
         confirmed: request.confirmed,
-        declaracion: request.confirmed
-          ? LIVE_DECLARATION_TEXTS[request.requirement]
-          : null,
+        declaracion: request.confirmed ? LIVE_DECLARATION_TEXTS[request.requirement] : null,
         detalle: detail,
         marcadoEn: request.confirmed ? isoNow() : null,
         actualizadoEn: isoNow(),
@@ -823,7 +814,10 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
 
     activate: async (request) => {
       const evaluation = evaluate();
-      const finish = async (activated: boolean, reasons: string[]): Promise<LiveActivateResult> => ({
+      const finish = async (
+        activated: boolean,
+        reasons: string[],
+      ): Promise<LiveActivateResult> => ({
         activated,
         pendingRequirements: activated ? [] : evaluation.pending,
         reasons,
@@ -861,9 +855,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       }
       const written = limitsOf(limits)!;
       if (!livePhraseMatches(request.phrase, written)) {
-        const reasons = [
-          'La frase de confirmación no coincide con la generada para tus límites.',
-        ];
+        const reasons = ['La frase de confirmación no coincide con la generada para tus límites.'];
         journal({
           type: 'limite',
           result: 'alcanzado',

@@ -77,8 +77,7 @@ export async function evaluateNewsAnalyzer(
         summary: entry.summary ?? null,
       });
       gotTickers = result.assets.map((a) => a.ticker);
-      gotSentiment =
-        result.assets.find((a) => a.ticker === expectedAsset)?.sentiment ?? null;
+      gotSentiment = result.assets.find((a) => a.ticker === expectedAsset)?.sentiment ?? null;
     } catch (error) {
       onError?.(index, error);
     }

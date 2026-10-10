@@ -28,7 +28,6 @@
  *
  * Nunca crea señales: solo describe el titular por activo.
  */
-import { DEFAULT_ASSET_ALIASES, type AssetAlias } from '../../news/poller';
 import { TICKER_PATTERN, type NewsSentiment } from '../../../shared/ipc';
 import type {
   AssetSentiment,
@@ -70,9 +69,33 @@ export const NEWS_ASSET_UNIVERSE = [
   'AMD',
 ] as const;
 
-/** Nombres de empresa del universo: los del lector más los que faltaban. */
+/** Nombre de empresa tal como aparece en prensa (mismo formato que el lector). */
+export interface AssetAlias {
+  name: string;
+  /** true si solo cuenta escrito con mayúscula inicial ('Apple', 'Meta'). */
+  caseSensitive?: boolean;
+}
+
+/**
+ * Nombres de empresa de los valores del universo inicial. Espejo de
+ * `DEFAULT_ASSET_ALIASES` del lector (`src/main/news/poller.ts`) más las
+ * entradas que faltaban; `local.test.ts` vigila que no diverjan.
+ */
 export const NEWS_ASSET_ALIASES: Readonly<Record<string, readonly AssetAlias[]>> = {
-  ...DEFAULT_ASSET_ALIASES,
+  AAPL: [{ name: 'Apple', caseSensitive: true }],
+  MSFT: [{ name: 'Microsoft' }],
+  NVDA: [{ name: 'Nvidia' }],
+  AMZN: [{ name: 'Amazon', caseSensitive: true }],
+  GOOGL: [{ name: 'Alphabet', caseSensitive: true }, { name: 'Google' }],
+  META: [{ name: 'Meta', caseSensitive: true }],
+  JPM: [{ name: 'JPMorgan' }, { name: 'JP Morgan' }],
+  XOM: [{ name: 'Exxon' }, { name: 'ExxonMobil' }],
+  JNJ: [{ name: 'Johnson & Johnson' }],
+  PG: [{ name: 'Procter & Gamble' }],
+  V: [{ name: 'Visa', caseSensitive: true }],
+  HD: [{ name: 'Home Depot' }],
+  KO: [{ name: 'Coca-Cola' }, { name: 'Coca Cola' }],
+  AVGO: [{ name: 'Broadcom' }],
   AMD: [{ name: 'Advanced Micro Devices' }],
 };
 
@@ -321,8 +344,10 @@ const WORDS: readonly LexEntry[] = [
   ['recovers', 2],
   ['recovery', 2],
   ['beat*', 2],
+  ['top', 2],
   ['tops', 2],
-  ['top*', 2],
+  ['topped', 2],
+  ['topping', 2],
   ['exceed*', 2],
   ['supera*', 2],
   ['outperform*', 2],
@@ -330,16 +355,25 @@ const WORDS: readonly LexEntry[] = [
   ['upgrad*', 2],
   ['bullish*', 2],
   ['alcista*', 2],
-  ['record*', 2],
+  ['record', 2],
+  ['records', 2],
   ['expand*', 2],
   ['expansion*', 2],
-  ['win*', 2],
+  ['win', 2],
+  ['wins', 2],
   ['won', 2],
+  ['winning', 2],
   ['approv*', 2],
   ['aprueb*', 2],
   ['aprobac*', 2],
   ['boost*', 2],
   ['impuls*', 2],
+  ['rais*', 2],
+  ['eleva*', 2],
+  ['crece*', 2],
+  ['crec*', 2],
+  ['accelerat*', 2],
+  ['aceler*', 2],
   ['solid*', 2],
   ['solido*', 2],
   ['strong*', 2],
@@ -349,15 +383,26 @@ const WORDS: readonly LexEntry[] = [
   ['resilien*', 2],
   ['optimis*', 2],
   ['optimist*', 2],
+  ['impress*', 2],
+  ['secures', 2],
+  ['secured', 2],
   // Medias negativas.
   ['sink*', -2],
   ['slump*', -2],
+  ['shrink*', -2],
   ['fall*', -2],
   ['fell', -2],
   ['drop*', -2],
   ['slide*', -2],
   ['slid*', -2],
   ['slip*', -2],
+  ['dip', -2],
+  ['dips', -2],
+  ['dipped', -2],
+  ['spike', -2],
+  ['spikes', -2],
+  ['spiked', -2],
+  ['spiking', -2],
   ['declin*', -2],
   ['cae*', -2],
   ['caid*', -2],
@@ -367,18 +412,24 @@ const WORDS: readonly LexEntry[] = [
   ['pierde*', -2],
   ['perdida*', -2],
   ['loss*', -2],
-  ['warn*', -2],
+  ['warn', -2],
+  ['warns', -2],
+  ['warned', -2],
   ['warning*', -2],
   ['adviert*', -2],
   ['alerta*', -1],
-  ['miss*', -2],
+  ['miss', -2],
+  ['misses', -2],
+  ['missed', -2],
   ['disappoint*', -2],
   ['decepcion*', -2],
   ['layoff*', -2],
   ['despid*', -2],
   ['lawsuit*', -2],
-  ['demanda*', -2],
-  ['sue*', -2],
+  ['pleito*', -2],
+  ['querella*', -2],
+  ['sue', -2],
+  ['sues', -2],
   ['sued', -2],
   ['settlement*', -2],
   ['fine*', -2],
@@ -398,13 +449,16 @@ const WORDS: readonly LexEntry[] = [
   ['slash*', -2],
   ['halt*', -2],
   ['suspend*', -2],
-  ['ban*', -2],
+  ['ban', -2],
+  ['bans', -2],
+  ['banned', -2],
   ['veto*', -2],
   ['outage*', -2],
   ['apagon*', -2],
   ['breach*', -2],
   ['hack*', -2],
   ['hackeo*', -2],
+  ['boycott*', -2],
   ['delay*', -2],
   ['retras*', -2],
   ['weak*', -2],
@@ -422,9 +476,11 @@ const WORDS: readonly LexEntry[] = [
   ['setback*', -2],
   ['reves*', -2],
   ['slow*', -2],
-  ['lawsuits*', -2],
+  ['lower*', -1],
   ['glut*', -2],
   ['oversuppl*', -2],
+  ['jitters*', -1],
+  ['debt*', -1],
   // Suaves (sarcasmo y tono).
   ['good', 1],
   ['great', 1],
@@ -440,10 +496,11 @@ const WORDS: readonly LexEntry[] = [
   ['steady*', 1],
   ['stable*', 1],
   ['estable*', 1],
+  ['calm*', 1],
+  ['calma*', 1],
   ['perfect*', 1],
   ['perfecto*', 1],
   ['sure', 1],
-  ['just what', 1],
   ['concern*', -1],
   ['preocup*', -1],
   ['caution*', -1],
@@ -489,6 +546,14 @@ const NEGATIONS = new Set([
   'apenas',
   'far',
   'lejos',
+  'refuses',
+  'refuse',
+  'refused',
+  'rejects',
+  'rejected',
+  'rechaza',
+  'rechazado',
+  'resists',
 ]);
 
 /**
@@ -530,7 +595,6 @@ const INSTRUCTION_WORDS = new Set([
   'assistant',
   'asistente',
   'llm',
-  'note',
 ]);
 
 /** Conectores concesivos: la cláusula que abren pesa ×0,4. */
@@ -630,9 +694,7 @@ interface Clause {
 
 const CLAUSE_SEPARATOR = /[.;:!?…\n—–()]+/;
 const CONNECTOR_PATTERN = new RegExp(
-  `\\b(${[...CONCESSIVE, ...CONTRAST, ...SEMI_CONCESSIVE]
-    .map(escapeRegExp)
-    .join('|')})\\b`,
+  `\\b(${[...CONCESSIVE, ...CONTRAST, ...SEMI_CONCESSIVE].map(escapeRegExp).join('|')})\\b`,
   'g',
 );
 
@@ -749,9 +811,12 @@ function scoreClause(clause: Clause): Score {
     }
   };
 
-  // Marcadores de mixto: fuerzan presencia en ambos lados.
-  for (const pattern of MIXED_PATTERNS) {
-    if (pattern.test(clause.norm)) {
+  // Marcadores de mixto: fuerzan presencia en ambos lados. Respetan la
+  // supresión de inyección (un 'mixto' dictado no cuenta).
+  for (const token of tokens) {
+    if (token.suppressed || token.consumed) continue;
+    if (MIXED_PATTERNS.some((pattern) => pattern.test(token.norm))) {
+      token.consumed = true;
       pos += 2 * clause.boost;
       neg += 2 * clause.boost;
       cue ??= 'mixed';
@@ -800,9 +865,7 @@ function mentionMatchers(ticker: string, aliases: readonly AssetAlias[]): Mentio
   // El ticker pelado exige mayúsculas en el texto original (como el lector).
   if (ticker.length >= 2) patterns.push(new RegExp(`\\b${escapeRegExp(ticker)}\\b`));
   for (const alias of aliases) {
-    patterns.push(
-      new RegExp(`\\b${escapeRegExp(alias.name)}\\b`, alias.caseSensitive ? '' : 'i'),
-    );
+    patterns.push(new RegExp(`\\b${escapeRegExp(alias.name)}\\b`, alias.caseSensitive ? '' : 'i'));
   }
   return { ticker, patterns };
 }
@@ -882,10 +945,18 @@ export interface LocalNewsAnalyzerDeps {
 }
 
 /** Nombre visible de cada sentimiento para el resumen generado. */
-export function localSummaryFor(ticker: string, sentiment: NewsSentiment, cue: string | null): string {
+export function localSummaryFor(
+  ticker: string,
+  sentiment: NewsSentiment,
+  cue: string | null,
+): string {
   const label = SENTIMENT_LABEL[sentiment];
   const reason =
-    cue !== null && cue !== 'mixed' ? ` (señal «${cue}»)` : cue === 'mixed' ? ' (señales en ambos sentidos)' : '';
+    cue !== null && cue !== 'mixed'
+      ? ` (señal «${cue}»)`
+      : cue === 'mixed'
+        ? ' (señales en ambos sentidos)'
+        : '';
   return `Análisis local del titular: efecto ${label} estimado para ${ticker}${reason}.`;
 }
 
@@ -904,8 +975,7 @@ export function createLocalNewsAnalyzer(deps: LocalNewsAnalyzerDeps = {}): NewsH
     const candidates = (input.candidateTickers ?? [])
       .map((t) => t.trim().toUpperCase())
       .filter((t) => TICKER_PATTERN.test(t));
-    const tickers =
-      candidates.length > 0 ? candidates : detectAssets(sanitized, universe, aliases);
+    const tickers = candidates.length > 0 ? candidates : detectAssets(sanitized, universe, aliases);
     if (tickers.length === 0) return { assets: [] };
 
     const clauses = clausesOf(sanitized).map((clause) => ({
@@ -914,8 +984,30 @@ export function createLocalNewsAnalyzer(deps: LocalNewsAnalyzerDeps = {}): NewsH
     }));
     const matchers = tickers.map((ticker) => mentionMatchers(ticker, aliases[ticker] ?? []));
 
-    const assets: AssetSentiment[] = matchers.map(({ ticker, patterns }) => {
-      const own = clauses.filter((clause) => patterns.some((p) => p.test(clause.raw)));
+    // Atribución: una cláusula sin mención de activo hereda el último
+    // activo citado cuando empieza en minúscula —es una continuación de
+    // sujeto ('Apple tops estimates but warns on margins': el 'warns'
+    // sigue siendo de Apple)—, pero no cuando abre con mayúscula, que
+    // indica sujeto nuevo ('JPMorgan climbs; Goldman disappoints').
+    const owners: string[][] = [];
+    let lastMentioned: string | null = null;
+    for (const clause of clauses) {
+      const mentioned = matchers
+        .filter((m) => m.patterns.some((p) => p.test(clause.raw)))
+        .map((m) => m.ticker);
+      if (mentioned.length > 0) {
+        owners.push(mentioned);
+        lastMentioned = mentioned[mentioned.length - 1]!;
+        continue;
+      }
+      const firstLetter = clause.raw.match(/\p{L}/u)?.[0];
+      const continues = firstLetter !== undefined && firstLetter === firstLetter.toLowerCase();
+      owners.push(continues && lastMentioned !== null ? [lastMentioned] : []);
+    }
+
+    const assets: AssetSentiment[] = matchers.map(({ ticker }) => {
+      const own = clauses.filter((_, i) => owners[i]!.includes(ticker));
+      // Activo candidato sin mención en el texto: se usa el titular entero.
       const used = own.length > 0 ? own : clauses;
       let pos = 0;
       let neg = 0;

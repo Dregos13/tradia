@@ -15,7 +15,7 @@
     "startDate": "2024-10-07",
     "endDate": "2025-06-06"
   },
-  "dataOrigin": "real",
+  "dataOrigin": "sintetico",
   "metrics": {
     "brierOos": 0.1966856234489903,
     "logLossOos": 0.7361753638463576,
@@ -1007,8 +1007,8 @@
       ]
     }
   ],
-  "eligible": true,
-  "ineligibleReason": null,
-  "trainedAt": "2026-10-10T00:00:00Z",
-  "registeredAt": "2026-10-10T00:00:00Z"
+  "eligible": false,
+  "ineligibleReason": "Datos sintéticos · no apto",
+  "trainedAt": "2026-10-10T20:40:28.869Z",
+  "registeredAt": "2026-10-10T20:40:28.869Z"
 }

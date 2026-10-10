@@ -64,11 +64,7 @@ export interface RegimesRepository {
   /** Fecha de la última sesión guardada; null si ninguna. */
   latestSession(scope: RegimeScope, ticker: string): string | null;
   /** Última fila con sesión estrictamente anterior a `session`. */
-  previousSession(
-    scope: RegimeScope,
-    ticker: string,
-    session: string,
-  ): RegimeSnapshot | null;
+  previousSession(scope: RegimeScope, ticker: string, session: string): RegimeSnapshot | null;
   /** Historial ordenado por sesión (para lecturas y el backtest con filtro). */
   list(
     scope: RegimeScope,
@@ -165,9 +161,7 @@ export function createRegimeRepository(db: Database.Database): RegimesRepository
    * Reconstruye `previousChange`: la dirección anterior y la sesión en
    * que empezó la racha vigente. Null si nunca hubo otra dirección.
    */
-  const previousChangeFor = (
-    row: RegimeRow,
-  ): RegimeSnapshot['previousChange'] => {
+  const previousChangeFor = (row: RegimeRow): RegimeSnapshot['previousChange'] => {
     const different = selectLastDifferentDirection.get(
       row.ambito,
       row.ticker,

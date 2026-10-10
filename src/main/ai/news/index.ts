@@ -35,11 +35,7 @@ import type { ServiceContext } from '../../services';
 import { createAnthropicNewsAnalyzer } from './anthropic';
 import { createLocalNewsAnalyzer } from './local';
 import { createNewsAnalysisRepository } from './repository';
-import {
-  createNewsAiService,
-  NEWS_LLM_SETTINGS_KEYS,
-  type NewsAiService,
-} from './service';
+import { createNewsAiService, NEWS_LLM_SETTINGS_KEYS, type NewsAiService } from './service';
 import { createSimulatedNewsAnalyzer } from './simulated';
 import type { KeyValueStore, NewsLlmUsageStore } from './types';
 
@@ -76,8 +72,7 @@ export function createSettingsUsageStore(store: KeyValueStore): NewsLlmUsageStor
           day: typeof parsed.day === 'string' ? parsed.day : '',
           usedToday: typeof parsed.usedToday === 'number' ? parsed.usedToday : 0,
           month: typeof parsed.month === 'string' ? parsed.month : '',
-          spentMonthEur:
-            typeof parsed.spentMonthEur === 'number' ? parsed.spentMonthEur : 0,
+          spentMonthEur: typeof parsed.spentMonthEur === 'number' ? parsed.spentMonthEur : 0,
         };
       } catch {
         return { day: '', usedToday: 0, month: '', spentMonthEur: 0 };
@@ -112,8 +107,7 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     fetch: globalThis.fetch,
     getApiKey: async () => (await secrets?.getKey(NEWS_LLM_SECRET_PROVIDER)) ?? null,
     usage,
-    dailyCap: () =>
-      readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
+    dailyCap: () => readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
     monthlyBudgetEur: () =>
       Math.min(
         readNumber(store, NEWS_LLM_SETTINGS_KEYS.monthlyBudgetEur, 0),
