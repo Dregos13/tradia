@@ -32,6 +32,9 @@ test.beforeEach(async () => {
       TRADIA_E2E: '1',
       TRADIA_E2E_USER_DATA: userData,
       TRADIA_CONNECTIVITY_URLS: JSON.stringify([`http://127.0.0.1:${port}/health`]),
+      // Reloj de mercado anclado a un martes: sin él la cautela evaluaría la
+      // fecha real y un fin de semana vetaría todas las señales (festivo).
+      TRADIA_E2E_MARKET_NOW: process.env.TRADIA_E2E_MARKET_NOW ?? '2026-10-06T22:00:00.000Z',
     },
   });
   page = await app.firstWindow();
@@ -218,7 +221,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await page.getByRole('button', { name: 'Enviar orden limitada', exact: true }).click();
 
     const pending = page.getByRole('row').filter({ hasText: 'AAPL' });
-    await expect(pending).toContainText('Pendiente');
+    // El broker acepta la limitada al instante: queda abierta ('Enviada'),
+    // pendiente de ejecutarse y cancelable.
+    await expect(pending).toContainText('Enviada');
     await pending.getByRole('button', { name: /cancelar orden/i }).click();
     await page.getByRole('button', { name: 'Confirmar cancelación', exact: true }).click();
     await expect(pending).toContainText('Cancelada');

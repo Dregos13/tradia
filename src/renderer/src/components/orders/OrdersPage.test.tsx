@@ -93,7 +93,7 @@ it('combina filtros de estado, estrategia y activo y permite limpiarlos', async 
   await user.selectOptions(screen.getByLabelText('Estrategia'), '1');
   expect(screen.getByText('No hay órdenes con estos filtros')).toBeVisible();
   await user.click(screen.getAllByRole('button', { name: 'Limpiar filtros' })[0]!);
-  await user.type(screen.getByLabelText('Activo'), 'aapl');
+  await user.type(screen.getByLabelText('Ticker'), 'aapl');
   expect(screen.getByText('+8 pb · desfavorable')).toBeVisible();
   expect(screen.queryByText('−3 pb · favorable')).not.toBeInTheDocument();
 });
@@ -115,6 +115,44 @@ it('confirma cancelación, conserva la orden al fallar y actualiza tras reintent
   expect(screen.queryByRole('button', { name: 'Cancelar orden 3 de SPY' })).not.toBeInTheDocument();
   expect(cancel).toHaveBeenLastCalledWith({ id: 3 });
 });
+it('crea una orden limitada pendiente y la cancela desde la tabla', async () => {
+  const user = userEvent.setup();
+  await window.tradia.broker.connect({ apiKeyId: 'PKTESTKEY01', apiSecret: 'paper-secret-01' });
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'MSFT');
+  await user.type(screen.getByLabelText('Cantidad'), '2');
+  await user.type(screen.getByLabelText('Precio límite'), '1');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  const row = screen.getByRole('row', { name: /MSFT/ });
+  expect(row).toHaveTextContent('Limitada');
+  expect(await within(row).findByText('Enviada')).toBeVisible();
+  expect(row).toHaveTextContent('pendiente de ejecución');
+
+  await user.click(within(row).getByRole('button', { name: /Cancelar orden \d+ de MSFT/ }));
+  await user.click(screen.getByRole('button', { name: 'Confirmar cancelación' }));
+  expect(await within(row).findByText('Cancelada')).toBeVisible();
+});
+
+it('avisa si el envío de la orden limitada falla y conserva el formulario', async () => {
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'MSFT');
+  await user.type(screen.getByLabelText('Cantidad'), '2');
+  await user.type(screen.getByLabelText('Precio límite'), '1');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  // Sin cuenta conectada el adaptador rechaza la creación.
+  expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo enviar la orden limitada/);
+  expect(screen.getByLabelText('Activo')).toHaveValue('MSFT');
+});
+
 it('recibe cambios en vivo, conserva foco y se desuscribe', async () => {
   let listener: ((order: BrokerOrder) => void) | undefined;
   const off = vi.fn();
@@ -124,10 +162,10 @@ it('recibe cambios en vivo, conserva foco y se desuscribe', async () => {
   });
   const view = render(<OrdersPage />);
   await screen.findByText('+8 pb · desfavorable');
-  screen.getByLabelText('Activo').focus();
+  screen.getByLabelText('Ticker').focus();
   act(() => listener?.(order(1, 'ejecutada', 12)));
   expect(screen.getByText('+12 pb · desfavorable')).toBeVisible();
-  expect(screen.getByLabelText('Activo')).toHaveFocus();
+  expect(screen.getByLabelText('Ticker')).toHaveFocus();
   view.unmount();
   expect(off).toHaveBeenCalledOnce();
 });

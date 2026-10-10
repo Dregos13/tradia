@@ -127,7 +127,11 @@ export function initServices(ctx: ServiceContext): MainServices {
   // Fase 3: la pasarela del motor de riesgo va tras killSwitch (instala
   // los overviewExtras reales) y tras calendar (su listEvents alimenta la
   // cautela); la cartera simulada y los vetos viven en storage.
-  services.risk = registerRisk(ctx);
+  // El motor evalúa la cautela con el reloj de mercado: en E2E las señales
+  // se juzgan contra el instante simulado (los festivos y la apertura no
+  // dependen de la fecha real de la prueba); en producción coincide con el
+  // tiempo real.
+  services.risk = registerRisk(ctx, { now: marketClock.now });
   // Fase 2: la biblioteca de estrategias solo necesita storage.
   services.strategies = registerStrategies(ctx);
   // Fase 2: el servicio de backtest necesita strategies (fichas y métricas

@@ -417,7 +417,10 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
 // Registro en la app
 // ---------------------------------------------------------------------------
 
-export function registerRisk(ctx: ServiceContext): RiskService {
+export function registerRisk(
+  ctx: ServiceContext,
+  options: { now?: () => number } = {},
+): RiskService {
   // Mismo patrón de degradación que registerKillSwitch: sin base de datos
   // el motor funciona en memoria y la app sigue arrancando.
   let db = ctx.services.storage?.getDb() ?? null;
@@ -450,12 +453,17 @@ export function registerRisk(ctx: ServiceContext): RiskService {
     cautionSource,
     killSwitch: killSwitch ?? createNullKillSwitch(),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    // La app la evalúa con el reloj de mercado: así la cautela (festivos,
+    // apertura, eventos) se decide sobre el instante simulado en E2E y es
+    // el tiempo real en producción (sin desfase, offset 0).
+    now: options.now,
   });
 
+  const overviewNow = options.now ?? (() => Date.now());
   // La parada completa su risk:changed con límites y cautela reales.
   killSwitch?.setOverviewExtras(() => ({
     limits: repo.getLimits(),
-    caution: cautionSource.evaluate(Date.now()),
+    caution: cautionSource.evaluate(overviewNow()),
   }));
 
   ipcMain.handle(IPC_CHANNELS.risk.getLimits, () => service.getLimits());

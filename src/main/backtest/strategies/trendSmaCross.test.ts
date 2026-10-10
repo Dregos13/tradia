@@ -14,7 +14,9 @@ import { assertNoLookAhead, bar, NO_COSTS, seriesFromCloses, sessionDates } from
 // stopAtr holgado para que el stop dinámico no interfiera: estas pruebas
 // verifican las salidas por señal (el stop se ejercita aparte).
 const PARAMS = { fastPeriod: 3, slowPeriod: 8, atrPeriod: 4, stopAtr: 6 };
-const PARAMS_TIGHT_STOP = { ...PARAMS, stopAtr: 2 };
+// targetR alto para que el objetivo no se ejercite en esta serie: lo que se
+// prueba aquí es el stop dinámico.
+const PARAMS_TIGHT_STOP = { ...PARAMS, stopAtr: 2, targetR: 20 };
 
 /** Primer índice donde la media rápida cruza al alza (o a la baja) a la lenta. */
 function crossIndex(closes: number[], direction: 'up' | 'down', from = 0): number {
@@ -170,6 +172,7 @@ describe('cruce de medias (seguimiento de tendencia)', () => {
       slowPeriod: 200,
       atrPeriod: 14,
       stopAtr: 3,
+      targetR: 2.5,
     });
     // Y la estrategia acepta los parámetros de su ficha sin error.
     expect(() =>

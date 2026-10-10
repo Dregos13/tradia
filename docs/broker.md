@@ -62,6 +62,12 @@ de órdenes. Sin cuenta conectada sigue el seguimiento local de
   «Órdenes». En el OCO la referencia es el nivel de la pata que ejecutó.
 - Tipos soportados por el adaptador: mercado, limitadas, stop y OCO.
   La cancelación (`orders:cancel`) envía DELETE y confirma con un GET.
+- Órdenes manuales: `orders:create` envía una **limitada suelta** desde la
+  página «Órdenes» (`{ticker, side, quantity, limitPrice}`, `gtc`, pata
+  null y `client_order_id` `tradia-manual-<instante>-<n>`). Comparte el
+  conducto de reintentos e idempotencia; la bloquean la parada de
+  emergencia y la falta de conexión (el interruptor de ejecución es solo
+  de las señales).
 
 ## Idempotencia, reintentos y huérfanas
 

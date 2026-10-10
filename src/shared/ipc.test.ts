@@ -21,6 +21,7 @@ import {
   isBrokerTestRequest,
   isCalendarListQuery,
   isCancelOrderRequest,
+  isCreateOrderRequest,
   isDeviationReportQuery,
   isDataStatusState,
   isDeliveryConfigInput,
@@ -280,6 +281,7 @@ describe('contrato IPC', () => {
     });
     expect(IPC_CHANNELS.orders).toEqual({
       list: 'orders:list',
+      create: 'orders:create',
       cancel: 'orders:cancel',
     });
     expect(IPC_CHANNELS.reconcile).toEqual({
@@ -1161,6 +1163,22 @@ describe('guardas del broker en modo paper (fase 5)', () => {
     expect(isBrokerOrdersQuery({ offset: -1 })).toBe(false);
     expect(isBrokerOrdersQuery({ status: 'enviada', extra: 1 })).toBe(false);
     expect(isBrokerOrdersQuery(null)).toBe(false);
+  });
+
+  it('la creación de una limitada exige activo, lado, cantidad y precio válidos', () => {
+    const request = { ticker: 'AAPL', side: 'buy', quantity: 2, limitPrice: 150.5 };
+    expect(isCreateOrderRequest(request)).toBe(true);
+    expect(isCreateOrderRequest({ ...request, side: 'sell' })).toBe(true);
+    expect(isCreateOrderRequest({ ...request, side: 'comprar' })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, ticker: '***' })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, quantity: 0 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, quantity: -2 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, limitPrice: 0 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, limitPrice: Number.NaN })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, type: 'limit' })).toBe(false);
+    expect(isCreateOrderRequest({ ticker: 'AAPL', quantity: 2 })).toBe(false);
+    expect(isCreateOrderRequest({})).toBe(false);
+    expect(isCreateOrderRequest(null)).toBe(false);
   });
 
   it('la cancelación exige el id local de la orden', () => {

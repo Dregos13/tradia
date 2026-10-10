@@ -28,6 +28,7 @@ import type {
   CalendarUpdatedEvent,
   CancelOrderRequest,
   ConnectivityState,
+  CreateOrderRequest,
   DataStatusEntry,
   DeliveryConfig,
   DeliveryConfigInput,
@@ -260,6 +261,8 @@ const api: TradiaApi = {
   orders: {
     list: (query?: BrokerOrdersQuery): Promise<BrokerOrder[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.orders.list, query),
+    create: (request: CreateOrderRequest): Promise<BrokerOrder> =>
+      ipcRenderer.invoke(IPC_CHANNELS.orders.create, request),
     cancel: (request: CancelOrderRequest): Promise<BrokerOrder> =>
       ipcRenderer.invoke(IPC_CHANNELS.orders.cancel, request),
   },

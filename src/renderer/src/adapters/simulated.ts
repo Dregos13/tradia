@@ -16,6 +16,7 @@ import {
   isBrokerTestRequest,
   isCalendarListQuery,
   isCancelOrderRequest,
+  isCreateOrderRequest,
   isCreateStrategyRequest,
   isDeliveryConfigInput,
   isDeliveryTestRequest,
@@ -2062,6 +2063,33 @@ export function createSimulatedAdapter() {
         }
         const offset = query?.offset ?? 0;
         return rows.slice(offset, offset + (query?.limit ?? rows.length));
+      },
+      create: async (request) => {
+        if (!isCreateOrderRequest(request)) {
+          throw new Error('Orden a crear inválida.');
+        }
+        if (brokerStatus.state !== 'conectada') {
+          throw new Error('No hay cuenta conectada.');
+        }
+        const order = makeFakeOrder({
+          clientOrderId: `tradia-manual-fake-${brokerOrderSeq + 1}`,
+          ticker: request.ticker.trim().toUpperCase(),
+          type: 'limit',
+          side: request.side,
+          quantity: request.quantity,
+          limitPrice: request.limitPrice,
+          status: 'enviada',
+          execution: {
+            requestedAt: nowIso(),
+            requestedPrice: request.limitPrice,
+            executedAt: null,
+            executedPrice: null,
+            slippageBps: null,
+          },
+        });
+        brokerOrders.unshift(order);
+        brokerOrderUpdatedListeners.forEach((listener) => listener({ ...order }));
+        return { ...order };
       },
       cancel: async (request) => {
         if (!isCancelOrderRequest(request)) {

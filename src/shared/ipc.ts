@@ -94,6 +94,7 @@ import {
   BROKER_E2E_DISCREPANCIES,
   BROKER_E2E_FAILURES,
   BROKER_ORDERS_MAX_LIMIT,
+  BROKER_ORDER_SIDES,
   BROKER_ORDER_STATUSES,
   DEVIATION_MARGIN_PP_BOUNDS,
   DEVIATION_PERIODS,
@@ -117,6 +118,7 @@ import type {
   BrokerTestRequest,
   BrokerTestResult,
   CancelOrderRequest,
+  CreateOrderRequest,
   DeviationPeriod,
   DeviationReport,
   DeviationReportQuery,
@@ -436,6 +438,12 @@ export const IPC_CHANNELS = {
   orders: {
     /** Órdenes paper registradas, más recientes primero (BrokerOrdersQuery). */
     list: 'orders:list',
+    /**
+     * Crea una orden limitada manual (`{ticker, side, quantity,
+     * limitPrice}`): queda pendiente en el broker hasta ejecutarse o
+     * cancelarse. Sin señal ni estrategia asociadas.
+     */
+    create: 'orders:create',
     /** Cancela una orden abierta por su id local (`{id}`). */
     cancel: 'orders:cancel',
   },
@@ -1254,6 +1262,11 @@ export interface TradiaApi {
   orders: {
     /** Órdenes paper con filtros, más recientes primero. */
     list(query?: BrokerOrdersQuery): Promise<BrokerOrder[]>;
+    /**
+     * Envía una orden limitada manual a la cuenta paper y devuelve la
+     * orden ya registrada (pendiente/enviada/rechazada según el broker).
+     */
+    create(request: CreateOrderRequest): Promise<BrokerOrder>;
     /**
      * Cancela una orden abierta (pendiente, enviada o parcial) y devuelve
      * la orden ya actualizada.
@@ -2591,6 +2604,25 @@ export function isCancelOrderRequest(value: unknown): value is CancelOrderReques
   const v = value as Record<string, unknown>;
   if (Object.keys(v).some((k) => k !== 'id')) return false;
   return isBrokerOrderId(v.id);
+}
+
+/**
+ * `orders:create`: una limitada manual con activo, lado, cantidad y
+ * precio límite positivos. Sin campos extra: el idempotente lo pone el
+ * proceso principal.
+ */
+export function isCreateOrderRequest(value: unknown): value is CreateOrderRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['ticker', 'side', 'quantity', 'limitPrice'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isTicker(v.ticker)) return false;
+  if (typeof v.side !== 'string' || !(BROKER_ORDER_SIDES as readonly string[]).includes(v.side)) {
+    return false;
+  }
+  const positive = (n: unknown): n is number =>
+    typeof n === 'number' && Number.isFinite(n) && n > 0;
+  return positive(v.quantity) && positive(v.limitPrice);
 }
 
 export function isDeviationPeriod(value: unknown): value is DeviationPeriod {

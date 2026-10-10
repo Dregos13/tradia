@@ -576,3 +576,116 @@ describe('gestor de órdenes · slippage y cancelación', () => {
     expect(updates).toContain(orderClientId(signal.id, 'salida'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Órdenes manuales (órdenes sueltas desde la página Órdenes)
+// ---------------------------------------------------------------------------
+
+describe('gestor de órdenes · órdenes limitadas manuales', () => {
+  it('envía la limitada al broker y la registra sin señal ni pata', async () => {
+    const order = await manager.createLimitOrder({
+      ticker: ' aapl ',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 100,
+    });
+    expect(order.status).toBe('enviada');
+    expect(order.leg).toBeNull();
+    expect(order.signalId).toBeNull();
+    expect(order.strategyId).toBeNull();
+    expect(order.ticker).toBe('AAPL');
+    expect(order.limitPrice).toBe(100);
+    expect(order.execution.requestedPrice).toBe(100);
+    expect(order.clientOrderId.startsWith('tradia-manual-')).toBe(true);
+    const remote = await broker.getOrderByClientId(order.clientOrderId);
+    expect(remote).not.toBeNull();
+    expect(remote!.type).toBe('limit');
+    expect(remote!.limitPrice).toBe(100);
+    // La orden pendiente es cancelable.
+    const canceled = await manager.cancelOrder(order.id);
+    expect(canceled.status).toBe('cancelada');
+  });
+
+  it('una limitada cruzable ejecuta al mejor de referencia y límite', async () => {
+    const order = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 250,
+    });
+    expect(order.status).toBe('ejecutada');
+    // Referencia 200 < límite 250: llena a 200, slippage favorable.
+    expect(order.execution.executedPrice).toBe(200);
+    expect(order.execution.slippageBps).toBeLessThan(0);
+  });
+
+  it('cada orden manual tiene su client_order_id propio (sin colisiones)', async () => {
+    const first = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 1,
+      limitPrice: 100,
+    });
+    const second = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 1,
+      limitPrice: 100,
+    });
+    expect(second.clientOrderId).not.toBe(first.clientOrderId);
+    expect(repo.listOrders({ limit: 10 }).length).toBe(2);
+  });
+
+  it('un timeout no duplica la orden: se adopta la remota registrada', async () => {
+    broker.failNext('timeout');
+    const order = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 100,
+    });
+    expect(order.status).toBe('enviada');
+    expect((await broker.listOrders()).filter((o) => o.type === 'limit')).toHaveLength(1);
+    expect(order.attempts).toBe(1);
+  });
+
+  it('un rechazo de negocio queda anotado sin reintento', async () => {
+    broker.failNext('reject');
+    const order = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 100,
+    });
+    expect(order.status).toBe('rechazada');
+    expect(order.attempts).toBe(1);
+    expect(journal.some((entry) => entry.type === 'error')).toBe(true);
+  });
+
+  it('la parada de emergencia y la falta de conexión bloquean el envío', async () => {
+    gates.killSwitch = true;
+    await expect(
+      manager.createLimitOrder({ ticker: 'AAPL', side: 'buy', quantity: 1, limitPrice: 100 }),
+    ).rejects.toThrow(/parada de emergencia/);
+    expect(repo.listOrders({ limit: 10 })).toHaveLength(0);
+    expect(journal.at(-1)?.errors?.[0]).toContain('parada de emergencia');
+
+    gates.killSwitch = false;
+    gates.online = false;
+    await expect(
+      manager.createLimitOrder({ ticker: 'AAPL', side: 'buy', quantity: 1, limitPrice: 100 }),
+    ).rejects.toThrow(/sin conexión/);
+    expect(repo.listOrders({ limit: 10 })).toHaveLength(0);
+  });
+
+  it('el interruptor de ejecución de señales no bloquea la orden manual', async () => {
+    gates.execution = false;
+    const order = await manager.createLimitOrder({
+      ticker: 'AAPL',
+      side: 'buy',
+      quantity: 1,
+      limitPrice: 100,
+    });
+    expect(order.status).toBe('enviada');
+  });
+});

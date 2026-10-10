@@ -481,6 +481,20 @@ export interface CancelOrderRequest {
   id: number;
 }
 
+/**
+ * Petición de `orders:create`: una orden limitada manual, sin señal ni
+ * estrategia asociadas (`leg` null). El `client_order_id` lo genera el
+ * proceso principal con el prefijo 'tradia-manual-'.
+ */
+export interface CreateOrderRequest {
+  ticker: string;
+  side: BrokerOrderSide;
+  /** Unidades a operar; > 0. */
+  quantity: number;
+  /** Precio límite; > 0. */
+  limitPrice: number;
+}
+
 /** Evento `broker:order-updated`: una orden cambió de estado o de ejecución. */
 export interface BrokerOrderUpdatedEvent {
   order: BrokerOrder;

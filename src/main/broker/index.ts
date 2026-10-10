@@ -49,6 +49,7 @@ import {
   isBrokerSeedWeeksRequest,
   isBrokerTestRequest,
   isCancelOrderRequest,
+  isCreateOrderRequest,
   isDeviationReportQuery,
   isE2eEnabled,
   type BrokerAccount,
@@ -69,6 +70,7 @@ import {
   type BrokerTestResult,
   type CancelOrderRequest,
   type ConnectivityState,
+  type CreateOrderRequest,
   type DeviationReport,
   type DeviationReportQuery,
   type ReconcileDiscrepancyEvent,
@@ -199,6 +201,11 @@ export interface BrokerService {
   test(request?: BrokerTestRequest): Promise<BrokerTestResult>;
   /** `orders:list`. */
   listOrders(query?: BrokerOrdersQuery): BrokerOrder[];
+  /**
+   * `orders:create`: envía una orden limitada manual a la cuenta paper;
+   * la misma gestión de reintentos e idempotencia que las de señal.
+   */
+  createOrder(request: CreateOrderRequest): Promise<BrokerOrder>;
   /** `orders:cancel`: cancela una orden abierta por id local. */
   cancelOrder(request: CancelOrderRequest): Promise<BrokerOrder>;
   /** `reconcile:run`: una pasada manual de conciliación. */
@@ -592,6 +599,11 @@ export function createBrokerService(deps: BrokerServiceDeps): BrokerService {
 
     listOrders: (query) => deps.repository.listOrders(query),
 
+    createOrder: async (request) => {
+      if (orders === null) throw new Error(ERR_BROKER_NO_ACCOUNT);
+      return orders.createLimitOrder(request);
+    },
+
     cancelOrder: async (request) => {
       if (orders === null) throw new Error(ERR_BROKER_NO_ACCOUNT);
       return orders.cancelOrder(request.id);
@@ -762,6 +774,15 @@ export function registerBroker(ctx: ServiceContext): BrokerService {
       );
     }
     return service.listOrders(query);
+  });
+  ipcMain.handle(IPC_CHANNELS.orders.create, (_event, request: unknown) => {
+    if (!isCreateOrderRequest(request)) {
+      throw new IpcValidationError(
+        IPC_CHANNELS.orders.create,
+        'se esperaba {ticker, side, quantity, limitPrice}',
+      );
+    }
+    return service.createOrder(request);
   });
   ipcMain.handle(IPC_CHANNELS.orders.cancel, (_event, request: unknown) => {
     if (!isCancelOrderRequest(request)) {

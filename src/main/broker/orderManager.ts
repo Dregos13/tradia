@@ -42,6 +42,7 @@ import {
   type BrokerOrder,
   type BrokerOrderLeg,
   type BrokerOrderSide,
+  type CreateOrderRequest,
 } from '../../shared/broker';
 import type { JournalRecordInput } from '../../shared/journal';
 import type { Signal, SignalNewEvent } from '../../shared/signals';
@@ -168,6 +169,15 @@ export interface OrderManager {
    */
   syncWithBroker(): Promise<OrderSyncResult>;
   /**
+   * Crea una orden limitada suelta (sin señal): la pide el usuario desde
+   * la página Órdenes. Comparte el conducto de reintentos e idempotencia
+   * de las órdenes de señal; su `client_order_id` es
+   * 'tradia-manual-<instante>-<n>' y su pata queda null. La bloquean la
+   * parada de emergencia y la falta de conexión; el interruptor de
+   * ejecución es solo de las señales y no aplica aquí.
+   */
+  createLimitOrder(request: CreateOrderRequest): Promise<BrokerOrder>;
+  /**
    * Cancela una orden abierta local por su id (`broker_orders.id`). Con
    * respuesta perdida o 'not-found' sincroniza con el broker antes de
    * decidir el estado final.
@@ -215,6 +225,8 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
 
   const isoNow = (): string => new Date(now()).toISOString();
   let stopped = false;
+  /** Contador de órdenes manuales del proceso: sufijo del client_order_id. */
+  let manualSeq = 0;
 
   const recordJournal = (input: JournalRecordInput): void => {
     try {
@@ -680,6 +692,63 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
         );
       }
       return result;
+    },
+
+    createLimitOrder: async (request) => {
+      const ticker = request.ticker.trim().toUpperCase();
+      // Una orden manual es una acción explícita del usuario: la paran la
+      // parada de emergencia y la falta de conexión, no el interruptor de
+      // ejecución automática de señales.
+      const blocked =
+        deps.isKillSwitchActive?.() === true
+          ? 'la parada de emergencia está activa'
+          : deps.isOnline?.() === false
+            ? 'sin conexión'
+            : null;
+      if (blocked !== null) {
+        logger.warn?.(`[ordenes] orden limitada manual de ${ticker} bloqueada: ${blocked}`);
+        recordJournal({
+          type: 'error',
+          ticker,
+          reason: `Orden limitada manual de ${ticker} no enviada: ${blocked}`,
+          dataUsed: {
+            lado: request.side,
+            cantidad: request.quantity,
+            precioLimite: request.limitPrice,
+          },
+          result: 'error',
+          errors: [`envío bloqueado: ${blocked}`],
+        });
+        throw new Error(`La orden limitada de ${ticker} no se envió: ${blocked}.`);
+      }
+
+      manualSeq += 1;
+      const clientOrderId = `tradia-manual-${now()}-${manualSeq}`;
+      const { order } = deps.repository.insertOrder({
+        clientOrderId,
+        signalId: null,
+        strategyId: null,
+        leg: null,
+        ticker,
+        type: 'limit',
+        side: request.side,
+        quantity: request.quantity,
+        limitPrice: request.limitPrice,
+        requestedPrice: request.limitPrice,
+        requestedAt: isoNow(),
+        status: 'pendiente',
+      });
+      notify(order);
+      return submitWithRetry(order, {
+        clientOrderId,
+        ticker,
+        type: 'limit',
+        side: request.side,
+        quantity: request.quantity,
+        limitPrice: request.limitPrice,
+        // Una limitada manual debe sobrevivir al cierre de sesión: 'gtc'.
+        timeInForce: 'gtc',
+      });
     },
 
     cancelOrder: async (id) => {

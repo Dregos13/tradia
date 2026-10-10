@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BROKER_SECRET_KEYS, IPC_CHANNELS } from '../../shared/ipc';
+import { BROKER_SECRET_KEYS, IPC_CHANNELS, type BrokerOrder } from '../../shared/ipc';
 import type { RiskDecision } from '../../shared/risk';
 import type { Signal } from '../../shared/signals';
 import { openDatabase } from '../db/database';
@@ -226,6 +226,7 @@ describe('registerBroker · registro de canales', () => {
       IPC_CHANNELS.broker.status,
       IPC_CHANNELS.broker.test,
       IPC_CHANNELS.orders.list,
+      IPC_CHANNELS.orders.create,
       IPC_CHANNELS.orders.cancel,
       IPC_CHANNELS.reconcile.run,
       IPC_CHANNELS.reconcile.status,
@@ -312,6 +313,25 @@ describe('registerBroker · validación de entradas', () => {
     expect(() => list(null, { sorpresa: 1 })).toThrow(/entrada inválida/);
     expect(list(null, undefined)).toEqual([]);
     expect(list(null, { status: 'pendiente', limit: 10 })).toEqual([]);
+  });
+
+  it('orders:create exige activo, lado, cantidad y precio límite válidos', async () => {
+    const create = handle(IPC_CHANNELS.orders.create);
+    const good = { ticker: 'AAPL', side: 'buy', quantity: 2, limitPrice: 100 };
+    for (const bad of [
+      null,
+      {},
+      { ...good, side: 'corto' },
+      { ...good, ticker: '***' },
+      { ...good, quantity: 0 },
+      { ...good, limitPrice: -1 },
+      { ...good, type: 'limit' },
+      { ticker: 'AAPL', side: 'buy' },
+    ]) {
+      expect(() => create(null, bad)).toThrow(/entrada inválida/);
+    }
+    // Válida pero sin cuenta conectada: error legible, no validación.
+    await expect(create(null, good)).rejects.toThrow(ERR_BROKER_NO_ACCOUNT);
   });
 
   it('orders:cancel exige un id local entero positivo', async () => {
@@ -510,6 +530,38 @@ describe('registerBroker · conciliación e informe', () => {
     expect(report.rows.every((row) => row.trades === 2)).toBe(true);
     const strategyIds = new Set(report.rows.map((row) => row.strategyId));
     expect(strategyIds.size).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Órdenes limitadas manuales (orders:create)
+// ---------------------------------------------------------------------------
+
+describe('registerBroker · órdenes limitadas manuales', () => {
+  it('orders:create envía la limitada al broker simulado y orders:cancel la cancela', async () => {
+    await connectSimulated();
+    const order = (await handle(IPC_CHANNELS.orders.create)(null, {
+      ticker: 'aapl',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 1,
+    })) as BrokerOrder;
+
+    expect(order).toMatchObject({
+      ticker: 'AAPL',
+      type: 'limit',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 1,
+      status: 'enviada',
+      signalId: null,
+      leg: null,
+    });
+    expect(order.clientOrderId.startsWith('tradia-manual-')).toBe(true);
+    expect(sent.some((m) => m.channel === IPC_CHANNELS.broker.orderUpdated)).toBe(true);
+
+    const canceled = await handle(IPC_CHANNELS.orders.cancel)(null, { id: order.id });
+    expect(canceled).toMatchObject({ id: order.id, status: 'cancelada' });
   });
 });
 

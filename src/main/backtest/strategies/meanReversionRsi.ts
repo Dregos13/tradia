@@ -9,6 +9,12 @@
  *   «objetivo» implícito de la reversión.
  * - Stop fijo a stopAtr × ATR(atrPeriod) bajo el cierre de la señal: si la
  *   caída no revierte, la pérdida queda acotada.
+ * - Objetivo fijo a targetR × la distancia entrada−stop sobre el cierre de
+ *   la señal: toda entrada sale con stop Y objetivo porque la pasarela de
+ *   riesgo exige un ratio beneficio/riesgo ≥ 2 y el OCO de salida necesita
+ *   ambas patas. targetR nunca baja de 2.
+ * - Sin ATR no hay entrada: una compra sin stop calculable no puede pasar
+ *   la pasarela ni protegerse en paper, así que la estrategia espera.
  */
 import {
   DEFAULT_STRATEGY_COSTS,
@@ -26,6 +32,7 @@ export const MEAN_REVERSION_RSI_DEFAULTS = {
   trendPeriod: 200,
   atrPeriod: 14,
   stopAtr: 2.5,
+  targetR: 2.5,
 };
 
 interface ReversionState {
@@ -49,10 +56,18 @@ export function createMeanReversionRsiStrategy(): Strategy {
     const position = ctx.position(ticker);
     if (position === null) {
       const trend = st.trend.value;
-      if (trend !== null && rsiValue !== null && bar.close > trend && rsiValue <= params.oversold) {
-        const atr = st.atr.value;
-        const stop = atr === null ? undefined : bar.close - params.stopAtr * atr;
-        ctx.buy(ticker, stop !== undefined && stop > 0 ? { stop } : undefined);
+      const atr = st.atr.value;
+      if (
+        trend !== null &&
+        rsiValue !== null &&
+        atr !== null &&
+        bar.close > trend &&
+        rsiValue <= params.oversold
+      ) {
+        const stop = bar.close - params.stopAtr * atr;
+        if (stop > 0) {
+          ctx.buy(ticker, { stop, target: bar.close + params.targetR * (bar.close - stop) });
+        }
       }
       return;
     }
@@ -70,6 +85,7 @@ export function createMeanReversionRsiStrategy(): Strategy {
       requireParamRange(params.oversold, 'oversold', 0, 50);
       requireParamRange(params.exitRsi, 'exitRsi', 50, 100);
       requireParamRange(params.stopAtr, 'stopAtr', 0.1, 20);
+      requireParamRange(params.targetR, 'targetR', 2, 20);
       if (params.oversold >= params.exitRsi) {
         throw new RangeError(
           `estrategia reversión: oversold (${params.oversold}) debe ser < exitRsi (${params.exitRsi})`,
@@ -118,7 +134,7 @@ export const MEAN_REVERSION_RSI_SEED: CreateStrategyRequest = {
     stop:
       'Stop de protección fijo a stopAtr (2,5) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
     target:
-      'Sin objetivo fijo: la salida la marca el rebote del RSI por encima de exitRsi o el stop.',
+      'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el rebote del RSI por encima de exitRsi o el stop.',
   },
   parameters: { ...MEAN_REVERSION_RSI_DEFAULTS },
   parameterRanges: {
@@ -128,6 +144,7 @@ export const MEAN_REVERSION_RSI_SEED: CreateStrategyRequest = {
     trendPeriod: { min: 50, max: 250, step: 50 },
     atrPeriod: { min: 7, max: 28, step: 7 },
     stopAtr: { min: 1, max: 4, step: 0.5 },
+    targetR: { min: 2, max: 6, step: 0.5 },
   },
   markets: ['SPY', 'QQQ'],
   trainingPeriod: { desde: '2000-01-03', hasta: '2014-12-31' },

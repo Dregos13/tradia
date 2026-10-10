@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BrokerOrder, BrokerOrderStatus } from '../../../../shared/broker';
+import type {
+  BrokerOrder,
+  BrokerOrderSide,
+  BrokerOrderStatus,
+} from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES, BROKER_ORDER_STATUSES } from '../../../../shared/broker';
 import { useOrders, useReconciliation } from '../../hooks/useOrders';
 import { useStrategies } from '../../hooks/useStrategies';
@@ -30,9 +34,19 @@ export function OrdersPage() {
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [formTicker, setFormTicker] = useState('');
+  const [formSide, setFormSide] = useState<BrokerOrderSide>('buy');
+  const [formQty, setFormQty] = useState('');
+  const [formPrice, setFormPrice] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const keep = useRef<HTMLButtonElement>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const createTrigger = useRef<HTMLButtonElement>(null);
+  const formFirst = useRef<HTMLInputElement>(null);
   const busy = useRef(false);
+  const createBusy = useRef(false);
   const rows = state.orders
     .filter(
       (row) =>
@@ -45,10 +59,58 @@ export function OrdersPage() {
   useEffect(() => {
     if (confirmation !== null) keep.current?.focus();
   }, [confirmation]);
+  useEffect(() => {
+    if (creating) formFirst.current?.focus();
+  }, [creating]);
   const close = () => {
     setConfirmation(null);
     setCancelError(null);
     trigger.current?.focus();
+  };
+  const closeCreate = () => {
+    setCreating(false);
+    setCreateError(null);
+    createTrigger.current?.focus();
+  };
+  const submitCreate = async () => {
+    const quantity = Number(formQty);
+    const limitPrice = Number(formPrice);
+    const symbol = formTicker.trim().toUpperCase();
+    if (
+      createBusy.current ||
+      offline ||
+      symbol === '' ||
+      !(quantity > 0) ||
+      !(limitPrice > 0)
+    ) {
+      return;
+    }
+    createBusy.current = true;
+    setSending(true);
+    setCreateError(null);
+    try {
+      const created = await window.tradia.orders.create({
+        ticker: symbol,
+        side: formSide,
+        quantity,
+        limitPrice,
+      });
+      state.update(created);
+      setAnnouncement(
+        `Orden ${orderTypes[created.type].toLowerCase()} de ${created.ticker}: ${orderStatuses[created.status].label.toLowerCase()}`,
+      );
+      setFormTicker('');
+      setFormQty('');
+      setFormPrice('');
+      closeCreate();
+    } catch {
+      setCreateError(
+        'No se pudo enviar la orden limitada. Comprueba la cuenta paper e inténtalo de nuevo.',
+      );
+    } finally {
+      createBusy.current = false;
+      setSending(false);
+    }
   };
   const cancel = async () => {
     if (!selected || !cancelable(selected) || busy.current || offline) return;
@@ -115,9 +177,13 @@ export function OrdersPage() {
             ))}
           </select>
         </label>
-        <label>
-          Estrategia
-          <select value={strategy} onChange={(event) => setStrategy(event.target.value)}>
+        <div className="orders-field">
+          <label htmlFor="orders-strategy-filter">Estrategia</label>
+          <select
+            id="orders-strategy-filter"
+            value={strategy}
+            onChange={(event) => setStrategy(event.target.value)}
+          >
             <option value="">Todas las estrategias</option>
             {[
               ...new Set([
@@ -130,9 +196,9 @@ export function OrdersPage() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
         <label>
-          Activo
+          Ticker
           <input
             value={ticker}
             onChange={(event) => setTicker(event.target.value)}
@@ -143,6 +209,100 @@ export function OrdersPage() {
           Limpiar filtros
         </button>
       </section>
+      <div className="orders-actions">
+        <button
+          ref={createTrigger}
+          className="button"
+          disabled={offline}
+          title={offline ? 'Necesitas conexión para enviar órdenes' : undefined}
+          onClick={() => {
+            setCreateError(null);
+            setCreating((open) => !open);
+          }}
+        >
+          Crear orden limitada
+        </button>
+      </div>
+      {creating && (
+        <section
+          className="orders-create"
+          aria-labelledby="create-order-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !sending) closeCreate();
+          }}
+        >
+          <h2 id="create-order-title">Nueva orden limitada</h2>
+          <p>
+            La orden queda pendiente en la cuenta paper hasta que el precio la alcance o la
+            canceles.
+          </p>
+          <div className="orders-create-fields">
+            <label>
+              Activo
+              <input
+                ref={formFirst}
+                value={formTicker}
+                onChange={(event) => setFormTicker(event.target.value)}
+                placeholder="AAPL"
+                autoCapitalize="characters"
+              />
+            </label>
+            <label>
+              Lado
+              <select
+                value={formSide}
+                onChange={(event) => setFormSide(event.target.value as BrokerOrderSide)}
+              >
+                <option value="buy">Compra</option>
+                <option value="sell">Venta</option>
+              </select>
+            </label>
+            <label>
+              Cantidad
+              <input
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+                value={formQty}
+                onChange={(event) => setFormQty(event.target.value)}
+                placeholder="2"
+              />
+            </label>
+            <label>
+              Precio límite
+              <input
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+                value={formPrice}
+                onChange={(event) => setFormPrice(event.target.value)}
+                placeholder="0,00"
+              />
+            </label>
+          </div>
+          {createError && <p role="alert">{createError}</p>}
+          <div className="orders-actions">
+            <button className="button" disabled={sending} onClick={closeCreate}>
+              Descartar
+            </button>
+            <button
+              className="button"
+              disabled={
+                sending ||
+                offline ||
+                formTicker.trim() === '' ||
+                !(Number(formQty) > 0) ||
+                !(Number(formPrice) > 0)
+              }
+              onClick={() => void submitCreate()}
+            >
+              {sending ? 'Enviando…' : 'Enviar orden limitada'}
+            </button>
+          </div>
+        </section>
+      )}
       {strategies.error && (
         <p role="alert">
           {strategies.error}{' '}
