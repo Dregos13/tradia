@@ -29,6 +29,7 @@ import { registerSignals, type SignalsService } from '../signals';
 import { registerJournal, type JournalService } from '../journal';
 import { registerRegime, type AiRegimeService } from '../ai/regime';
 import { registerPrediction, type AiPredictionService } from '../ai/prediction';
+import { registerNewsAi, type NewsAiService } from '../ai/news';
 import { registerDrift, type AiDriftService } from '../ai/drift';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
@@ -73,6 +74,8 @@ export interface MainServices {
   aiRegime: AiRegimeService;
   /** Predicción ONNX (fase 6): probabilidades calibradas, ai:predictions/model-card. */
   aiPrediction: AiPredictionService;
+  /** Noticias con LLM (fase 6): cola de confirmados y ai:news-analysis/llm-*. */
+  newsAi: NewsAiService;
   /** Salud de modelos (fase 6): drift, degradación y propuestas, ai:health/retrain. */
   aiDrift: AiDriftService;
   /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
@@ -165,6 +168,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   // data_status (health la observa por el broadcast envuelto). Antes de
   // signals: la integración de señales consume sus probabilidades.
   services.aiPrediction = registerPrediction(ctx);
+  // Fase 6: el análisis de noticias encola los titulares confirmados que
+  // entrega cada pasada del lector (poller.onItemsStored) y los resume
+  // con el LLM o el léxico local; en E2E usa el analizador simulado.
+  services.newsAi = registerNewsAi(ctx);
   services.signals = registerSignals(ctx);
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);

@@ -60,12 +60,19 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
-        // El broker (fase 5) se para el primero: consume la rutina, el
-        // motor de señales, el diario y los canales. Después, la rutina y
-        // el motor antes que sus servicios base y estos antes que el resto.
+        // El broker real (fase 7) y el broker paper (fase 5) se paran los
+        // primeros: consumen la rutina, el motor de señales, el diario y
+        // los canales. Después, la salud de modelos (oyente del
+        // postmercado), la rutina y el motor antes que sus servicios base,
+        // la predicción (suelta la sesión ONNX) y el régimen antes que el
+        // mercado del que cuelgan, y estos antes que el resto.
+        services?.live.broker.stop();
         services?.broker.stop();
+        services?.aiDrift.stop();
         services?.routine.stop();
         services?.signals.stop();
+        void services?.aiPrediction.stop();
+        services?.aiRegime.stop();
         services?.delivery.stop();
         services?.backup.stop();
         services?.journal.stop();
