@@ -47,11 +47,17 @@ posteriores.
 **Decisión: modo (a) + (b) — solo señales informativas y paper trading. La
 ejecución automática con capital real (c) queda fuera del alcance.**
 
-En esta fase la app no se conecta a ningún broker para ejecutar órdenes.
-Las señales se muestran al usuario y el paper trading se registra en una
-cartera simulada con su diario automático. Pasar a ejecución real requiere
-cumplir el criterio de la sección 4.4 y el checklist de la sección 18 del
-plan, y será una decisión explícita en una fase posterior.
+Desde la fase 5 la app sí se conecta a un broker, **pero solo a una cuenta
+de paper trading** (Alpaca paper; ver `docs/broker.md`): las señales
+aprobadas por el motor de riesgo se ejecutan con dinero simulado en la
+cuenta paper del propio broker y la app concilia su registro con el del
+broker. El dinero real sigue fuera del alcance: el adaptador tiene fijada
+la URL `paper-api.alpaca.markets`, las claves de una cuenta live se
+rechazan antes de guardarse y la app exige que se generen sin permiso de
+retirada. Además convive la cartera simulada interna con su diario
+automático, que sigue funcionando sin cuenta conectada. Pasar a ejecución
+real requiere cumplir el criterio de la sección 4.4 y el checklist de la
+sección 18 del plan, y será una decisión explícita en una fase posterior.
 
 ## 4. Objetivos medibles
 

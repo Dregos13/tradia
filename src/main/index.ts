@@ -60,8 +60,10 @@ if (!gotSingleInstanceLock) {
       app.on('activate', () => showMainWindow());
 
       app.on('will-quit', () => {
-        // Fase 4: la rutina y el motor se paran antes que sus servicios
-        // base (diario, canales, copias) y estos antes que el resto.
+        // El broker (fase 5) se para el primero: consume la rutina, el
+        // motor de señales, el diario y los canales. Después, la rutina y
+        // el motor antes que sus servicios base y estos antes que el resto.
+        services?.broker.stop();
         services?.routine.stop();
         services?.signals.stop();
         services?.delivery.stop();

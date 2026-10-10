@@ -30,6 +30,7 @@ import { registerJournal, type JournalService } from '../journal';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
+import { registerBroker, type BrokerService } from '../broker';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -72,6 +73,8 @@ export interface MainServices {
   backup: BackupService;
   /** Rutina diaria (fase 4): preapertura, cierre y conciliación. */
   routine: RoutineService;
+  /** Broker en modo paper (fase 5): conexión, órdenes, conciliación e informe. */
+  broker: BrokerService;
 }
 
 export interface ServiceContext {
@@ -141,8 +144,14 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
   services.routine = registerRoutine(ctx);
-  // El último: consume notifications, settings, poller (onItemsStored y el
-  // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
+  // El último antes del broker: consume notifications, settings, poller
+  // (onItemsStored y el reloj de desarrollo), calendar (su evento updated)
+  // y market (watchlist).
   services.alerts = registerAlerts(ctx);
+  // Fase 5: el broker va el último — consume storage, secrets, settings,
+  // connectivity, killSwitch, signals, journal, delivery, notifications,
+  // backtest, strategies y routine (onPostMarket), y envuelve
+  // ctx.broadcast para seguir `signals:new` y `connectivity:changed`.
+  services.broker = registerBroker(ctx);
   return services as MainServices;
 }
