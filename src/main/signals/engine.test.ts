@@ -60,6 +60,8 @@ const makeFicha = (id: number, patch: Partial<Strategy> = {}): Strategy => ({
   outOfSamplePeriod: null,
   metricsSummary: null,
   regime: 'tendencial',
+  worksIn: ['tendencia'],
+  failsIn: [],
   assumedCosts: { commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 },
   status: 'activa',
   changeNote: '',

@@ -36,10 +36,7 @@ export const REGIME_VOLATILITY_LABELS = ['volatilidad-alta', 'volatilidad-baja']
 export type RegimeVolatilityLabel = (typeof REGIME_VOLATILITY_LABELS)[number];
 
 /** Las cuatro etiquetas: una de cada eje por activo y por el mercado. */
-export const REGIME_LABELS = [
-  ...REGIME_DIRECTION_LABELS,
-  ...REGIME_VOLATILITY_LABELS,
-] as const;
+export const REGIME_LABELS = [...REGIME_DIRECTION_LABELS, ...REGIME_VOLATILITY_LABELS] as const;
 export type RegimeLabel = (typeof REGIME_LABELS)[number];
 
 /** Ámbito de una lectura de régimen: un activo o el mercado (referencia SPY). */

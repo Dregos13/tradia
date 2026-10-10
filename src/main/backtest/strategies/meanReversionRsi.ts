@@ -16,10 +16,7 @@
  * - Sin ATR no hay entrada: una compra sin stop calculable no puede pasar
  *   la pasarela ni protegerse en paper, así que la estrategia espera.
  */
-import {
-  DEFAULT_STRATEGY_COSTS,
-  type CreateStrategyRequest,
-} from '../../../shared/strategy';
+import { DEFAULT_STRATEGY_COSTS, type CreateStrategyRequest } from '../../../shared/strategy';
 import type { EngineBar, Strategy, StrategyContext } from '../types';
 import { requireIntegerParam, requireParamRange, resolveParams } from './params';
 import { RollingSma, WilderAtr, WilderRsi } from './rolling';
@@ -129,10 +126,8 @@ export const MEAN_REVERSION_RSI_SEED: CreateStrategyRequest = {
   rules: {
     entry:
       'Compra cuando RSI(rsiPeriod) ≤ oversold (5) y el cierre sigue por encima de SMA(trendPeriod) — filtro de régimen alcista; la orden se ejecuta en la apertura siguiente.',
-    exit:
-      'Vende cuando RSI(rsiPeriod) rebota por encima de exitRsi (70), lo que marca la reversión consumada; ejecución en la apertura siguiente.',
-    stop:
-      'Stop de protección fijo a stopAtr (2,5) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
+    exit: 'Vende cuando RSI(rsiPeriod) rebota por encima de exitRsi (70), lo que marca la reversión consumada; ejecución en la apertura siguiente.',
+    stop: 'Stop de protección fijo a stopAtr (2,5) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
     target:
       'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el rebote del RSI por encima de exitRsi o el stop.',
   },
@@ -151,6 +146,8 @@ export const MEAN_REVERSION_RSI_SEED: CreateStrategyRequest = {
   outOfSamplePeriod: { desde: '2015-01-02', hasta: '2024-12-31' },
   regime:
     'Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo.',
+  worksIn: ['lateral'],
+  failsIn: ['tendencia'],
   assumedCosts: DEFAULT_STRATEGY_COSTS,
   note: 'Semilla de la fase 2: reversión a la media con RSI(2) y filtro de tendencia (variante Connors del sistema RSI/Bollinger).',
 };

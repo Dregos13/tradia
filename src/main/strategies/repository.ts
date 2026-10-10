@@ -18,6 +18,7 @@
  */
 import type Database from 'better-sqlite3';
 
+import { REGIME_LABELS, type RegimeLabel } from '../../shared/ai';
 import {
   DEFAULT_STRATEGY_COSTS,
   STRATEGY_STATUSES,
@@ -81,6 +82,10 @@ interface VersionRow {
   fuera_muestra_hasta: string | null;
   metricas_resumen: string | null;
   regimen: string;
+  // Etiquetas de régimen estructuradas (migración 011): JSON de
+  // RegimeLabel[]; '[]' en fichas sin preferencia declarada.
+  regimen_funciona_en: string;
+  regimen_falla_en: string;
   costes: string;
   nota: string;
   creado_en: string;
@@ -101,7 +106,8 @@ const VERSION_COLUMNS =
   'strategy_id, version, nombre, hipotesis, regla_entrada, regla_salida, ' +
   'regla_stop, regla_objetivo, parametros, rangos_parametros, mercados, ' +
   'entrenamiento_desde, entrenamiento_hasta, fuera_muestra_desde, ' +
-  'fuera_muestra_hasta, metricas_resumen, regimen, costes, nota, creado_en';
+  'fuera_muestra_hasta, metricas_resumen, regimen, ' +
+  'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en';
 
 // ---------------------------------------------------------------------------
 // Conversión y JSON defensivo
@@ -129,6 +135,14 @@ function parseJsonArray(raw: string, versionId: string): string[] {
   }
   console.warn(`[strategies] mercados ilegibles en ${versionId}; se devuelve []`);
   return [];
+}
+
+/** Etiquetas de régimen del JSON persistido; se filtran las ajenas al catálogo. */
+function parseRegimeLabels(raw: string, versionId: string): RegimeLabel[] {
+  const items = parseJsonArray(raw, versionId);
+  return items.filter((label): label is RegimeLabel =>
+    (REGIME_LABELS as readonly string[]).includes(label),
+  );
 }
 
 function period(desde: string | null, hasta: string | null): StrategyPeriod | null {
@@ -169,6 +183,8 @@ function toStrategy(strategy: StrategyRow, row: VersionRow, executable: boolean)
             ref,
           ),
     regime: row.regimen,
+    worksIn: parseRegimeLabels(row.regimen_funciona_en, ref),
+    failsIn: parseRegimeLabels(row.regimen_falla_en, ref),
     assumedCosts: parseJsonObject<StrategyCosts>(row.costes, DEFAULT_STRATEGY_COSTS, 'costes', ref),
     status: strategy.estado,
     changeNote: row.nota,
@@ -236,6 +252,8 @@ interface ResolvedDraft {
   trainingPeriod: StrategyPeriod | null;
   outOfSamplePeriod: StrategyPeriod | null;
   regime: string;
+  worksIn: RegimeLabel[];
+  failsIn: RegimeLabel[];
   assumedCosts: StrategyCosts;
 }
 
@@ -273,6 +291,30 @@ function assertDraft(draft: ResolvedDraft): void {
   assertPeriod(draft.trainingPeriod, 'periodo de entrenamiento');
   assertPeriod(draft.outOfSamplePeriod, 'periodo fuera de muestra');
   assertNonEmpty(draft.regime, 'regimen');
+  for (const [field, labels] of [
+    ['funcionaEn', draft.worksIn],
+    ['fallaEn', draft.failsIn],
+  ] as const) {
+    for (const label of labels) {
+      if (!(REGIME_LABELS as readonly string[]).includes(label)) {
+        throw new StrategiesError(
+          'invalid-input',
+          `regimen.${field}: etiqueta de régimen desconocida: ${JSON.stringify(label)}`,
+        );
+      }
+    }
+    if (new Set(labels).size !== labels.length) {
+      throw new StrategiesError('invalid-input', `regimen.${field} tiene etiquetas repetidas`);
+    }
+  }
+  for (const label of draft.worksIn) {
+    if (draft.failsIn.includes(label)) {
+      throw new StrategiesError(
+        'invalid-input',
+        `'${label}' no puede estar a la vez en «funciona en» y «falla en»`,
+      );
+    }
+  }
   for (const field of ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'] as const) {
     assertFiniteNumber(draft.assumedCosts[field], `costes.${field}`);
     if (draft.assumedCosts[field] < 0) {
@@ -292,6 +334,8 @@ function draftFromCreate(request: CreateStrategyRequest): ResolvedDraft {
     trainingPeriod: request.trainingPeriod ?? null,
     outOfSamplePeriod: request.outOfSamplePeriod ?? null,
     regime: request.regime,
+    worksIn: request.worksIn ?? [],
+    failsIn: request.failsIn ?? [],
     assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
   };
 }
@@ -313,6 +357,8 @@ function draftFromRow(row: VersionRow): ResolvedDraft {
     trainingPeriod: period(row.entrenamiento_desde, row.entrenamiento_hasta),
     outOfSamplePeriod: period(row.fuera_muestra_desde, row.fuera_muestra_hasta),
     regime: row.regimen,
+    worksIn: parseRegimeLabels(row.regimen_funciona_en, ref),
+    failsIn: parseRegimeLabels(row.regimen_falla_en, ref),
     assumedCosts: parseJsonObject(row.costes, DEFAULT_STRATEGY_COSTS, 'costes', ref),
   };
 }
@@ -366,8 +412,8 @@ export function createStrategiesRepository(
        parametros, rangos_parametros, mercados,
        entrenamiento_desde, entrenamiento_hasta,
        fuera_muestra_desde, fuera_muestra_hasta,
-       regimen, costes, nota
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       regimen, regimen_funciona_en, regimen_falla_en, costes, nota
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertChangelog = db.prepare(
     `INSERT INTO strategy_changelog
@@ -409,6 +455,8 @@ export function createStrategiesRepository(
       draft.outOfSamplePeriod?.desde ?? null,
       draft.outOfSamplePeriod?.hasta ?? null,
       draft.regime.trim(),
+      JSON.stringify(draft.worksIn),
+      JSON.stringify(draft.failsIn),
       JSON.stringify(draft.assumedCosts),
       note,
     );
@@ -419,7 +467,8 @@ export function createStrategiesRepository(
       const rows = db
         .prepare(
           `SELECT s.id, s.estado, s.actualizado_en,
-                  v.version, v.nombre, v.regimen, v.mercados, v.metricas_resumen
+                  v.version, v.nombre, v.regimen, v.regimen_funciona_en,
+                  v.regimen_falla_en, v.mercados, v.metricas_resumen
            FROM strategies s
            JOIN strategy_versions v
              ON v.strategy_id = s.id
@@ -433,6 +482,8 @@ export function createStrategiesRepository(
         version: number;
         nombre: string;
         regimen: string;
+        regimen_funciona_en: string;
+        regimen_falla_en: string;
         mercados: string;
         metricas_resumen: string | null;
       }[];
@@ -442,6 +493,8 @@ export function createStrategiesRepository(
         version: row.version,
         status: row.estado,
         regime: row.regimen,
+        worksIn: parseRegimeLabels(row.regimen_funciona_en, `estrategia ${row.id} v${row.version}`),
+        failsIn: parseRegimeLabels(row.regimen_falla_en, `estrategia ${row.id} v${row.version}`),
         markets: parseJsonArray(row.mercados, `estrategia ${row.id} v${row.version}`),
         metricsSummary:
           row.metricas_resumen === null

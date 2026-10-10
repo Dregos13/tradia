@@ -66,7 +66,8 @@ export const LIVE_DECLARATION_TEXTS: Record<LiveDeclarationRequirement, string> 
 /** Títulos finales de cada requisito (los de la pantalla «Dinero real»). */
 export const LIVE_REQUIREMENT_TITLES: Record<LiveRequirement, string> = {
   'validacion-fuera-muestra': 'Validación fuera de muestra guardada',
-  'paper-continuo': 'Paper continuo durante al menos 3 meses, 30 operaciones y desviación dentro de ±30 %',
+  'paper-continuo':
+    'Paper continuo durante al menos 3 meses, 30 operaciones y desviación dentro de ±30 %',
   'parada-probada': 'Parada de emergencia probada en los últimos 30 días',
   'alertas-activas': 'Canal externo de alertas activo y prueba correcta',
   'claves-sin-retirada': 'Claves live sin permiso de retirada',
@@ -173,7 +174,8 @@ const liveUsd = (value: number): string =>
  * comparación ignora solo espacios sobrantes en los extremos.
  */
 export function liveConfirmationPhrase(limits: LiveLimits): string {
-  const positions = limits.openPositions === 1 ? '1 POSICIÓN' : `${limits.openPositions} POSICIONES`;
+  const positions =
+    limits.openPositions === 1 ? '1 POSICIÓN' : `${limits.openPositions} POSICIONES`;
   return (
     `ACTIVO DINERO REAL CON ${liveUsd(limits.capitalUsd)} USD, ` +
     `${liveUsd(limits.orderUsd)} USD POR ORDEN, ` +

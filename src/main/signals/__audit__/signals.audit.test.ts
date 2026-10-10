@@ -41,6 +41,8 @@ const strategyCard = (id: number, patch: Partial<StrategyCard> = {}): StrategyCa
   outOfSamplePeriod: null,
   metricsSummary: null,
   regime: 'tendencial',
+  worksIn: ['tendencia'],
+  failsIn: [],
   assumedCosts: { commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 },
   status: 'activa',
   changeNote: '',
@@ -60,10 +62,7 @@ const sellStrategy = (ticker: string): ExecutableStrategy => ({
   onBar: (context) => context.sell(ticker),
 });
 
-const riskDecision = (
-  status: RiskDecision['status'] = 'aprobada',
-  size = 3,
-): RiskDecision => ({
+const riskDecision = (status: RiskDecision['status'] = 'aprobada', size = 3): RiskDecision => ({
   status,
   size,
   sizeFactor: 1,
@@ -155,9 +154,7 @@ const makeHarness = (): Harness => {
       })),
     listWatchlistTickers: () => ['AAPL'],
     barsFor: (ticker, until, preferredSource) =>
-      ticker === 'AAPL' && BAR_DATE <= until && preferredSource !== 'unavailable'
-        ? [bar]
-        : [],
+      ticker === 'AAPL' && BAR_DATE <= until && preferredSource !== 'unavailable' ? [bar] : [],
     lastBarDate: () => BAR_DATE,
     getBatchVersion: (id) => (id === bar.batchId ? 2 : null),
     submitSignal: (intent) => {

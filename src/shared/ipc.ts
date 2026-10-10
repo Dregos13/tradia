@@ -198,19 +198,17 @@ import type {
   SimulateDriftRequest,
   SimulateRegimeRequest,
 } from './ai';
-import {
-  LIVE_DECLARATION_REQUIREMENTS,
-  LIVE_FIXED_CAPS,
-  LIVE_REQUIREMENTS,
-} from './live';
+import { LIVE_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
 import type {
   LiveActivateRequest,
   LiveActivateResult,
   LiveChecklist,
+  LiveConnectRequest,
   LiveDeclarationRequirement,
   LiveDeclareRequest,
   LiveKillSwitchTestResult,
   LiveLimitsInput,
+  LiveLimitsState,
   LiveScalingStatus,
   LiveSeedProgressRequest,
   LiveSimulatedBrokerRequest,
@@ -646,7 +644,8 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
  * resúmenes de la fase 4, el Diario o el panel de Inicio, el descuadre de
  * la conciliación, Órdenes, y la alerta de desviación, Real vs backtest.
  * Son las rutas por hash del renderer (`#noticias`, `#calendario`,
- * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`).
+ * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`,
+ * `#ia`, `#salud-modelos` y `#dinero-real` de las fases 6-7).
  */
 export const NOTIFICATION_ROUTES = [
   'noticias',
@@ -2939,6 +2938,363 @@ export function isBrokerSeedWeeksRequest(
     !('weeks' in v) ||
     (typeof v.weeks === 'number' && Number.isInteger(v.weeks) && v.weeks >= 1 && v.weeks <= 52)
   );
+}
+
+// ---------------------------------------------------------------------------
+// Guardas de la IA predictiva y del dinero real (fases 6-7)
+// ---------------------------------------------------------------------------
+
+export function isRegimeDirectionLabel(value: unknown): value is RegimeDirectionLabel {
+  return (
+    typeof value === 'string' && (REGIME_DIRECTION_LABELS as readonly string[]).includes(value)
+  );
+}
+
+export function isRegimeVolatilityLabel(value: unknown): value is RegimeVolatilityLabel {
+  return (
+    typeof value === 'string' && (REGIME_VOLATILITY_LABELS as readonly string[]).includes(value)
+  );
+}
+
+export function isRegimeLabel(value: unknown): value is RegimeLabel {
+  return typeof value === 'string' && (REGIME_LABELS as readonly string[]).includes(value);
+}
+
+/** Lista de etiquetas de régimen sin duplicados (campos `worksIn`/`failsIn`). */
+export function isRegimeLabelList(value: unknown): value is RegimeLabel[] {
+  return (
+    Array.isArray(value) &&
+    value.every(isRegimeLabel) &&
+    new Set(value as string[]).size === value.length
+  );
+}
+
+/**
+ * Contexto de IA de una señal (campo opcional `ai` de SignalIntent y de
+ * SignalDataUsed): la forma se valida en el borde; sus efectos los decide
+ * el motor (nunca crea la señal ni evita la evaluación de riesgo).
+ */
+export function isSignalAiContext(value: unknown): value is SignalAiContext {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'regime',
+    'probability',
+    'horizonDays',
+    'modelVersion',
+    'modelHash',
+    'newsItemIds',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('regime' in v && v.regime !== null) {
+    if (typeof v.regime !== 'object') return false;
+    const r = v.regime as Record<string, unknown>;
+    if (Object.keys(r).some((k) => k !== 'direction' && k !== 'volatility')) return false;
+    if (!isRegimeDirectionLabel(r.direction) || !isRegimeVolatilityLabel(r.volatility)) {
+      return false;
+    }
+  }
+  if (
+    'probability' in v &&
+    v.probability !== null &&
+    (typeof v.probability !== 'number' ||
+      !Number.isFinite(v.probability) ||
+      v.probability < 0 ||
+      v.probability > 1)
+  ) {
+    return false;
+  }
+  if (
+    'horizonDays' in v &&
+    v.horizonDays !== null &&
+    (!Number.isInteger(v.horizonDays) ||
+      (v.horizonDays as number) < 1 ||
+      (v.horizonDays as number) > 250)
+  ) {
+    return false;
+  }
+  for (const key of ['modelVersion', 'modelHash'] as const) {
+    if (
+      key in v &&
+      v[key] !== null &&
+      (typeof v[key] !== 'string' || (v[key] as string).length > 100)
+    ) {
+      return false;
+    }
+  }
+  if ('newsItemIds' in v) {
+    if (
+      !Array.isArray(v.newsItemIds) ||
+      v.newsItemIds.length > 50 ||
+      !v.newsItemIds.every((id) => Number.isInteger(id) && (id as number) >= 1)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Consulta de `ai:predictions`; todos los campos opcionales. */
+export function isPredictionsQuery(value: unknown): value is PredictionsQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'ticker' && k !== 'limit')) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) ||
+      (v.limit as number) < 1 ||
+      (v.limit as number) > PREDICTIONS_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Consulta de `ai:news-analysis`; todos los campos opcionales. */
+export function isNewsAnalysisQuery(value: unknown): value is NewsAnalysisQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'newsItemId' && k !== 'ticker' && k !== 'limit')) {
+    return false;
+  }
+  if ('newsItemId' in v && (!Number.isInteger(v.newsItemId) || (v.newsItemId as number) < 1)) {
+    return false;
+  }
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) ||
+      (v.limit as number) < 1 ||
+      (v.limit as number) > NEWS_ANALYSIS_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
+export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettingsInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(v);
+  if (keys.length === 0) return false;
+  if (keys.some((k) => k !== 'enabled' && k !== 'dailyCap' && k !== 'monthlyBudgetEur')) {
+    return false;
+  }
+  if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
+  if (
+    'dailyCap' in v &&
+    (!Number.isInteger(v.dailyCap) ||
+      (v.dailyCap as number) < NEWS_LLM_DAILY_CAP_BOUNDS.min ||
+      (v.dailyCap as number) > NEWS_LLM_DAILY_CAP_BOUNDS.max)
+  ) {
+    return false;
+  }
+  if (
+    'monthlyBudgetEur' in v &&
+    (typeof v.monthlyBudgetEur !== 'number' ||
+      !Number.isFinite(v.monthlyBudgetEur) ||
+      v.monthlyBudgetEur < NEWS_LLM_MONTHLY_BUDGET_BOUNDS.min ||
+      v.monthlyBudgetEur > NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isDriftCheckKind(value: unknown): value is DriftCheckKind {
+  return typeof value === 'string' && (DRIFT_CHECK_KINDS as readonly string[]).includes(value);
+}
+
+/** Resolución de una propuesta de reentrenamiento (`ai:resolve-retrain`). */
+export function isRetrainResolveRequest(value: unknown): value is RetrainResolveRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['id', 'action', 'postponeUntil', 'note'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!Number.isInteger(v.id) || (v.id as number) < 1) return false;
+  if (!(RETRAIN_ACTIONS as readonly string[]).includes(v.action as string)) return false;
+  if (v.action === 'posponer' && !isIsoDate(v.postponeUntil)) return false;
+  if ('postponeUntil' in v && v.postponeUntil !== undefined && !isIsoDate(v.postponeUntil)) {
+    return false;
+  }
+  if ('note' in v && v.note !== undefined && !isStrategyText(v.note)) return false;
+  return true;
+}
+
+/** Petición de `backtest:regime-comparison` y `backtest:run-regime-comparison`. */
+export function isRegimeComparisonRequest(value: unknown): value is RegimeComparisonRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  return true;
+}
+
+/** Gancho E2E `ai:simulate-regime`: al menos una etiqueta a fijar. */
+export function isSimulateRegimeRequest(value: unknown): value is SimulateRegimeRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['scope', 'ticker', 'direction', 'volatility', 'sessionDate'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!('direction' in v) && !('volatility' in v)) return false;
+  if ('scope' in v && !(REGIME_SCOPES as readonly string[]).includes(v.scope as string)) {
+    return false;
+  }
+  // El ámbito 'activo' (o sin ámbito) exige ticker; 'mercado' usa SPY.
+  const scope = 'scope' in v ? v.scope : 'ticker' in v ? 'activo' : 'mercado';
+  if (scope === 'activo' && !isTicker(v.ticker)) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('direction' in v && !isRegimeDirectionLabel(v.direction)) return false;
+  if ('volatility' in v && !isRegimeVolatilityLabel(v.volatility)) return false;
+  if ('sessionDate' in v && !isIsoDate(v.sessionDate)) return false;
+  return true;
+}
+
+/** Gancho E2E `ai:simulate-drift`. */
+export function isSimulateDriftRequest(value: unknown): value is SimulateDriftRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'kind' && k !== 'subjectId' && k !== 'streak')) {
+    return false;
+  }
+  if (!isDriftCheckKind(v.kind)) return false;
+  if ('subjectId' in v && (!Number.isInteger(v.subjectId) || (v.subjectId as number) < 1)) {
+    return false;
+  }
+  if (
+    'streak' in v &&
+    (!Number.isInteger(v.streak) || (v.streak as number) < 1 || (v.streak as number) > 10_000)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Claves de declaración manual de la lista de dinero real. */
+export function isLiveDeclarationRequirement(value: unknown): value is LiveDeclarationRequirement {
+  return (
+    typeof value === 'string' &&
+    (LIVE_DECLARATION_REQUIREMENTS as readonly string[]).includes(value)
+  );
+}
+
+export function isLiveRequirementKey(value: unknown): boolean {
+  return typeof value === 'string' && (LIVE_REQUIREMENTS as readonly string[]).includes(value);
+}
+
+/** Petición de `live:declare`: suscribe o retira una declaración manual. */
+export function isLiveDeclareRequest(value: unknown): value is LiveDeclareRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['requirement', 'confirmed', 'detail'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isLiveDeclarationRequirement(v.requirement)) return false;
+  if (typeof v.confirmed !== 'boolean') return false;
+  if ('detail' in v && v.detail !== undefined) {
+    if (typeof v.detail !== 'string' || v.detail.length > 1_000) return false;
+  }
+  return true;
+}
+
+/**
+ * Límites escritos del modo real (`live:set-limits`): los cuatro valores,
+ * todos positivos y sin superar los techos fijos de `LIVE_FIXED_CAPS`.
+ */
+export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (allowed.some((k) => !(k in v))) return false;
+  const usdField = (key: 'capitalUsd' | 'orderUsd' | 'dailyLossUsd', cap: number): boolean =>
+    typeof v[key] === 'number' &&
+    Number.isFinite(v[key] as number) &&
+    (v[key] as number) > 0 &&
+    (v[key] as number) <= cap;
+  if (!usdField('capitalUsd', LIVE_FIXED_CAPS.capitalUsd)) return false;
+  if (!usdField('orderUsd', LIVE_FIXED_CAPS.orderUsd)) return false;
+  if (!usdField('dailyLossUsd', LIVE_FIXED_CAPS.dailyLossUsd)) return false;
+  return (
+    Number.isInteger(v.openPositions) &&
+    (v.openPositions as number) >= 1 &&
+    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions
+  );
+}
+
+/** Petición de `live:activate`: la frase de confirmación escrita. */
+export function isLiveActivateRequest(value: unknown): value is LiveActivateRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'phrase')) return false;
+  return typeof v.phrase === 'string' && v.phrase.trim().length > 0 && v.phrase.length <= 500;
+}
+
+/** Petición de `live:connect`: claves de la cuenta live (prefijo AK…). */
+export function isLiveConnectRequest(value: unknown): value is LiveConnectRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'apiKeyId' && k !== 'apiSecret')) return false;
+  return isBrokerKey(v.apiKeyId) && isBrokerKey(v.apiSecret);
+}
+
+/** Petición de `live:smoke-test`: confirmación breve explícita. */
+export function isLiveSmokeTestRequest(value: unknown): value is LiveSmokeTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'confirm')) return false;
+  return v.confirm === true;
+}
+
+/**
+ * Gancho E2E `live:seed-progress`: siembra evidencia para los requisitos
+ * automáticos. Todos los campos son opcionales (sin campos = valores que
+ * cumplen la lista completa).
+ */
+export function isLiveSeedProgressRequest(
+  value: unknown,
+): value is LiveSeedProgressRequest | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'paperMonths',
+    'paperTrades',
+    'deviationPct',
+    'finalTestDone',
+    'killSwitchTested',
+    'alertsTested',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  const positiveInt = (key: 'paperMonths' | 'paperTrades', max: number): boolean =>
+    !(key in v) ||
+    (Number.isInteger(v[key]) && (v[key] as number) >= 0 && (v[key] as number) <= max);
+  if (!positiveInt('paperMonths', 120)) return false;
+  if (!positiveInt('paperTrades', 10_000)) return false;
+  if (
+    'deviationPct' in v &&
+    (typeof v.deviationPct !== 'number' ||
+      !Number.isFinite(v.deviationPct) ||
+      Math.abs(v.deviationPct) > 10_000)
+  ) {
+    return false;
+  }
+  for (const key of ['finalTestDone', 'killSwitchTested', 'alertsTested'] as const) {
+    if (key in v && typeof v[key] !== 'boolean') return false;
+  }
+  return true;
+}
+
+/** Gancho E2E `live:use-simulated-broker`. */
+export function isLiveSimulatedBrokerRequest(value: unknown): value is LiveSimulatedBrokerRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'enabled')) return false;
+  return typeof v.enabled === 'boolean';
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */
