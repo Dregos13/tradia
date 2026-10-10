@@ -81,6 +81,7 @@ import type { DeliveryEventKind, JournalRecordInput } from '../../shared/journal
 import type { Signal } from '../../shared/signals';
 import { openDatabase } from '../db/database';
 import type { DeliveryMessage } from '../delivery';
+import { createMarketRepository } from '../market/repository';
 import type { ServiceContext } from '../services';
 import { createAlpacaBroker } from './alpaca';
 import { expectationFromReport, type StrategyExpectation } from './deviation';
@@ -690,9 +691,22 @@ export function registerBroker(ctx: ServiceContext): BrokerService {
   const repository = createBrokerRepository(db);
 
   // Solo en modo E2E sin empaquetar el adaptador es el broker simulado.
-  const e2eBroker = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E)
-    ? createSimulatedBroker({ seed: 'tradia-e2e' })
-    : undefined;
+  // Su precio de referencia es el último cierre ingerido del ticker —el
+  // mismo mercado del que salen las señales— para que la ejecución y el
+  // slippage midan contra el precio real de la señal; sin velas
+  // guardadas el simulado cae a su precio fijo derivado de la semilla.
+  let e2eBroker: SimulatedBroker | undefined;
+  if (isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E)) {
+    const marketRepo = createMarketRepository(db);
+    e2eBroker = createSimulatedBroker({
+      seed: 'tradia-e2e',
+      resolvePrice: (ticker) => {
+        const lastDate = marketRepo.lastBarDate(ticker);
+        if (lastDate === null) return undefined;
+        return marketRepo.getBars(ticker, { desde: lastDate, hasta: lastDate }).at(-1)?.close;
+      },
+    });
+  }
 
   const journal = ctx.services.journal;
   const service = createBrokerService({

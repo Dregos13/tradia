@@ -132,7 +132,10 @@ de órdenes. Sin cuenta conectada sigue el seguimiento local de
 ## Ganchos E2E
 
 Solo con `TRADIA_E2E=1` y sin empaquetar el adaptador es el broker
-simulado y se registran tres canales extra:
+simulado y se registran tres canales extra. El simulado ejecuta al
+último cierre ingerido del ticker —el mismo mercado del que salen las
+señales— con el slippage fijo configurado; sin velas guardadas usa un
+precio fijo derivado de la semilla.
 
 - `broker:fail-next` — arma un fallo (`timeout`, `rate-limit`, `server`,
   `reject`, `partial`) para la próxima llamada.

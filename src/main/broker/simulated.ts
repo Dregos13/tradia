@@ -19,6 +19,12 @@
  *   ejecuta la primera pata disparada y cancela la otra. Los ticks de
  *   precio (`setPrice`/`tick`) reevalúan las abiertas.
  *
+ * El precio de referencia de cada ticker se resuelve en este orden:
+ * el inyectado (`prices`/`setPrice`), el del resolvedor externo
+ * `resolvePrice` (en la app E2E, el último cierre ingerido del mercado,
+ * el mismo del que salen las señales) y, en último término, uno fijo
+ * derivado de la semilla.
+ *
  * Fallos inyectables (`failNext`, una sola llamada; `setFailing`, hasta
  * retirarlo): 'timeout' (la operación SE APLICA pero la respuesta se
  * pierde, como en la realidad), 'rate-limit' (429), 'server' (5xx),
@@ -26,11 +32,7 @@
  * `dropOrder`, `tamperPosition` e `injectPhantomOrder` fabrican los
  * descuadres de la conciliación.
  */
-import type {
-  BrokerE2eFailure,
-  BrokerOrderSide,
-  BrokerPosition,
-} from '../../shared/broker';
+import type { BrokerE2eFailure, BrokerOrderSide, BrokerPosition } from '../../shared/broker';
 import {
   assertValidOrderRequest,
   BrokerError,
@@ -54,6 +56,12 @@ export interface SimulatedBrokerOptions {
   cash?: number;
   /** Precios de referencia por ticker (en mayúsculas). */
   prices?: Record<string, number>;
+  /**
+   * Resolvedor externo del precio de referencia (ticker ya normalizado).
+   * Solo se consulta cuando el ticker no tiene precio inyectado; si
+   * devuelve undefined o un valor no válido se usa el de la semilla.
+   */
+  resolvePrice?: (ticker: string) => number | undefined;
   accountId?: string;
 }
 
@@ -133,11 +141,16 @@ export function createSimulatedBroker(options: SimulatedBrokerOptions = {}): Sim
 
   const isoNow = (): string => new Date(now()).toISOString();
 
-  /** Precio de referencia determinista: inyectado o derivado del ticker. */
+  /**
+   * Precio de referencia determinista: el inyectado, el resuelto del
+   * mercado (`resolvePrice`) o el derivado del ticker, en ese orden.
+   */
   const refPrice = (ticker: string): number => {
     const key = normalizeTicker(ticker);
     const injected = prices.get(key);
     if (injected !== undefined) return injected;
+    const resolved = options.resolvePrice?.(key);
+    if (resolved !== undefined && Number.isFinite(resolved) && resolved > 0) return resolved;
     return round2(20 + (hashSeed(`${String(seed)}:${key}`) % 48_000) / 100);
   };
 
@@ -350,7 +363,11 @@ export function createSimulatedBroker(options: SimulatedBrokerOptions = {}): Sim
       assertValidOrderRequest(request, SIMULATED_BROKER_ID);
       const failure = consumeFailure();
       if (findTopLevel(request.clientOrderId) !== undefined) {
-        fail('reject', `client_order_id ya en uso: ${request.clientOrderId}`, request.clientOrderId);
+        fail(
+          'reject',
+          `client_order_id ya en uso: ${request.clientOrderId}`,
+          request.clientOrderId,
+        );
       }
       // 'timeout' es ambiguo como en un broker real: la orden QUEDA
       // REGISTRADA (se evalúa y hasta puede ejecutarse) pero la respuesta

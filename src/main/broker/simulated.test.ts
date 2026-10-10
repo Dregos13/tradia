@@ -55,6 +55,61 @@ describe('broker simulado · ejecución determinista', () => {
     expect(orderA.filledAvgPrice).toBe(orderB.filledAvgPrice);
   });
 
+  it('sin precio inyectado ejecuta al precio resuelto del mercado', async () => {
+    // El resolvedor recibe el ticker normalizado (mayúsculas).
+    const seen: string[] = [];
+    const broker = createSimulatedBroker({
+      seed: 'sim-test',
+      now: () => NOW,
+      slippageBps: 10,
+      resolvePrice: (ticker) => {
+        seen.push(ticker);
+        return ticker === 'SPY' ? 1451.93 : undefined;
+      },
+    });
+    const order = await broker.submitOrder(request({ ticker: 'spy' }));
+    // 1.451,93 × (1 + 10 pb) = 1.453,38193
+    expect(order.filledAvgPrice).toBeCloseTo(1451.93 * 1.001, 4);
+    expect(seen).toContain('SPY');
+  });
+
+  it('el resolvedor sigue al mercado: cada ejecución usa el precio vigente', async () => {
+    let ref = 100;
+    const broker = createSimulatedBroker({
+      seed: 'sim-test',
+      now: () => NOW,
+      resolvePrice: () => ref,
+    });
+    const first = await broker.submitOrder(request({ clientOrderId: 'r-1' }));
+    expect(first.filledAvgPrice).toBeCloseTo(100 * 1.0005, 4);
+    ref = 300;
+    const second = await broker.submitOrder(request({ clientOrderId: 'r-2' }));
+    expect(second.filledAvgPrice).toBeCloseTo(300 * 1.0005, 4);
+  });
+
+  it('el precio inyectado gana al resolvedor', async () => {
+    const broker = make({ resolvePrice: () => 999 });
+    const order = await broker.submitOrder(request({}));
+    expect(order.filledAvgPrice).toBeCloseTo(200 * 1.0005, 4);
+  });
+
+  it.each([[undefined], [Number.NaN], [0], [-50]])(
+    'un resolvedor sin precio útil (%s) cae al fijo de la semilla',
+    async (resolved) => {
+      const withResolver = createSimulatedBroker({
+        seed: 'sim-test',
+        now: () => NOW,
+        resolvePrice: () => resolved as number | undefined,
+      });
+      const plain = createSimulatedBroker({ seed: 'sim-test', now: () => NOW });
+      const [a, b] = await Promise.all([
+        withResolver.submitOrder(request({})),
+        plain.submitOrder(request({ clientOrderId: 'otro-id' })),
+      ]);
+      expect(a.filledAvgPrice).toBe(b.filledAvgPrice);
+    },
+  );
+
   it('una limit cruzable ejecuta al mejor precio y queda posición', async () => {
     const broker = make();
     const order = await broker.submitOrder(request({ type: 'limit', limitPrice: 210 }));
@@ -75,9 +130,7 @@ describe('broker simulado · ejecución determinista', () => {
 
   it('una stop se dispara con el precio y ejecuta con el hueco en contra', async () => {
     const broker = make();
-    const order = await broker.submitOrder(
-      request({ type: 'stop', side: 'buy', stopPrice: 210 }),
-    );
+    const order = await broker.submitOrder(request({ type: 'stop', side: 'buy', stopPrice: 210 }));
     expect(order.status).toBe('enviada');
     broker.setPrice('AAPL', 220);
     broker.tick('AAPL');
@@ -131,12 +184,10 @@ describe('broker simulado · ejecución determinista', () => {
   it('un client_order_id duplicado se rechaza como en un broker real', async () => {
     const broker = make();
     await broker.submitOrder(request({ clientOrderId: 'mismo-id' }));
-    await expect(broker.submitOrder(request({ clientOrderId: 'mismo-id' }))).rejects.toMatchObject(
-      {
-        name: 'BrokerError',
-        kind: 'reject',
-      },
-    );
+    await expect(broker.submitOrder(request({ clientOrderId: 'mismo-id' }))).rejects.toMatchObject({
+      name: 'BrokerError',
+      kind: 'reject',
+    });
   });
 });
 
