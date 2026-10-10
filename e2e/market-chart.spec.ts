@@ -98,6 +98,11 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
+    const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
+    const deviationLink = navigation.getByRole('link', {
+      name: 'Real vs backtest',
+      exact: true,
+    });
     const strategiesLink = navigation.getByRole('link', { name: 'Estrategias', exact: true });
     const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
     await strategiesLink.focus();
@@ -108,7 +113,15 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.keyboard.press('Tab');
     await expect(journalLink).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(ordersLink).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(deviationLink).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(deviationLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(ordersLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(journalLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
