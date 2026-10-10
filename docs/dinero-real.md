@@ -78,14 +78,70 @@ límites guardados con su comprobación de techos, cada activación
 rechazada con los motivos, la activación con los límites confirmados, la
 prueba de parada, cada suspensión y la vuelta a paper.
 
+## Prueba de humo con el importe mínimo
+
+`live:smoke-test` (`live/smoke.ts` sobre el servicio de `live/broker.ts`)
+comprueba de punta a punta la cuenta real con dinero de verdad:
+
+1. **Compra**: orden de mercado fraccionaria de **1 USD nocional en
+   SPY**. La cantidad se dimensiona con el último cierre ingerido del
+   ticker (sin velas no hay prueba) redondeando a la baja en 6
+   decimales, y pasa la misma guarda de techos que cualquier señal: un
+   límite por orden o de capital por debajo de 1 USD la bloquea antes de
+   la red, con entrada `limite` en el Diario.
+2. **Espera de la ejecución**: se consulta al broker hasta `ejecutada`,
+   un estado terminal o 20 s de espera; si no ejecuta, se intenta
+   cancelar la orden para no dejarla colgada.
+3. **Cierre**: venta de mercado de lo ejecutado. Se evalúa como pata
+   `salida`: una posición real abierta nunca queda atrapada por un
+   techo ni por una suspensión.
+4. **Conciliación**: una pasada `manual` del servicio de conciliación
+   sobre `broker_orders_live` y el adaptador real; cualquier descuadre
+   abierto marca el paso como fallido.
+
+El resultado (`LiveSmokeTestResult`) se persiste en
+`live_mode.prueba_humo` y llega a `live:state.smokeTest`: estado
+(`en-curso`, `cerrada-conciliada`, `fallida-posicion-abierta`,
+`fallida-sin-posicion`), hora de cada paso, precios de referencia y
+ejecutados, slippage en puntos básicos, ejecución de conciliación y
+descuadres. Cada paso deja su entrada en el Diario y el resumen final es
+una `operacion` con el PnL del viaje de ida y vuelta.
+
+Las puertas previas lanzan `LiveSmokeError` sin suspender nada: modo no
+activo (la lista se reevalúa antes, así un requisito vencido ya suspende
+solo), parada activa, sin conexión, cuenta no conectada, sin precio de
+referencia, techo bloqueante o confirmación ausente. Solo una prueba en
+curso (`en-curso`). **Un fallo de ejecución o de conciliación suspende
+el modo real** (`requisito-vencido`): tras una prueba en rojo no se
+envían órdenes nuevas hasta revisarla, y una posición abierta jamás se
+oculta.
+
+## Estado del escalado
+
+`live:scaling` (`live/scaling.ts`) es una **lectura pura** sobre
+`broker_orders_live`: nunca permite subir los techos en esta fase.
+
+- `liveTrades`: operaciones reales cerradas (par entrada/salida con
+  estrategia; la prueba de humo no cuenta).
+- `liveWeeks`: semanas desde la activación vigente del modo real.
+- `weeksInMargin`: semanas cerradas (lunes a domingo, Nueva York) dentro
+  del margen del informe real vs backtest, calculado con la misma lógica
+  que `deviation:report` sobre las operaciones live.
+- `deviationPct` y `drawdownPct`: desviación acumulada real − esperado y
+  drawdown pico-valle del PnL real sobre el capital escrito confirmado.
+
+Estados: `bloqueado` (aún sin operaciones), `en-evidencia` (faltan datos;
+el motivo dice cuántos) y `elegible` (≥ 8 semanas dentro del margen y
+≥ 30 operaciones reales: marca la evidencia para la evaluación de la
+fase 8, sin ninguna acción aquí).
+
 ## Canales registrados aquí
 
 `live:checklist`, `live:state`, `live:declare`, `live:set-limits`,
-`live:activate`, `live:deactivate`, `live:test-kill-switch` y, solo con
-`TRADIA_E2E` sin empaquetar, `live:seed-progress`. Los canales
-`live:connect`, `live:smoke-test`, `live:scaling` y
-`live:use-simulated-broker` los registran sus propias tareas
-(`be-broker-real`, `be-prueba-humo-escalado`).
+`live:activate`, `live:deactivate`, `live:test-kill-switch`,
+`live:connect`, `live:smoke-test`, `live:scaling` y, solo con
+`TRADIA_E2E` sin empaquetar, `live:seed-progress` y
+`live:use-simulated-broker`.
 
 ## Cableado y evidencia externa
 

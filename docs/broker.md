@@ -16,8 +16,10 @@ Piezas: `src/main/broker/alpaca.ts` (adaptador Alpaca paper),
 (persistencia de ambas tablas, migraciones 010 y 012) e `index.ts`
 (servicio, IPC y ganchos). El modo real vive en `src/main/live/`:
 `service.ts` (lista, modo y límites), `broker.ts` (conexión, claves y
-ejecución real), `orderGuard.ts` (los techos por orden) e `index.ts`
-(IPC `live:*` y enrutado de señales).
+ejecución real), `orderGuard.ts` (los techos por orden), `smoke.ts`
+(prueba de humo de 1 USD en SPY con conciliación), `scaling.ts` (estado
+informativo del escalado) e `index.ts` (IPC `live:*` y enrutado de
+señales).
 
 ## Separación paper/real (inviolable)
 

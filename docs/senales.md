@@ -1,4 +1,4 @@
-# Motor de señales (fase 4)
+# Motor de señales (fases 4 y 6)
 
 La app **avisa pero no ejecuta**: el motor evalúa las estrategias al cierre
 de cada vela y emite señales informativas que pasan por el motor de riesgo.
@@ -32,6 +32,13 @@ al reanudarse puede evaluarse si vuelve a dispararse el evento.
 - Solo emiten las estrategias en estado `activa` o `paper` que además
   tienen una implementación ejecutable registrada
   (`strategy_implementations` ↔ catálogo de `backtest/strategies`).
+- **Filtro de régimen (fase 6)**: además, cada ficha se resuelve con
+  `resolveStrategyRegime` contra el **régimen del mercado** (referencia
+  SPY, el mismo que usa la página «IA» y el backtest con filtro). Si la
+  ficha queda `desactivada` —o `degradada`, que tiene prioridad— **no
+  vota** y la decisión queda en el Diario (entrada `resumen`, resultado
+  `sin-senal`) con el motivo de la ficha. Sin régimen calculado todas
+  quedan habilitadas.
 - Cada estrategia se rejuega con su **versión vigente** y sus parámetros
   sobre sus mercados (`executableMarkets`: solo tickers válidos) usando la
   sonda de `src/main/signals/probe.ts`, que reproduce la semántica del
@@ -72,6 +79,40 @@ de acierto del backtest representativo de la versión
 vale la confianza neutral `0,5`. Las anomalías (confianza fuera de 0–1)
 llegan a la pasarela, que las veta (`SIGNAL_INVALID`).
 
+### Confianza combinada con la IA (fase 6)
+
+Con la integración activa (`deps.ai`), la confianza media de los votos se
+combina con dos factores que **solo confirman o rebajan**: ninguno crea la
+señal y ninguno evita la pasarela de riesgo.
+
+- **Probabilidad del modelo apto** (`aiPrediction`): solo participa si la
+  ficha es apta (`eligibleModel`: origen `real` y Brier fuera de muestra
+  mejor que la referencia) **y** la última predicción del activo casa con
+  su versión y hash. La probabilidad calibrada en la dirección de la
+  señal se normaliza sobre el 0,5 neutral: `factor = 2 · p` (0,6 → ×1,2).
+  - Si `p < 0,5` el modelo **contradice la dirección**: no se opera,
+    queda una entrada `contradiccion` en el Diario (`sin-senal`) y la
+    vela queda marcada.
+  - Si el modelo **no es apto** la predicción no participa en absoluto
+    (ni sube ni veta: «no participa en señales ni órdenes»).
+- **Sentimiento de titulares confirmados** (`news_analysis`): los
+  análisis del activo dentro de una ventana de 5 días
+  (`SIGNAL_NEWS_WINDOW_MS`), hasta `SIGNAL_NEWS_MAX_ITEMS` (10). Cada
+  análisis puntúa `+1`/`−1`/`0` (positivo/negativo/neutro o mixto),
+  alineado con la dirección; la media acota el ajuste a
+  `±SIGNAL_NEWS_SENTIMENT_ADJUST` (±15 %). Un titular sin verificar no
+  tiene análisis, así que nunca llega a esta capa.
+- **Umbral**: cuando al menos un factor participó, la confianza
+  combinada `votos × modelo × noticias` (acotada a 1) exige
+  `SIGNAL_MIN_CONFIDENCE` (0,55); por debajo **no se opera**, queda una
+  entrada `resumen` con el motivo «Confianza baja» y la vela marcada.
+  Sin aportes de la IA se conserva el comportamiento de la fase 4.
+
+El motivo de la señal añade el detalle (`IA: modelo vX prob. subida … ·
+noticias: n análisis …`) y `datos_usados.ai` guarda el régimen consultado,
+la probabilidad, la versión y el hash del modelo y los `newsItemIds`
+usados — el mismo contexto viaja en la intención a la pasarela.
+
 ## Pasarela única de riesgo
 
 Toda señal entra por `services.risk.submitSignal` (canal
@@ -80,7 +121,8 @@ Toda señal entra por `services.risk.submitSignal` (canal
 escritores del motor de riesgo (repositorio, servicio o parada): las
 señales no tienen otra puerta. La decisión completa (`RiskDecision`:
 estado, tamaño, motivos) se guarda con la señal; las vetadas también se
-persisten — «sin señal» solo ocurre por contradicción.
+persisten — «sin señal» solo ocurre por contradicción (entre estrategias
+o del modelo) o por confianza baja, y ambas viven solo en el Diario.
 
 ## Persistencia e idempotencia
 
@@ -91,17 +133,20 @@ Tabla `signals` (migración 008). Cada fila guarda:
 - `datos_usados`: ventana de velas (`desde`/`hasta`/`barCount`), la vela
   que disparó la evaluación (`vela_fecha`), el lote (`batchId`) y su
   **versión limpia** (`batchVersion`) y la fuente;
-- `decision`: la respuesta completa de la pasarela.
+- `decision`: la respuesta completa de la pasarela;
+- `datos_usados.ai` (fase 6): régimen consultado, probabilidad, versión y
+  hash del modelo apto usado y los titulares que ajustaron la confianza.
 
 Idempotencia en dos niveles: marcas persistentes `ticker|vela` en settings
 (`signals.processedBars`, acotadas a las 2 000 más recientes) y el
 `UNIQUE (ticker, vela_fecha)` de la tabla, reafirmado por el repositorio
 (un conflicto devuelve la fila existente sin reemitir eventos). La marca
 solo se escribe cuando la evaluación llega a un **resultado definitivo**
-(señal persistida, contradicción o evaluación completa sin votos): un
-fallo temporal de la pasarela de riesgo, de la persistencia o de una
-estrategia deja la vela sin marcar, y una reentrega del mismo cierre
-reintenta la evaluación completa.
+(señal persistida, contradicción —de estrategias o del modelo—, confianza
+baja o evaluación completa sin votos): un fallo temporal de la pasarela
+de riesgo, de la persistencia o de una estrategia deja la vela sin
+marcar, y una reentrega del mismo cierre reintenta la evaluación
+completa.
 
 ## Emisión y diario
 

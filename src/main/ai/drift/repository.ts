@@ -279,10 +279,7 @@ export function createDriftRepository(db: Database.Database): DriftRepository {
     WHERE modelo_version = ? AND resuelta_sesion IS NOT NULL AND brier_realizado IS NOT NULL
   `);
   const markDegradedStmt = db.prepare(
-    'UPDATE model_cards SET apto = 0, motivo_no_apto = ? WHERE id = ? AND motivo_no_apto IS NOT ?',
-  );
-  const selectCardReason = db.prepare(
-    'SELECT apto, motivo_no_apto FROM model_cards WHERE id = ?',
+    'UPDATE model_cards SET apto = 0, motivo_no_apto = ? WHERE id = ?',
   );
 
   const getCheck = (id: number): DriftCheck => {
@@ -409,15 +406,7 @@ export function createDriftRepository(db: Database.Database): DriftRepository {
       if (!Number.isInteger(cardId) || cardId < 1) {
         throw new DriftRepositoryError('id de ficha inválido');
       }
-      const result = markDegradedStmt.run(reason.trim(), cardId, reason.trim());
-      if (result.changes === 0) {
-        const row = selectCardReason.get(cardId) as
-          | { apto: number; motivo_no_apto: string | null }
-          | undefined;
-        // Idempotente: ya marcada con el mismo motivo cuenta como hecha.
-        return row !== undefined && row.motivo_no_apto === reason.trim();
-      }
-      return true;
+      return markDegradedStmt.run(reason.trim(), cardId).changes > 0;
     },
   };
 }

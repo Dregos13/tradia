@@ -32,25 +32,31 @@ import {
   BROKER_ORDER_OPEN_STATUSES,
   type BrokerAccount,
   type BrokerOrder,
+  type ReconcileDiscrepancyEvent,
 } from '../../shared/broker';
 import { IPC_CHANNELS } from '../../shared/ipc';
-import type { JournalRecordInput } from '../../shared/journal';
+import type { DeliveryEventKind, JournalRecordInput } from '../../shared/journal';
 import {
   LIVE_BROKER_SECRET_KEYS,
   liveConfirmationPhrase,
   type LiveConnectRequest,
   type LiveLimits,
+  type LiveSmokeTestRequest,
+  type LiveSmokeTestResult,
   type LiveState,
 } from '../../shared/live';
 import type { Signal } from '../../shared/signals';
 import type { AlpacaCredentials } from '../broker/alpaca';
 import { closedTradesFromOrders, nyToday } from '../broker/deviation';
+import type { DeliveryMessage } from '../delivery';
 import type { BrokerSecretsStore } from '../broker/index';
 import { createOrderManager, type OrderManager } from '../broker/orderManager';
 import { positionsFromOrders } from '../broker/reconcile';
+import { createReconcileService, type ReconcileService } from '../broker/reconcileService';
 import type { BrokerRepository } from '../broker/repository';
 import { isBrokerError, type BrokerAdapter } from '../broker/types';
 import { liveOrderBlockReason } from './orderGuard';
+import { createLiveSmokeTest, type LiveSmokeTestService } from './smoke';
 import type { LiveService, LiveStore } from './service';
 
 /** Sincronización de órdenes live con el broker: cada minuto (como paper). */
@@ -95,8 +101,11 @@ const errorMessage = (error: unknown): string =>
 const maskAccount = (accountId: string): string => `•••• ${accountId.replace(/\s/g, '').slice(-4)}`;
 
 export interface LiveBrokerServiceDeps {
-  /** Servicio del modo real: la puerta (checklist) y el estado emitido. */
-  live: Pick<LiveService, 'getChecklist' | 'getState'>;
+  /**
+   * Servicio del modo real: la puerta (checklist), el estado emitido y
+   * la suspensión (la prueba de humo la ejerce al fallar).
+   */
+  live: Pick<LiveService, 'getChecklist' | 'getState' | 'suspend'>;
   /** Almacén del modo real (live_mode.broker/cuenta, límites y estado). */
   store: LiveStore;
   /** Repositorio de las órdenes reales (`broker_orders_live`). */
@@ -125,6 +134,19 @@ export interface LiveBrokerServiceDeps {
   emitOrderUpdated?(order: BrokerOrder): void;
   /** Emite `live:changed` hacia las ventanas. */
   broadcast?(channel: string, payload: unknown): void;
+  /**
+   * Precio de referencia del ticker para la prueba de humo (último
+   * cierre ingerido); null si no hay datos. Sin él la prueba no se lanza.
+   */
+  referencePrice?(ticker: string): number | null | Promise<number | null>;
+  /** `delivery.sendEvent`: aviso de descuadres de la conciliación live. */
+  sendEvent?(kind: DeliveryEventKind, message: DeliveryMessage): void;
+  /** Emite `reconcile:discrepancy` tras una conciliación live. */
+  emitDiscrepancy?(event: ReconcileDiscrepancyEvent): void;
+  /** Espera máxima de la prueba de humo por cada ejecución (ms). */
+  smokeFillTimeoutMs?: number;
+  /** Intervalo entre consultas de estado de orden en la prueba (ms). */
+  smokePollIntervalMs?: number;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   sleep?(ms: number): Promise<void>;
@@ -151,6 +173,12 @@ export interface LiveBrokerService {
   liveExecutionActive(): boolean;
   /** Id del adaptador live conectado; null si no hay cuenta. */
   adapterId(): string | null;
+  /**
+   * `live:smoke-test`: compra de mercado fraccionaria de 1 USD en SPY,
+   * venta de cierre y conciliación contra la cuenta conectada, con el
+   * resultado persistido y un paso a paso en el Diario. Falla → suspende.
+   */
+  runSmokeTest(request: LiveSmokeTestRequest): Promise<LiveSmokeTestResult>;
   /** Entrada del evento `signals:new` (envoltura de broadcast). */
   handleSignalEvent(payload: unknown): Promise<void>;
   /** Reconecta con las claves guardadas si la puerta está abierta. */
@@ -345,6 +373,51 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     return apiKeyId !== null && apiSecret !== null ? { apiKeyId, apiSecret } : null;
   };
 
+  /**
+   * Conciliación bajo demanda de la cuenta real: la misma lógica que la
+   * paper sobre `broker_orders_live` y el adaptador vigente (comparten
+   * `reconcile_runs`/`reconcile_discrepancies`, decisión de la migración
+   * 012). La prueba de humo la usa como último paso.
+   */
+  const reconcile: ReconcileService = createReconcileService({
+    getAdapter: () => adapter,
+    repository: deps.repository,
+    isOnline: deps.isOnline,
+    recordJournal: deps.recordJournal,
+    sendEvent: deps.sendEvent,
+    emitDiscrepancy: deps.emitDiscrepancy,
+    now,
+    logger,
+  });
+
+  /**
+   * Prueba de humo del modo real: 1 USD nocional de SPY comprado,
+   * vendido y conciliado. La compra pasa la misma guarda de techos que
+   * cualquier señal; el cierre se evalúa como 'salida' (siempre pasa).
+   * Si algo falla, suspende el modo real ('requisito-vencido').
+   */
+  const smoke: LiveSmokeTestService = createLiveSmokeTest({
+    getAdapter: () => adapter,
+    repository: deps.repository,
+    store: deps.store,
+    getChecklist: () => deps.live.getChecklist(),
+    checkOrderAllowed: (request, context) =>
+      liveOrderBlockReason(orderSnapshot(), request, context),
+    referencePrice: deps.referencePrice ?? (() => null),
+    reconcileNow: () => reconcile.runNow('manual'),
+    openDiscrepancyCount: () => reconcile.status().openDiscrepancies.length,
+    suspend: (detail) => deps.live.suspend('requisito-vencido', detail),
+    isKillSwitchActive: deps.isKillSwitchActive,
+    isOnline: deps.isOnline,
+    recordJournal: deps.recordJournal,
+    emitChanged: () => void emitChanged(),
+    fillTimeoutMs: deps.smokeFillTimeoutMs,
+    pollIntervalMs: deps.smokePollIntervalMs,
+    now,
+    sleep: deps.sleep,
+    logger,
+  });
+
   const savedKeysExist = async (): Promise<boolean> => {
     try {
       const [id, secret] = await Promise.all([
@@ -447,6 +520,8 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       adapter !== null && deps.store.getMode().estado === 'activo' && !stopped,
 
     adapterId: () => adapter?.id ?? null,
+
+    runSmokeTest: (request) => smoke.run(request),
 
     handleSignalEvent: (payload) => {
       const manager = orders;

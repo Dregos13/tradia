@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
+import type { NewsSentiment } from '../../../shared/ai';
+import type { JournalRecordInput } from '../../../shared/journal';
 import type { SignalIntent, RiskDecision } from '../../../shared/risk';
 import type { Signal } from '../../../shared/signals';
 import type { Strategy as StrategyCard } from '../../../shared/strategy';
+import type { ActiveRegime } from '../../ai/regime/enablement';
 import type { Strategy as ExecutableStrategy } from '../../backtest/types';
-import type { SignalEngineDeps, SignalSourceBar } from '../engine';
+import type {
+  EligibleModelRef,
+  SignalEngineDeps,
+  SignalNewsRef,
+  SignalPredictionRef,
+  SignalSourceBar,
+} from '../engine';
 import { createSignalEngine } from '../engine';
 import { createPaperTracker, evaluatePaperExit } from '../paper';
 import type { InsertSignalResult, NewSignal, SignalsRepository } from '../repository';
@@ -114,8 +123,18 @@ interface Harness {
   setPaused(paused: boolean): void;
   setKillSwitch(active: boolean): void;
   setStrategies(strategies: { card: StrategyCard; create: () => ExecutableStrategy }[]): void;
+  /** Fuentes de IA mutables; solo consultadas tras `enableAi(true)`. */
+  ai: {
+    marketRegime: ActiveRegime | null;
+    eligible: EligibleModelRef | null;
+    prediction: SignalPredictionRef | null;
+    analyses: SignalNewsRef[];
+  };
+  enableAi(enabled: boolean): void;
   submitted: SignalIntent[];
   journal: { type: string }[];
+  /** Entradas completas del diario (mismo orden que `journal`). */
+  journalEntries: JournalRecordInput[];
   strategyCalls: Map<number, number>;
 }
 
@@ -128,7 +147,14 @@ const makeHarness = (): Harness => {
   let submitFailure: Error | null = null;
   const submitted: SignalIntent[] = [];
   const journal: { type: string }[] = [];
+  const journalEntries: Harness['journalEntries'] = [];
   const strategyCalls = new Map<number, number>();
+  const ai: Harness['ai'] = {
+    marketRegime: null,
+    eligible: null,
+    prediction: null,
+    analyses: [],
+  };
   const deps: SignalEngineDeps = {
     repo,
     listEvaluables: () =>
@@ -162,7 +188,10 @@ const makeHarness = (): Harness => {
       submitted.push(intent);
       return decision;
     },
-    recordJournal: (entry) => journal.push({ type: entry.type }),
+    recordJournal: (entry) => {
+      journal.push({ type: entry.type });
+      journalEntries.push(entry);
+    },
     broadcast: () => undefined,
     isAgentsPaused: () => paused,
     isOffline: () => false,
@@ -197,8 +226,20 @@ const makeHarness = (): Harness => {
     setStrategies: (next) => {
       strategies = next;
     },
+    ai,
+    enableAi: (enabled) => {
+      deps.ai = enabled
+        ? {
+            marketRegime: () => ai.marketRegime,
+            eligibleModel: () => ai.eligible,
+            latestPrediction: () => ai.prediction,
+            newsAnalysesFor: () => ai.analyses,
+          }
+        : undefined;
+    },
     submitted,
     journal,
+    journalEntries,
     strategyCalls,
   };
 };
@@ -402,5 +443,300 @@ describe('auditoría de invariantes del motor de señales', () => {
         { open: 100, high: 106, low: 94 },
       ),
     ).toEqual({ exit: 105, reason: 'stop', level: 105 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integración de IA (fase 6): régimen, probabilidad del modelo apto y
+// sentimiento de titulares confirmados. La IA solo confirma o rebaja la
+// confianza de una señal que ya generan las estrategias: nunca la crea y
+// siempre atraviesa la pasarela de riesgo.
+// ---------------------------------------------------------------------------
+
+const quietStrategy = (): ExecutableStrategy => ({
+  init: () => undefined,
+  onBar: () => undefined,
+});
+
+const ELIGIBLE: EligibleModelRef = { version: '1.0.0', hash: 'hash-modelo', horizonDays: 5 };
+
+const prediction = (
+  probUp: number,
+  patch: Partial<SignalPredictionRef> = {},
+): SignalPredictionRef => ({
+  probUp,
+  modelVersion: ELIGIBLE.version,
+  modelHash: ELIGIBLE.hash,
+  horizonDays: ELIGIBLE.horizonDays,
+  ...patch,
+});
+
+const analysis = (
+  newsItemId: number,
+  sentiment: NewsSentiment,
+  analyzedAt = '2026-10-08T10:00:00.000Z',
+): SignalNewsRef => ({ newsItemId, sentiment, analyzedAt });
+
+describe('auditoría de la integración de IA en el motor de señales', () => {
+  it('una noticia, verificada o no, nunca crea una señal por sí sola', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    // Titular sin verificar: no existe análisis, así que nada aporta.
+    harness.ai.analyses = [];
+    // Y aun con un análisis de sentimiento extremo confirmado, sin votos
+    // de las estrategias no hay nada que combinar: la IA no crea señales.
+    harness.setStrategies([{ card: strategyCard(1), create: quietStrategy }]);
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('no-votes');
+
+    harness.ai.analyses = [analysis(7, 'negativo'), analysis(8, 'negativo')];
+    expect(harness.engine.evaluateTicker('AAPL', '2026-10-09')).toBe('no-votes');
+
+    // Ni señal, ni pasarela, ni difusión en ninguno de los dos casos.
+    expect(harness.submitted).toHaveLength(0);
+    expect(harness.repo.listSignals()).toHaveLength(0);
+  });
+
+  it('el modelo apto y las noticias suben la confianza, que pasa por la pasarela y respeta su veto', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.decision = riskDecision('vetada', 0);
+    harness.setStrategies([
+      {
+        card: strategyCard(1, {
+          metricsSummary: {
+            totalReturnPct: 1,
+            maxDrawdownPct: 1,
+            sharpe: 1,
+            profitFactor: 1,
+            winRatePct: 50,
+            expectancy: 1,
+            maxLosingStreak: 1,
+            trades: 1,
+          },
+        }),
+        create: () => buyStrategy('AAPL'),
+      },
+    ]);
+    harness.ai.marketRegime = { direction: 'tendencia', volatility: 'volatilidad-baja' };
+    harness.ai.eligible = ELIGIBLE;
+    harness.ai.prediction = prediction(0.8); // ×1,6 sobre 0,5 → 0,80
+    harness.ai.analyses = [analysis(7, 'positivo')]; // ×1,15 → 0,92
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+
+    // La intención cruza la pasarela con la confianza combinada y el contexto.
+    expect(harness.submitted).toHaveLength(1);
+    const intent = harness.submitted[0]!;
+    expect(intent.confidence).toBeCloseTo(0.5 * 1.6 * 1.15, 6);
+    expect(intent.ai).toMatchObject({
+      regime: { direction: 'tendencia', volatility: 'volatilidad-baja' },
+      probability: 0.8,
+      horizonDays: 5,
+      modelVersion: '1.0.0',
+      modelHash: 'hash-modelo',
+      newsItemIds: [7],
+    });
+
+    // El veto del riesgo se respeta: la señal se persiste vetada.
+    const signal = harness.repo.listSignals()[0]!;
+    expect(signal.decision.status).toBe('vetada');
+    expect(signal.dataUsed.ai).toMatchObject({
+      modelVersion: '1.0.0',
+      probability: 0.8,
+      newsItemIds: [7],
+    });
+    expect(harness.journalEntries.find((e) => e.type === 'senal')).toMatchObject({
+      result: 'vetada',
+    });
+  });
+
+  it('un modelo no apto no cambia la confianza aunque su predicción sea extrema', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
+    // Ficha no apta (o sin modelo): la predicción no participa ni puede vetar.
+    harness.ai.eligible = null;
+    harness.ai.prediction = prediction(0.95);
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    const intent = harness.submitted[0]!;
+    expect(intent.confidence).toBeCloseTo(0.5);
+    expect(intent.ai).toMatchObject({ probability: null, modelVersion: null, modelHash: null });
+  });
+
+  it('una predicción de otra versión o hash del modelo apto tampoco participa', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
+    harness.ai.eligible = ELIGIBLE;
+    harness.ai.prediction = prediction(0.95, { modelVersion: '0.9.0', modelHash: 'otro' });
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(harness.submitted[0]!.confidence).toBeCloseTo(0.5);
+    expect(harness.submitted[0]!.ai).toMatchObject({ probability: null });
+  });
+
+  it.each([
+    ['largo', () => buyStrategy('AAPL'), 0.2],
+    ['corto', () => sellStrategy('AAPL'), 0.8],
+  ] as const)(
+    'el modelo apto que contradice la dirección (%s) impide la señal y deja diario',
+    (_direction, create, probUp) => {
+      const harness = makeHarness();
+      harness.enableAi(true);
+      harness.setStrategies([{ card: strategyCard(1), create }]);
+      harness.ai.eligible = ELIGIBLE;
+      harness.ai.prediction = prediction(probUp);
+
+      expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('contradiction');
+      expect(harness.submitted).toHaveLength(0);
+      expect(harness.repo.listSignals()).toHaveLength(0);
+
+      const entry = harness.journalEntries.find((e) => e.type === 'contradiccion')!;
+      expect(entry.result).toBe('sin-senal');
+      expect(entry.reason).toContain('contradice');
+      expect(entry.reason).toContain(probUp.toFixed(2));
+
+      // Resultado definitivo: la vela queda marcada.
+      expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('already-processed');
+    },
+  );
+
+  it('una confianza combinada por debajo de 0,55 no opera y queda como confianza baja', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
+    // 0,5 × 1,04 (prob. 0,52) = 0,52 < 0,55: el modelo confirma poco.
+    harness.ai.eligible = ELIGIBLE;
+    harness.ai.prediction = prediction(0.52);
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('low-confidence');
+    expect(harness.submitted).toHaveLength(0);
+    expect(harness.repo.listSignals()).toHaveLength(0);
+
+    const entry = harness.journalEntries.find((e) => e.type === 'resumen')!;
+    expect(entry.result).toBe('sin-senal');
+    expect(entry.reason).toContain('Confianza baja');
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('already-processed');
+  });
+
+  it('el sentimiento confirmado en contra puede rebajar la confianza por debajo del umbral', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([
+      {
+        card: strategyCard(1, {
+          metricsSummary: {
+            totalReturnPct: 1,
+            maxDrawdownPct: 1,
+            sharpe: 1,
+            profitFactor: 1,
+            winRatePct: 60,
+            expectancy: 1,
+            maxLosingStreak: 1,
+            trades: 1,
+          },
+        }),
+        create: () => buyStrategy('AAPL'),
+      },
+    ]);
+    // 0,6 × 0,85 (tres titulares negativos para un largo) = 0,51 < 0,55.
+    harness.ai.analyses = [
+      analysis(7, 'negativo'),
+      analysis(8, 'negativo'),
+      analysis(9, 'negativo'),
+    ];
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('low-confidence');
+    expect(harness.submitted).toHaveLength(0);
+    const entry = harness.journalEntries.find((e) => e.type === 'resumen')!;
+    expect(entry.reason).toContain('Confianza baja');
+  });
+
+  it('un análisis fuera de la ventana de frescura no participa', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
+    harness.ai.analyses = [analysis(7, 'negativo', '2026-09-01T10:00:00.000Z')];
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(harness.submitted[0]!.confidence).toBeCloseTo(0.5);
+    expect(harness.submitted[0]!.ai).toMatchObject({ newsItemIds: [] });
+  });
+
+  it('la estrategia desactivada por régimen no vota y queda en el Diario', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.ai.marketRegime = { direction: 'tendencia', volatility: 'volatilidad-baja' };
+    harness.setStrategies([
+      { card: strategyCard(1, { failsIn: ['tendencia'] }), create: () => buyStrategy('AAPL') },
+      { card: strategyCard(2, { worksIn: ['lateral'] }), create: () => buyStrategy('AAPL') },
+      { card: strategyCard(3), create: () => buyStrategy('AAPL') }, // habilitada
+    ]);
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+
+    // Solo votó la habilitada: una propuesta, una entrada por desactivada.
+    expect(harness.submitted).toHaveLength(1);
+    const signal = harness.repo.listSignals()[0]!;
+    expect(signal.strategies.map((vote) => vote.strategyId)).toEqual([3]);
+
+    const disabled = harness.journalEntries.filter((e) => e.type === 'resumen');
+    expect(disabled).toHaveLength(2);
+    expect(disabled.every((e) => e.result === 'sin-senal')).toBe(true);
+    expect(disabled[0]!.reason).toContain('no vota');
+    expect(harness.strategyCalls.get(1) ?? 0).toBe(0);
+    expect(harness.strategyCalls.get(2) ?? 0).toBe(0);
+  });
+
+  it('si todas las estrategias quedan desactivadas por régimen no hay señal', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.ai.marketRegime = { direction: 'tendencia', volatility: 'volatilidad-baja' };
+    harness.setStrategies([
+      { card: strategyCard(1, { failsIn: ['tendencia'] }), create: () => buyStrategy('AAPL') },
+    ]);
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('no-votes');
+    expect(harness.submitted).toHaveLength(0);
+    expect(harness.repo.listSignals()).toHaveLength(0);
+    expect(harness.strategyCalls.get(1) ?? 0).toBe(0);
+    expect(harness.journalEntries.some((e) => e.type === 'resumen')).toBe(true);
+  });
+
+  it('una estrategia degradada no vota y queda en el Diario', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([
+      { card: strategyCard(1, { status: 'degradada' }), create: () => buyStrategy('AAPL') },
+    ]);
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('no-votes');
+    expect(harness.submitted).toHaveLength(0);
+    const entry = harness.journalEntries.find((e) => e.type === 'resumen')!;
+    expect(entry.reason).toContain('degradada');
+    expect(harness.strategyCalls.get(1) ?? 0).toBe(0);
+  });
+
+  it('cada señal guarda el régimen, el modelo y las noticias con los que se evaluó', () => {
+    const harness = makeHarness();
+    harness.enableAi(true);
+    harness.setStrategies([{ card: strategyCard(1), create: () => buyStrategy('AAPL') }]);
+    harness.ai.marketRegime = { direction: 'tendencia', volatility: 'volatilidad-alta' };
+    harness.ai.eligible = ELIGIBLE;
+    harness.ai.prediction = prediction(0.7);
+    harness.ai.analyses = [analysis(11, 'positivo'), analysis(12, 'neutro')];
+
+    expect(harness.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    const signal = harness.repo.listSignals()[0]!;
+    expect(signal.dataUsed.ai).toEqual({
+      regime: { direction: 'tendencia', volatility: 'volatilidad-alta' },
+      probability: 0.7,
+      horizonDays: 5,
+      modelVersion: '1.0.0',
+      modelHash: 'hash-modelo',
+      newsItemIds: [11, 12],
+    });
+    expect(signal.reason).toContain('IA:');
   });
 });

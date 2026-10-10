@@ -15,12 +15,14 @@ import {
   liveConfirmationPhrase,
   type LiveChecklist,
   type LiveLimitsInput,
+  type LiveSmokeTestResult,
   type LiveState,
 } from '../../shared/live';
 import { openDatabase } from '../db/database';
 import { createAlpacaLiveBroker } from '../broker/alpacaLive';
 import { createAlpacaLiveFakeFetch } from '../broker/__fixtures__/fake-server';
 import { createBrokerRepository, type BrokerRepository } from '../broker/repository';
+import { createMarketRepository } from '../market/repository';
 import { createSignalsRepository, type NewSignal } from '../signals/repository';
 import type { ServiceContext } from '../services';
 import { createSettingsService } from '../services/settings';
@@ -73,6 +75,7 @@ let fetchCalls: { url: string; method: string }[];
 let builtAdapters: number;
 let services: ReturnType<typeof createLiveBrokerService>[];
 let registeredLive: LiveServices[];
+let suspensions: { reason: string; detail: string }[];
 
 const secretsStub = () => ({
   setKey: async (provider: string, apiKey: string) => {
@@ -93,6 +96,21 @@ const liveStub = () => ({
       hasCredentials: keys.has(LIVE_BROKER_SECRET_KEYS.apiKeyId),
       accountMasked: store.getMode().cuenta,
     }) as unknown as LiveState,
+  suspend: (reason: string, detail: string) => {
+    suspensions.push({ reason, detail });
+    const mode = store.getMode();
+    if (mode.estado === 'activo') {
+      const at = new Date(nowMs).toISOString();
+      store.setMode({
+        estado: 'suspendido',
+        motivo: reason as 'requisito-vencido',
+        detalle: detail,
+        activadoEn: mode.activado_en,
+        suspendidoEn: at,
+        actualizadoEn: at,
+      });
+    }
+  },
 });
 
 const liveFakeFetch = (): typeof globalThis.fetch => {
@@ -223,6 +241,7 @@ beforeEach(() => {
   builtAdapters = 0;
   services = [];
   registeredLive = [];
+  suspensions = [];
   electron.handlers.clear();
   electron.isPackaged = true;
   delete process.env.TRADIA_E2E;
@@ -633,6 +652,77 @@ describe('registerLive · IPC del broker real', () => {
     expect(createBrokerRepository(db).listOrders()).toHaveLength(0);
     // Y el cambio de modo llegó a la franja por live:changed.
     expect(broadcasts.some((m) => m.channel === IPC_CHANNELS.live.changed)).toBe(true);
+  });
+
+  it('live:smoke-test valida la petición en el borde del canal', async () => {
+    const ctx = makeLiveCtx([]);
+    registeredLive.push(registerLive(ctx));
+    await expect(invoke(IPC_CHANNELS.live.smokeTest, {})).rejects.toMatchObject({
+      name: 'IpcValidationError',
+    });
+    await expect(invoke(IPC_CHANNELS.live.smokeTest, { confirm: false })).rejects.toMatchObject({
+      name: 'IpcValidationError',
+    });
+  });
+
+  it('live:smoke-test completo contra el broker real simulado y live:scaling', async () => {
+    process.env.TRADIA_E2E = '1';
+    electron.isPackaged = false;
+    const ctx = makeLiveCtx([]);
+    const live = registerLive(ctx);
+    registeredLive.push(live);
+
+    // Precio de referencia de SPY: último cierre ingerido (500 USD).
+    const marketRepo = createMarketRepository(db);
+    const batch = marketRepo.createBatch({
+      version: 1,
+      hash: 'hash-spy',
+      provider: 'test',
+      scope: 'bars',
+      ticker: 'SPY',
+      rangeStart: '2026-10-08',
+      rangeEnd: '2026-10-08',
+    });
+    marketRepo.upsertBars('SPY', 'test', batch.id, [
+      { date: '2026-10-08', open: 499, high: 501, low: 498, close: 500, volume: 1_000 },
+    ]);
+
+    completeRealChecklist(live);
+    await live.activate({ phrase: liveConfirmationPhrase(LIMITS) });
+    await invoke(IPC_CHANNELS.live.useSimulatedBroker, { enabled: true });
+    await invoke(IPC_CHANNELS.live.connect, LIVE_KEYS);
+
+    const result = (await invoke(IPC_CHANNELS.live.smokeTest, {
+      confirm: true,
+    })) as LiveSmokeTestResult;
+
+    expect(result.state).toBe('cerrada-conciliada');
+    expect(result.steps.every((s) => s.at !== null)).toBe(true);
+    expect(result.buyExecutedPrice).toBe(250); // precio del servidor falso
+    expect(result.sellExecutedPrice).toBe(250);
+    expect(result.discrepancies).toBe(0);
+    expect(result.reconcileRunId).toEqual(expect.any(Number));
+    // Compra y cierre registradas en la tabla live; la app quedó plana.
+    const orders = liveRepo.listOrders();
+    expect(orders).toHaveLength(2);
+    expect(orders.every((o) => o.status === 'ejecutada')).toBe(true);
+    expect(createBrokerRepository(db).listOrders()).toHaveLength(0);
+    // Persistido en live_mode y devuelto por live:state.
+    const state = (await invoke(IPC_CHANNELS.live.state)) as LiveState;
+    expect(state.smokeTest?.state).toBe('cerrada-conciliada');
+    // El modo sigue activo: la prueba no tuvo fallos.
+    expect(state.mode).toBe('activo');
+    expect(journal.some((j) => j.reason.includes('Prueba de humo real completada'))).toBe(true);
+
+    // La prueba no es una operación de estrategia: no infla el escalado.
+    const scaling = (await invoke(IPC_CHANNELS.live.scaling)) as {
+      state: string;
+      liveTrades: number;
+      weeksInMargin: number;
+      reason: string;
+    };
+    expect(scaling.state).toBe('bloqueado');
+    expect(scaling.liveTrades).toBe(0);
   });
 
   it('live:use-simulated-broker no se registra fuera de E2E', async () => {

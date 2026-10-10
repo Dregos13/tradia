@@ -13,6 +13,10 @@
  * - Pasarela única: `services.risk.submitSignal`. Sin motor de riesgo la
  *   evaluación se bloquea (degradación segura: mejor no emitir que
  *   emitir sin veto).
+ * - IA (fase 6): el régimen del mercado (`aiRegime`) habilita las fichas,
+ *   el modelo apto (`aiPrediction`) aporta la probabilidad calibrada y
+ *   `news_analysis` el sentimiento confirmado. Ninguno crea señales:
+ *   solo filtran votos o ajustan la confianza antes de la pasarela.
  * - Diario y avisos: `journal.record` estructural (opcional mientras el
  *   diario convive con su esqueleto) y `ctx.broadcast` perezoso, que
  *   delivery intercepta para `signals:new`.
@@ -39,10 +43,12 @@ import type { JournalRecordInput } from '../../shared/journal';
 import { openDatabase } from '../db/database';
 import { createBacktestRepository } from '../backtest/repository';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
+import { createNewsAnalysisRepository } from '../ai/news/repository';
 import { createMarketRepository, type StoredBar } from '../market/repository';
 import type { ServiceContext } from '../services';
 import {
   createSignalEngine,
+  SIGNAL_NEWS_MAX_ITEMS,
   SIGNAL_PROCESSED_MARKS_LIMIT,
   type EvaluableStrategy,
   type SignalEngine,
@@ -87,6 +93,13 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
   const repo = createSignalsRepository(db);
   const market = createMarketRepository(db);
   const runs = createBacktestRepository(db);
+  // Fase 6: régimen, modelo apto y noticias confirmadas que alimentan la
+  // combinación de confianza. Las noticias se leen de `news_analysis`
+  // directamente (solo existen filas de titulares confirmados); los otros
+  // servicios son opcionales y su ausencia deja ese factor sin efecto.
+  const newsAnalyses = createNewsAnalysisRepository(db);
+  const aiRegime = ctx.services.aiRegime ?? null;
+  const aiPrediction = ctx.services.aiPrediction ?? null;
 
   const settings = ctx.services.settings;
   let processedMarks: Set<string> | null = null;
@@ -225,6 +238,38 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
     wasProcessed: (ticker, barDate) => loadMarks().has(`${ticker}|${barDate}`),
     markProcessed,
+    ai: {
+      // El régimen del mercado (referencia SPY) habilita o desactiva las
+      // estrategias: misma referencia que la página «IA» y el backtest.
+      marketRegime: () => {
+        const snapshot = aiRegime?.service.marketRegime() ?? null;
+        return snapshot === null
+          ? null
+          : { direction: snapshot.direction, volatility: snapshot.volatility };
+      },
+      // Solo un modelo apto apoya señales; la predicción se usa solo si
+      // casa con su versión y hash (lo decide el motor).
+      eligibleModel: () => aiPrediction?.service.eligibleModel() ?? null,
+      latestPrediction: (ticker) => {
+        const prediction = aiPrediction?.service.latestPrediction(ticker) ?? null;
+        return prediction === null
+          ? null
+          : {
+              probUp: prediction.probUp,
+              modelVersion: prediction.modelVersion,
+              modelHash: prediction.modelHash,
+              horizonDays: prediction.horizonDays,
+            };
+      },
+      // `news_analysis` solo tiene filas de titulares confirmados: un
+      // titular sin verificar nunca llega a ajustar una señal.
+      newsAnalysesFor: (ticker) =>
+        newsAnalyses.list({ ticker, limit: SIGNAL_NEWS_MAX_ITEMS }).map((item) => ({
+          newsItemId: item.newsItemId,
+          sentiment: item.sentiment,
+          analyzedAt: item.analyzedAt,
+        })),
+    },
   });
 
   // Disparo: cada lote guardado de un activo cierra primero las

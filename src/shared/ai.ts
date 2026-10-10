@@ -131,6 +131,12 @@ export interface RegimeOverview {
 export const PREDICTION_HORIZON_DAYS = 5;
 /** Umbral de confianza combinada: por debajo no se opera (diario: 'confianza baja'). */
 export const SIGNAL_MIN_CONFIDENCE = 0.55;
+/**
+ * Ajuste máximo del sentimiento de noticias confirmadas sobre la confianza
+ * combinada de una señal (± este tanto por uno): un sentimiento medio
+ * totalmente alineado mueve la confianza un 15 %; neutro/mixto lo diluye.
+ */
+export const SIGNAL_NEWS_SENTIMENT_ADJUST = 0.15;
 
 /** Origen de los datos de entrenamiento; 'sintetico' nunca es apto para señales. */
 export const MODEL_DATA_ORIGINS = ['real', 'sintetico'] as const;
@@ -356,9 +362,15 @@ export interface NewsLlmTestResult {
  * Datos de IA con los que se evaluó una señal (bloque `ai` opcional de
  * `SignalDataUsed`). La predicción y las noticias solo pueden confirmar o
  * rebajar la confianza: nunca crean la señal ni evitan el motor de riesgo.
+ * Con la integración activa el bloque viaja siempre y lo que no participó
+ * queda a null; solo falta en señales de fases anteriores.
  */
 export interface SignalAiContext {
-  /** Etiquetas del régimen del activo en la sesión evaluada. */
+  /**
+   * Etiquetas del régimen de referencia consultado (el del mercado, la
+   * misma referencia que usa la habilitación por régimen de la página
+   * «IA» y del backtest con filtro); null si aún no hay régimen calculado.
+   */
   regime: { direction: RegimeDirectionLabel; volatility: RegimeVolatilityLabel } | null;
   /** Probabilidad calibrada de subida usada (0–1); null sin modelo apto. */
   probability: number | null;

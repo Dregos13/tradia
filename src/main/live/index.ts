@@ -17,9 +17,8 @@
  * paper se las cede (`isLiveExecution` en broker/index.ts).
  *
  * Canales cubiertos aquí: checklist, state, declare, set-limits,
- * activate, deactivate, test-kill-switch, connect, el gancho E2E
- * seed-progress y el conmutador E2E use-simulated-broker.
- * `live:smoke-test` y `live:scaling` los registra be-prueba-humo-escalado.
+ * activate, deactivate, test-kill-switch, connect, smoke-test, scaling,
+ * el gancho E2E seed-progress y el conmutador E2E use-simulated-broker.
  */
 import { app, ipcMain } from 'electron';
 
@@ -35,7 +34,9 @@ import {
   isLiveLimitsInput,
   isLiveSeedProgressRequest,
   isLiveSimulatedBrokerRequest,
+  isLiveSmokeTestRequest,
 } from '../../shared/ipc';
+import { DEVIATION_MARGIN_PP_DEFAULT, DEVIATION_SLIPPAGE_BPS_DEFAULT } from '../../shared/broker';
 import { LIVE_BROKER_SECRET_KEYS } from '../../shared/live';
 import { createAlpacaLiveBroker } from '../broker/alpacaLive';
 import { expectationFromReport } from '../broker/deviation';
@@ -44,9 +45,11 @@ import { createBrokerRepository } from '../broker/repository';
 import { createAlpacaLiveFakeFetch } from '../broker/__fixtures__/fake-server';
 import { openDatabase } from '../db/database';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
+import { createMarketRepository } from '../market/repository';
 import type { ServiceContext } from '../services';
 import { createLiveBrokerService, type LiveBrokerService } from './broker';
 import { DELIVERY_TEST_EVIDENCE_KEY, type AlertTestEvidence } from './checklist';
+import { computeLiveScalingStatus } from './scaling';
 import {
   createLiveEvidenceStore,
   createLiveService,
@@ -105,6 +108,9 @@ export function registerLive(ctx: ServiceContext): LiveServices {
   // conciliación ni la muestra de «paper continuo» las mezclan.
   const liveRepository = createBrokerRepository(db, { ordersTable: 'broker_orders_live' });
   const secrets = ctx.services.secrets ?? unavailableSecrets;
+  // Referencia de precio para la prueba de humo (misma fuente que el
+  // resto del dominio: las velas ingeridas de la watchlist).
+  const marketRepo = createMarketRepository(db);
 
   const service = createLiveService({
     store,
@@ -203,11 +209,13 @@ export function registerLive(ctx: ServiceContext): LiveServices {
         isLiveGateOpen: liveGateOpen,
       }),
     // Solo E2E y sin empaquetar: el adaptador live contra el servidor
-    // falso de __fixtures__ (misma API, mismo contrato, sin red).
+    // falso de __fixtures__ (misma API, mismo contrato, sin red). La
+    // cuenta falsa arranca sin posiciones para que la prueba de humo
+    // (compra + cierre) quede plana y concilie sin descuadres.
     createSimulatedAdapter: e2eEnabled
       ? (getCredentials) =>
           createAlpacaLiveBroker({
-            fetch: createAlpacaLiveFakeFetch(),
+            fetch: createAlpacaLiveFakeFetch({ positions: [] }),
             getCredentials,
             isLiveGateOpen: liveGateOpen,
           })
@@ -218,6 +226,17 @@ export function registerLive(ctx: ServiceContext): LiveServices {
     recordJournal: (input) => ctx.services.journal?.record(input),
     emitOrderUpdated: (order) => ctx.broadcast(IPC_CHANNELS.broker.orderUpdated, order),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    // Precio de referencia de la prueba de humo: el último cierre
+    // ingerido del ticker, igual que el precio del broker simulado E2E
+    // del modo paper. Sin velas guardadas no hay compra dimensionable.
+    referencePrice: (ticker) => {
+      const lastDate = marketRepo.lastBarDate(ticker);
+      return lastDate === null
+        ? null
+        : (marketRepo.getBars(ticker, { desde: lastDate, hasta: lastDate }).at(-1)?.close ?? null);
+    },
+    sendEvent: (kind, message) => ctx.services.delivery?.sendEvent(kind, message),
+    emitDiscrepancy: (event) => ctx.broadcast(IPC_CHANNELS.reconcile.discrepancy, event),
     logger: console,
   });
 
@@ -273,6 +292,40 @@ export function registerLive(ctx: ServiceContext): LiveServices {
   });
   ipcMain.handle(IPC_CHANNELS.live.deactivate, () => service.deactivate());
   ipcMain.handle(IPC_CHANNELS.live.testKillSwitch, () => service.testKillSwitch());
+  ipcMain.handle(IPC_CHANNELS.live.smokeTest, (_event, request: unknown) => {
+    if (!isLiveSmokeTestRequest(request)) {
+      throw new IpcValidationError(
+        IPC_CHANNELS.live.smokeTest,
+        'se esperaba {confirm: true}: la prueba usa dinero real',
+      );
+    }
+    return liveBroker.runSmokeTest(request);
+  });
+  // Estado del escalado: lectura informativa sobre broker_orders_live;
+  // en esta fase nunca ofrece acción para subir los techos.
+  ipcMain.handle(IPC_CHANNELS.live.scaling, () =>
+    computeLiveScalingStatus({
+      repository: liveRepository,
+      store,
+      expectationFor: (strategyId) => {
+        const backtest = ctx.services.backtest;
+        if (!backtest) return expectationFromReport(null);
+        const latest = backtest.listRuns({ strategyId, limit: 1 })[0];
+        return expectationFromReport(
+          latest === undefined ? null : (backtest.getRun(latest.id) ?? null),
+        );
+      },
+      strategyNameFor: (strategyId) =>
+        ctx.services.strategies?.get(strategyId)?.name ?? `Estrategia ${strategyId}`,
+      margins: () => {
+        const current = ctx.services.settings?.get();
+        return {
+          marginPp: current?.deviationMarginPp ?? DEVIATION_MARGIN_PP_DEFAULT,
+          maxSlippageBps: current?.deviationSlippageBps ?? DEVIATION_SLIPPAGE_BPS_DEFAULT,
+        };
+      },
+    }),
+  );
 
   // Ganchos E2E: siembra la evidencia de los requisitos automáticos y
   // conmuta el adaptador live al broker real simulado. En la app

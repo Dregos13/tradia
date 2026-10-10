@@ -29,6 +29,7 @@ import { registerSignals, type SignalsService } from '../signals';
 import { registerJournal, type JournalService } from '../journal';
 import { registerRegime, type AiRegimeService } from '../ai/regime';
 import { registerPrediction, type AiPredictionService } from '../ai/prediction';
+import { registerDrift, type AiDriftService } from '../ai/drift';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
@@ -72,6 +73,8 @@ export interface MainServices {
   aiRegime: AiRegimeService;
   /** Predicción ONNX (fase 6): probabilidades calibradas, ai:predictions/model-card. */
   aiPrediction: AiPredictionService;
+  /** Salud de modelos (fase 6): drift, degradación y propuestas, ai:health/retrain. */
+  aiDrift: AiDriftService;
   /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
   signals: SignalsService;
   /** Canales de entrega (fase 4): escritorio, Telegram y correo. */
@@ -166,6 +169,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
   services.routine = registerRoutine(ctx);
+  // Fase 6: la salud de modelos corre tras la conciliación diaria
+  // (routine.onPostMarket); consume market, strategies, backtest, broker
+  // (órdenes vía repositorio), journal, notifications y connectivity.
+  services.aiDrift = registerDrift(ctx);
   // El último antes del broker: consume notifications, settings, poller
   // (onItemsStored y el reloj de desarrollo), calendar (su evento updated)
   // y market (watchlist).

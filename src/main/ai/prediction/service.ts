@@ -365,16 +365,26 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
 
     predictions: (query) => deps.repo.listPredictions(query ?? {}),
 
-    modelCard: () => card ?? deps.repo.latestModelCard(),
+    // La ficha se relee de la base (no la copia en memoria): así la marca
+    // de «degradada por drift» que escribe ai/drift se ve al instante en
+    // `ai:model-card` y en la aptitud para señales.
+    modelCard: () => {
+      const fresh =
+        card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
+      return fresh ?? deps.repo.latestModelCard();
+    },
 
     status: () => ({ ...status }),
 
     latestPrediction: (ticker) => deps.repo.latestPrediction(ticker),
 
-    eligibleModel: () =>
-      model !== null && card !== null && card.eligible
+    eligibleModel: () => {
+      const fresh =
+        card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
+      return model !== null && fresh !== null && fresh.eligible
         ? { version: model.version, hash: model.modelHash, horizonDays: model.horizonDays }
-        : null,
+        : null;
+    },
 
     stop: async () => {
       stopped = true;
