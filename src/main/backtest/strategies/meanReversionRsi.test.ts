@@ -7,9 +7,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { rsi, sma } from '../../../shared/indicators';
+import { collectLastBarOrders } from '../../signals/probe';
 import { runBacktest } from '../engine';
 import {
   createMeanReversionRsiStrategy,
+  MEAN_REVERSION_RSI_DEFAULTS,
   MEAN_REVERSION_RSI_SEED,
 } from './meanReversionRsi';
 import { assertNoLookAhead, NO_COSTS, seriesFromCloses, sessionDates } from './testKit';
@@ -117,6 +119,34 @@ describe('reversión a la media RSI(2) con filtro de tendencia', () => {
     );
   });
 
+  it('la propuesta para el motor de señales lleva stop y objetivo con ratio ≥ 2', () => {
+    // La entrada se decide en la vela del desplome: la sonda solo informa
+    // de lo emitido en la última sesión, así que la serie se corta ahí.
+    const orders = collectLastBarOrders({
+      strategy: createMeanReversionRsiStrategy(),
+      params: PARAMS,
+      bars: { AAA: bars.slice(0, entry + 1) },
+    });
+    const buy = orders.find((order) => order.kind === 'buy');
+    expect(buy).toBeDefined();
+    expect(buy!.stop).not.toBeNull();
+    expect(buy!.target).not.toBeNull();
+    const risk = buy!.referencePrice - buy!.stop!;
+    const reward = buy!.target! - buy!.referencePrice;
+    expect(risk).toBeGreaterThan(0);
+    expect(reward / risk).toBeCloseTo(MEAN_REVERSION_RSI_DEFAULTS.targetR, 8);
+    expect(reward / risk).toBeGreaterThanOrEqual(2);
+  });
+
+  it('sin ATR caliente no propone entrada (una compra sin stop nunca pasa la pasarela)', () => {
+    const orders = collectLastBarOrders({
+      strategy: createMeanReversionRsiStrategy(),
+      params: { ...PARAMS, atrPeriod: 100 },
+      bars: { AAA: bars.slice(0, entry + 1) },
+    });
+    expect(orders).toEqual([]);
+  });
+
   it('los parámetros de la ficha semilla son los valores por defecto', () => {
     expect(MEAN_REVERSION_RSI_SEED.parameters).toEqual({
       rsiPeriod: 2,
@@ -125,6 +155,7 @@ describe('reversión a la media RSI(2) con filtro de tendencia', () => {
       trendPeriod: 200,
       atrPeriod: 14,
       stopAtr: 2.5,
+      targetR: 2.5,
     });
     expect(() =>
       runBacktest({

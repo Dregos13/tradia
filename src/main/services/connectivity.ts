@@ -376,7 +376,9 @@ export function registerConnectivity(ctx: ServiceContext): ConnectivityService {
   const service = createConnectivityService({
     isOnline: () => net.isOnline(),
     probe: probeEndpoint,
-    broadcast: ctx.broadcast,
+    // Indirección a propósito: el broker envuelve ctx.broadcast al
+    // registrarse después y necesita ver los `connectivity:changed`.
+    broadcast: (channel, payload) => ctx.broadcast(channel, payload),
     scheduler,
     notify: (payload) => notifications?.notify(payload),
     refreshTray: () => ctx.services.tray?.refresh(),

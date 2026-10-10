@@ -1,3 +1,7 @@
+import { OrdersPage } from './components/orders/OrdersPage';
+import { ReconcileBannerContent } from './components/orders/ReconcileBanner';
+import { DeviationPage } from './components/deviation/DeviationPage';
+import { useReconciliation } from './hooks/useOrders';
 import { KillSwitchControl } from './components/risk/KillSwitchControl';
 import { JournalPage } from './components/journal/JournalPage';
 import { RiskPage } from './components/risk/RiskPage';
@@ -17,6 +21,8 @@ import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
 
 type Page =
+  | 'ordenes'
+  | 'real-vs-backtest'
   | 'diario'
   | 'riesgo'
   | 'inicio'
@@ -30,7 +36,9 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1);
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
-  return hash === 'diario' ||
+  return hash === 'ordenes' ||
+    hash === 'real-vs-backtest' ||
+    hash === 'diario' ||
     hash === 'riesgo' ||
     hash === 'mercado' ||
     hash === 'macro' ||
@@ -57,6 +65,17 @@ function AppShell() {
   const heading = useRef<HTMLHeadingElement>(null);
   const state = useSystemState();
   const risk = useRisk();
+  const reconciliation = useReconciliation();
+  const stopped = Boolean(risk.killSwitch?.active);
+  const offline = state.connectivity?.status === 'offline';
+  const discrepancy = reconciliation.openDiscrepancies[0];
+  const hasBanner = stopped || offline || Boolean(discrepancy);
+  const summary = discrepancy ? (
+    <p>
+      Descuadre con el broker: {discrepancy.ticker ?? 'Activo no disponible'}.{' '}
+      <a href="#ordenes">Ver en Órdenes</a>
+    </p>
+  ) : undefined;
   useEffect(() => {
     const navigate = () => {
       setPage(currentPage());
@@ -71,9 +90,7 @@ function AppShell() {
     heading.current?.focus();
   }, [page]);
   return (
-    <div
-      className={`app${state.connectivity?.status === 'offline' || risk.killSwitch?.active ? ' has-banner' : ''}`}
-    >
+    <div className={`app${hasBanner ? ' has-banner' : ''}`}>
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
@@ -103,6 +120,15 @@ function AppShell() {
           <a href="#diario" aria-current={page === 'diario' ? 'page' : undefined}>
             Diario
           </a>
+          <a href="#ordenes" aria-current={page === 'ordenes' ? 'page' : undefined}>
+            Órdenes
+          </a>
+          <a
+            href="#real-vs-backtest"
+            aria-current={page === 'real-vs-backtest' ? 'page' : undefined}
+          >
+            Real vs backtest
+          </a>
           <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
             Ajustes
           </a>
@@ -112,6 +138,8 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              ordenes: 'Órdenes',
+              'real-vs-backtest': 'Real vs backtest',
               diario: 'Diario',
               riesgo: 'Riesgo',
               inicio: 'Estado del sistema',
@@ -126,15 +154,29 @@ function AppShell() {
           }
         </h1>
         <span className="mode">Señales + paper trading</span>
-        <KillSwitchControl state={risk.killSwitch} onChange={risk.updateKillSwitch} />
+        <KillSwitchControl
+          state={risk.killSwitch}
+          onChange={risk.updateKillSwitch}
+          summary={
+            stopped ? (
+              <>
+                {offline && (
+                  <p>
+                    Sin conexión. <a href="#inicio">Ver estado</a>
+                  </p>
+                )}
+                {summary}
+              </>
+            ) : undefined
+          }
+        />
       </header>
-      <div
-        className="app-global-banners"
-        hidden={!risk.killSwitch?.active && state.connectivity?.status !== 'offline'}
-      >
+      <div className="app-global-banners" hidden={!hasBanner}>
         <div id="risk-global-banner" />
-        <OfflineBanner state={state} />
+        <OfflineBanner state={state} summary={!stopped ? summary : undefined} />
+        {discrepancy && !(stopped && offline) && <ReconcileBannerContent state={reconciliation} />}
       </div>
+      {!discrepancy && <ReconcileBannerContent state={reconciliation} />}
       <main id="contenido" className="main" tabIndex={-1}>
         <ProviderBanner />
         {legalOpen ? (
@@ -144,6 +186,10 @@ function AppShell() {
               requestAnimationFrame(() => legalButton.current?.focus());
             }}
           />
+        ) : page === 'ordenes' ? (
+          <OrdersPage />
+        ) : page === 'real-vs-backtest' ? (
+          <DeviationPage />
         ) : page === 'diario' ? (
           <JournalPage />
         ) : page === 'riesgo' ? (

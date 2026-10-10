@@ -23,6 +23,10 @@
  * - Reloj inyectable (`RoutineClock`, mismo patrón que market/news) y
  *   temporizadores inyectables para las pruebas; el gancho E2E
  *   `routine:advance-clock` adelanta el reloj y reevalúa al instante.
+ * - Gancho postmercado (`onPostMarket`): tras la tarea 'conciliacion'
+ *   del día se invocan los oyentes registrados (fase 5: el servicio del
+ *   broker engancha ahí su conciliación con la cuenta paper, con el
+ *   origen 'rutina').
  */
 
 import { app, ipcMain, powerMonitor } from 'electron';
@@ -210,6 +214,14 @@ export interface RoutineService {
    * los envíos y devuelve el nuevo instante.
    */
   advanceClock?(deltaMs: number): RoutineClockAdvanceResult;
+  /**
+   * Registra un oyente del postmercado: se invoca con el día de sesión
+   * ('YYYY-MM-DD') tras ejecutarse la tarea 'conciliacion' del día, una
+   * sola vez por día (la deduplicación por `routine_runs` manda). Fase
+   * 5: el servicio del broker engancha aquí la conciliación con la
+   * cuenta paper. Devuelve la función de desregistro.
+   */
+  onPostMarket(listener: (dia: string) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +285,8 @@ export function createRoutineService(deps: RoutineDeps): RoutineService {
 
   let started = false;
   let timer: RoutineTimerHandle | null = null;
+  // Oyentes del postmercado (fase 5: el broker concilia tras 'conciliacion').
+  const postMarketListeners = new Set<(dia: string) => void>();
 
   const _isoNow = (): string => new Date(now()).toISOString();
 
@@ -537,6 +551,15 @@ export function createRoutineService(deps: RoutineDeps): RoutineService {
       }
       if (outcome.journalId !== null) deps.runs.attachJournal(runId, outcome.journalId);
       outcomes.push(outcome);
+      if (kind === 'conciliacion') {
+        for (const listener of postMarketListeners) {
+          try {
+            listener(dia);
+          } catch (error: unknown) {
+            logger.warn?.(`[routine] un oyente del postmercado falló: ${String(error)}`);
+          }
+        }
+      }
     }
     return outcomes;
   };
@@ -620,6 +643,13 @@ export function createRoutineService(deps: RoutineDeps): RoutineService {
       deps.powerMonitor?.removeListener('resume', onResume);
       if (timer !== null) clearTimer(timer);
       timer = null;
+    },
+
+    onPostMarket: (listener) => {
+      postMarketListeners.add(listener);
+      return () => {
+        postMarketListeners.delete(listener);
+      };
     },
   };
 

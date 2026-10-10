@@ -12,14 +12,30 @@ import type {
   BacktestListQuery,
   BacktestProgressEvent,
   BacktestRunRequest,
+  BrokerConnectRequest,
+  BrokerDiscrepancyRequest,
+  BrokerDiscrepancyResult,
+  BrokerFailNextRequest,
+  BrokerFailNextResult,
+  BrokerOrder,
+  BrokerOrdersQuery,
+  BrokerSeedWeeksRequest,
+  BrokerSeedWeeksResult,
+  BrokerStatus,
+  BrokerTestRequest,
+  BrokerTestResult,
   CalendarListQuery,
   CalendarUpdatedEvent,
+  CancelOrderRequest,
   ConnectivityState,
+  CreateOrderRequest,
   DataStatusEntry,
   DeliveryConfig,
   DeliveryConfigInput,
   DeliveryTestRequest,
   DeliveryTestResult,
+  DeviationReport,
+  DeviationReportQuery,
   GetBarsRequest,
   JournalEntry,
   JournalExportRequest,
@@ -40,6 +56,9 @@ import type {
   NotificationRoute,
   OpenFolderResult,
   PaperPortfolioOverview,
+  ReconcileDiscrepancyEvent,
+  ReconcileRun,
+  ReconcileStatusResult,
   RiskLimits,
   RiskOverview,
   RiskVeto,
@@ -229,6 +248,35 @@ const api: TradiaApi = {
     restore: (request: BackupRestoreRequest): Promise<BackupRestoreResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.backup.restore, request),
   },
+  broker: {
+    connect: (request: BrokerConnectRequest): Promise<BrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.broker.connect, request),
+    disconnect: (): Promise<BrokerStatus> => ipcRenderer.invoke(IPC_CHANNELS.broker.disconnect),
+    status: (): Promise<BrokerStatus> => ipcRenderer.invoke(IPC_CHANNELS.broker.status),
+    test: (request?: BrokerTestRequest): Promise<BrokerTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.broker.test, request),
+    onOrderUpdated: (listener: (order: BrokerOrder) => void) =>
+      subscribe<BrokerOrder>(IPC_CHANNELS.broker.orderUpdated, listener),
+  },
+  orders: {
+    list: (query?: BrokerOrdersQuery): Promise<BrokerOrder[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.orders.list, query),
+    create: (request: CreateOrderRequest): Promise<BrokerOrder> =>
+      ipcRenderer.invoke(IPC_CHANNELS.orders.create, request),
+    cancel: (request: CancelOrderRequest): Promise<BrokerOrder> =>
+      ipcRenderer.invoke(IPC_CHANNELS.orders.cancel, request),
+  },
+  reconcile: {
+    run: (): Promise<ReconcileRun> => ipcRenderer.invoke(IPC_CHANNELS.reconcile.run),
+    status: (): Promise<ReconcileStatusResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.reconcile.status),
+    onDiscrepancy: (listener: (event: ReconcileDiscrepancyEvent) => void) =>
+      subscribe<ReconcileDiscrepancyEvent>(IPC_CHANNELS.reconcile.discrepancy, listener),
+  },
+  deviation: {
+    report: (query: DeviationReportQuery): Promise<DeviationReport> =>
+      ipcRenderer.invoke(IPC_CHANNELS.deviation.report, query),
+  },
   logs: {
     openFolder: (): Promise<OpenFolderResult> => ipcRenderer.invoke(IPC_CHANNELS.logs.openFolder),
   },
@@ -258,6 +306,16 @@ const api: TradiaApi = {
             ipcRenderer.invoke(IPC_CHANNELS.routine.advanceClock, ms),
           evaluateSignalsNow: (): Promise<SignalEngineRunResult> =>
             ipcRenderer.invoke(IPC_CHANNELS.signals.evaluateNow),
+          broker: {
+            failNext: (request: BrokerFailNextRequest): Promise<BrokerFailNextResult> =>
+              ipcRenderer.invoke(IPC_CHANNELS.broker.failNext, request),
+            createDiscrepancy: (
+              request: BrokerDiscrepancyRequest,
+            ): Promise<BrokerDiscrepancyResult> =>
+              ipcRenderer.invoke(IPC_CHANNELS.broker.createDiscrepancy, request),
+            seedWeeks: (request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult> =>
+              ipcRenderer.invoke(IPC_CHANNELS.broker.seedWeeks, request),
+          },
         },
       }
     : {}),

@@ -134,6 +134,7 @@ describe('ruptura de rangos (canal de Donchian)', () => {
       exitPeriod: 20,
       atrPeriod: 20,
       stopAtr: 2,
+      targetR: 2.5,
     });
     expect(() =>
       runBacktest({

@@ -6,9 +6,13 @@
  *   orden llena en la apertura siguiente (lo garantiza el motor). La compra
  *   lleva stop a `stopAtr` × ATR(atrPeriod) bajo el cierre de la señal, que
  *   además dimensiona la posición por riesgo (1 % del capital por defecto).
- * - Salida: cruce a la baja de las medias, o el stop.
+ * - Salida: cruce a la baja de las medias, el objetivo o el stop.
  * - Stop dinámico: con posición abierta se sube a `cierre − stopAtr × ATR`
  *   cada sesión en la que suba; nunca baja (trailing clásico).
+ * - Objetivo fijo a targetR × la distancia entrada−stop sobre el cierre de
+ *   la señal: la pasarela de riesgo exige ratio beneficio/riesgo ≥ 2 y el
+ *   OCO de salida necesita ambas patas. Sin ATR no hay entrada: una compra
+ *   sin stop calculable nunca puede protegerse.
  *
  * Cruce estricto: solo hay señal cuando ambas medias tienen valor la sesión
  * anterior y la actual. Si la serie arranca ya cruzada (p. ej. datos que
@@ -33,6 +37,7 @@ export const TREND_SMA_CROSS_DEFAULTS = {
   slowPeriod: 200,
   atrPeriod: 14,
   stopAtr: 3,
+  targetR: 2.5,
 };
 
 interface TrendState {
@@ -61,9 +66,12 @@ export function createTrendSmaCrossStrategy(): Strategy {
 
     if (position === null) {
       if (prevFast === null || prevSlow === null || fast === null || slow === null) return;
+      if (atr === null) return;
       if (prevFast <= prevSlow && fast > slow) {
-        const stop = atr === null ? undefined : bar.close - params.stopAtr * atr;
-        ctx.buy(ticker, stop !== undefined && stop > 0 ? { stop } : undefined);
+        const stop = bar.close - params.stopAtr * atr;
+        if (stop > 0) {
+          ctx.buy(ticker, { stop, target: bar.close + params.targetR * (bar.close - stop) });
+        }
       }
       return;
     }
@@ -96,6 +104,7 @@ export function createTrendSmaCrossStrategy(): Strategy {
       requireIntegerParam(params.slowPeriod, 'slowPeriod');
       requireIntegerParam(params.atrPeriod, 'atrPeriod');
       requireParamRange(params.stopAtr, 'stopAtr', 0.1, 20);
+      requireParamRange(params.targetR, 'targetR', 2, 20);
       if (params.fastPeriod >= params.slowPeriod) {
         throw new RangeError(
           `estrategia cruce de medias: fastPeriod (${params.fastPeriod}) debe ser < slowPeriod (${params.slowPeriod})`,
@@ -146,7 +155,7 @@ export const TREND_SMA_CROSS_SEED: CreateStrategyRequest = {
     stop:
       'Stop de protección a stopAtr (3) × ATR(atrPeriod) bajo el cierre de la señal; cada sesión se arrastra al alza hasta cierre − stopAtr × ATR y nunca retrocede.',
     target:
-      'Sin objetivo fijo: la posición se mantiene mientras dure la tendencia y sale por el cruce contrario o por el stop.',
+      'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el cruce contrario o el stop.',
   },
   parameters: { ...TREND_SMA_CROSS_DEFAULTS },
   parameterRanges: {
@@ -154,6 +163,7 @@ export const TREND_SMA_CROSS_SEED: CreateStrategyRequest = {
     slowPeriod: { min: 100, max: 300, step: 25 },
     atrPeriod: { min: 7, max: 28, step: 7 },
     stopAtr: { min: 1.5, max: 5, step: 0.5 },
+    targetR: { min: 2, max: 6, step: 0.5 },
   },
   markets: ['SPY', 'QQQ', 'DIA', 'IWM'],
   trainingPeriod: { desde: '2000-01-03', hasta: '2014-12-31' },

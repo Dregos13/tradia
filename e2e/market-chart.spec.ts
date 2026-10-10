@@ -21,6 +21,15 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       ...process.env,
       TRADIA_E2E: '1',
       TRADIA_E2E_USER_DATA: userData,
+      // El reloj de mercado arranca el martes 2026-10-06 tras el cierre y la
+      // actualización diaria (18:00 ET): los saltos de 24 h del bloque de
+      // fallos cruzan los cierres de miércoles, jueves y viernes, y el avance
+      // final de 72 h cae tras el cierre del lunes. Sin el anclaje, esos
+      // saltos dependen de la fecha real y pueden caer en fin de semana o
+      // festivo, donde la ingesta ni siquiera intenta refrescar. La variable
+      // de entorno permite inyectar otra semana equivalente para comprobar
+      // que el resultado no depende del calendario real.
+      TRADIA_E2E_MARKET_NOW: process.env.TRADIA_E2E_MARKET_NOW ?? '2026-10-06T22:00:00.000Z',
       TRADIA_CONNECTIVITY_URLS: JSON.stringify([endpoint, endpoint]),
     },
   });
@@ -89,6 +98,11 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
+    const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
+    const deviationLink = navigation.getByRole('link', {
+      name: 'Real vs backtest',
+      exact: true,
+    });
     const strategiesLink = navigation.getByRole('link', { name: 'Estrategias', exact: true });
     const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
     await strategiesLink.focus();
@@ -99,7 +113,15 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.keyboard.press('Tab');
     await expect(journalLink).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(ordersLink).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(deviationLink).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(deviationLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(ordersLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(journalLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');

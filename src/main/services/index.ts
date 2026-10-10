@@ -1,3 +1,5 @@
+import { app } from 'electron';
+
 import { RISK_DEFAULTS } from '../../shared/ipc';
 import { registerConnectivity, type ConnectivityService } from './connectivity';
 import { registerNotifications, type NotificationsService } from './notifications';
@@ -13,6 +15,7 @@ import { registerAlerts, type NewsAlertsService } from '../news/alerts';
 import { registerMacro, type MacroService } from '../market/macro';
 import {
   createMarketClock,
+  e2eMarketClockBase,
   registerMarket,
   type MarketIngestionService,
 } from '../market/ingestion';
@@ -27,6 +30,7 @@ import { registerJournal, type JournalService } from '../journal';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
+import { registerBroker, type BrokerService } from '../broker';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -69,6 +73,8 @@ export interface MainServices {
   backup: BackupService;
   /** Rutina diaria (fase 4): preapertura, cierre y conciliación. */
   routine: RoutineService;
+  /** Broker en modo paper (fase 5): conexión, órdenes, conciliación e informe. */
+  broker: BrokerService;
 }
 
 export interface ServiceContext {
@@ -97,7 +103,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.scheduler = registerScheduler(ctx);
   services.tray = registerTray(ctx);
   services.connectivity = registerConnectivity(ctx);
-  const marketClock = createMarketClock();
+  // Con TRADIA_E2E_MARKET_NOW el reloj arranca en ese instante (gancho E2E);
+  // si no, parte del tiempo real.
+  const marketClock = createMarketClock(e2eMarketClockBase(app.isPackaged));
   services.health = registerHealth(ctx, { clock: marketClock });
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial
@@ -119,7 +127,11 @@ export function initServices(ctx: ServiceContext): MainServices {
   // Fase 3: la pasarela del motor de riesgo va tras killSwitch (instala
   // los overviewExtras reales) y tras calendar (su listEvents alimenta la
   // cautela); la cartera simulada y los vetos viven en storage.
-  services.risk = registerRisk(ctx);
+  // El motor evalúa la cautela con el reloj de mercado: en E2E las señales
+  // se juzgan contra el instante simulado (los festivos y la apertura no
+  // dependen de la fecha real de la prueba); en producción coincide con el
+  // tiempo real.
+  services.risk = registerRisk(ctx, { now: marketClock.now });
   // Fase 2: la biblioteca de estrategias solo necesita storage.
   services.strategies = registerStrategies(ctx);
   // Fase 2: el servicio de backtest necesita strategies (fichas y métricas
@@ -136,8 +148,14 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
   services.routine = registerRoutine(ctx);
-  // El último: consume notifications, settings, poller (onItemsStored y el
-  // reloj de desarrollo), calendar (su evento updated) y market (watchlist).
+  // El último antes del broker: consume notifications, settings, poller
+  // (onItemsStored y el reloj de desarrollo), calendar (su evento updated)
+  // y market (watchlist).
   services.alerts = registerAlerts(ctx);
+  // Fase 5: el broker va el último — consume storage, secrets, settings,
+  // connectivity, killSwitch, signals, journal, delivery, notifications,
+  // backtest, strategies y routine (onPostMarket), y envuelve
+  // ctx.broadcast para seguir `signals:new` y `connectivity:changed`.
+  services.broker = registerBroker(ctx);
   return services as MainServices;
 }

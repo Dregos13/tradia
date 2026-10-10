@@ -1,3 +1,4 @@
+import broker from './design/broker.tokens.json';
 import { describe, expect, it } from 'vitest';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
@@ -59,4 +60,14 @@ it('mantiene completos los tokens semánticos de riesgo en ambos temas', () => {
       expect(token.darkSurface).toMatch(/^#[0-9A-F]{6}$/);
       expect(token.label.length).toBeGreaterThan(0);
     }
+});
+
+it('traduce la insignia paper y el diálogo desde los tokens de broker', () => {
+  const css = tokenStylesheet();
+  for (const mode of ['light', 'dark'] as const) {
+    expect(css).toContain(`--broker-paper:${broker.color.paper[mode]};`);
+    expect(css).toContain(`--broker-paper-surface:${broker.color.paper[`${mode}Surface`]};`);
+  }
+  expect(css).toContain(`--broker-dialogMax:${broker.size.dialogMax};`);
+  expect(css).toContain(`--broker-floating:${broker.shadow.floating.value};`);
 });

@@ -455,6 +455,22 @@ describe('rutina diaria · contenido de los resúmenes', () => {
     service.stop();
   });
 
+  it('el postmercado invoca a los oyentes de onPostMarket una vez por día', () => {
+    const service = makeService();
+    const calls: string[] = [];
+    service.onPostMarket((dia) => calls.push(dia));
+    service.start();
+    service.advanceClock!(OPEN_DAY.conciliacion - at(2026, 10, 7, 7, 0));
+    expect(calls).toEqual([DIA]);
+    // Reevaluar el mismo día no repite: la deduplicación por día manda.
+    service.evaluate();
+    expect(calls).toEqual([DIA]);
+    // El desregistro quita al oyente para el día siguiente.
+    const off = service.onPostMarket((dia) => calls.push(`extra-${dia}`));
+    off();
+    service.stop();
+  });
+
   it('una tarea que falla deja entrada de error y no bloquea a las demás', () => {
     const service = createRoutineService({
       runs: createRoutineRunsRepository(db),

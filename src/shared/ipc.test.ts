@@ -13,7 +13,16 @@ import {
   isAlertPrefs,
   isBackupFileName,
   isBackupRestoreRequest,
+  isBrokerConnectRequest,
+  isBrokerDiscrepancyRequest,
+  isBrokerFailNextRequest,
+  isBrokerOrdersQuery,
+  isBrokerSeedWeeksRequest,
+  isBrokerTestRequest,
   isCalendarListQuery,
+  isCancelOrderRequest,
+  isCreateOrderRequest,
+  isDeviationReportQuery,
   isDataStatusState,
   isDeliveryConfigInput,
   isDeliveryEventKind,
@@ -97,22 +106,26 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup y logs', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, reconcile, deviation y logs', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'alerts',
       'backtest',
       'backup',
+      'broker',
       'calendar',
       'connectivity',
       'dataStatus',
       'delivery',
+      'deviation',
       'journal',
       'logs',
       'macro',
       'market',
       'news',
       'notifications',
+      'orders',
+      'reconcile',
       'risk',
       'routine',
       'secrets',
@@ -255,6 +268,36 @@ describe('contrato IPC', () => {
     expect(IPC_CHANNELS.routine.advanceClock).toBe('routine:advance-clock');
   });
 
+  it('incluye los canales del broker paper, órdenes, conciliación y desviación (fase 5)', () => {
+    expect(IPC_CHANNELS.broker).toEqual({
+      connect: 'broker:connect',
+      disconnect: 'broker:disconnect',
+      status: 'broker:status',
+      test: 'broker:test',
+      failNext: 'broker:fail-next',
+      createDiscrepancy: 'broker:create-discrepancy',
+      seedWeeks: 'broker:seed-weeks',
+      orderUpdated: 'broker:order-updated',
+    });
+    expect(IPC_CHANNELS.orders).toEqual({
+      list: 'orders:list',
+      create: 'orders:create',
+      cancel: 'orders:cancel',
+    });
+    expect(IPC_CHANNELS.reconcile).toEqual({
+      run: 'reconcile:run',
+      status: 'reconcile:status',
+      discrepancy: 'reconcile:discrepancy',
+    });
+    expect(IPC_CHANNELS.deviation).toEqual({
+      report: 'deviation:report',
+    });
+    // Los ganchos del broker simulado también son solo desarrollo.
+    expect(IPC_CHANNELS.broker.failNext).toBe('broker:fail-next');
+    expect(IPC_CHANNELS.broker.createDiscrepancy).toBe('broker:create-discrepancy');
+    expect(IPC_CHANNELS.broker.seedWeeks).toBe('broker:seed-weeks');
+  });
+
   it('el universo inicial cabe en el límite de la lista', () => {
     expect(INITIAL_UNIVERSE_TICKERS.length).toBeLessThanOrEqual(WATCHLIST_MAX_ITEMS);
     expect(new Set(INITIAL_UNIVERSE_TICKERS).size).toBe(INITIAL_UNIVERSE_TICKERS.length);
@@ -322,8 +365,16 @@ describe('guardas de entrada', () => {
   it('valida patches de ajustes y rechaza claves ajenas', () => {
     expect(isSettingsPatch({ autostart: true })).toBe(true);
     expect(isSettingsPatch({ disclaimerAcceptedVersion: '1.0' })).toBe(true);
+    expect(isSettingsPatch({ brokerExecutionEnabled: false })).toBe(true);
+    expect(isSettingsPatch({ deviationMarginPp: 2 })).toBe(true);
+    expect(isSettingsPatch({ deviationSlippageBps: 10 })).toBe(true);
     expect(isSettingsPatch({ disclaimerAcceptedAt: '2026-10-08T10:00:00Z' })).toBe(false);
     expect(isSettingsPatch({ autostart: 'sí' })).toBe(false);
+    expect(isSettingsPatch({ brokerExecutionEnabled: 'sí' })).toBe(false);
+    expect(isSettingsPatch({ deviationMarginPp: 0 })).toBe(false);
+    expect(isSettingsPatch({ deviationMarginPp: 500 })).toBe(false);
+    expect(isSettingsPatch({ deviationSlippageBps: 0 })).toBe(false);
+    expect(isSettingsPatch({ deviationSlippageBps: 10_000 })).toBe(false);
     expect(isSettingsPatch({})).toBe(false);
     expect(isSettingsPatch({ autostart: true, apiKey: 'sk-...' })).toBe(false);
     expect(isSettingsPatch(null)).toBe(false);
@@ -1060,12 +1111,118 @@ describe('guardas de señales, diario y operativa (fase 4)', () => {
     expect(isBackupRestoreRequest(null)).toBe(false);
   });
 
-  it('las rutas de notificación incluyen las vistas de la fase 4', () => {
-    for (const route of ['noticias', 'calendario', 'riesgo', 'diario', 'inicio'] as const) {
+  it('las rutas de notificación incluyen las vistas de la fase 4 y la 5', () => {
+    for (const route of [
+      'noticias',
+      'calendario',
+      'riesgo',
+      'diario',
+      'inicio',
+      'ordenes',
+      'real-vs-backtest',
+    ] as const) {
       expect(isNotificationRoute(route)).toBe(true);
     }
     expect(isNotificationRoute('senales')).toBe(false);
     expect(isNotificationRoute(null)).toBe(false);
+  });
+});
+
+describe('guardas del broker en modo paper (fase 5)', () => {
+  it('valida las credenciales de conexión sin filtrar campos', () => {
+    expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'sk-test' })).toBe(true);
+    expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123' })).toBe(false);
+    expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'con espacios' })).toBe(false);
+    expect(isBrokerConnectRequest({ apiKeyId: 'short', apiSecret: 'sk-test' })).toBe(false);
+    expect(
+      isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'sk-test', extra: 1 }),
+    ).toBe(false);
+    expect(isBrokerConnectRequest(null)).toBe(false);
+    expect(isBrokerConnectRequest('PKABC123:sk-test')).toBe(false);
+  });
+
+  it('la prueba de conexión admite las dos claves o ninguna', () => {
+    expect(isBrokerTestRequest(undefined)).toBe(true);
+    expect(isBrokerTestRequest({})).toBe(true);
+    expect(isBrokerTestRequest({ apiKeyId: 'PKABC123', apiSecret: 'sk-test' })).toBe(true);
+    expect(isBrokerTestRequest({ apiKeyId: 'PKABC123' })).toBe(false);
+    expect(isBrokerTestRequest({ apiSecret: 'sk-test' })).toBe(false);
+    expect(isBrokerTestRequest(null)).toBe(false);
+  });
+
+  it('valida los filtros del listado de órdenes', () => {
+    expect(isBrokerOrdersQuery(undefined)).toBe(true);
+    expect(isBrokerOrdersQuery({})).toBe(true);
+    expect(isBrokerOrdersQuery({ status: 'enviada' })).toBe(true);
+    expect(isBrokerOrdersQuery({ status: 'abierta' })).toBe(false);
+    expect(isBrokerOrdersQuery({ strategyId: 3, ticker: 'aapl', limit: 50, offset: 10 })).toBe(true);
+    expect(isBrokerOrdersQuery({ strategyId: 1.5 })).toBe(false);
+    expect(isBrokerOrdersQuery({ ticker: '***' })).toBe(false);
+    expect(isBrokerOrdersQuery({ limit: 0 })).toBe(false);
+    expect(isBrokerOrdersQuery({ limit: 999 })).toBe(false);
+    expect(isBrokerOrdersQuery({ offset: -1 })).toBe(false);
+    expect(isBrokerOrdersQuery({ status: 'enviada', extra: 1 })).toBe(false);
+    expect(isBrokerOrdersQuery(null)).toBe(false);
+  });
+
+  it('la creación de una limitada exige activo, lado, cantidad y precio válidos', () => {
+    const request = { ticker: 'AAPL', side: 'buy', quantity: 2, limitPrice: 150.5 };
+    expect(isCreateOrderRequest(request)).toBe(true);
+    expect(isCreateOrderRequest({ ...request, side: 'sell' })).toBe(true);
+    expect(isCreateOrderRequest({ ...request, side: 'comprar' })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, ticker: '***' })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, quantity: 0 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, quantity: -2 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, limitPrice: 0 })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, limitPrice: Number.NaN })).toBe(false);
+    expect(isCreateOrderRequest({ ...request, type: 'limit' })).toBe(false);
+    expect(isCreateOrderRequest({ ticker: 'AAPL', quantity: 2 })).toBe(false);
+    expect(isCreateOrderRequest({})).toBe(false);
+    expect(isCreateOrderRequest(null)).toBe(false);
+  });
+
+  it('la cancelación exige el id local de la orden', () => {
+    expect(isCancelOrderRequest({ id: 7 })).toBe(true);
+    expect(isCancelOrderRequest({ id: 'sim-7' })).toBe(false);
+    expect(isCancelOrderRequest({ id: 0 })).toBe(false);
+    expect(isCancelOrderRequest({ id: 1.5 })).toBe(false);
+    expect(isCancelOrderRequest({})).toBe(false);
+    expect(isCancelOrderRequest({ id: 7, extra: true })).toBe(false);
+    expect(isCancelOrderRequest(null)).toBe(false);
+  });
+
+  it('el informe de desviación exige el periodo', () => {
+    expect(isDeviationReportQuery({ period: 'semanal' })).toBe(true);
+    expect(isDeviationReportQuery({ period: 'mensual' })).toBe(true);
+    expect(isDeviationReportQuery({ period: 'diario' })).toBe(false);
+    expect(isDeviationReportQuery({})).toBe(false);
+    expect(isDeviationReportQuery({ period: 'semanal', desde: '2026-10-05' })).toBe(false);
+    expect(isDeviationReportQuery(null)).toBe(false);
+  });
+
+  it('los ganchos E2E del broker solo aceptan fallos y descuadres conocidos', () => {
+    expect(isBrokerFailNextRequest({ kind: 'timeout' })).toBe(true);
+    expect(isBrokerFailNextRequest({ kind: 'rate-limit' })).toBe(true);
+    expect(isBrokerFailNextRequest({ kind: 'server' })).toBe(true);
+    expect(isBrokerFailNextRequest({ kind: 'reject' })).toBe(true);
+    expect(isBrokerFailNextRequest({ kind: 'partial' })).toBe(true);
+    expect(isBrokerFailNextRequest({ kind: 'nuclear' })).toBe(false);
+    expect(isBrokerFailNextRequest({})).toBe(false);
+    expect(isBrokerFailNextRequest(null)).toBe(false);
+
+    expect(isBrokerDiscrepancyRequest({ kind: 'posicion-cantidad' })).toBe(true);
+    expect(isBrokerDiscrepancyRequest({ kind: 'orden-borrada' })).toBe(true);
+    expect(isBrokerDiscrepancyRequest({ kind: 'orden-fantasma' })).toBe(true);
+    expect(isBrokerDiscrepancyRequest({ kind: 'orden-estado' })).toBe(false);
+    expect(isBrokerDiscrepancyRequest(null)).toBe(false);
+
+    expect(isBrokerSeedWeeksRequest(undefined)).toBe(true);
+    expect(isBrokerSeedWeeksRequest({})).toBe(true);
+    expect(isBrokerSeedWeeksRequest({ weeks: 8 })).toBe(true);
+    expect(isBrokerSeedWeeksRequest({ weeks: 0 })).toBe(false);
+    expect(isBrokerSeedWeeksRequest({ weeks: 53 })).toBe(false);
+    expect(isBrokerSeedWeeksRequest({ weeks: 2.5 })).toBe(false);
+    expect(isBrokerSeedWeeksRequest(null)).toBe(false);
   });
 });
 

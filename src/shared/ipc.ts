@@ -91,6 +91,42 @@ import type {
   SignalsListQuery,
 } from './signals';
 import {
+  BROKER_E2E_DISCREPANCIES,
+  BROKER_E2E_FAILURES,
+  BROKER_ORDERS_MAX_LIMIT,
+  BROKER_ORDER_SIDES,
+  BROKER_ORDER_STATUSES,
+  DEVIATION_MARGIN_PP_BOUNDS,
+  DEVIATION_PERIODS,
+  DEVIATION_SLIPPAGE_BPS_BOUNDS,
+} from './broker';
+import type {
+  BrokerConnectRequest,
+  BrokerCredentials,
+  BrokerDiscrepancyRequest,
+  BrokerDiscrepancyResult,
+  BrokerE2eDiscrepancy,
+  BrokerE2eFailure,
+  BrokerFailNextRequest,
+  BrokerFailNextResult,
+  BrokerOrder,
+  BrokerOrdersQuery,
+  BrokerOrderStatus,
+  BrokerSeedWeeksRequest,
+  BrokerSeedWeeksResult,
+  BrokerStatus,
+  BrokerTestRequest,
+  BrokerTestResult,
+  CancelOrderRequest,
+  CreateOrderRequest,
+  DeviationPeriod,
+  DeviationReport,
+  DeviationReportQuery,
+  ReconcileDiscrepancyEvent,
+  ReconcileRun,
+  ReconcileStatusResult,
+} from './broker';
+import {
   BACKUP_FILE_PATTERN,
   DELIVERY_ADDRESS_MAX_LENGTH,
   DELIVERY_CHAT_ID_MAX_LENGTH,
@@ -129,12 +165,14 @@ import type {
 // ./backtest; se reexportan aquí para que el renderer y el preload sigan
 // importando de un solo sitio. El dominio de riesgo (fase 3) vive en ./risk.
 // El de señales, diario y configuración operativa (fase 4) vive en
-// ./signals y ./journal.
+// ./signals y ./journal. El del broker en modo paper (fase 5) vive en
+// ./broker.
 export * from './strategy';
 export * from './backtest';
 export * from './risk';
 export * from './signals';
 export * from './journal';
+export * from './broker';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -369,6 +407,58 @@ export const IPC_CHANNELS = {
      */
     restore: 'backup:restore',
   },
+  broker: {
+    /** Guarda las claves cifradas, valida la cuenta paper y conecta. */
+    connect: 'broker:connect',
+    /** Borra las claves guardadas y desconecta la cuenta paper. */
+    disconnect: 'broker:disconnect',
+    /** Estado de la conexión: cuenta, saldo paper e interruptor de ejecución. */
+    status: 'broker:status',
+    /** «Probar conexión»: valida unas claves nuevas o las ya guardadas. */
+    test: 'broker:test',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): arma un fallo
+     * (timeout, 429, 5xx, rechazo o ejecución parcial) para la próxima
+     * llamada del broker simulado.
+     */
+    failNext: 'broker:fail-next',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fabrica a propósito
+     * un descuadre app ↔ broker para comprobar la conciliación.
+     */
+    createDiscrepancy: 'broker:create-discrepancy',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): siembra semanas de
+     * operaciones paper cerradas para el informe real vs backtest.
+     */
+    seedWeeks: 'broker:seed-weeks',
+    /** Evento main → renderer: una orden cambió (BrokerOrderUpdatedEvent). */
+    orderUpdated: 'broker:order-updated',
+  },
+  orders: {
+    /** Órdenes paper registradas, más recientes primero (BrokerOrdersQuery). */
+    list: 'orders:list',
+    /**
+     * Crea una orden limitada manual (`{ticker, side, quantity,
+     * limitPrice}`): queda pendiente en el broker hasta ejecutarse o
+     * cancelarse. Sin señal ni estrategia asociadas.
+     */
+    create: 'orders:create',
+    /** Cancela una orden abierta por su id local (`{id}`). */
+    cancel: 'orders:cancel',
+  },
+  reconcile: {
+    /** «Conciliar ahora»: ejecuta la conciliación con el broker. */
+    run: 'reconcile:run',
+    /** Última ejecución y descuadres abiertos. */
+    status: 'reconcile:status',
+    /** Evento main → renderer: la conciliación encontró descuadres. */
+    discrepancy: 'reconcile:discrepancy',
+  },
+  deviation: {
+    /** Informe real frente a backtest (`{period: 'semanal'|'mensual'}`). */
+    report: 'deviation:report',
+  },
   logs: {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder: 'logs:open-folder',
@@ -401,10 +491,11 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
 /**
  * Vistas a las que puede llevar el clic de una notificación nativa: el
  * aviso previo de un evento abre Calendario, el de una noticia, Noticias,
- * la crítica de la parada de emergencia, Riesgo, y las de señales y
- * resúmenes de la fase 4, el Diario o el panel de Inicio. Son las rutas
- * por hash del renderer (`#noticias`, `#calendario`, `#riesgo`, `#diario`,
- * `#inicio`).
+ * la crítica de la parada de emergencia, Riesgo, las de señales y
+ * resúmenes de la fase 4, el Diario o el panel de Inicio, el descuadre de
+ * la conciliación, Órdenes, y la alerta de desviación, Real vs backtest.
+ * Son las rutas por hash del renderer (`#noticias`, `#calendario`,
+ * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`).
  */
 export const NOTIFICATION_ROUTES = [
   'noticias',
@@ -412,6 +503,8 @@ export const NOTIFICATION_ROUTES = [
   'riesgo',
   'diario',
   'inicio',
+  'ordenes',
+  'real-vs-backtest',
 ] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
@@ -441,12 +534,23 @@ export interface AppSettings {
   disclaimerAcceptedVersion: string | null;
   /** Fecha ISO 8601 generada por main; el renderer no puede escribirla. */
   disclaimerAcceptedAt: string | null;
+  /** Interruptor «Ejecutar señales aprobadas en paper» (fase 5). */
+  brokerExecutionEnabled: boolean;
+  /** Margen de desviación real vs backtest (± puntos porcentuales). */
+  deviationMarginPp: number;
+  /** Slippage medio máximo admitido en el informe (puntos básicos). */
+  deviationSlippageBps: number;
 }
 
 /** Solo estas claves son escribibles desde el renderer. */
 export interface SettingsPatch {
   autostart?: boolean;
   disclaimerAcceptedVersion?: string | null;
+  brokerExecutionEnabled?: boolean;
+  /** Debe quedar dentro de DEVIATION_MARGIN_PP_BOUNDS. */
+  deviationMarginPp?: number;
+  /** Debe quedar dentro de DEVIATION_SLIPPAGE_BPS_BOUNDS. */
+  deviationSlippageBps?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1136,6 +1240,54 @@ export interface TradiaApi {
      */
     restore(request: BackupRestoreRequest): Promise<BackupRestoreResult>;
   };
+  broker: {
+    /**
+     * Guarda las claves cifradas (secrets; el renderer nunca las lee),
+     * valida la cuenta contra el endpoint paper y conecta. Rechaza con un
+     * mensaje claro las claves de una cuenta live.
+     */
+    connect(request: BrokerConnectRequest): Promise<BrokerStatus>;
+    /** Borra las claves y desconecta; la simulación local sigue igual. */
+    disconnect(): Promise<BrokerStatus>;
+    /** Estado actual: cuenta, saldo paper e interruptor de ejecución. */
+    status(): Promise<BrokerStatus>;
+    /**
+     * «Probar conexión»: valida unas claves nuevas sin guardarlas o, sin
+     * campos, las ya guardadas.
+     */
+    test(request?: BrokerTestRequest): Promise<BrokerTestResult>;
+    /** Una orden paper cambió de estado o de ejecución. */
+    onOrderUpdated(listener: (event: BrokerOrder) => void): () => void;
+  };
+  orders: {
+    /** Órdenes paper con filtros, más recientes primero. */
+    list(query?: BrokerOrdersQuery): Promise<BrokerOrder[]>;
+    /**
+     * Envía una orden limitada manual a la cuenta paper y devuelve la
+     * orden ya registrada (pendiente/enviada/rechazada según el broker).
+     */
+    create(request: CreateOrderRequest): Promise<BrokerOrder>;
+    /**
+     * Cancela una orden abierta (pendiente, enviada o parcial) y devuelve
+     * la orden ya actualizada.
+     */
+    cancel(request: CancelOrderRequest): Promise<BrokerOrder>;
+  };
+  reconcile: {
+    /** Ejecuta la conciliación app ↔ broker y devuelve su resultado. */
+    run(): Promise<ReconcileRun>;
+    /** Última ejecución y los descuadres aún abiertos. */
+    status(): Promise<ReconcileStatusResult>;
+    /**
+     * Tras cada ejecución con descuadres llega el detalle concreto; una
+     * ejecución limpia llega con la lista vacía (el aviso se cierra).
+     */
+    onDiscrepancy(listener: (event: ReconcileDiscrepancyEvent) => void): () => void;
+  };
+  deviation: {
+    /** Informe real frente a backtest por estrategia y periodo cerrado. */
+    report(query: DeviationReportQuery): Promise<DeviationReport>;
+  };
   logs: {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder(): Promise<OpenFolderResult>;
@@ -1168,6 +1320,15 @@ export interface TradiaApi {
     advanceRoutineClock(ms: number): Promise<RoutineClockAdvanceResult>;
     /** Fuerza una evaluación inmediata del motor de señales. */
     evaluateSignalsNow(): Promise<SignalEngineRunResult>;
+    /** Ganchos del broker simulado (fase 5). */
+    broker: {
+      /** Arma un fallo para la próxima llamada del broker simulado. */
+      failNext(request: BrokerFailNextRequest): Promise<BrokerFailNextResult>;
+      /** Fabrica un descuadre app ↔ broker para probar la conciliación. */
+      createDiscrepancy(request: BrokerDiscrepancyRequest): Promise<BrokerDiscrepancyResult>;
+      /** Siembra semanas de operaciones paper cerradas. */
+      seedWeeks(request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult>;
+    };
   };
 }
 
@@ -1239,12 +1400,38 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
   const v = value as Record<string, unknown>;
   const keys = Object.keys(v);
   if (keys.length === 0) return false;
-  if (keys.some((k) => k !== 'autostart' && k !== 'disclaimerAcceptedVersion')) return false;
+  const allowed = [
+    'autostart',
+    'disclaimerAcceptedVersion',
+    'brokerExecutionEnabled',
+    'deviationMarginPp',
+    'deviationSlippageBps',
+  ];
+  if (keys.some((k) => !allowed.includes(k))) return false;
   if ('autostart' in v && typeof v.autostart !== 'boolean') return false;
   if (
     'disclaimerAcceptedVersion' in v &&
     v.disclaimerAcceptedVersion !== null &&
     typeof v.disclaimerAcceptedVersion !== 'string'
+  ) {
+    return false;
+  }
+  if ('brokerExecutionEnabled' in v && typeof v.brokerExecutionEnabled !== 'boolean') return false;
+  if (
+    'deviationMarginPp' in v &&
+    (typeof v.deviationMarginPp !== 'number' ||
+      !Number.isFinite(v.deviationMarginPp) ||
+      v.deviationMarginPp < DEVIATION_MARGIN_PP_BOUNDS.min ||
+      v.deviationMarginPp > DEVIATION_MARGIN_PP_BOUNDS.max)
+  ) {
+    return false;
+  }
+  if (
+    'deviationSlippageBps' in v &&
+    (typeof v.deviationSlippageBps !== 'number' ||
+      !Number.isFinite(v.deviationSlippageBps) ||
+      v.deviationSlippageBps < DEVIATION_SLIPPAGE_BPS_BOUNDS.min ||
+      v.deviationSlippageBps > DEVIATION_SLIPPAGE_BPS_BOUNDS.max)
   ) {
     return false;
   }
@@ -2331,6 +2518,161 @@ export function isBackupRestoreRequest(value: unknown): value is BackupRestoreRe
   const v = value as Record<string, unknown>;
   if (Object.keys(v).some((k) => k !== 'fileName' && k !== 'confirm')) return false;
   return isBackupFileName(v.fileName) && v.confirm === true;
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: broker en modo paper (fase 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Clave o secreto del broker: alfanumérico con guion, sin espacios ni
+ * controles (las claves de Alpaca son 'PK…'/'AK…'/'CK…' + base62). La
+ * pertenencia a una cuenta live no se comprueba aquí: la decide la
+ * validación contra el endpoint paper al conectar.
+ */
+const BROKER_KEY_PATTERN = /^[A-Za-z0-9-]{6,256}$/;
+
+export function isBrokerKey(value: unknown): value is string {
+  return typeof value === 'string' && BROKER_KEY_PATTERN.test(value);
+}
+
+export function isBrokerCredentials(value: unknown): value is BrokerCredentials {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'apiKeyId' && k !== 'apiSecret')) return false;
+  return isBrokerKey(v.apiKeyId) && isBrokerKey(v.apiSecret);
+}
+
+export function isBrokerConnectRequest(value: unknown): value is BrokerConnectRequest {
+  return isBrokerCredentials(value);
+}
+
+/**
+ * `broker:test`: sin argumento o `{}` prueba las claves guardadas; con
+ * `apiKeyId` y `apiSecret` prueba unas nuevas (los dos campos a la vez).
+ */
+export function isBrokerTestRequest(value: unknown): value is BrokerTestRequest | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'apiKeyId' && k !== 'apiSecret')) return false;
+  // O los dos campos válidos o ninguno: media credencial no es una petición.
+  const hasId = 'apiKeyId' in v;
+  const hasSecret = 'apiSecret' in v;
+  if (hasId !== hasSecret) return false;
+  return !hasId || (isBrokerKey(v.apiKeyId) && isBrokerKey(v.apiSecret));
+}
+
+export function isBrokerOrderStatus(value: unknown): value is BrokerOrderStatus {
+  return typeof value === 'string' && (BROKER_ORDER_STATUSES as readonly string[]).includes(value);
+}
+
+/** Id entero positivo de una orden local (`broker_orders.id`). */
+export function isBrokerOrderId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+export function isBrokerOrdersQuery(value: unknown): value is BrokerOrdersQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['status', 'strategyId', 'ticker', 'limit', 'offset'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('status' in v && !isBrokerOrderStatus(v.status)) return false;
+  if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (typeof v.limit !== 'number' ||
+      !Number.isInteger(v.limit) ||
+      v.limit < 1 ||
+      v.limit > BROKER_ORDERS_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  if (
+    'offset' in v &&
+    (typeof v.offset !== 'number' || !Number.isInteger(v.offset) || v.offset < 0)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isCancelOrderRequest(value: unknown): value is CancelOrderRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'id')) return false;
+  return isBrokerOrderId(v.id);
+}
+
+/**
+ * `orders:create`: una limitada manual con activo, lado, cantidad y
+ * precio límite positivos. Sin campos extra: el idempotente lo pone el
+ * proceso principal.
+ */
+export function isCreateOrderRequest(value: unknown): value is CreateOrderRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['ticker', 'side', 'quantity', 'limitPrice'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isTicker(v.ticker)) return false;
+  if (typeof v.side !== 'string' || !(BROKER_ORDER_SIDES as readonly string[]).includes(v.side)) {
+    return false;
+  }
+  const positive = (n: unknown): n is number =>
+    typeof n === 'number' && Number.isFinite(n) && n > 0;
+  return positive(v.quantity) && positive(v.limitPrice);
+}
+
+export function isDeviationPeriod(value: unknown): value is DeviationPeriod {
+  return typeof value === 'string' && (DEVIATION_PERIODS as readonly string[]).includes(value);
+}
+
+export function isDeviationReportQuery(value: unknown): value is DeviationReportQuery {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'period')) return false;
+  return isDeviationPeriod(v.period);
+}
+
+// -- Ganchos E2E del broker (solo TRADIA_E2E y sin empaquetar) ----------------
+
+export function isBrokerE2eFailure(value: unknown): value is BrokerE2eFailure {
+  return typeof value === 'string' && (BROKER_E2E_FAILURES as readonly string[]).includes(value);
+}
+
+export function isBrokerFailNextRequest(value: unknown): value is BrokerFailNextRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'kind')) return false;
+  return isBrokerE2eFailure(v.kind);
+}
+
+export function isBrokerE2eDiscrepancy(value: unknown): value is BrokerE2eDiscrepancy {
+  return (
+    typeof value === 'string' && (BROKER_E2E_DISCREPANCIES as readonly string[]).includes(value)
+  );
+}
+
+export function isBrokerDiscrepancyRequest(value: unknown): value is BrokerDiscrepancyRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'kind')) return false;
+  return isBrokerE2eDiscrepancy(v.kind);
+}
+
+export function isBrokerSeedWeeksRequest(
+  value: unknown,
+): value is BrokerSeedWeeksRequest | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'weeks')) return false;
+  return (
+    !('weeks' in v) ||
+    (typeof v.weeks === 'number' && Number.isInteger(v.weeks) && v.weeks >= 1 && v.weeks <= 52)
+  );
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

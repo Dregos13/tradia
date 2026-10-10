@@ -18,8 +18,10 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(appliedMigrations(db).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(appliedMigrations(db).map((m) => m.version)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
     db.close();
   });
 
@@ -28,7 +30,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(9);
+    expect(appliedMigrations(db)).toHaveLength(10);
     db.close();
   });
 
@@ -39,10 +41,12 @@ describe('ejecutor de migraciones', () => {
     expect(tableNames(db)).toEqual([
       'backtest_runs',
       'bars',
+      'broker_orders',
       'calendar_events',
       'corporate_actions',
       'data_batches',
       'data_status',
+      'deviation_alerts',
       'diario',
       'journal_entries',
       'kill_switch_events',
@@ -55,6 +59,8 @@ describe('ejecutor de migraciones', () => {
       'noticias',
       'notification_log',
       'quality_flags',
+      'reconcile_discrepancies',
+      'reconcile_runs',
       'risk_equity_history',
       'risk_limits',
       'risk_portfolio_positions',
@@ -90,6 +96,10 @@ describe('ejecutor de migraciones', () => {
   it('revierte la última migración con su bloque down', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
+
+    expect(rollbackLast(db, MIGRATIONS)).toBe(10);
+    expect(tableNames(db)).not.toContain('broker_orders');
+    expect(tableNames(db)).toContain('journal_entries');
 
     expect(rollbackLast(db, MIGRATIONS)).toBe(9);
     expect(tableNames(db)).toContain('journal_entries');
@@ -134,7 +144,8 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([9]);
+    expect(migrate(db, MIGRATIONS)).toEqual([10]);
+    expect(tableNames(db)).toContain('broker_orders');
     expect(tableNames(db)).toContain('watchlist');
     db.close();
   });

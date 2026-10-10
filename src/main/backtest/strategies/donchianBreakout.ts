@@ -8,6 +8,10 @@
  * - Canal inferior: mínimo de los `exitPeriod` (20) mínimos anteriores.
  *   Salida cuando el cierre lo perfora.
  * - Stop fijo a stopAtr × ATR(atrPeriod) bajo el cierre de la señal.
+ * - Objetivo fijo a targetR × la distancia entrada−stop sobre el cierre de
+ *   la señal: la pasarela de riesgo exige ratio beneficio/riesgo ≥ 2 y el
+ *   OCO de salida necesita ambas patas. Sin ATR no hay entrada: una compra
+ *   sin stop calculable nunca puede protegerse.
  *
  * El canal se calcula siempre con las sesiones anteriores a la vela que
  * evalúa (índices length-1-period .. length-2): la propia vela no entra en
@@ -27,6 +31,7 @@ export const DONCHIAN_BREAKOUT_DEFAULTS = {
   exitPeriod: 20,
   atrPeriod: 20,
   stopAtr: 2,
+  targetR: 2.5,
 };
 
 interface BreakoutState {
@@ -69,10 +74,12 @@ export function createDonchianBreakoutStrategy(): Strategy {
     const position = ctx.position(ticker);
     if (position === null) {
       const upper = upperChannel(ctx, ticker, params.entryPeriod);
-      if (upper !== null && bar.close > upper) {
-        const atr = st.atr.value;
-        const stop = atr === null ? undefined : bar.close - params.stopAtr * atr;
-        ctx.buy(ticker, stop !== undefined && stop > 0 ? { stop } : undefined);
+      const atr = st.atr.value;
+      if (upper !== null && atr !== null && bar.close > upper) {
+        const stop = bar.close - params.stopAtr * atr;
+        if (stop > 0) {
+          ctx.buy(ticker, { stop, target: bar.close + params.targetR * (bar.close - stop) });
+        }
       }
       return;
     }
@@ -89,6 +96,7 @@ export function createDonchianBreakoutStrategy(): Strategy {
       requireIntegerParam(params.exitPeriod, 'exitPeriod');
       requireIntegerParam(params.atrPeriod, 'atrPeriod');
       requireParamRange(params.stopAtr, 'stopAtr', 0.1, 20);
+      requireParamRange(params.targetR, 'targetR', 2, 20);
       states = new Map();
     },
     onBar(ctx) {
@@ -125,7 +133,7 @@ export const DONCHIAN_BREAKOUT_SEED: CreateStrategyRequest = {
     stop:
       'Stop de protección fijo a stopAtr (2) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
     target:
-      'Sin objetivo fijo: la salida la marca el canal contrario (exitPeriod) o el stop.',
+      'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el canal contrario (exitPeriod) o el stop.',
   },
   parameters: { ...DONCHIAN_BREAKOUT_DEFAULTS },
   parameterRanges: {
@@ -133,6 +141,7 @@ export const DONCHIAN_BREAKOUT_SEED: CreateStrategyRequest = {
     exitPeriod: { min: 10, max: 30, step: 5 },
     atrPeriod: { min: 10, max: 30, step: 5 },
     stopAtr: { min: 1, max: 4, step: 0.5 },
+    targetR: { min: 2, max: 6, step: 0.5 },
   },
   markets: ['SPY', 'QQQ', 'TLT'],
   trainingPeriod: { desde: '2000-01-03', hasta: '2014-12-31' },
