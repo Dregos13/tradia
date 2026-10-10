@@ -354,6 +354,9 @@ def to_onnx(booster, n_features: int, zipmap: bool | None):
         initial_types=[("input", FloatTensorType([None, n_features]))],
         **kwargs,
     )
+    # onnxmltools pone un UUID aleatorio como nombre del grafo: sin fijarlo
+    # el SHA-256 del .onnx cambiaría en cada ejecución.
+    model.graph.name = "tradia-lgbm"
     # onnxmltools declara las salidas con dimensión fija 1; se corrige a N
     # para que onnxruntime no avise en cada inferencia.
     for output in model.graph.output:
@@ -503,8 +506,10 @@ def main() -> int:
     common = {"deterministic": True, "force_col_wise": True, "n_jobs": 1, "seed": args.seed, "verbose": -1}
     clf = lgb.LGBMClassifier(**CLASSIFIER_PARAMS, **common)
     clf.fit(x_train, y_train)
-    raw_val = clf.predict_proba(x_val)[:, 1]
-    raw_test = clf.predict_proba(x_test)[:, 1]
+    # booster_.predict devuelve P(subida) para el objetivo binario — justo lo
+    # que exporta el ONNX, sin la validación de nombres del wrapper sklearn.
+    raw_val = clf.booster_.predict(x_val)
+    raw_test = clf.booster_.predict(x_test)
 
     # Calibración isotónica SOLO sobre el tramo de validación.
     calibrator = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")

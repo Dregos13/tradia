@@ -1,0 +1,1054 @@
+/**
+ * Servicio del modo real mínimo (fase 7) — lista de comprobación,
+ * límites escritos y bloqueo de `live:activate` en el proceso principal.
+ *
+ * `createLiveService` es el núcleo, con todo lo externo inyectado
+ * (almacén, evidencia sembrada, fuentes del resto de dominios, parada,
+ * diario, notificaciones, broadcast y reloj): las pruebas lo montan sin
+ * Electron. `registerLive` (index.ts) lo cablea en la app.
+ *
+ * Reglas de negocio:
+ * - La lista se reevalúa en cada consulta y en cada mutación: ningún
+ *   requisito automático se marca desde la interfaz ni se cachea.
+ * - `activate` exige los siete requisitos cumplidos, límites guardados
+ *   (≤ `LIVE_FIXED_CAPS`) y la frase exacta generada con esos valores;
+ *   nunca lanza por requisitos pendientes: devuelve la lista de motivos.
+ * - El modo real solo sale de 'activo' por acción explícita del usuario
+ *   (`deactivate` o una nueva activación tras 'suspendido') o por
+ *   suspensión: parada de emergencia, conexión perdida o requisito que
+ *   deja de cumplirse. Nunca se reactiva solo.
+ * - Toda transición y cada intento rechazado quedan en el Diario.
+ */
+import type Database from 'better-sqlite3';
+
+import {
+  IPC_CHANNELS,
+  type ConnectivityState,
+  type JournalRecordInput,
+  type KillSwitchResumeRequest,
+  type KillSwitchState,
+  type NotificationPayload,
+  type RiskOverview,
+} from '../../shared/ipc';
+import {
+  LIVE_AUTOMATIC_REQUIREMENTS,
+  LIVE_DECLARATION_REQUIREMENTS,
+  LIVE_DECLARATION_TEXTS,
+  LIVE_FIXED_CAPS,
+  LIVE_REQUIREMENT_TITLES,
+  LIVE_REQUIREMENTS,
+  liveConfirmationPhrase,
+  livePhraseMatches,
+  type LiveActivateRequest,
+  type LiveActivateResult,
+  type LiveChecklist,
+  type LiveChecklistItem,
+  type LiveDeclareRequest,
+  type LiveFixedCaps,
+  type LiveKillSwitchTestResult,
+  type LiveLimits,
+  type LiveLimitsInput,
+  type LiveLimitsState,
+  type LiveModeState,
+  type LiveRequirement,
+  type LiveRequirementState,
+  type LiveSeedProgressRequest,
+  type LiveSmokeTestResult,
+  type LiveState,
+  type LiveSuspensionReason,
+} from '../../shared/live';
+import {
+  declarationPendingReason,
+  evaluateAlertChannel,
+  evaluateFinalTest,
+  evaluateKillSwitchTest,
+  evaluatePaperProgress,
+  pendingRequirementsOf,
+  paperStatsFromOrders,
+  type AlertTestEvidence,
+  type FinalTestCoverage,
+  type PaperProgressStats,
+  type RequirementVerdict,
+} from './checklist';
+import type { BrokerOrder } from '../../shared/ipc';
+import type { StrategyExpectation } from '../broker/deviation';
+
+// ---------------------------------------------------------------------------
+// Errores
+// ---------------------------------------------------------------------------
+
+export const LIVE_SERVICE_ERROR_CODES = [
+  'limites-fuera-techo',
+  'declaracion-invalida',
+] as const;
+export type LiveServiceErrorCode = (typeof LIVE_SERVICE_ERROR_CODES)[number];
+
+export class LiveServiceError extends Error {
+  readonly code: LiveServiceErrorCode;
+
+  constructor(code: LiveServiceErrorCode, message: string) {
+    super(message);
+    this.name = 'LiveServiceError';
+    this.code = code;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Almacén (migración 011: live_checklist, live_limits, live_mode)
+// ---------------------------------------------------------------------------
+
+interface LiveChecklistRow {
+  estado: LiveRequirementState;
+  evidencia: string | null;
+  declaracion: string | null;
+  detalle_declaracion: string | null;
+  marcado_en: string | null;
+}
+
+interface LiveLimitsRow {
+  capital_usd: number;
+  orden_usd: number;
+  perdida_diaria_usd: number;
+  posiciones_max: number;
+  confirmados: number;
+  guardados_en: string;
+  confirmados_en: string | null;
+}
+
+interface LiveModeRow {
+  estado: LiveModeState;
+  motivo_suspension: LiveSuspensionReason | null;
+  detalle_suspension: string | null;
+  broker: string | null;
+  cuenta: string | null;
+  prueba_humo: string | null;
+  activado_en: string | null;
+  suspendido_en: string | null;
+  actualizado_en: string;
+}
+
+export interface LiveStore {
+  getChecklistRow(requirement: LiveRequirement): LiveChecklistRow | null;
+  /** Escribe el veredicto de un requisito automático. */
+  setAutomatic(
+    requirement: LiveRequirement,
+    verdict: { estado: LiveRequirementState; evidencia: string | null; marcadoEn: string },
+  ): void;
+  /** Suscribe (confirmed) o retira una declaración. */
+  setDeclaration(
+    requirement: LiveRequirement,
+    patch: {
+      confirmed: boolean;
+      declaracion: string | null;
+      detalle: string | null;
+      marcadoEn: string | null;
+      actualizadoEn: string;
+    },
+  ): void;
+  getLimits(): LiveLimitsRow | null;
+  /** Guarda los límites; reinicia la confirmación escrita. */
+  saveLimits(limits: LiveLimits, savedAt: string): void;
+  /** Marca los límites vigentes como confirmados por escrito. */
+  confirmLimits(at: string): void;
+  getMode(): LiveModeRow;
+  setMode(patch: {
+    estado: LiveModeState;
+    motivo: LiveSuspensionReason | null;
+    detalle: string | null;
+    activadoEn: string | null;
+    suspendidoEn: string | null;
+    actualizadoEn: string;
+  }): void;
+  /** Estrategias candidatas (paper/activa) con su versión vigente. */
+  listCandidates(): { strategyId: number; version: number; name: string }[];
+  /** true si la versión tiene un run 'prueba-final' guardado. */
+  hasFinalTest(strategyId: number, version: number): boolean;
+  /** Última reanudación de la parada (prueba de que activa y suelta). */
+  latestKillSwitchResumeAt(): string | null;
+}
+
+export function createLiveStore(db: Database.Database): LiveStore {
+  const checklistRow = db.prepare(
+    `SELECT estado, evidencia, declaracion, detalle_declaracion, marcado_en
+     FROM live_checklist WHERE requisito = ?`,
+  );
+  const setAutomaticStmt = db.prepare(
+    `UPDATE live_checklist SET estado = ?, evidencia = ?, marcado_en = ?,
+       actualizado_en = ? WHERE requisito = ?`,
+  );
+  const setDeclarationStmt = db.prepare(
+    `UPDATE live_checklist SET estado = ?, declaracion = ?, detalle_declaracion = ?,
+       marcado_en = ?, actualizado_en = ? WHERE requisito = ?`,
+  );
+  const limitsRow = db.prepare(
+    `SELECT capital_usd, orden_usd, perdida_diaria_usd, posiciones_max,
+       confirmados, guardados_en, confirmados_en FROM live_limits WHERE id = 1`,
+  );
+  const saveLimitsStmt = db.prepare(
+    `INSERT INTO live_limits (id, capital_usd, orden_usd, perdida_diaria_usd,
+       posiciones_max, confirmados, guardados_en, confirmados_en)
+     VALUES (1, ?, ?, ?, ?, 0, ?, NULL)
+     ON CONFLICT (id) DO UPDATE SET
+       capital_usd = excluded.capital_usd,
+       orden_usd = excluded.orden_usd,
+       perdida_diaria_usd = excluded.perdida_diaria_usd,
+       posiciones_max = excluded.posiciones_max,
+       confirmados = 0,
+       guardados_en = excluded.guardados_en,
+       confirmados_en = NULL`,
+  );
+  const confirmLimitsStmt = db.prepare(
+    `UPDATE live_limits SET confirmados = 1, confirmados_en = ? WHERE id = 1`,
+  );
+  const modeRow = db.prepare(
+    `SELECT estado, motivo_suspension, detalle_suspension, broker, cuenta,
+       prueba_humo, activado_en, suspendido_en, actualizado_en
+     FROM live_mode WHERE id = 1`,
+  );
+  const setModeStmt = db.prepare(
+    `UPDATE live_mode SET estado = ?, motivo_suspension = ?, detalle_suspension = ?,
+       activado_en = ?, suspendido_en = ?, actualizado_en = ? WHERE id = 1`,
+  );
+  const candidatesStmt = db.prepare(
+    `SELECT s.id AS strategy_id, v.version AS version, v.nombre AS name
+     FROM strategies s
+     JOIN strategy_versions v
+       ON v.strategy_id = s.id
+      AND v.version = (SELECT MAX(version) FROM strategy_versions WHERE strategy_id = s.id)
+     WHERE s.estado IN ('paper', 'activa')
+     ORDER BY s.id`,
+  );
+  const finalTestStmt = db.prepare(
+    `SELECT 1 AS found FROM backtest_runs
+     WHERE strategy_id = ? AND version = ? AND kind = 'prueba-final' LIMIT 1`,
+  );
+  const resumeStmt = db.prepare(
+    `SELECT creado_en FROM kill_switch_events
+     WHERE accion = 'reanudada' ORDER BY id DESC LIMIT 1`,
+  );
+
+  return {
+    getChecklistRow: (requirement) =>
+      (checklistRow.get(requirement) as LiveChecklistRow | undefined) ?? null,
+
+    setAutomatic: (requirement, verdict) => {
+      setAutomaticStmt.run(
+        verdict.estado,
+        verdict.evidencia,
+        verdict.marcadoEn,
+        verdict.marcadoEn,
+        requirement,
+      );
+    },
+
+    setDeclaration: (requirement, patch) => {
+      setDeclarationStmt.run(
+        patch.confirmed ? 'cumplido' : 'pendiente',
+        patch.declaracion,
+        patch.detalle,
+        patch.marcadoEn,
+        patch.actualizadoEn,
+        requirement,
+      );
+    },
+
+    getLimits: () => (limitsRow.get() as LiveLimitsRow | undefined) ?? null,
+
+    saveLimits: (limits, savedAt) => {
+      saveLimitsStmt.run(
+        limits.capitalUsd,
+        limits.orderUsd,
+        limits.dailyLossUsd,
+        limits.openPositions,
+        savedAt,
+      );
+    },
+
+    confirmLimits: (at) => {
+      confirmLimitsStmt.run(at);
+    },
+
+    getMode: () => modeRow.get() as LiveModeRow,
+
+    setMode: (patch) => {
+      setModeStmt.run(
+        patch.estado,
+        patch.motivo,
+        patch.detalle,
+        patch.activadoEn,
+        patch.suspendidoEn,
+        patch.actualizadoEn,
+      );
+    },
+
+    listCandidates: () =>
+      candidatesStmt.all() as { strategyId: number; version: number; name: string }[],
+
+    hasFinalTest: (strategyId, version) =>
+      (finalTestStmt.get(strategyId, version) as { found: number } | undefined) !== undefined,
+
+    latestKillSwitchResumeAt: () => {
+      const row = resumeStmt.get() as { creado_en: string } | undefined;
+      return row?.creado_en ?? null;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Evidencia sembrada/observada (settings key 'live.evidence')
+// ---------------------------------------------------------------------------
+
+/**
+ * Evidencia que no se deriva de la base: la semilla del gancho E2E
+ * (`live:seed-progress`) y los sellos que el propio servicio anota (la
+ * prueba de parada). La prueba de canal externo la escribe delivery en
+ * `DELIVERY_TEST_EVIDENCE_KEY` y el servicio la lee por `alertTest()`.
+ */
+export interface LiveEvidenceRecord {
+  /** Semilla: días de paper continuo a simular. */
+  paperDays?: number;
+  /** Semilla: operaciones paper cerradas a simular. */
+  paperTrades?: number;
+  /** Semilla: desviación frente al backtest en %. */
+  deviationPct?: number;
+  /** Semilla: la prueba final consta ejecutada (ISO 8601). */
+  finalTestDoneAt?: string;
+  /** Sello: última prueba de parada correcta (acción o semilla). */
+  killSwitchTestedAt?: string;
+  /** Semilla: envío de prueba externo correcto (ISO 8601) y su canal. */
+  alertTestedAt?: string;
+  alertChannel?: string;
+}
+
+export interface LiveEvidenceStore {
+  get(): LiveEvidenceRecord;
+  /** Fusiona campos; un valor null/undefined borra la clave. */
+  update(patch: { [K in keyof LiveEvidenceRecord]?: LiveEvidenceRecord[K] | null }): void;
+}
+
+export const LIVE_EVIDENCE_KEY = 'live.evidence';
+
+const isEvidenceRecord = (value: unknown): value is LiveEvidenceRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Almacén de evidencia sobre el par getValue/setValue de settings (clave
+ * `live.evidence`, JSON). En memoria si falta el almacén.
+ */
+export function createLiveEvidenceStore(
+  getValue: ((key: string) => string | null) | undefined,
+  setValue: ((key: string, value: string) => void) | undefined,
+): LiveEvidenceStore {
+  let memory: LiveEvidenceRecord = {};
+  const read = (): LiveEvidenceRecord => {
+    if (!getValue) return { ...memory };
+    const raw = getValue(LIVE_EVIDENCE_KEY);
+    if (raw === null) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return isEvidenceRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+  return {
+    get: read,
+    update: (patch) => {
+      const next = { ...read() };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined || value === null) {
+          delete next[key as keyof LiveEvidenceRecord];
+        } else {
+          (next as Record<string, unknown>)[key] = value;
+        }
+      }
+      if (setValue) {
+        setValue(LIVE_EVIDENCE_KEY, JSON.stringify(next));
+      } else {
+        memory = next;
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dependencias y superficie
+// ---------------------------------------------------------------------------
+
+/** Canal externo de alertas tal como lo ve la lista (delivery.config). */
+export interface LiveAlertChannel {
+  channel: string;
+  /** Activo en la configuración de entrega. */
+  enabled: boolean;
+  /** Con su destino configurado (chat id / servidor+destinatario). */
+  configured: boolean;
+}
+
+/** Trozo del servicio de parada que la lista usa (services.killSwitch). */
+export interface LiveKillSwitchLike {
+  getState(): KillSwitchState;
+  activate(cause: 'manual', actor: 'usuario', detail?: string | null): KillSwitchState;
+  resume(request: KillSwitchResumeRequest): KillSwitchState;
+}
+
+export interface LiveServiceDeps {
+  store: LiveStore;
+  evidence: LiveEvidenceStore;
+  /** Órdenes paper ejecutadas (broker.listOrders paginado). */
+  listExecutedOrders?(): BrokerOrder[];
+  /** Expectativa del último backtest de la estrategia (broker/deviation). */
+  expectationFor?(strategyId: number): Pick<StrategyExpectation, 'perTradeReturnPct'>;
+  /** Canales externos configurados (telegram/correo de delivery.config). */
+  alertChannels?(): LiveAlertChannel[];
+  /** Último envío de prueba externo correcto (delivery.lastTestSuccess). */
+  alertTest?(): AlertTestEvidence | null;
+  /** Parada de emergencia real (la acción «Probar parada» la ejerce). */
+  killSwitch?: LiveKillSwitchLike;
+  /** Claves live guardadas en su ranura (secrets.hasKey). */
+  hasLiveCredentials?(): boolean | Promise<boolean>;
+  /** Cuenta live enmascarada para la franja (la anota be-broker-real). */
+  recordJournal?(input: JournalRecordInput): unknown;
+  notify?(payload: NotificationPayload): void;
+  broadcast(channel: string, payload: unknown): void;
+  now?(): number;
+  logger?: Pick<Console, 'info' | 'warn' | 'error'>;
+}
+
+export interface LiveService {
+  /** Lista evaluada ahora (escribe los veredictos en live_checklist). */
+  getChecklist(): LiveChecklist;
+  /** Estado completo del modo real (franja incluida). */
+  getState(): Promise<LiveState>;
+  declare(request: LiveDeclareRequest): LiveChecklist;
+  setLimits(input: LiveLimitsInput): LiveLimitsState;
+  /** Con la lista incompleta devuelve los motivos; nunca lanza por ello. */
+  activate(request: LiveActivateRequest): Promise<LiveActivateResult>;
+  /** Vuelta a paper inmediata; conserva límites, lista e historial. */
+  deactivate(): Promise<LiveState>;
+  /** «Probar parada»: la activa y la reanuda, con sello y Diario. */
+  testKillSwitch(): LiveKillSwitchTestResult;
+  /**
+   * Reevalúa la lista y aplica las transiciones (la rutina diaria la
+   * llama para detectar requisitos vencidos con la app en marcha).
+   */
+  reevaluate(): LiveChecklist;
+  /**
+   * Suspende el modo real si está 'activo' (no-op en otro estado): la
+   * usan los observadores de parada/conexión y quienes cableen la fase.
+   */
+  suspend(reason: LiveSuspensionReason, detail: string): void;
+  /** Entrada de `risk:changed`: parada activa → 'parada-emergencia'. */
+  handleRiskChanged(payload: unknown): void;
+  /** Entrada de `connectivity:changed`: 'offline' → 'sin-conexion'. */
+  handleConnectivityChange(payload: unknown): void;
+  /** Gancho E2E (`live:seed-progress`): siembra evidencia automática. */
+  seedProgress(request?: LiveSeedProgressRequest): LiveChecklist;
+}
+
+// ---------------------------------------------------------------------------
+// Textos
+// ---------------------------------------------------------------------------
+
+const SUSPENSION_LABELS: Record<LiveSuspensionReason, string> = {
+  'sin-conexion': 'Sin conexión a internet',
+  'parada-emergencia': 'Parada de emergencia activa',
+  'requisito-vencido': 'Un requisito de la lista dejó de cumplirse',
+};
+
+const AUTOMATIC_SET = new Set<string>(LIVE_AUTOMATIC_REQUIREMENTS);
+const DECLARATION_SET = new Set<string>(LIVE_DECLARATION_REQUIREMENTS);
+
+const fmtUsd = (value: number): string =>
+  `${Number.isInteger(value) ? String(value) : value.toFixed(2)} USD`;
+
+// ---------------------------------------------------------------------------
+// Servicio
+// ---------------------------------------------------------------------------
+
+export function createLiveService(deps: LiveServiceDeps): LiveService {
+  const logger = deps.logger ?? console;
+  const now = deps.now ?? (() => Date.now());
+  const isoNow = (): string => new Date(now()).toISOString();
+
+  /** Cache de claves live para los `live:changed` síncronos. */
+  let credentialsCache = false;
+
+  const modeRow = () => deps.store.getMode();
+  const limitsRow = () => deps.store.getLimits();
+
+  const limitsOf = (row: LiveLimitsRow | null): LiveLimits | null =>
+    row === null
+      ? null
+      : {
+          capitalUsd: row.capital_usd,
+          orderUsd: row.orden_usd,
+          dailyLossUsd: row.perdida_diaria_usd,
+          openPositions: row.posiciones_max,
+        };
+
+  // -- Evaluación de la lista -------------------------------------------------
+
+  interface Evaluation {
+    checklist: LiveChecklist;
+    states: Map<LiveRequirement, LiveRequirementState>;
+    pending: LiveRequirement[];
+    reasons: string[];
+  }
+
+  const evaluateAutomatic = (): Map<LiveRequirement, RequirementVerdict> => {
+    const evidence = deps.evidence.get();
+    const verdicts = new Map<LiveRequirement, RequirementVerdict>();
+
+    // 1. Validación fuera de muestra: prueba final de cada candidata.
+    const candidates = deps.store.listCandidates();
+    const coverage: FinalTestCoverage = {
+      total: candidates.length,
+      done: candidates.filter((c) => deps.store.hasFinalTest(c.strategyId, c.version)).length,
+      missing: candidates
+        .filter((c) => !deps.store.hasFinalTest(c.strategyId, c.version))
+        .map((c) => c.name),
+    };
+    verdicts.set(
+      'validacion-fuera-muestra',
+      evaluateFinalTest(coverage, evidence.finalTestDoneAt !== undefined),
+    );
+
+    // 2. Paper continuo: órdenes reales + expectativa del backtest.
+    const computed: PaperProgressStats = paperStatsFromOrders(
+      deps.listExecutedOrders?.() ?? [],
+      deps.expectationFor ?? (() => ({ perTradeReturnPct: null })),
+    );
+    const stats: PaperProgressStats = {
+      daysActive: evidence.paperDays ?? computed.daysActive,
+      closedTrades: evidence.paperTrades ?? computed.closedTrades,
+      deviationPct: evidence.deviationPct ?? computed.deviationPct,
+    };
+    verdicts.set('paper-continuo', evaluatePaperProgress(stats));
+
+    // 3. Parada probada: sello propio o cualquier reanudación real.
+    const resumeAt = deps.store.latestKillSwitchResumeAt();
+    const stamped = evidence.killSwitchTestedAt ?? null;
+    const lastTest =
+      stamped !== null && (resumeAt === null || Date.parse(stamped) > Date.parse(resumeAt))
+        ? stamped
+        : resumeAt;
+    verdicts.set('parada-probada', evaluateKillSwitchTest(lastTest, now()));
+
+    // 4. Alertas: último envío de prueba externo correcto + canal activo.
+    const realTest = deps.alertTest?.() ?? null;
+    const seededTest: AlertTestEvidence | null =
+      evidence.alertTestedAt !== undefined
+        ? { channel: evidence.alertChannel ?? 'simulado', at: evidence.alertTestedAt }
+        : null;
+    const test =
+      realTest !== null &&
+      (seededTest === null || Date.parse(realTest.at) >= Date.parse(seededTest.at))
+        ? realTest
+        : seededTest;
+    const channels = deps.alertChannels?.() ?? [];
+    const isChannelActive = (channel: string): boolean =>
+      channel === 'simulado' ||
+      channels.some((c) => c.channel === channel && c.enabled && c.configured);
+    verdicts.set('alertas-activas', evaluateAlertChannel(test, isChannelActive));
+
+    return verdicts;
+  };
+
+  const evaluate = (): Evaluation => {
+    const evaluatedAt = isoNow();
+    const verdicts = evaluateAutomatic();
+
+    // Los veredictos automáticos se escriben; las declaraciones conservan
+    // lo que suscribió el usuario (estado y fecha propios).
+    for (const [requirement, verdict] of verdicts) {
+      deps.store.setAutomatic(requirement, {
+        estado: verdict.state,
+        evidencia: verdict.evidence,
+        marcadoEn: evaluatedAt,
+      });
+    }
+
+    const items: LiveChecklistItem[] = LIVE_REQUIREMENTS.map((requirement) => {
+      const row = deps.store.getChecklistRow(requirement);
+      const isDeclaration = DECLARATION_SET.has(requirement);
+      // Una declaración solo cuenta si guarda su texto y su fecha.
+      const state: LiveRequirementState = isDeclaration
+        ? row?.declaracion !== null && row?.declaracion !== undefined
+          ? (row?.estado ?? 'pendiente')
+          : 'pendiente'
+        : (row?.estado ?? 'pendiente');
+      return {
+        requirement,
+        kind: AUTOMATIC_SET.has(requirement) ? 'automatica' : 'declaracion',
+        title: LIVE_REQUIREMENT_TITLES[requirement],
+        state,
+        evidence: row?.evidencia ?? null,
+        declaration: row?.declaracion ?? null,
+        declarationDetail: row?.detalle_declaracion ?? null,
+        markedAt: row?.marcado_en ?? null,
+      };
+    });
+
+    const states = new Map<LiveRequirement, LiveRequirementState>(
+      items.map((item) => [item.requirement, item.state]),
+    );
+    const pending = pendingRequirementsOf(LIVE_REQUIREMENTS, states);
+    const reasons: string[] = [];
+    for (const requirement of pending) {
+      const verdict = verdicts.get(requirement);
+      if (verdict !== undefined && verdict.reasons.length > 0) {
+        reasons.push(...verdict.reasons);
+      } else {
+        reasons.push(declarationPendingReason(LIVE_REQUIREMENT_TITLES[requirement]));
+      }
+    }
+
+    const checklist: LiveChecklist = {
+      items,
+      completedCount: items.filter((item) => item.state === 'cumplido').length,
+      total: items.length,
+      allComplete: pending.length === 0,
+      evaluatedAt,
+    };
+
+    // Transiciones de estado que solo toca la evaluación:
+    // - 'activo' con la lista rota → 'suspendido' ('requisito-vencido').
+    // - 'bloqueado'/'listo' se derivan de lista + límites guardados.
+    const mode = modeRow();
+    if (mode.estado === 'activo' && !checklist.allComplete) {
+      const first = pending[0];
+      service.suspend(
+        'requisito-vencido',
+        first === undefined
+          ? 'la lista dejó de estar completa'
+          : `${LIVE_REQUIREMENT_TITLES[first]} pendiente`,
+      );
+    } else if (mode.estado === 'bloqueado' || mode.estado === 'listo') {
+      const derived: LiveModeState =
+        checklist.allComplete && limitsRow() !== null ? 'listo' : 'bloqueado';
+      if (derived !== mode.estado) {
+        deps.store.setMode({
+          estado: derived,
+          motivo: mode.motivo_suspension,
+          detalle: mode.detalle_suspension,
+          activadoEn: mode.activado_en,
+          suspendidoEn: mode.suspendido_en,
+          actualizadoEn: evaluatedAt,
+        });
+      }
+    }
+
+    return { checklist, states, pending, reasons };
+  };
+
+  // -- Estado del modo real ----------------------------------------------------
+
+  const parseSmokeTest = (raw: string | null): LiveSmokeTestResult | null => {
+    if (raw === null) return null;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as LiveSmokeTestResult)
+        : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const buildState = (hasCredentials: boolean): LiveState => {
+    const mode = modeRow();
+    const limits = limitsRow();
+    return {
+      mode: mode.estado,
+      suspension:
+        mode.estado === 'suspendido' && mode.motivo_suspension !== null
+          ? { reason: mode.motivo_suspension, detail: mode.detalle_suspension ?? '' }
+          : null,
+      hasCredentials,
+      accountMasked: mode.cuenta,
+      limits:
+        limits !== null && limits.confirmados === 1
+          ? limitsOf(limits)
+          : null,
+      caps: { ...LIVE_FIXED_CAPS } as LiveFixedCaps,
+      smokeTest: parseSmokeTest(mode.prueba_humo),
+      activatedAt: mode.activado_en,
+      suspendedAt: mode.suspendido_en,
+      updatedAt: mode.actualizado_en,
+    };
+  };
+
+  const emitChanged = (): void => {
+    deps.broadcast(IPC_CHANNELS.live.changed, buildState(credentialsCache));
+  };
+
+  const journal = (input: JournalRecordInput): void => {
+    try {
+      deps.recordJournal?.(input);
+    } catch (error: unknown) {
+      logger.warn(`[live] no se pudo escribir el Diario: ${String(error)}`);
+    }
+  };
+
+  // -- Servicio ----------------------------------------------------------------
+
+  const service: LiveService = {
+    getChecklist: () => evaluate().checklist,
+
+    reevaluate: () => evaluate().checklist,
+
+    getState: async () => {
+      evaluate();
+      const credentials = await (deps.hasLiveCredentials?.() ?? false);
+      credentialsCache = credentials === true;
+      return buildState(credentialsCache);
+    },
+
+    declare: (request) => {
+      // Defensa en profundidad: la guarda del canal ya lo limita a las
+      // declaraciones, pero el servicio vuelve a comprobarlo.
+      if (!DECLARATION_SET.has(request.requirement)) {
+        throw new LiveServiceError(
+          'declaracion-invalida',
+          `«${request.requirement}» no es una declaración del usuario`,
+        );
+      }
+      const detail =
+        request.detail !== undefined && request.detail.trim() !== ''
+          ? request.detail.trim()
+          : null;
+      deps.store.setDeclaration(request.requirement, {
+        confirmed: request.confirmed,
+        declaracion: request.confirmed
+          ? LIVE_DECLARATION_TEXTS[request.requirement]
+          : null,
+        detalle: detail,
+        marcadoEn: request.confirmed ? isoNow() : null,
+        actualizadoEn: isoNow(),
+      });
+      journal({
+        type: 'resumen',
+        result: 'completado',
+        reason: request.confirmed
+          ? `Declaración «${LIVE_REQUIREMENT_TITLES[request.requirement]}» suscrita por escrito.`
+          : `Declaración «${LIVE_REQUIREMENT_TITLES[request.requirement]}» retirada.`,
+        dataUsed: {
+          requisito: request.requirement,
+          declarada: request.confirmed,
+          detalle: detail,
+        },
+      });
+      const evaluation = evaluate();
+      emitChanged();
+      return evaluation.checklist;
+    },
+
+    setLimits: (input) => {
+      // Doble comprobación de los techos fijos: el CHECK de la tabla y la
+      // guarda del canal ya los exigen, pero un límite fuera de techo no
+      // debe llegar nunca a `live_limits`.
+      const usdOk = (value: number, cap: number) =>
+        Number.isFinite(value) && value > 0 && value <= cap;
+      const valid =
+        usdOk(input.capitalUsd, LIVE_FIXED_CAPS.capitalUsd) &&
+        usdOk(input.orderUsd, LIVE_FIXED_CAPS.orderUsd) &&
+        usdOk(input.dailyLossUsd, LIVE_FIXED_CAPS.dailyLossUsd) &&
+        Number.isInteger(input.openPositions) &&
+        input.openPositions >= 1 &&
+        input.openPositions <= LIVE_FIXED_CAPS.openPositions;
+      if (!valid) {
+        throw new LiveServiceError(
+          'limites-fuera-techo',
+          'los límites escritos superan los techos fijos de la fase o no son positivos',
+        );
+      }
+      const savedAt = isoNow();
+      deps.store.saveLimits(input, savedAt);
+      journal({
+        type: 'resumen',
+        result: 'completado',
+        reason:
+          `Límites escritos del modo real guardados: capital ${fmtUsd(input.capitalUsd)}, ` +
+          `${fmtUsd(input.orderUsd)} por orden, ${fmtUsd(input.dailyLossUsd)} de pérdida ` +
+          `diaria y ${input.openPositions} posición(es).`,
+        dataUsed: { ...input, techos: { ...LIVE_FIXED_CAPS } },
+        ruleChecks: [
+          {
+            code: 'LIVE_CAP_CAPITAL',
+            label: 'Capital real ≤ techo fijo',
+            cumplida: input.capitalUsd <= LIVE_FIXED_CAPS.capitalUsd,
+            observed: fmtUsd(input.capitalUsd),
+            limit: fmtUsd(LIVE_FIXED_CAPS.capitalUsd),
+          },
+          {
+            code: 'LIVE_CAP_ORDER',
+            label: 'Nocional por orden ≤ techo fijo',
+            cumplida: input.orderUsd <= LIVE_FIXED_CAPS.orderUsd,
+            observed: fmtUsd(input.orderUsd),
+            limit: fmtUsd(LIVE_FIXED_CAPS.orderUsd),
+          },
+          {
+            code: 'LIVE_CAP_DAILY_LOSS',
+            label: 'Pérdida diaria ≤ techo fijo',
+            cumplida: input.dailyLossUsd <= LIVE_FIXED_CAPS.dailyLossUsd,
+            observed: fmtUsd(input.dailyLossUsd),
+            limit: fmtUsd(LIVE_FIXED_CAPS.dailyLossUsd),
+          },
+          {
+            code: 'LIVE_CAP_POSITIONS',
+            label: 'Posiciones abiertas ≤ techo fijo',
+            cumplida: input.openPositions <= LIVE_FIXED_CAPS.openPositions,
+            observed: String(input.openPositions),
+            limit: String(LIVE_FIXED_CAPS.openPositions),
+          },
+        ],
+      });
+      // Cambiar los límites con el modo real activo exige volver a
+      // confirmarlos por escrito: se suspende hasta la nueva activación.
+      if (modeRow().estado === 'activo') {
+        service.suspend(
+          'requisito-vencido',
+          'los límites escritos cambiaron; hay que confirmarlos de nuevo',
+        );
+      }
+      evaluate();
+      emitChanged();
+      return {
+        limits: { ...input },
+        confirmationPhrase: liveConfirmationPhrase(input),
+        confirmed: false,
+        savedAt,
+      };
+    },
+
+    activate: async (request) => {
+      const evaluation = evaluate();
+      const finish = async (activated: boolean, reasons: string[]): Promise<LiveActivateResult> => ({
+        activated,
+        pendingRequirements: activated ? [] : evaluation.pending,
+        reasons,
+        state: await service.getState(),
+      });
+
+      if (modeRow().estado === 'activo') return finish(true, []);
+
+      if (evaluation.pending.length > 0) {
+        journal({
+          type: 'limite',
+          result: 'alcanzado',
+          reason:
+            `Activación de dinero real rechazada: ${evaluation.pending.length} ` +
+            'requisito(s) pendiente(s).',
+          errors: evaluation.reasons,
+          dataUsed: { pendientes: evaluation.pending },
+        });
+        logger.warn(
+          `[live] activación rechazada: ${evaluation.pending.length} requisito(s) pendiente(s)`,
+        );
+        return finish(false, evaluation.reasons);
+      }
+
+      const limits = limitsRow();
+      if (limits === null) {
+        const reasons = ['Guarda primero los límites escritos del modo real.'];
+        journal({
+          type: 'limite',
+          result: 'alcanzado',
+          reason: 'Activación de dinero real rechazada: sin límites escritos.',
+          errors: reasons,
+        });
+        return finish(false, reasons);
+      }
+      const written = limitsOf(limits)!;
+      if (!livePhraseMatches(request.phrase, written)) {
+        const reasons = [
+          'La frase de confirmación no coincide con la generada para tus límites.',
+        ];
+        journal({
+          type: 'limite',
+          result: 'alcanzado',
+          reason: 'Activación de dinero real rechazada: frase de confirmación incorrecta.',
+          errors: reasons,
+        });
+        logger.warn('[live] activación rechazada: frase de confirmación incorrecta');
+        return finish(false, reasons);
+      }
+
+      const at = isoNow();
+      deps.store.confirmLimits(at);
+      deps.store.setMode({
+        estado: 'activo',
+        motivo: null,
+        detalle: null,
+        activadoEn: at,
+        suspendidoEn: null,
+        actualizadoEn: at,
+      });
+      journal({
+        type: 'limite',
+        result: 'completado',
+        reason:
+          `Modo real ACTIVADO con capital ${fmtUsd(written.capitalUsd)}, ` +
+          `${fmtUsd(written.orderUsd)} por orden, ${fmtUsd(written.dailyLossUsd)} de ` +
+          `pérdida diaria y ${written.openPositions} posición(es).`,
+        dataUsed: { limites: written, fraseConfirmada: true },
+      });
+      logger.warn('[live] modo real ACTIVADO con límites mínimos');
+      emitChanged();
+      return finish(true, []);
+    },
+
+    deactivate: async () => {
+      const mode = modeRow();
+      if (mode.estado === 'activo' || mode.estado === 'suspendido') {
+        const at = isoNow();
+        const derived = evaluate();
+        deps.store.setMode({
+          estado: derived.checklist.allComplete && limitsRow() !== null ? 'listo' : 'bloqueado',
+          motivo: null,
+          detalle: null,
+          activadoEn: mode.activado_en,
+          suspendidoEn: null,
+          actualizadoEn: at,
+        });
+        journal({
+          type: 'resumen',
+          result: 'completado',
+          reason: 'Modo real desactivado por el usuario; la app vuelve a paper.',
+        });
+        logger.info('[live] modo real desactivado; vuelta a paper');
+        emitChanged();
+      }
+      return service.getState();
+    },
+
+    testKillSwitch: () => {
+      const killSwitch = deps.killSwitch;
+      if (killSwitch === undefined) {
+        return {
+          ok: false,
+          error: 'El servicio de parada de emergencia no está disponible.',
+          testedAt: null,
+        };
+      }
+      if (killSwitch.getState().active) {
+        return {
+          ok: false,
+          error: 'La parada ya está activa; reanúdala desde «Riesgo» antes de probar.',
+          testedAt: null,
+        };
+      }
+      if (modeRow().estado === 'activo') {
+        return {
+          ok: false,
+          error: 'No se prueba la parada con el modo real activo.',
+          testedAt: null,
+        };
+      }
+      try {
+        killSwitch.activate('manual', 'usuario', 'Prueba desde «Dinero real»');
+        killSwitch.resume({ confirm: true, note: 'Prueba desde «Dinero real»' });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        journal({
+          type: 'limite',
+          result: 'error',
+          reason: 'La prueba de la parada de emergencia falló.',
+          errors: [message],
+        });
+        return { ok: false, error: message, testedAt: null };
+      }
+      const testedAt = isoNow();
+      deps.evidence.update({ killSwitchTestedAt: testedAt });
+      journal({
+        type: 'limite',
+        result: 'completado',
+        reason: 'Parada de emergencia probada: se activó y se reanudó correctamente.',
+        ruleChecks: [
+          {
+            code: 'KILL_SWITCH_TEST',
+            label: 'La parada activa y reanuda',
+            cumplida: true,
+            observed: testedAt,
+            limit: null,
+          },
+        ],
+      });
+      evaluate();
+      emitChanged();
+      return { ok: true, error: null, testedAt };
+    },
+
+    suspend: (reason, detail) => {
+      const mode = modeRow();
+      if (mode.estado !== 'activo') return;
+      const at = isoNow();
+      deps.store.setMode({
+        estado: 'suspendido',
+        motivo: reason,
+        detalle: detail,
+        activadoEn: mode.activado_en,
+        suspendidoEn: at,
+        actualizadoEn: at,
+      });
+      journal({
+        type: 'limite',
+        result: 'alcanzado',
+        reason: `Modo real suspendido: ${SUSPENSION_LABELS[reason]}. ${detail}`,
+        dataUsed: { motivo: reason, detalle: detail },
+      });
+      deps.notify?.({
+        level: 'critica',
+        title: 'Tradia ha suspendido el dinero real',
+        body: `${SUSPENSION_LABELS[reason]}. No se enviarán órdenes reales nuevas. Abre «Dinero real» para revisarlo.`,
+        navigateTo: 'dinero-real',
+      });
+      logger.warn(`[live] modo real suspendido (${reason}: ${detail})`);
+      emitChanged();
+    },
+
+    handleRiskChanged: (payload) => {
+      const overview = payload as RiskOverview | null | undefined;
+      if (
+        overview !== null &&
+        typeof overview === 'object' &&
+        overview.killSwitch?.active === true
+      ) {
+        service.suspend(
+          'parada-emergencia',
+          `causa: ${overview.killSwitch.cause ?? 'desconocida'}`,
+        );
+      }
+    },
+
+    handleConnectivityChange: (payload) => {
+      const state = payload as ConnectivityState | null | undefined;
+      if (state !== null && typeof state === 'object' && state.status === 'offline') {
+        service.suspend('sin-conexion', 'conectividad perdida');
+      }
+    },
+
+    seedProgress: (request = {}) => {
+      const patch: Record<string, unknown> = {};
+      if (request.paperMonths !== undefined) {
+        patch.paperDays = Math.round(request.paperMonths * 30.4375);
+      }
+      if (request.paperTrades !== undefined) patch.paperTrades = request.paperTrades;
+      if (request.deviationPct !== undefined) patch.deviationPct = request.deviationPct;
+      if (request.finalTestDone !== undefined) {
+        patch.finalTestDoneAt = request.finalTestDone ? isoNow() : null;
+      }
+      if (request.killSwitchTested !== undefined) {
+        patch.killSwitchTestedAt = request.killSwitchTested ? isoNow() : null;
+      }
+      if (request.alertsTested !== undefined) {
+        patch.alertTestedAt = request.alertsTested ? isoNow() : null;
+        patch.alertChannel = request.alertsTested ? 'simulado' : null;
+      }
+      deps.evidence.update(patch);
+      return evaluate().checklist;
+    },
+  };
+
+  return service;
+}

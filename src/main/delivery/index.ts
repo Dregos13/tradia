@@ -49,6 +49,7 @@ import {
 import type { RiskVeto } from '../../shared/risk';
 import type { Signal, SignalNewEvent } from '../../shared/signals';
 import type { ServiceContext } from '../services';
+import { DELIVERY_TEST_EVIDENCE_KEY } from '../live/checklist';
 import { sendEmailMessage, type SmtpTransporterLike } from './email';
 import { channelLabel, isLimitVeto, limitText, signalText, testText } from './format';
 import { DELIVERY_RETRY_DELAYS_MS, sendTelegramMessage } from './telegram';
@@ -141,11 +142,16 @@ export interface DeliveryDeps {
   logger?: DeliveryLogger;
   /** Diario automático; opcional mientras convive con el esqueleto. */
   recordJournal?(input: JournalRecordInput): void;
+  /**
+   * Aviso de un envío de prueba externo correcto: la lista del dinero
+   * real lo toma como evidencia de 'alertas-activas'.
+   */
+  onTestSuccess?(channel: DeliveryTestableChannel, at: string): void;
   /** Gancho E2E: captura cada envío; solo se instala fuera del paquete. */
   capture?(record: DeliveryCaptureRecord): void;
 }
 
-const DELIVERY_CONFIG_KEY = 'delivery.config';
+export const DELIVERY_CONFIG_KEY = 'delivery.config';
 const DEFAULT_LIMIT_WINDOW_MS = 200;
 
 const LEVEL_BY_EVENT: Record<DeliveryEventKind, NotificationLevel> = {
@@ -373,6 +379,7 @@ export function createDeliveryService(deps: DeliveryDeps): DeliveryService {
       const started = nowMs();
       try {
         await deliver(channel, 'prueba', title, body);
+        deps.onTestSuccess?.(channel, nowIso());
         return { ok: true, error: null, latencyMs: Math.max(0, Math.round(nowMs() - started)) };
       } catch (error: unknown) {
         // deliver() ya captura/registra: aquí solo se traduce el resultado.
@@ -484,6 +491,11 @@ export function registerDelivery(ctx: ServiceContext): DeliveryService {
     hasSecret: (key) => ctx.services.secrets?.hasKey(key) ?? Promise.resolve(false),
     telegramApiBase,
     recordJournal: (input) => journal?.record?.(input),
+    // Evidencia de 'alertas-activas' para la lista del dinero real: cada
+    // envío de prueba correcto queda en settings con su canal y fecha.
+    onTestSuccess: (channel, at) => {
+      settings?.setValue(DELIVERY_TEST_EVIDENCE_KEY, JSON.stringify({ channel, at }));
+    },
     capture: capturePath
       ? (record) => {
           try {

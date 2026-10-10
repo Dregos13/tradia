@@ -46,7 +46,18 @@ function NewsHeadline({
             </span>
           ))}
           <span className={`news-badge news-${confirmed ? 'confirmed' : 'unconfirmed'}`}>
-            {!confirmed && <svg className="news-verification-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM12 8v5m0 3v1" /></svg>}
+            {!confirmed && (
+              <svg
+                className="news-verification-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM12 8v5m0 3v1" />
+              </svg>
+            )}
             {confirmed ? '✓ Confirmada' : 'Sin verificar · no genera señales'}
           </span>
           {item.sources.length > 1 && <span className="news-muted">Fuentes agrupadas</span>}
@@ -232,7 +243,12 @@ export function NewsFeed() {
         <section key={day} aria-label={day}>
           <h2 className="news-day">{day}</h2>
           {items.map((item) => (
-            <NewsHeadline key={item.id} item={item} selectAsset={setAsset} offline={connectivity?.status === 'offline'} />
+            <NewsHeadline
+              key={item.id}
+              item={item}
+              selectAsset={setAsset}
+              offline={connectivity?.status === 'offline'}
+            />
           ))}
         </section>
       ))}

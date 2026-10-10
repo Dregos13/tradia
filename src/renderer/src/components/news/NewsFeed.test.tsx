@@ -111,3 +111,91 @@ it('cubre carga, error, reintento, vacío y sin conexión', async () => {
   await screen.findByText(/La lectura automática de fuentes está pausada/);
   await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
 });
+
+it('muestra resumen y sentimiento por activo con método y fecha', async () => {
+  const items = (await simulation.api.news.list()).sort((a, b) => a.id - b.id);
+  vi.spyOn(simulation.api.ai, 'newsAnalysis').mockImplementation(async ({ newsItemId } = {}) =>
+    newsItemId === items[0]!.id
+      ? [
+          {
+            id: 1,
+            newsItemId,
+            ticker: 'SPY',
+            summary: 'Resumen confirmado del sistema.',
+            sentiment: 'positivo',
+            analyzer: 'llm',
+            model: 'modelo-prueba',
+            analyzedAt: items[0]!.publishedAt,
+          },
+          {
+            id: 2,
+            newsItemId,
+            ticker: 'QQQ',
+            summary: 'Resumen local para QQQ.',
+            sentiment: 'negativo',
+            analyzer: 'local',
+            model: null,
+            analyzedAt: items[0]!.publishedAt,
+          },
+        ]
+      : [],
+  );
+  render(<NewsFeed />);
+  await screen.findByText('Resumen confirmado del sistema.');
+  expect(screen.getByText('SPY · Sentimiento Favorable')).toBeInTheDocument();
+  expect(screen.getByText('QQQ · Sentimiento Desfavorable')).toBeInTheDocument();
+  expect(screen.getByText(/Método: LLM · modelo-prueba/)).toBeInTheDocument();
+  expect(screen.getByText(/Método: Análisis local/)).toBeInTheDocument();
+  expect(screen.getAllByText(/Riesgo conserva el veto/).length).toBeGreaterThan(0);
+});
+
+it('no consulta ni muestra sentimientos de titulares sin verificar o solo sociales', async () => {
+  const items = (await simulation.api.news.list()).sort((a, b) => a.id - b.id);
+  items[0]!.confirmed = false;
+  items[2]!.confirmed = true;
+  vi.spyOn(simulation.api.news, 'list').mockResolvedValue(items);
+  const analysis = vi.spyOn(simulation.api.ai, 'newsAnalysis');
+  render(<NewsFeed />);
+  await screen.findByText('3 titulares disponibles.');
+  for (const index of [0, 2]) {
+    const card = screen
+      .getAllByTestId('news-item')
+      .find((node) => node.textContent?.includes(items[index]!.title))!;
+    expect(within(card).getByText('Sin verificar · no genera señales')).toBeInTheDocument();
+    expect(within(card).queryByText(/Sentimiento/)).not.toBeInTheDocument();
+    expect(analysis).not.toHaveBeenCalledWith({ newsItemId: items[index]!.id });
+  }
+});
+
+it('conserva el titular ante fallo de análisis y permite reintentarlo', async () => {
+  vi.spyOn(simulation.api.ai, 'newsAnalysis').mockRejectedValueOnce(new Error('red'));
+  render(<NewsFeed />);
+  await screen.findByText(/No se pudo analizar este titular/);
+  expect(screen.getByRole('link', { name: /La Fed/ })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Reintentar análisis' }));
+  await waitFor(() =>
+    expect(screen.queryByText(/No se pudo analizar este titular/)).not.toBeInTheDocument(),
+  );
+});
+
+it('actualiza el análisis al recibir ai:changed sin sustituir el titular', async () => {
+  const read = vi.spyOn(simulation.api.ai, 'newsAnalysis').mockResolvedValue([]);
+  render(<NewsFeed />);
+  await screen.findAllByText('Sin análisis disponible para este titular.');
+  const headline = screen.getByRole('link', { name: /La Fed/ });
+  read.mockImplementation(async ({ newsItemId } = {}) => [
+    {
+      id: 99,
+      newsItemId: newsItemId!,
+      ticker: 'SPY',
+      summary: 'Análisis actualizado.',
+      sentiment: 'mixto',
+      analyzer: 'local',
+      model: null,
+      analyzedAt: new Date().toISOString(),
+    },
+  ]);
+  act(() => simulation.emitAiChanged('noticias'));
+  await screen.findAllByText('SPY · Sentimiento Mixto');
+  expect(screen.getByRole('link', { name: /La Fed/ })).toBe(headline);
+});
