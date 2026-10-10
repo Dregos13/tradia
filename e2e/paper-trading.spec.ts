@@ -7,6 +7,7 @@ import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 
 const projectRoot = resolve('.');
+const evidenceDir = resolve(projectRoot, 'docs/qa/capturas');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let app: ElectronApplication;
@@ -65,6 +66,7 @@ async function connectPaper(): Promise<void> {
   await expect(settings.getByText('Cuenta paper conectada', { exact: true })).toBeVisible();
   await expect(settings.getByText('Broker simulado')).toBeVisible();
   await expect(settings.getByText('Clave y secreto guardados de forma cifrada')).toBeVisible();
+  await captureEvidence('fase-5-perfil-a-ajustes-paper.png', '.broker-settings');
 }
 
 async function captureNotifications(): Promise<void> {
@@ -81,6 +83,25 @@ async function captureNotifications(): Promise<void> {
       state.__tradiaNotificationCalls?.push({ title: this.title, body: this.body });
     };
   });
+}
+
+async function captureEvidence(name: string, targetSelector?: string): Promise<void> {
+  await page.locator('.main').evaluate((element) => {
+    element.scrollTop = 0;
+    element
+      .querySelectorAll<HTMLElement>(
+        '.orders-table-wrap, .deviation-table-wrap, .journal-table-scroll',
+      )
+      .forEach((table) => {
+        table.scrollLeft = 0;
+      });
+  });
+  if (targetSelector) {
+    await page.locator(targetSelector).evaluate((element) => {
+      element.scrollIntoView({ block: 'start' });
+    });
+  }
+  await page.screenshot({ path: resolve(evidenceDir, name) });
 }
 
 async function createApprovedStrategySignal() {
@@ -196,11 +217,13 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
 
     await page.getByRole('link', { name: 'Órdenes', exact: true }).click();
     const table = page.getByRole('table', { name: 'Órdenes paper y precios de ejecución' });
+    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
     for (const heading of ['Hora', 'Precio pedido', 'Precio ejecutado', 'Slippage']) {
       await expect(table.getByRole('columnheader', { name: heading, exact: true })).toBeVisible();
     }
     await expect(table).toContainText(signal.ticker);
     await expect(table).toContainText('Protección OCO');
+    await captureEvidence('fase-5-perfil-a-orden-ejecutada.png', '.orders-table-wrap');
   });
 
   test('permite crear una orden limitada pendiente y cancelarla desde Órdenes', async () => {
@@ -224,9 +247,11 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     // El broker acepta la limitada al instante: queda abierta ('Enviada'),
     // pendiente de ejecutarse y cancelable.
     await expect(pending).toContainText('Enviada');
+    await captureEvidence('fase-5-perfil-a-orden-limitada-pendiente.png', '.orders-table-wrap');
     await pending.getByRole('button', { name: /cancelar orden/i }).click();
     await page.getByRole('button', { name: 'Confirmar cancelación', exact: true }).click();
     await expect(pending).toContainText('Cancelada');
+    await captureEvidence('fase-5-perfil-a-orden-limitada-cancelada.png', '.orders-table-wrap');
   });
 
   test('un timeout al enviar la señal no duplica la orden', async () => {
@@ -261,6 +286,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     const banner = page.getByRole('alert', { name: 'Descuadre con el broker' });
     await expect(banner).toBeVisible();
+    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
     const discrepancy = await page.evaluate(
       async () => (await window.tradia.reconcile.status()).openDiscrepancies[0] ?? null,
     );
@@ -286,6 +312,21 @@ test.describe('Responsable de equipo que revisa entregas', () => {
         }),
       )
       .toBe(true);
+    await captureEvidence('fase-5-perfil-b-conciliacion-descuadre.png');
+    const discrepancyEntry = journal.entries.find(
+      (entry) =>
+        entry.type === 'error' && entry.errors?.some((error) => error === discrepancy!.detail),
+    );
+    expect(discrepancyEntry).toBeDefined();
+    await page.getByRole('link', { name: 'Diario', exact: true }).click();
+    await expect(page.locator('.journal h2')).toHaveText('Diario');
+    const detailButton = page.getByRole('button', {
+      name: new RegExp(`entrada ${discrepancyEntry!.id}$`),
+    });
+    await detailButton.click();
+    const detail = page.getByRole('dialog', { name: /Detalle del diario/ });
+    await expect(detail).toContainText(discrepancy!.detail);
+    await captureEvidence('fase-5-perfil-b-diario-descuadre.png');
   });
 
   test('ocho semanas sembradas generan informes semanales y mensuales con alerta', async () => {
@@ -341,6 +382,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     });
     await expect(report).toBeVisible();
     await expect(report).toContainText('Fuera de margen');
+    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
     const weeklyData = await page.evaluate(() =>
       window.tradia.deviation.report({ period: 'semanal' }),
     );
@@ -348,6 +390,8 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     expect(
       weeklyData.rows.some((row) => row.expectedReturnPct !== null && row.deviationPp !== null),
     ).toBe(true);
+    expect(weeklyData.rows.some((row) => row.outOfMargin)).toBe(true);
+    await captureEvidence('fase-5-perfil-b-real-vs-backtest-semanal.png');
 
     await page.getByRole('button', { name: 'Mensual', exact: true }).click();
     const monthly = page.getByRole('table', {
@@ -355,9 +399,12 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     });
     await expect(monthly).toBeVisible();
     await expect(monthly).toContainText('Fuera de margen');
+    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
     const monthlyData = await page.evaluate(() =>
       window.tradia.deviation.report({ period: 'mensual' }),
     );
     expect(monthlyData.rows.length).toBeGreaterThanOrEqual(4);
+    expect(monthlyData.rows.some((row) => row.outOfMargin)).toBe(true);
+    await captureEvidence('fase-5-perfil-b-real-vs-backtest-mensual.png');
   });
 });
