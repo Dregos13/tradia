@@ -1,0 +1,15 @@
+# Pipeline de entrenamiento del modelo predictivo (fase 6-7).
+# Versiones fijadas y verificadas con Python 3.9 en macOS arm64.
+#
+# En macOS LightGBM necesita OpenMP: `brew install libomp`
+# (en Linux suele bastar libgomp del sistema; Windows lo trae la rueda).
+lightgbm==4.6.0
+scikit-learn==1.6.1
+onnxmltools==1.16.0
+onnx==1.19.1
+# onnxruntime ejecuta el modelo exportado para la comprobación de paridad
+# y para generar las probabilidades esperadas del fixture.
+onnxruntime==1.19.2
+numpy==2.0.2
+# Dependencia declarada a mano: onnxmltools 1.16 la usa pero no la instala.
+packaging==26.3

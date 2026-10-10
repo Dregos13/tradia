@@ -27,6 +27,7 @@ import { registerKillSwitch, type KillSwitchService } from '../risk/killSwitch';
 import { registerRisk, type RiskService } from '../risk/service';
 import { registerSignals, type SignalsService } from '../signals';
 import { registerJournal, type JournalService } from '../journal';
+import { registerRegime, type AiRegimeService } from '../ai/regime';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
@@ -65,6 +66,8 @@ export interface MainServices {
   backtest: BacktestService;
   /** Diario automático (fase 4): journal_entries, filtros y exportación CSV. */
   journal: JournalService;
+  /** Régimen de mercado (fase 6): clasificador por activo y mercado, ai:regime-*. */
+  aiRegime: AiRegimeService;
   /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
   signals: SignalsService;
   /** Canales de entrega (fase 4): escritorio, Telegram y correo. */
@@ -144,6 +147,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   // journal; backup usa storage; routine va la última de la fase porque
   // consume señales, diario y canales.
   services.journal = registerJournal(ctx);
+  // Fase 6: el régimen se recalcula con cada lote de velas (market), las
+  // fichas deciden qué estrategias habilita (strategies) y sus cambios
+  // de mercado se anotan en el Diario (journal).
+  services.aiRegime = registerRegime(ctx);
   services.signals = registerSignals(ctx);
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);

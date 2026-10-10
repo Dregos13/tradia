@@ -3,6 +3,8 @@ import { NEWS_PRIORITIES, RELIABILITY_LEVELS, type NewsItem } from '../../../../
 import { useNews } from '../../hooks/useNews';
 import { useSystemState } from '../../hooks/useSystemState';
 import './news.css';
+import { NewsAnalysis } from './NewsAnalysis';
+import { aiTokens } from '../ai/presentation';
 
 const priorities = {
   maxima: 'Prioridad máxima',
@@ -21,8 +23,10 @@ const time = new Intl.DateTimeFormat('es-ES', {
 function NewsHeadline({
   item,
   selectAsset,
+  offline,
 }: {
   item: NewsItem;
+  offline: boolean;
   selectAsset: (ticker: string) => void;
 }) {
   const onlySocial =
@@ -42,7 +46,8 @@ function NewsHeadline({
             </span>
           ))}
           <span className={`news-badge news-${confirmed ? 'confirmed' : 'unconfirmed'}`}>
-            {confirmed ? '✓ Confirmada' : '⚠ Sin confirmar'}
+            {!confirmed && <svg className="news-verification-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM12 8v5m0 3v1" /></svg>}
+            {confirmed ? '✓ Confirmada' : 'Sin verificar · no genera señales'}
           </span>
           {item.sources.length > 1 && <span className="news-muted">Fuentes agrupadas</span>}
         </div>
@@ -66,6 +71,7 @@ function NewsHeadline({
         </p>
       )}
       {item.summary && <p className="news-summary">{item.summary}</p>}
+      {confirmed && <NewsAnalysis id={item.id} offline={offline} />}
       <div className="news-assets">
         <span>Activos relacionados:</span>
         {item.assets.length ? (
@@ -139,6 +145,7 @@ export function NewsFeed() {
       aria-label="Feed de noticias"
       aria-busy={data.loading}
     >
+      <style>{aiTokens().replaceAll('.ai-page', '.news-feed')}</style>
       {connectivity?.status === 'offline' && (
         <p className="news-offline" role="status">
           Sin conexión a internet. La lectura automática de fuentes está pausada; se muestran las
@@ -225,7 +232,7 @@ export function NewsFeed() {
         <section key={day} aria-label={day}>
           <h2 className="news-day">{day}</h2>
           {items.map((item) => (
-            <NewsHeadline key={item.id} item={item} selectAsset={setAsset} />
+            <NewsHeadline key={item.id} item={item} selectAsset={setAsset} offline={connectivity?.status === 'offline'} />
           ))}
         </section>
       ))}

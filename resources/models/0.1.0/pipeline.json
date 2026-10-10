@@ -1,0 +1,128 @@
+{
+  "pipelineVersion": "0.1.0",
+  "horizonDays": 5,
+  "featureNames": [
+    "ret_1",
+    "ret_5",
+    "ret_10",
+    "ret_21",
+    "sma_ratio_10",
+    "sma_ratio_20",
+    "sma_ratio_50",
+    "ema_ratio_12_26",
+    "rsi_14",
+    "atr_14_pct",
+    "vol_5",
+    "vol_20",
+    "range_pct",
+    "close_pos",
+    "gap_pct",
+    "vol_rel_20"
+  ],
+  "models": {
+    "direction": "model.onnx",
+    "volatility": "vol.onnx"
+  },
+  "input": {
+    "name": "input",
+    "dtype": "float32",
+    "shape": [
+      null,
+      16
+    ]
+  },
+  "outputs": {
+    "direction": "probabilities",
+    "volatility": null
+  },
+  "calibrator": {
+    "kind": "isotonic",
+    "comment": "probUp = clip(interp_lineal(rawProbUp, xThresholds, yThresholds), 0, 1)",
+    "xThresholds": [
+      2.770483179107324e-05,
+      0.0004257013274002084,
+      0.0004327228713634186,
+      0.015855836168738046,
+      0.016624822959287994,
+      0.05077106049952032,
+      0.054276362546226385,
+      0.17290013011994138,
+      0.17828360904680146,
+      0.31636504661366066,
+      0.33014268217950854,
+      0.5558394780523314,
+      0.5762731798094916,
+      0.8472479765871161,
+      0.8692198575459242,
+      0.9600866508127714,
+      0.9605041701168565,
+      0.9809590823245177,
+      0.9813887752991143,
+      0.9908344296039229,
+      0.9911710690744452,
+      0.9975043023443959,
+      0.9976017160004966,
+      0.9999501312772245
+    ],
+    "yThresholds": [
+      0.0,
+      0.0,
+      0.016666666666666666,
+      0.016666666666666666,
+      0.08333333333333333,
+      0.08333333333333333,
+      0.125,
+      0.125,
+      0.3,
+      0.3,
+      0.5714285714285714,
+      0.5714285714285714,
+      0.6875,
+      0.6875,
+      0.75,
+      0.75,
+      0.8333333333333334,
+      0.8333333333333334,
+      0.9166666666666666,
+      0.9166666666666666,
+      0.9473684210526315,
+      0.9473684210526315,
+      1.0,
+      1.0
+    ]
+  },
+  "expectedVolatility": "max(0, salida de vol.onnx)",
+  "hash": {
+    "model.onnx": "84a08f65390ff082972689fee88fa0908cf7602818425e1b8402b97643512d0d",
+    "vol.onnx": "43f89a61de84106bf633578c0b8ade01ced3920b0ed7c853d9941bd0ab8d1bac"
+  },
+  "training": {
+    "seed": 42,
+    "split": [
+      0.6,
+      0.2,
+      0.2
+    ],
+    "purgeDays": 5,
+    "classifier": {
+      "n_estimators": 300,
+      "learning_rate": 0.05,
+      "num_leaves": 31,
+      "min_child_samples": 20,
+      "feature_fraction": 0.9,
+      "bagging_fraction": 0.9,
+      "bagging_freq": 1,
+      "lambda_l2": 1.0
+    },
+    "regressor": {
+      "n_estimators": 200,
+      "learning_rate": 0.05,
+      "num_leaves": 31,
+      "min_child_samples": 20,
+      "feature_fraction": 0.9,
+      "bagging_fraction": 0.9,
+      "bagging_freq": 1,
+      "lambda_l2": 1.0
+    }
+  }
+}

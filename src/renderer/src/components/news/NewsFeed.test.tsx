@@ -20,7 +20,7 @@ it('muestra oficial, redes sin confirmar, horas locales y enlaces externos', asy
   await screen.findByText('3 titulares disponibles.');
   const cards = screen.getAllByTestId('news-item');
   const social = cards.find((card) => card.textContent?.includes('Rumor en redes'))!;
-  expect(within(social).getByText('⚠ Sin confirmar')).toBeInTheDocument();
+  expect(within(social).getByText('Sin verificar · no genera señales')).toBeInTheDocument();
   expect(within(social).queryByText('✓ Confirmada')).not.toBeInTheDocument();
   expect(screen.getByText(/Oficial ·/)).toBeInTheDocument();
   const link = screen.getByRole('link', { name: /La Fed/ });
@@ -52,7 +52,7 @@ it('agrupa fuentes en un único titular y protege confirmación incluso ante dat
   expect(screen.getAllByTestId('news-item')).toHaveLength(3);
   expect(screen.getByText('Agencia · Otra agencia')).toBeInTheDocument();
   expect(screen.getAllByText('Fuentes agrupadas').length).toBeGreaterThan(0);
-  expect(screen.getByText('⚠ Sin confirmar')).toBeInTheDocument();
+  expect(screen.getByText('Sin verificar · no genera señales')).toBeInTheDocument();
 });
 
 it('retiene la lista y el scroll al recibir titulares mientras se lee más abajo', async () => {

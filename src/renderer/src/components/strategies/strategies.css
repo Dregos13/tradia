@@ -301,3 +301,48 @@
   display: block;
   margin-top: var(--space-1);
 }
+
+.strategies-page .strategy-regime-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--size-controlMin);
+  cursor: pointer;
+}
+.strategies-page .strategy-regime-choice input {
+  min-height: auto;
+  accent-color: var(--color-accent);
+}
+.strategy-comparison-scroll {
+  overflow-x: auto;
+}
+.strategies-page .strategy-comparison-scroll:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  .strategy-comparison-scroll .strategy-table {
+    display: table;
+    min-width: 600px;
+  }
+  .strategy-comparison-scroll .strategy-table tbody {
+    display: table-row-group;
+  }
+  .strategy-comparison-scroll .strategy-table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  .strategy-comparison-scroll .strategy-table tr {
+    display: table-row;
+  }
+  .strategy-comparison-scroll .strategy-table :is(th, td) {
+    display: table-cell;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .strategy-comparison-scroll .strategy-table td::before {
+    content: none;
+  }
+}
