@@ -197,7 +197,7 @@ export interface BrokerPosition {
   currency: string;
 }
 
-/** Cuenta del broker (siempre paper en esta fase). */
+/** Cuenta del broker (paper, o live mínimo desde la fase 7). */
 export interface BrokerAccount {
   /** Número o id de la cuenta (se muestra en Ajustes). */
   accountId: string;
@@ -210,8 +210,8 @@ export interface BrokerAccount {
   equity: number;
   /** Poder de compra; null si el broker no lo reporta. */
   buyingPower: number | null;
-  /** Siempre true: la app solo admite cuentas paper. */
-  paper: true;
+  /** true en una cuenta paper; false en la cuenta live del modo real. */
+  paper: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,8 +388,12 @@ export interface DeviationAlert {
 // Conexión del broker (Ajustes)
 // ---------------------------------------------------------------------------
 
-/** Adaptadores posibles: 'alpaca' real contra paper-api; 'simulado' en E2E. */
-export const BROKER_ADAPTER_IDS = ['alpaca', 'simulado'] as const;
+/**
+ * Adaptadores posibles: 'alpaca' contra paper-api; 'alpaca-live' contra
+ * api.alpaca.markets (solo con la lista del modo real cumplida, fase 7);
+ * 'simulado' en E2E.
+ */
+export const BROKER_ADAPTER_IDS = ['alpaca', 'alpaca-live', 'simulado'] as const;
 export type BrokerAdapterId = (typeof BROKER_ADAPTER_IDS)[number];
 
 /** Estados de la conexión con la cuenta paper. */

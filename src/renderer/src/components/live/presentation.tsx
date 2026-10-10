@@ -30,8 +30,8 @@ export function liveTokens() {
       .join('');
     return `${declarations}--live-overlay:${tokens.color.overlay[mode]};--live-live-banner-text:${tokens.color.live.banner[`${mode}Text`]};`;
   };
-  const scope = '.live-checklist-page,.live-dialog-scope';
-  return `${scope}{--live-dialog-max:${tokens.size.dialogMax};--live-panel-min:${tokens.size.limitsPanelMin};--live-shadow:${tokens.shadow.floating.value};${theme('light')}}@media(prefers-color-scheme:dark){${scope}{${theme('dark')}}}`;
+  const scope = '.live-checklist-page,.live-dialog-scope,.live-surface';
+  return `${scope}{--live-banner-min:${tokens.size.liveBannerMin};--live-dialog-max:${tokens.size.dialogMax};--live-panel-min:${tokens.size.limitsPanelMin};--live-shadow:${tokens.shadow.floating.value};${theme('light')}}@media(prefers-color-scheme:dark){${scope}{${theme('dark')}}}`;
 }
 
 export function LiveIcon({ kind = 'shield' }: { kind?: 'shield' | 'lock' | LiveRequirementState }) {

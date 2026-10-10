@@ -41,6 +41,11 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
           {data
             ? `${data.driftedFeatures} variables con PSI > ${number(DRIFT_PSI_THRESHOLD, 2)}`
             : 'No aplica'}
+          {data?.driftSince && (
+            <small>
+              desde <time dateTime={data.driftSince}>{date(data.driftSince)}</time>
+            </small>
+          )}
         </td>
         <td>
           {results ? (
@@ -53,6 +58,13 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
               <small>
                 {results.resolvedCount}/{DRIFT_BRIER_WINDOW} predicciones resueltas
               </small>
+              {results.delta !== null &&
+                results.delta > DRIFT_BRIER_DELTA &&
+                results.driftSince && (
+                  <small>
+                    desde <time dateTime={results.driftSince}>{date(results.driftSince)}</time>
+                  </small>
+                )}
             </>
           ) : strategy ? (
             <>
@@ -78,11 +90,7 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
               {DEGRADE_MIN_CONSECUTIVE_REVIEWS}
             </p>
           )}
-          {results && (
-            <small>
-              Ventana de {DRIFT_BRIER_WINDOW} predicciones; fecha de inicio no disponible.
-            </small>
-          )}
+          {results && <small>Ventana de {DRIFT_BRIER_WINDOW} predicciones.</small>}
         </td>
         <td>
           {row.lastReviewedAt ? (
@@ -112,11 +120,18 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
                   <strong>{feature.name}</strong>
                   <p className="ai-numeric">
                     PSI {number(feature.psi, 3)} · umbral &gt; {number(DRIFT_PSI_THRESHOLD, 2)}
+                    {feature.overThreshold && feature.overThresholdSince && (
+                      <>
+                        {' · desde '}
+                        <time dateTime={feature.overThresholdSince}>
+                          {date(feature.overThresholdSince)}
+                        </time>
+                      </>
+                    )}
                   </p>
                   <p>
                     {feature.overThreshold ? 'Sobre el umbral' : 'Dentro del rango'}. Persistencia
-                    conjunta: {data.sessions} sesiones hasta la última revisión; inicio por variable
-                    no disponible.
+                    conjunta: {data.sessions} sesiones hasta la última revisión.
                   </p>
                 </div>
               ))}

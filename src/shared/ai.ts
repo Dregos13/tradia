@@ -413,7 +413,14 @@ export interface DriftCheck {
   kind: DriftCheckKind;
   /** Sesiones o revisiones consecutivas en alerta hasta esta evaluación. */
   streak: number;
-  /** Métricas de la revisión (PSI por variable, Brier móvil, desviación…). */
+  /**
+   * Métricas de la revisión. Convención de claves: en 'datos', el PSI de
+   * cada variable como 'psi:<nombre>' ('psi:ret_5'…, ver `driftPsiKey`);
+   * en 'resultados', 'rollingBrier', 'cardBrier' y 'delta' (móvil −
+   * ficha); en 'rendimiento', 'trades', 'deviationPct' y 'losingStreak'.
+   * De aquí salen las fechas de inicio del drift (`driftStreakSince` y
+   * cía.): una revisión sin el dato numérico no sostiene la racha.
+   */
   detail: Record<string, number | string>;
   drifted: boolean;
   evaluatedAt: string;
@@ -425,6 +432,14 @@ export interface FeaturePsi {
   psi: number;
   /** true si supera DRIFT_PSI_THRESHOLD. */
   overThreshold: boolean;
+  /**
+   * Inicio (ISO 8601) de la racha actual de esta variable sobre
+   * DRIFT_PSI_THRESHOLD: el `evaluatedAt` de la primera revisión 'datos'
+   * de la racha en `drift_checks`; null si la última revisión no la
+   * supera. Lo rellena el proceso principal con
+   * `featurePsiOverThresholdSince`; el renderer nunca lo deduce.
+   */
+  overThresholdSince: string | null;
 }
 
 /** Estados de la tabla «Salud de modelos». */
@@ -445,6 +460,14 @@ export interface DataDriftSummary {
   features: FeaturePsi[];
   /** Variables por encima del umbral en la última revisión. */
   driftedFeatures: number;
+  /**
+   * Inicio (ISO 8601) de la racha actual con al menos
+   * DRIFT_PSI_MIN_FEATURES variables sobre el umbral en la misma
+   * revisión: el `evaluatedAt` de su primera revisión 'datos'; null si
+   * la última no la cumple. Lo rellena el proceso principal con
+   * `dataDriftSince`.
+   */
+  driftSince: string | null;
 }
 
 /** Drift de resultados (solo el modelo): Brier móvil frente a la ficha. */
@@ -456,6 +479,94 @@ export interface ResultsDriftSummary {
   cardBrier: number | null;
   /** Diferencia móvil − ficha; null hasta tener la ventana completa. */
   delta: number | null;
+  /**
+   * Inicio (ISO 8601) de la racha actual con `delta` por encima de
+   * DRIFT_BRIER_DELTA: el `evaluatedAt` de su primera revisión
+   * 'resultados'; null si la última no lo supera. Lo rellena el proceso
+   * principal con `resultsDriftSince`.
+   */
+  driftSince: string | null;
+}
+
+// — Fechas de inicio del drift (las calcula el proceso principal) -------
+
+/**
+ * Clave de `DriftCheck.detail` con el PSI de una variable en una
+ * revisión 'datos' ('psi:ret_5', 'psi:vol_20'…).
+ */
+export const driftPsiKey = (feature: string): string => `psi:${feature}`;
+
+const detailNumber = (value: number | string | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+/**
+ * `evaluatedAt` de la primera revisión de la racha actual que cumple
+ * `isAlert`, con el historial recorrido en orden cronológico y solo del
+ * `kind` indicado. Una revisión que no la cumple reinicia la racha: si
+ * la última no está en alerta el resultado es null.
+ */
+function driftStreakSince(
+  checks: readonly DriftCheck[],
+  kind: DriftCheckKind,
+  isAlert: (detail: DriftCheck['detail']) => boolean,
+): string | null {
+  let since: string | null = null;
+  const ordered = checks
+    .filter((check) => check.kind === kind)
+    .sort((a, b) => a.evaluatedAt.localeCompare(b.evaluatedAt));
+  for (const check of ordered) {
+    since = isAlert(check.detail) ? (since ?? check.evaluatedAt) : null;
+  }
+  return since;
+}
+
+/**
+ * Inicio de la racha actual de `feature` sobre DRIFT_PSI_THRESHOLD: el
+ * `evaluatedAt` de la primera revisión 'datos' de la racha, o null si la
+ * última no la supera. `checks` es el historial de `drift_checks` del
+ * sujeto (cualquier orden; se ignoran los demás tipos). Una revisión sin
+ * 'psi:<feature>' numérico no sostiene la racha. El proceso principal lo
+ * usa para rellenar `FeaturePsi.overThresholdSince`.
+ */
+export function featurePsiOverThresholdSince(
+  checks: readonly DriftCheck[],
+  feature: string,
+): string | null {
+  const key = driftPsiKey(feature);
+  return driftStreakSince(
+    checks,
+    'datos',
+    (detail) => (detailNumber(detail[key]) ?? -Infinity) > DRIFT_PSI_THRESHOLD,
+  );
+}
+
+/**
+ * Inicio de la racha actual con al menos DRIFT_PSI_MIN_FEATURES
+ * variables sobre el umbral en la misma revisión 'datos'. El proceso
+ * principal lo usa para rellenar `DataDriftSummary.driftSince`.
+ */
+export function dataDriftSince(checks: readonly DriftCheck[]): string | null {
+  return driftStreakSince(checks, 'datos', (detail) => {
+    let over = 0;
+    for (const [key, value] of Object.entries(detail)) {
+      const psi = key.startsWith('psi:') ? detailNumber(value) : null;
+      if (psi !== null && psi > DRIFT_PSI_THRESHOLD) over += 1;
+    }
+    return over >= DRIFT_PSI_MIN_FEATURES;
+  });
+}
+
+/**
+ * Inicio de la racha actual con 'delta' (Brier móvil − ficha) por encima
+ * de DRIFT_BRIER_DELTA en revisiones 'resultados'. El proceso principal
+ * lo usa para rellenar `ResultsDriftSummary.driftSince`.
+ */
+export function resultsDriftSince(checks: readonly DriftCheck[]): string | null {
+  return driftStreakSince(
+    checks,
+    'resultados',
+    (detail) => (detailNumber(detail['delta']) ?? -Infinity) > DRIFT_BRIER_DELTA,
+  );
 }
 
 /** Evaluación de degradación de una estrategia (rendimiento paper/real). */

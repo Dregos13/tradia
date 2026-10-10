@@ -92,10 +92,14 @@ export interface ListOrdersRequest {
 // ---------------------------------------------------------------------------
 
 export interface BrokerAdapter {
-  /** Identificador estable del adaptador ('alpaca', 'simulado'). */
+  /** Identificador estable del adaptador ('alpaca', 'alpaca-live', 'simulado'). */
   readonly id: BrokerAdapterId;
-  /** Siempre true: el contrato solo admite cuentas paper. */
-  readonly paperOnly: true;
+  /**
+   * true en un adaptador paper (la cuenta es simulada); false en el
+   * adaptador live de la fase 7, que solo existe tras la puerta de la
+   * lista de comprobación.
+   */
+  readonly paperOnly: boolean;
   /** Cuenta paper conectada (número, saldo y divisa). */
   getAccount(): Promise<BrokerAccount>;
   /** Posiciones abiertas en la cuenta. */

@@ -1553,9 +1553,12 @@ export function createSimulatedAdapter() {
   /** Propuestas de reentrenamiento del falso: vacías por defecto. */
   const retrainProposals: RetrainProposal[] = [];
 
-  /** Salud determinista: el modelo en 'insuficiente' (sin 60 resueltas); la
+  /** Salud determinista: el modelo en 'insuficiente' (sin 60 resueltas) con
+   * ret_5 en una racha temprana sobre el umbral de PSI (aún no degrada); la
    * primera estrategia en 'observacion' por racha aislada (nunca degrada). */
   const healthOverview = (): ModelHealthOverview => {
+    // Racha de unas 6 sesiones: fecha de inicio verosímil unos 8 días atrás.
+    const ret5Since = new Date(Date.now() - 8 * DAY_MS).toISOString();
     const modelRow: ModelHealthRow = {
       subject: 'modelo',
       subjectId: fakeModelCard.id,
@@ -1564,12 +1567,18 @@ export function createSimulatedAdapter() {
       dataDrift: {
         drifted: false,
         sessions: 0,
-        features: fakeModelCard.referenceDistribution.map((f) => ({
-          name: f.name,
-          psi: round(0.04 + (hashSeed(`psi:${f.name}`) % 15) / 100, 3),
-          overThreshold: false,
-        })),
-        driftedFeatures: 0,
+        features: fakeModelCard.referenceDistribution.map((f) => {
+          const drifting = f.name === 'ret_5';
+          return {
+            name: f.name,
+            psi: drifting ? 0.31 : round(0.04 + (hashSeed(`psi:${f.name}`) % 15) / 100, 3),
+            overThreshold: drifting,
+            overThresholdSince: drifting ? ret5Since : null,
+          };
+        }),
+        driftedFeatures: 1,
+        // Una sola variable sobre el umbral no abre la racha conjunta.
+        driftSince: null,
       },
       resultsDrift: {
         drifted: false,
@@ -1577,6 +1586,7 @@ export function createSimulatedAdapter() {
         rollingBrier: null,
         cardBrier: null,
         delta: null,
+        driftSince: null,
       },
       strategyEval: null,
       reason: 'Aún no hay 60 predicciones resueltas.',

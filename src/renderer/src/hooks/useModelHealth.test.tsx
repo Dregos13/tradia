@@ -19,6 +19,35 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+it('conserva las fechas de inicio del simulado y los null sin deducir fechas', async () => {
+  const value = await adapter.api.ai.health();
+  const data = value.subjects[0]!.dataDrift!;
+  expect(data.features.find((feature) => feature.name === 'ret_5')!.overThresholdSince).toEqual(
+    expect.any(String),
+  );
+  expect(
+    data.features
+      .filter((feature) => !feature.overThreshold)
+      .every((feature) => feature.overThresholdSince === null),
+  ).toBe(true);
+  expect(data.driftSince).toBeNull();
+  expect(value.subjects[0]!.resultsDrift!.driftSince).toBeNull();
+  vi.spyOn(adapter.api.ai, 'health').mockResolvedValue(value);
+  const { result } = renderHook(useModelHealth);
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.overview).toEqual(value);
+  const next = structuredClone(value);
+  next.subjects[0]!.dataDrift!.driftSince = '2026-09-15T22:00:00Z';
+  next.subjects[0]!.resultsDrift!.driftSince = '2026-09-18T22:00:00Z';
+  next.subjects[0]!.dataDrift!.features.forEach((feature) => {
+    feature.overThresholdSince = null;
+  });
+  vi.mocked(adapter.api.ai.health).mockResolvedValue(next);
+  await act(async () => {
+    await result.current.reload();
+  });
+  expect(result.current.overview).toEqual(next);
+});
 it('descarta respuestas tardías al perder conexión y retira suscripciones', async () => {
   const value = await adapter.api.ai.health();
   let finish!: (value: ModelHealthOverview) => void;

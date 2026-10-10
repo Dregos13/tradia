@@ -1,13 +1,16 @@
 /**
- * Adaptador del broker Alpaca en modo paper — Fase 5.
+ * Adaptador del broker Alpaca — núcleo común paper/live.
  *
  * Habla con la API REST v2 de Alpaca (`GET/POST /v2/orders`, `DELETE`,
- * `/v2/account`, `/v2/positions`) contra la URL paper FIJA
- * `https://paper-api.alpaca.markets`: la app no tiene modo real y el
- * constructor rechaza cualquier otra URL (`BrokerError` 'bad-data'), así
- * que ni una clave ni una orden pueden escapar a producción. Las claves
- * live no pasan la autenticación del endpoint paper: Alpaca responde 401
- * y el adaptador lo traduce a 'auth' con un mensaje claro.
+ * `/v2/account`, `/v2/positions`) contra una URL FIJA por perfil:
+ * `https://paper-api.alpaca.markets` en paper (`createAlpacaBroker`,
+ * fase 5) y `https://api.alpaca.markets` en live
+ * (`createAlpacaLiveBroker`, fase 7, ver `alpacaLive.ts`). El
+ * constructor rechaza cualquier otra URL (`BrokerError` 'bad-data'),
+ * así que ni una clave ni una orden pueden escapar al entorno que no
+ * corresponde. Unas claves del otro entorno no pasan la autenticación:
+ * Alpaca responde 401 y el adaptador lo traduce a 'auth' con un mensaje
+ * claro.
  *
  * - `fetch` es inyectable: las pruebas sirven respuestas grabadas de
  *   `__fixtures__` (servidor falso en `__fixtures__/fake-server.ts`) sin
@@ -31,6 +34,7 @@
  */
 import type {
   BrokerAccount,
+  BrokerAdapterId,
   BrokerOrderSide,
   BrokerOrderStatus,
   BrokerOrderType,
@@ -46,7 +50,7 @@ import {
 } from './types';
 
 export const ALPACA_ADAPTER_ID = 'alpaca';
-/** Única URL admitida: el adaptador solo puede hablar con Alpaca paper. */
+/** Única URL admitida en paper: el adaptador solo habla con Alpaca paper. */
 export const ALPACA_PAPER_BASE_URL = 'https://paper-api.alpaca.markets';
 export const ALPACA_TIMEOUT_MS = 20_000;
 /** Máximo de órdenes por página en `listOrders` (límite de la API). */
@@ -66,10 +70,22 @@ export interface AlpacaBrokerDeps {
    * campos vacíos = cuenta sin conectar → 'auth' sin tocar la red.
    */
   getCredentials: () => Promise<AlpacaCredentials | null>;
-  /** Si se pasa, debe ser exactamente la URL paper; otra se rechaza. */
+  /** Si se pasa, debe ser exactamente la URL del perfil; otra se rechaza. */
   baseUrl?: string;
   timeoutMs?: number;
   logger?: { warn(message: string): void };
+}
+
+/** Perfil fijo del adaptador: el entorno Alpaca al que puede hablar. */
+export interface AlpacaAdapterProfile {
+  /** Id del adaptador en el contrato ('alpaca' | 'alpaca-live'). */
+  adapterId: BrokerAdapterId;
+  /** Única URL admitida; el constructor rechaza cualquier otra. */
+  baseUrl: string;
+  /** true si la cuenta es paper (simulada); false si es live (dinero real). */
+  paper: boolean;
+  /** Nombre legible del entorno para los mensajes ('paper' | 'live'). */
+  label: string;
 }
 
 type JsonObject = Record<string, unknown>;
@@ -112,13 +128,23 @@ const ALPACA_TYPE_MAP: Record<string, BrokerOrderType> = {
   stop: 'stop',
 };
 
-export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
-  const requestedBase = (deps.baseUrl ?? ALPACA_PAPER_BASE_URL).replace(/\/+$/, '');
-  if (requestedBase !== ALPACA_PAPER_BASE_URL) {
+/**
+ * Núcleo del adaptador Alpaca parametrizado por perfil (paper o live):
+ * misma API REST v2, mismos mapeos y mismos errores; solo cambian la URL
+ * fija admitida, el id y el indicador `paper` de la cuenta. Las
+ * factorías públicas son `createAlpacaBroker` (aquí) y
+ * `createAlpacaLiveBroker` (alpacaLive.ts, con la puerta de la lista).
+ */
+export function createAlpacaAdapter(
+  deps: AlpacaBrokerDeps,
+  profile: AlpacaAdapterProfile,
+): BrokerAdapter {
+  const requestedBase = (deps.baseUrl ?? profile.baseUrl).replace(/\/+$/, '');
+  if (requestedBase !== profile.baseUrl) {
     throw new BrokerError(
       'bad-data',
-      `Alpaca: solo se admite la cuenta paper (${ALPACA_PAPER_BASE_URL}); URL rechazada: ${deps.baseUrl}`,
-      { adapter: ALPACA_ADAPTER_ID },
+      `Alpaca ${profile.label}: solo se admite la cuenta ${profile.label} (${profile.baseUrl}); URL rechazada: ${deps.baseUrl}`,
+      { adapter: profile.adapterId },
     );
   }
   const baseUrl = requestedBase;
@@ -129,8 +155,8 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
     message: string,
     details: { clientOrderId?: string; status?: number; retryAfterMs?: number } = {},
   ): BrokerError =>
-    new BrokerError(kind, `Alpaca: ${message}`, {
-      adapter: ALPACA_ADAPTER_ID,
+    new BrokerError(kind, `Alpaca ${profile.label}: ${message}`, {
+      adapter: profile.adapterId,
       ...details,
     });
 
@@ -227,9 +253,13 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
   const request = async (path: string, options: RequestOptions = {}): Promise<unknown> => {
     const creds = await deps.getCredentials();
     if (!creds || !creds.apiKeyId.trim() || !creds.apiSecret.trim()) {
-      throw fail('auth', 'sin claves del broker guardadas en secrets (cuenta paper no conectada)', {
-        clientOrderId: options.clientOrderId,
-      });
+      throw fail(
+        'auth',
+        `sin claves del broker guardadas en secrets (cuenta ${profile.label} no conectada)`,
+        {
+          clientOrderId: options.clientOrderId,
+        },
+      );
     }
     const method = options.method ?? 'GET';
     const headers: Record<string, string> = {
@@ -275,7 +305,7 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
       if (status === 401 || status === 403) {
         throw fail(
           'auth',
-          `credenciales rechazadas (HTTP ${status}): comprueba que son de una cuenta paper${detail ? ` — ${detail}` : ''}`,
+          `credenciales rechazadas (HTTP ${status}): comprueba que son de una cuenta ${profile.label}${detail ? ` — ${detail}` : ''}`,
           base,
         );
       }
@@ -338,8 +368,8 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
   };
 
   return {
-    id: ALPACA_ADAPTER_ID,
-    paperOnly: true,
+    id: profile.adapterId,
+    paperOnly: profile.paper,
 
     getAccount: async () => {
       const raw = asRecord(await request('/v2/account'), 'cuenta');
@@ -350,7 +380,7 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
         cash: reqNum(raw, 'cash', 'cuenta'),
         equity: reqNum(raw, 'equity', 'cuenta'),
         buyingPower: optNum(raw, 'buying_power', 'cuenta'),
-        paper: true,
+        paper: profile.paper,
       };
       return account;
     },
@@ -402,7 +432,7 @@ export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
     },
 
     submitOrder: async (req: BrokerOrderRequest) => {
-      assertValidOrderRequest(req, ALPACA_ADAPTER_ID);
+      assertValidOrderRequest(req, profile.adapterId);
       const raw = await request('/v2/orders', {
         method: 'POST',
         body: orderBody(req),
