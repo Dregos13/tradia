@@ -10,6 +10,8 @@
  * `src/shared/ipc.ts` junto al resto del contrato.
  */
 
+import type { RegimeLabel } from './ai';
+
 /** Estados del ciclo de vida; coincide con el CHECK de `strategies.estado`. */
 export const STRATEGY_STATUSES = [
   'investigacion',
@@ -128,8 +130,18 @@ export interface Strategy {
   trainingPeriod: StrategyPeriod | null;
   outOfSamplePeriod: StrategyPeriod | null;
   metricsSummary: StrategyMetricsSummary | null;
-  /** Régimen de mercado en el que funciona ('tendencial', 'lateral'…). */
+  /** Régimen de mercado en el que funciona, en texto libre (descriptivo). */
   regime: string;
+  /**
+   * Régimen estructurado (fase 6): etiquetas de REGIME_LABELS en las que
+   * la ficha declara que funciona. Vacío = sin preferencia declarada.
+   */
+  worksIn: RegimeLabel[];
+  /**
+   * Etiquetas en las que declara fallar; tienen prioridad: cualquier
+   * etiqueta vigente aquí desactiva la estrategia por régimen.
+   */
+  failsIn: RegimeLabel[];
   assumedCosts: StrategyCosts;
   status: StrategyStatus;
   /** Nota del cambio que creó esta versión (en v1, la del alta). */
@@ -149,6 +161,9 @@ export interface StrategySummary {
   version: number;
   status: StrategyStatus;
   regime: string;
+  /** Régimen estructurado de la ficha (fase 6). */
+  worksIn: RegimeLabel[];
+  failsIn: RegimeLabel[];
   markets: string[];
   metricsSummary: StrategyMetricsSummary | null;
   updatedAt: string;
@@ -186,6 +201,12 @@ export interface StrategyDraft {
   trainingPeriod?: StrategyPeriod | null;
   outOfSamplePeriod?: StrategyPeriod | null;
   regime: string;
+  /**
+   * Etiquetas de régimen estructuradas (fase 6); opcionales, por defecto
+   * vacías. Una etiqueta no puede estar a la vez en ambos campos.
+   */
+  worksIn?: RegimeLabel[];
+  failsIn?: RegimeLabel[];
   assumedCosts?: StrategyCosts;
 }
 

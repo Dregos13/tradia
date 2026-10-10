@@ -12,6 +12,8 @@
  * supuestos del plan de fase.
  */
 
+import type { SignalAiContext } from './ai';
+
 // ---------------------------------------------------------------------------
 // Señales
 // ---------------------------------------------------------------------------
@@ -48,6 +50,14 @@ export interface SignalIntent {
   /** Confianza declarada por el modelo, en rango 0–1. */
   confidence: number;
   origin: SignalOrigin;
+  /**
+   * Contexto de IA con el que se evaluó (fase 6): régimen, probabilidad y
+   * versión del modelo y titulares que ajustaron la confianza. Viaja con
+   * la intención por la pasarela y queda en `datos_usados` de la señal
+   * guardada. La IA solo confirma o rebaja una señal existente: este
+   * campo nunca crea ni salta la evaluación de riesgo.
+   */
+  ai?: SignalAiContext;
 }
 
 // ---------------------------------------------------------------------------

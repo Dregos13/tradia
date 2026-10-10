@@ -160,19 +160,80 @@ import type {
   RoutineClockAdvanceResult,
   RoutineConfig,
 } from './journal';
+import {
+  DRIFT_CHECK_KINDS,
+  NEWS_ANALYSIS_MAX_LIMIT,
+  NEWS_LLM_DAILY_CAP_BOUNDS,
+  NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
+  PREDICTIONS_MAX_LIMIT,
+  REGIME_DIRECTION_LABELS,
+  REGIME_LABELS,
+  REGIME_SCOPES,
+  REGIME_VOLATILITY_LABELS,
+  RETRAIN_ACTIONS,
+} from './ai';
+import type {
+  AiChangedEvent,
+  DriftCheckKind,
+  ModelCard,
+  ModelHealthOverview,
+  NewsAnalysis,
+  NewsAnalysisQuery,
+  NewsLlmSettings,
+  NewsLlmSettingsInput,
+  NewsLlmTestResult,
+  Prediction,
+  PredictionsQuery,
+  RegimeComparison,
+  RegimeComparisonRequest,
+  RegimeDirectionLabel,
+  RegimeLabel,
+  RegimeOverview,
+  RegimeSnapshot,
+  RegimeVolatilityLabel,
+  RetrainProposal,
+  RetrainResolveRequest,
+  RetrainResolveResult,
+  SignalAiContext,
+  SimulateDriftRequest,
+  SimulateRegimeRequest,
+} from './ai';
+import {
+  LIVE_DECLARATION_REQUIREMENTS,
+  LIVE_FIXED_CAPS,
+  LIVE_REQUIREMENTS,
+} from './live';
+import type {
+  LiveActivateRequest,
+  LiveActivateResult,
+  LiveChecklist,
+  LiveDeclarationRequirement,
+  LiveDeclareRequest,
+  LiveKillSwitchTestResult,
+  LiveLimitsInput,
+  LiveScalingStatus,
+  LiveSeedProgressRequest,
+  LiveSimulatedBrokerRequest,
+  LiveSmokeTestRequest,
+  LiveSmokeTestResult,
+  LiveState,
+} from './live';
 
 // El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
 // ./backtest; se reexportan aquí para que el renderer y el preload sigan
 // importando de un solo sitio. El dominio de riesgo (fase 3) vive en ./risk.
 // El de señales, diario y configuración operativa (fase 4) vive en
 // ./signals y ./journal. El del broker en modo paper (fase 5) vive en
-// ./broker.
+// ./broker. Los de la IA predictiva y del dinero real mínimo (fases 6-7)
+// viven en ./ai y ./live.
 export * from './strategy';
 export * from './backtest';
 export * from './risk';
 export * from './signals';
 export * from './journal';
 export * from './broker';
+export * from './ai';
+export * from './live';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -302,6 +363,16 @@ export const IPC_CHANNELS = {
      * La segunda llamada para la misma versión se rechaza.
      */
     runFinalTest: 'backtest:run-final-test',
+    /**
+     * Comparación emparejada con y sin filtro de régimen guardada para la
+     * versión (`{strategyId, version?}`); null si no existe.
+     */
+    regimeComparison: 'backtest:regime-comparison',
+    /**
+     * Ejecuta el par emparejado (mismo periodo, universo y costes) con y
+     * sin filtro de régimen y devuelve la comparación guardada.
+     */
+    runRegimeComparison: 'backtest:run-regime-comparison',
     /** Evento main → renderer: progreso de una ejecución en curso. */
     progress: 'backtest:progress',
   },
@@ -463,6 +534,86 @@ export const IPC_CHANNELS = {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder: 'logs:open-folder',
   },
+  ai: {
+    /**
+     * Vista de la página «IA»: régimen del mercado (SPY) y de cada activo,
+     * con las estrategias habilitadas o desactivadas por régimen.
+     */
+    regimeOverview: 'ai:regime-overview',
+    /** Predicciones guardadas, más recientes primero (`{ticker?, limit?}`). */
+    predictions: 'ai:predictions',
+    /** Ficha del modelo vigente (métricas, calibración, aptitud); null sin modelo. */
+    modelCard: 'ai:model-card',
+    /** Análisis de noticias confirmadas por activo (`{newsItemId?, ticker?, limit?}`). */
+    newsAnalysis: 'ai:news-analysis',
+    /** Ajustes del LLM de noticias (nunca la clave: solo `hasKey`). */
+    getLlmSettings: 'ai:get-llm-settings',
+    setLlmSettings: 'ai:set-llm-settings',
+    /** «Probar conexión» del LLM; no revela la clave ni cuesta llamadas de análisis. */
+    testLlm: 'ai:test-llm',
+    /** Salud de modelos: drift, estrategias degradadas y propuestas. */
+    health: 'ai:health',
+    /** Historial de propuestas de reentrenamiento (una por trimestre a lo sumo). */
+    retrainProposals: 'ai:retrain-proposals',
+    /** Resuelve una propuesta: `{id, action: 'aprobar'|'posponer', ...}`. */
+    resolveRetrain: 'ai:resolve-retrain',
+    /** Evento main → renderer: cambió el régimen, una predicción o la salud. */
+    changed: 'ai:changed',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fija el régimen de un
+     * activo o del mercado como si el clasificador lo hubiera calculado.
+     */
+    simulateRegime: 'ai:simulate-regime',
+    /**
+     * Solo desarrollo: inyecta una revisión de drift (datos, resultados o
+     * rendimiento) con la persistencia indicada.
+     */
+    simulateDrift: 'ai:simulate-drift',
+  },
+  live: {
+    /** Lista de comprobación del modo real, evaluada en el proceso principal. */
+    checklist: 'live:checklist',
+    /** Estado completo del modo real (franja global incluida). */
+    state: 'live:state',
+    /** Suscribe o retira una declaración manual (`{requirement, confirmed, detail?}`). */
+    declare: 'live:declare',
+    /** Guarda los límites escritos (≤ techos fijos); devuelve la frase generada. */
+    setLimits: 'live:set-limits',
+    /**
+     * Claves live (prefijo AK) a su ranura cifrada separada de la paper:
+     * se validan contra la cuenta antes de guardarse y nunca se leen.
+     */
+    connect: 'live:connect',
+    /**
+     * Activa el modo real: vuelve a comprobar toda la lista en el proceso
+     * principal y exige la frase exacta generada con los límites.
+     */
+    activate: 'live:activate',
+    /** Vuelve a paper al instante; el historial y los límites se conservan. */
+    deactivate: 'live:deactivate',
+    /**
+     * «Probar parada»: activa y reanuda la parada en paper y deja el
+     * registro que computa para el requisito 'parada-probada'.
+     */
+    testKillSwitch: 'live:test-kill-switch',
+    /**
+     * Prueba de humo real: compra 1 USD nocional de SPY, cierra la
+     * posición y concilia, dejando todo en el Diario (`{confirm: true}`).
+     */
+    smokeTest: 'live:smoke-test',
+    /** Estado del escalado (informativo; esta fase nunca sube techos). */
+    scaling: 'live:scaling',
+    /** Evento main → renderer: cambió el modo real (LiveState). */
+    changed: 'live:changed',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): siembra la evidencia
+     * que evalúan los requisitos automáticos (meses de paper, operaciones,
+     * prueba final, parada y alertas); nunca toca las declaraciones.
+     */
+    seedProgress: 'live:seed-progress',
+    /** Solo desarrollo: conmuta el adaptador live al broker real simulado. */
+    useSimulatedBroker: 'live:use-simulated-broker',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -505,6 +656,9 @@ export const NOTIFICATION_ROUTES = [
   'inicio',
   'ordenes',
   'real-vs-backtest',
+  'ia',
+  'salud-modelos',
+  'dinero-real',
 ] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
@@ -1148,6 +1302,16 @@ export interface TradiaApi {
      * segunda llamada rechaza (la prueba queda «Ejecutada y bloqueada»).
      */
     runFinalTest(request: BacktestFinalTestRequest): Promise<BacktestReport>;
+    /**
+     * Comparación emparejada con y sin filtro de régimen guardada para la
+     * versión; null si todavía no se ha ejecutado.
+     */
+    regimeComparison(request: RegimeComparisonRequest): Promise<RegimeComparison | null>;
+    /**
+     * Ejecuta el par emparejado con y sin filtro sobre la misma base
+     * (periodo, universo y costes) y devuelve la comparación guardada.
+     */
+    runRegimeComparison(request: RegimeComparisonRequest): Promise<RegimeComparison>;
     /** Progreso de las ejecuciones en curso. */
     onProgress(listener: (event: BacktestProgressEvent) => void): () => void;
   };
@@ -1292,6 +1456,77 @@ export interface TradiaApi {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder(): Promise<OpenFolderResult>;
   };
+  ai: {
+    /**
+     * Régimen del mercado (referencia SPY) y de cada activo, con las
+     * estrategias habilitadas o desactivadas y su motivo. `market` y las
+     * predicciones son null hasta que haya cierres y modelo suficientes.
+     */
+    regimeOverview(): Promise<RegimeOverview>;
+    /** Predicciones guardadas, más recientes primero. */
+    predictions(query?: PredictionsQuery): Promise<Prediction[]>;
+    /** Ficha del modelo vigente; null si no hay ninguna registrada. */
+    modelCard(): Promise<ModelCard | null>;
+    /** Análisis de noticias confirmadas por activo. */
+    newsAnalysis(query?: NewsAnalysisQuery): Promise<NewsAnalysis[]>;
+    /**
+     * Ajustes del análisis LLM de noticias. `hasKey` solo indica si hay
+     * clave cifrada guardada; la clave nunca sale del proceso principal.
+     */
+    getLlmSettings(): Promise<NewsLlmSettings>;
+    setLlmSettings(input: NewsLlmSettingsInput): Promise<NewsLlmSettings>;
+    /** «Probar conexión» con el LLM configurado. */
+    testLlm(): Promise<NewsLlmTestResult>;
+    /** Salud de modelos: drift, estrategias degradadas y propuestas. */
+    health(): Promise<ModelHealthOverview>;
+    /** Historial de propuestas de reentrenamiento. */
+    retrainProposals(): Promise<RetrainProposal[]>;
+    /**
+     * Aprueba o pospone una propuesta pendiente. Al aprobar, la respuesta
+     * lleva las instrucciones del pipeline externo; la app nunca
+     * reentrena sola.
+     */
+    resolveRetrain(request: RetrainResolveRequest): Promise<RetrainResolveResult>;
+    /** Cambió el régimen, una predicción, un análisis o la salud. */
+    onChanged(listener: (event: AiChangedEvent) => void): () => void;
+  };
+  live: {
+    /**
+     * Lista de comprobación evaluada por el proceso principal: los
+     * requisitos automáticos nunca los puede marcar la interfaz.
+     */
+    checklist(): Promise<LiveChecklist>;
+    /** Estado del modo real para la franja global y la pantalla. */
+    state(): Promise<LiveState>;
+    /** Suscribe (`confirmed: true`) o retira una declaración manual. */
+    declare(request: LiveDeclareRequest): Promise<LiveChecklist>;
+    /**
+     * Guarda los límites escritos (≤ LIVE_FIXED_CAPS) y devuelve la frase
+     * de confirmación generada con los valores exactos.
+     */
+    setLimits(input: LiveLimitsInput): Promise<LiveLimitsState>;
+    /**
+     * Guarda las claves live en su ranura cifrada separada tras validarlas
+     * contra la cuenta; el renderer nunca las lee de vuelta.
+     */
+    connect(request: LiveConnectRequest): Promise<LiveState>;
+    /**
+     * Activa el modo real: recomprueba toda la lista en el proceso
+     * principal y exige la frase exacta. Si falta algo devuelve los
+     * motivos (no lanza): `activated` queda false.
+     */
+    activate(request: LiveActivateRequest): Promise<LiveActivateResult>;
+    /** Vuelve a paper al instante; conserva límites, checklist e historial. */
+    deactivate(): Promise<LiveState>;
+    /** «Probar parada»: la activa y la reanuda en paper, con registro. */
+    testKillSwitch(): Promise<LiveKillSwitchTestResult>;
+    /** Prueba de humo real: compra 1 USD de SPY, cierra y concilia. */
+    smokeTest(request: LiveSmokeTestRequest): Promise<LiveSmokeTestResult>;
+    /** Evidencia de escalado; esta fase nunca sube los techos. */
+    scaling(): Promise<LiveScalingStatus>;
+    /** Cambió el modo real (activado, suspendido, vuelta a paper). */
+    onChanged(listener: (state: LiveState) => void): () => void;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -1328,6 +1563,23 @@ export interface TradiaApi {
       createDiscrepancy(request: BrokerDiscrepancyRequest): Promise<BrokerDiscrepancyResult>;
       /** Siembra semanas de operaciones paper cerradas. */
       seedWeeks(request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult>;
+    };
+    /** Ganchos de la IA predictiva (fase 6). */
+    ai: {
+      /** Fija el régimen de un activo o del mercado (datos falsos en memoria). */
+      simulateRegime(request: SimulateRegimeRequest): Promise<RegimeSnapshot>;
+      /** Inyecta una revisión de drift con la persistencia indicada. */
+      simulateDrift(request: SimulateDriftRequest): Promise<ModelHealthOverview>;
+    };
+    /** Ganchos del modo real (fase 7). */
+    live: {
+      /**
+       * Siembra la evidencia de los requisitos automáticos (paper,
+       * prueba final, parada y alertas); nunca marca las declaraciones.
+       */
+      seedProgress(request?: LiveSeedProgressRequest): Promise<LiveChecklist>;
+      /** Conmuta el adaptador live al broker real simulado. */
+      useSimulatedBroker(request: LiveSimulatedBrokerRequest): Promise<LiveState>;
     };
   };
 }
@@ -1812,6 +2064,8 @@ const STRATEGY_DRAFT_KEYS = [
   'trainingPeriod',
   'outOfSamplePeriod',
   'regime',
+  'worksIn',
+  'failsIn',
   'assumedCosts',
 ] as const;
 
@@ -1852,6 +2106,14 @@ function checkStrategyDraftFields(
     return null;
   }
   if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  // Etiquetas de régimen estructuradas (fase 6): arrays sin duplicados del
+  // catálogo de cuatro etiquetas; una etiqueta no puede estar en ambos.
+  if ('worksIn' in v && !isRegimeLabelList(v.worksIn)) return null;
+  if ('failsIn' in v && !isRegimeLabelList(v.failsIn)) return null;
+  if (isRegimeLabelList(v.worksIn) && isRegimeLabelList(v.failsIn)) {
+    const fails = new Set(v.failsIn);
+    if (v.worksIn.some((label) => fails.has(label))) return null;
+  }
   return present;
 }
 
@@ -1999,6 +2261,7 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     'walkForward',
     'sensitivity',
     'monteCarlo',
+    'regimeFilter',
   ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isStrategyId(v.strategyId)) return false;
@@ -2045,6 +2308,8 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     if (key === 'sensitivity' && !isSensitivityAxes(opt)) return false;
     if (key === 'monteCarlo' && !isMonteCarloOptions(opt)) return false;
   }
+  // Filtro de régimen (fase 6): flag booleano; false = regresión idéntica.
+  if ('regimeFilter' in v && typeof v.regimeFilter !== 'boolean') return false;
   return true;
 }
 
@@ -2132,7 +2397,7 @@ export function isIsoTimestamp(value: unknown): value is string {
 export function isSignalIntent(value: unknown): value is SignalIntent {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['ticker', 'direction', 'entry', 'stop', 'target', 'confidence', 'origin'];
+  const allowed = ['ticker', 'direction', 'entry', 'stop', 'target', 'confidence', 'origin', 'ai'];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isTicker(v.ticker)) return false;
   if (!isSignalDirection(v.direction)) return false;
@@ -2142,6 +2407,7 @@ export function isSignalIntent(value: unknown): value is SignalIntent {
   // La confianza fuera de 0–1 es una señal anómala del modelo, no una
   // forma inválida: el motor decide el veto y la posible parada.
   if (typeof v.confidence !== 'number' || !Number.isFinite(v.confidence)) return false;
+  if ('ai' in v && !isSignalAiContext(v.ai)) return false;
   return isSignalOrigin(v.origin);
 }
 

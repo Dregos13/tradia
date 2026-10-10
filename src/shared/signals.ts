@@ -13,6 +13,7 @@
  * en la cartera simulada (`risk_portfolio_positions`, fase 3).
  */
 
+import type { SignalAiContext } from './ai';
 import type { RiskDecision, RiskDecisionStatus, SignalDirection } from './risk';
 import type { StrategyStatus } from './strategy';
 
@@ -64,6 +65,13 @@ export interface SignalDataUsed {
   batchVersion: number | null;
   /** Proveedor de las velas ('tiingo', 'simulado'…); null si no consta. */
   source: string | null;
+  /**
+   * Contexto de IA con el que se evaluó (fase 6): régimen del activo,
+   * probabilidad y versión del modelo y referencias a las noticias que
+   * influyeron. Ausente en señales de fases anteriores o si el modelo no
+   * era apto.
+   */
+  ai?: SignalAiContext;
 }
 
 // ---------------------------------------------------------------------------
