@@ -97,6 +97,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       true,
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
+    const liveLink = navigation.getByRole('link', { name: 'Dinero real', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
     const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
     const deviationLink = navigation.getByRole('link', {
@@ -117,7 +118,12 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.keyboard.press('Tab');
     await expect(deviationLink).toBeFocused();
     await page.keyboard.press('Tab');
+    // La fase 7 inserta «Dinero real» entre «Real vs backtest» y Ajustes.
+    await expect(liveLink).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(liveLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(deviationLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');

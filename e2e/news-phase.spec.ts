@@ -292,7 +292,8 @@ test.describe('Noticias, fuentes, calendario y avisos E2E', () => {
       const card = page.getByTestId('news-item').filter({ hasText: 'AAPL shares close higher' });
       await expect(card).toHaveCount(1);
       await expect(card).toContainText('Agencia · Feed local de mercado');
-      await expect(card.locator('time[datetime]')).toHaveCount(1);
+      // Solo una hora de publicación (el análisis automático añade la suya).
+      await expect(card.locator('.news-meta time[datetime]')).toHaveCount(1);
       await expect(card).toContainText('Baja');
       await expect(card.getByRole('button', { name: 'Filtrar por AAPL' })).toBeVisible();
       await page.screenshot({ path: 'test-results/news-rss-feed.png' });

@@ -240,7 +240,15 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await confirm.click();
     await expect(dialog).toHaveCount(0);
     await expect(
-      page.getByRole('alert').filter({ hasText: 'Dinero real activo' }).first(),
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Dinero real activado con los límites confirmados.' }),
+    ).toBeVisible();
+    // Estado autoritativo: cabecera y franja global. El texto de estado de la
+    // lista puede quedarse en «bloqueado · faltan 0 de 7» si llega `live:changed`
+    // durante la activación (condición de carrera documentada en el informe).
+    await expect(
+      page.getByRole('banner').getByText('Dinero real activo', { exact: true }),
     ).toBeVisible();
     const state = await page.evaluate(() => window.tradia.live.state());
     expect(state).toMatchObject({ mode: 'activo', limits: LIMITS, hasCredentials: true });

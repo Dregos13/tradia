@@ -76,7 +76,7 @@ test('biblioteca, versiones, backtest completo, sobreajuste, prueba final y cris
         'Hipótesis',
         'Reglas reproducibles',
         'Mercados y periodos',
-        'Régimen',
+        'Régimen de mercado',
         'Costes asumidos',
         'Registro de cambios',
       ])
