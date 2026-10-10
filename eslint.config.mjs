@@ -14,6 +14,9 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       '.orquesta/**',
+      // Entorno local del pipeline ml/ (ya ignorado por git).
+      '.venv-ml/**',
+      'ml/__pycache__/**',
     ],
   },
   js.configs.recommended,

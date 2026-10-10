@@ -29,6 +29,11 @@ export interface AlpacaFakeServerOptions {
   account?: JsonObject;
   /** Respuesta de `GET /v2/positions`; por defecto el fixture grabado. */
   positions?: unknown[];
+  /**
+   * Prefijo obligatorio de `APCA-API-KEY-ID` (p. ej. 'AK' en el servidor
+   * live): cualquier otra clave recibe 401, como en el endpoint real.
+   */
+  keyPrefix?: string;
 }
 
 const FIXED_NOW = Date.parse('2026-10-08T15:00:00.000Z');
@@ -183,7 +188,12 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
     const path = url.pathname;
     const method = (init?.method ?? 'GET').toUpperCase();
     const headers = new Headers(init?.headers);
-    if (!headers.get('apca-api-key-id') || !headers.get('apca-api-secret-key')) {
+    const keyId = headers.get('apca-api-key-id');
+    if (
+      !keyId ||
+      !headers.get('apca-api-secret-key') ||
+      (options.keyPrefix !== undefined && !keyId.startsWith(options.keyPrefix))
+    ) {
       return json(error401, 401);
     }
 
@@ -227,4 +237,16 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
   };
 
   return fetch;
+}
+
+/**
+ * Servidor falso de la API LIVE de Alpaca (`api.alpaca.markets`): la
+ * misma API REST v2 que el paper, pero exige que `APCA-API-KEY-ID`
+ * empiece por 'AK' —la convención de las claves live— y responde 401 a
+ * cualquier otra, igual que el endpoint real. Lo usa el adaptador live
+ * (`alpacaLive.ts`) en las pruebas de contrato y en el modo E2E
+ * (`live:use-simulated-broker`).
+ */
+export function createAlpacaLiveFakeFetch(options: AlpacaFakeServerOptions = {}): typeof fetch {
+  return createAlpacaFakeFetch({ ...options, keyPrefix: 'AK' });
 }

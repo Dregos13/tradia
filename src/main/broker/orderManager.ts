@@ -208,8 +208,7 @@ const isOpen = (order: BrokerOrder): boolean => OPEN_STATUSES.has(order.status);
 const directionToEntrySide = (signal: Signal): BrokerOrderSide =>
   signal.direction === 'largo' ? 'buy' : 'sell';
 
-const oppositeSide = (side: BrokerOrderSide): BrokerOrderSide =>
-  side === 'buy' ? 'sell' : 'buy';
+const oppositeSide = (side: BrokerOrderSide): BrokerOrderSide => (side === 'buy' ? 'sell' : 'buy');
 
 /** Pata 'entrada'/'salida' si el client_order_id sigue el patrón propio. */
 const legOfClientId = (clientOrderId: string): BrokerOrderLeg | null => {
@@ -709,7 +708,9 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       try {
         remoteOpen = await deps.adapter.listOrders({ openOnly: true });
       } catch (error: unknown) {
-        logger.warn?.(`[ordenes] no se pudieron listar las órdenes del broker: ${errorMessage(error)}`);
+        logger.warn?.(
+          `[ordenes] no se pudieron listar las órdenes del broker: ${errorMessage(error)}`,
+        );
         result.unreachable = true;
         return result;
       }

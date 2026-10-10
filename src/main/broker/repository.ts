@@ -388,9 +388,7 @@ export function createBrokerRepository(
        estado, intentos, motivo_rechazo, oco_group_id
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const selectOrderById = db.prepare(
-    `SELECT ${ORDER_COLUMNS} FROM ${ordersTable} WHERE id = ?`,
-  );
+  const selectOrderById = db.prepare(`SELECT ${ORDER_COLUMNS} FROM ${ordersTable} WHERE id = ?`);
   const selectOrderByClientId = db.prepare(
     `SELECT ${ORDER_COLUMNS} FROM ${ordersTable} WHERE client_order_id = ?`,
   );
@@ -650,11 +648,8 @@ export function createBrokerRepository(
         if (code !== 'SQLITE_CONSTRAINT_UNIQUE' && code !== 'SQLITE_CONSTRAINT') throw error;
       }
       if (row === null) {
-        const existing = selectAlertByKey.get(
-          input.strategyId,
-          input.period,
-          input.desde,
-        ) as DeviationAlertRow | undefined;
+        const existing = selectAlertByKey.get(input.strategyId, input.period, input.desde) as
+          DeviationAlertRow | undefined;
         if (existing === undefined) {
           throw new Error('deviation_alerts: inserción fallida sin fila previa');
         }

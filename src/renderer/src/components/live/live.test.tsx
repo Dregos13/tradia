@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   LIVE_DECLARATION_REQUIREMENTS,
-  liveConfirmationPhrase,
   type LiveState,
   type LiveSmokeTestResult,
   type LiveScalingStatus,
@@ -310,6 +309,11 @@ it('envía una sola prueba y muestra ejecución, cierre, conciliación y datos r
   expect(steps[0]).toHaveTextContent('Completado');
   expect(steps[1]).toHaveTextContent('Completado');
   expect(steps[2]).toHaveTextContent('En curso');
+  expect(screen.getByText('Prueba en curso · Posición cerrada')).toHaveAttribute('role', 'status');
+  expect(screen.getByRole('region', { name: 'Prueba de humo · 1,00 USD reales' })).toHaveAttribute(
+    'aria-busy',
+    'false',
+  );
   await act(async () => pending.resolve(smoke));
   expect(await screen.findByText('Cerrada y conciliada')).toBeVisible();
   expect(screen.getByText('673,42 USD')).toBeVisible();
@@ -435,12 +439,49 @@ it.each(['bloqueado', 'en-evidencia', 'elegible'] as const)(
   },
 );
 it('escalado vacío y error conservan el bloqueo y permiten volver a consultar', async () => {
+  const snapshot = await adapter.api.live.scaling();
   vi.spyOn(adapter.api.live, 'scaling')
     .mockRejectedValueOnce(new Error('offline'))
-    .mockResolvedValue(await adapter.api.live.scaling());
+    .mockResolvedValue(snapshot);
   render(<ScalingStatus />);
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la evidencia');
   await userEvent.click(screen.getByRole('button', { name: 'Reintentar evidencia' }));
   expect(await screen.findByText(/Todavía no hay operaciones/)).toBeVisible();
   expect(screen.getAllByText('Sin muestra suficiente')).toHaveLength(2);
+});
+
+it('no entrega las claves si se pierde conexión mientras revalida la lista', async () => {
+  await completeChecklist();
+  const snapshot = await adapter.api.live.checklist();
+  const pending = deferred<typeof snapshot>();
+  vi.spyOn(adapter.api.live, 'checklist')
+    .mockResolvedValueOnce(snapshot)
+    .mockReturnValue(pending.promise);
+  const connect = vi.spyOn(adapter.api.live, 'connect');
+  render(<LiveBrokerSettings />);
+  await userEvent.type(await screen.findByLabelText('Clave de API live'), 'AKTESTKEY123');
+  await userEvent.type(screen.getByLabelText('Secreto de API live'), 'private-secret');
+  await userEvent.click(screen.getByRole('button', { name: 'Verificar y guardar claves live' }));
+  act(() =>
+    adapter.emitConnectivity({
+      status: 'offline',
+      lastCheckedAt: at,
+      nextRetryAt: null,
+      attempt: 1,
+    }),
+  );
+  await act(async () => pending.resolve(snapshot));
+  expect(connect).not.toHaveBeenCalled();
+  expect(await screen.findByRole('alert')).toHaveTextContent('La conexión o el modo ha cambiado');
+});
+
+it('bloquea una segunda prueba después de un error cuyo envío podría haber llegado al broker', async () => {
+  vi.spyOn(adapter.api.live, 'smokeTest').mockRejectedValue(new Error('Tiempo de espera agotado.'));
+  await activePanel();
+  await runSmoke();
+  expect(await screen.findByText('Tiempo de espera agotado.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Ejecutar prueba de 1,00 USD' })).toBeDisabled();
+  expect(
+    screen.getByText('Revisa la orden y su conciliación antes de repetir una prueba.'),
+  ).toBeVisible();
 });

@@ -9,11 +9,17 @@
  * al saltar la parada o perder la conexión, y registra los canales
  * `live:*` de esta tarea.
  *
+ * Además monta `createLiveBrokerService` (live/broker.ts): el broker
+ * real con su ranura de claves separada, la puerta de la lista y los
+ * techos por orden sobre `broker_orders_live` (migración 012). Las
+ * señales aprobadas se ejecutan en la cuenta real solo cuando
+ * `liveExecutionActive()` —modo 'activo' y cuenta conectada—; el broker
+ * paper se las cede (`isLiveExecution` en broker/index.ts).
+ *
  * Canales cubiertos aquí: checklist, state, declare, set-limits,
- * activate, deactivate, test-kill-switch y el gancho E2E seed-progress.
- * `live:connect`, `live:smoke-test`, `live:scaling` y
- * `live:use-simulated-broker` los registran sus propias tareas
- * (be-broker-real y be-prueba-humo-escalado).
+ * activate, deactivate, test-kill-switch, connect, el gancho E2E
+ * seed-progress y el conmutador E2E use-simulated-broker.
+ * `live:smoke-test` y `live:scaling` los registra be-prueba-humo-escalado.
  */
 import { app, ipcMain } from 'electron';
 
@@ -24,15 +30,22 @@ import {
   isDeliveryConfigInput,
   isE2eEnabled,
   isLiveActivateRequest,
+  isLiveConnectRequest,
   isLiveDeclareRequest,
   isLiveLimitsInput,
   isLiveSeedProgressRequest,
+  isLiveSimulatedBrokerRequest,
 } from '../../shared/ipc';
 import { LIVE_BROKER_SECRET_KEYS } from '../../shared/live';
+import { createAlpacaLiveBroker } from '../broker/alpacaLive';
 import { expectationFromReport } from '../broker/deviation';
+import type { BrokerSecretsStore } from '../broker/index';
+import { createBrokerRepository } from '../broker/repository';
+import { createAlpacaLiveFakeFetch } from '../broker/__fixtures__/fake-server';
 import { openDatabase } from '../db/database';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
 import type { ServiceContext } from '../services';
+import { createLiveBrokerService, type LiveBrokerService } from './broker';
 import { DELIVERY_TEST_EVIDENCE_KEY, type AlertTestEvidence } from './checklist';
 import {
   createLiveEvidenceStore,
@@ -42,6 +55,19 @@ import {
 } from './service';
 
 export type { LiveService } from './service';
+export type { LiveBrokerService } from './broker';
+
+/**
+ * Lo que `registerLive` devuelve y `services.live` publica: el servicio
+ * de la lista y del modo, más el broker real y el conmutador que decide
+ * si las señales se ejecutan en real (el broker paper lo consulta).
+ */
+export interface LiveServices extends LiveService {
+  /** Broker real: conexión, claves live y ejecución con techos. */
+  readonly broker: LiveBrokerService;
+  /** true con modo 'activo' y cuenta live conectada (señales → real). */
+  liveExecutionActive(): boolean;
+}
 
 const DELIVERY_TESTABLE_CHANNELS = ['telegram', 'correo'] as const;
 
@@ -56,7 +82,16 @@ const isAlertTestEvidence = (value: unknown): value is AlertTestEvidence => {
   );
 };
 
-export function registerLive(ctx: ServiceContext): LiveService {
+/** Almacén de claves para cuando `services.secrets` no está disponible. */
+const unavailableSecrets: BrokerSecretsStore = {
+  setKey: () =>
+    Promise.reject(new Error('El almacén de claves cifradas no está disponible en esta sesión.')),
+  hasKey: () => Promise.resolve(false),
+  deleteKey: () => Promise.resolve(),
+  getKey: () => Promise.resolve(null),
+};
+
+export function registerLive(ctx: ServiceContext): LiveServices {
   // Mismo patrón que registerKillSwitch: sin base de datos el servicio
   // degrada a memoria y la app sigue arrancando.
   let db = ctx.services.storage?.getDb() ?? null;
@@ -65,9 +100,14 @@ export function registerLive(ctx: ServiceContext): LiveService {
     db = openDatabase(':memory:');
   }
   const settings = ctx.services.settings;
+  const store = createLiveStore(db);
+  // Las órdenes reales viven aisladas de las paper (migración 012): ni la
+  // conciliación ni la muestra de «paper continuo» las mezclan.
+  const liveRepository = createBrokerRepository(db, { ordersTable: 'broker_orders_live' });
+  const secrets = ctx.services.secrets ?? unavailableSecrets;
 
   const service = createLiveService({
-    store: createLiveStore(db),
+    store,
     evidence: createLiveEvidenceStore(
       settings ? (key) => settings.getValue(key) : undefined,
       settings ? (key, value) => settings.setValue(key, value) : undefined,
@@ -139,22 +179,60 @@ export function registerLive(ctx: ServiceContext): LiveService {
           resume: (request) => ctx.services.killSwitch!.resume(request),
         }
       : undefined,
-    hasLiveCredentials: () =>
-      ctx.services.secrets?.hasKey(LIVE_BROKER_SECRET_KEYS.apiKeyId) ?? Promise.resolve(false),
+    hasLiveCredentials: () => secrets.hasKey(LIVE_BROKER_SECRET_KEYS.apiKeyId),
     recordJournal: (input) => ctx.services.journal?.record(input),
     notify: (payload) => ctx.services.notifications?.notify(payload),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
     logger: console,
   });
 
-  // La parada (`risk:changed`) y la pérdida de conexión suspenden el modo
-  // real al instante: envoltura de ctx.broadcast como en broker/delivery.
+  // La puerta del modo real: la lista completa, evaluada en el proceso
+  // principal en cada construcción del adaptador y en cada envío.
+  const liveGateOpen = (): boolean => service.getChecklist().allComplete;
+  const e2eEnabled = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+
+  const liveBroker = createLiveBrokerService({
+    live: service,
+    store,
+    repository: liveRepository,
+    secrets,
+    createAdapter: (getCredentials) =>
+      createAlpacaLiveBroker({
+        fetch: globalThis.fetch,
+        getCredentials,
+        isLiveGateOpen: liveGateOpen,
+      }),
+    // Solo E2E y sin empaquetar: el adaptador live contra el servidor
+    // falso de __fixtures__ (misma API, mismo contrato, sin red).
+    createSimulatedAdapter: e2eEnabled
+      ? (getCredentials) =>
+          createAlpacaLiveBroker({
+            fetch: createAlpacaLiveFakeFetch(),
+            getCredentials,
+            isLiveGateOpen: liveGateOpen,
+          })
+      : undefined,
+    isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
+    isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
+    getSignal: (id) => ctx.services.signals?.engine.getSignal(id) ?? null,
+    recordJournal: (input) => ctx.services.journal?.record(input),
+    emitOrderUpdated: (order) => ctx.broadcast(IPC_CHANNELS.broker.orderUpdated, order),
+    broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    logger: console,
+  });
+
+  // La parada (`risk:changed`), la pérdida de conexión y las señales
+  // aprobadas llegan por la envoltura de ctx.broadcast (mismo patrón que
+  // broker/delivery). Las señales solo pasan al gestor live cuando el
+  // modo real está 'activo' y la cuenta conectada.
   const innerBroadcast = ctx.broadcast;
   ctx.broadcast = (channel, payload) => {
     innerBroadcast(channel, payload);
     if (channel === IPC_CHANNELS.risk.changed) service.handleRiskChanged(payload);
     else if (channel === IPC_CHANNELS.connectivity.changed) {
       service.handleConnectivityChange(payload);
+    } else if (channel === IPC_CHANNELS.signals.new) {
+      liveBroker.handleSignalEvent(payload);
     }
   };
 
@@ -178,6 +256,15 @@ export function registerLive(ctx: ServiceContext): LiveService {
     }
     return service.setLimits(input);
   });
+  ipcMain.handle(IPC_CHANNELS.live.connect, (_event, request: unknown) => {
+    if (!isLiveConnectRequest(request)) {
+      throw new IpcValidationError(
+        IPC_CHANNELS.live.connect,
+        'se esperaba {apiKeyId, apiSecret} de una cuenta live (prefijo «AK»)',
+      );
+    }
+    return liveBroker.connect(request);
+  });
   ipcMain.handle(IPC_CHANNELS.live.activate, (_event, request: unknown) => {
     if (!isLiveActivateRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.live.activate, 'se esperaba {phrase}');
@@ -187,9 +274,10 @@ export function registerLive(ctx: ServiceContext): LiveService {
   ipcMain.handle(IPC_CHANNELS.live.deactivate, () => service.deactivate());
   ipcMain.handle(IPC_CHANNELS.live.testKillSwitch, () => service.testKillSwitch());
 
-  // Gancho E2E: siembra la evidencia de los requisitos automáticos. En la
-  // app empaquetada el handler no existe (isE2eEnabled la descarta).
-  if (isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E)) {
+  // Ganchos E2E: siembra la evidencia de los requisitos automáticos y
+  // conmuta el adaptador live al broker real simulado. En la app
+  // empaquetada los handlers no existen (isE2eEnabled los descarta).
+  if (e2eEnabled) {
     ipcMain.handle(IPC_CHANNELS.live.seedProgress, (_event, request: unknown) => {
       if (!isLiveSeedProgressRequest(request)) {
         throw new IpcValidationError(
@@ -199,7 +287,26 @@ export function registerLive(ctx: ServiceContext): LiveService {
       }
       return service.seedProgress(request);
     });
+    ipcMain.handle(IPC_CHANNELS.live.useSimulatedBroker, (_event, request: unknown) => {
+      if (!isLiveSimulatedBrokerRequest(request)) {
+        throw new IpcValidationError(
+          IPC_CHANNELS.live.useSimulatedBroker,
+          'se esperaba {enabled: boolean}',
+        );
+      }
+      return liveBroker.useSimulatedBroker(request.enabled);
+    });
   }
 
-  return service;
+  // Con claves guardadas y la lista vigente la cuenta real reconecta
+  // sola (mismo patrón que el broker paper).
+  void liveBroker.restore().catch((error: unknown) => {
+    console.warn('[live] la restauración de la cuenta real falló:', error);
+  });
+
+  return {
+    ...service,
+    broker: liveBroker,
+    liveExecutionActive: () => liveBroker.liveExecutionActive(),
+  };
 }

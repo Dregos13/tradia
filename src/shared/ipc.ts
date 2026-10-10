@@ -845,7 +845,7 @@ export const DATA_STATUS_STATES = [
 export type DataStatusState = (typeof DATA_STATUS_STATES)[number];
 
 export interface DataStatusEntry {
-  /** 'ticker:AAPL', 'macro:DFF' o 'provider:tiingo' (ver `dataStatusKey`). */
+  /** 'ticker:AAPL', 'macro:DFF', 'provider:tiingo' o 'modelo:0.1.0' (ver `dataStatusKey`). */
   key: string;
   state: DataStatusState;
   /** Último dato correcto conocido (ISO 8601), o null si nunca lo hubo. */
@@ -862,6 +862,8 @@ export const dataStatusKey = {
   ticker: (ticker: string) => `ticker:${ticker}`,
   macro: (seriesId: string) => `macro:${seriesId}`,
   provider: (providerId: string) => `provider:${providerId}`,
+  /** Modelo predictivo servido ('modelo:0.1.0'): su carga o degradación. */
+  modelo: (version: string) => `modelo:${version}`,
 } as const;
 
 export interface MacroObservation {

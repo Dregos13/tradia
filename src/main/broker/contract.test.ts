@@ -7,8 +7,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { BROKER_ORDER_OPEN_STATUSES } from '../../shared/broker';
-import { createAlpacaFakeFetch } from './__fixtures__/fake-server';
+import { createAlpacaFakeFetch, createAlpacaLiveFakeFetch } from './__fixtures__/fake-server';
 import { createAlpacaBroker } from './alpaca';
+import { createAlpacaLiveBroker } from './alpacaLive';
 import { createSimulatedBroker } from './simulated';
 import {
   BROKER_ERROR_KINDS,
@@ -20,17 +21,29 @@ import {
 
 const SIMULATED_NOW = Date.parse('2026-10-08T15:00:00.000Z');
 
-const adapters: Array<{ name: string; make: () => BrokerAdapter }> = [
+const adapters: Array<{ name: string; paper: boolean; make: () => BrokerAdapter }> = [
   {
     name: 'simulated',
+    paper: true,
     make: () => createSimulatedBroker({ seed: 'contract', now: () => SIMULATED_NOW }),
   },
   {
     name: 'alpaca',
+    paper: true,
     make: () =>
       createAlpacaBroker({
         fetch: createAlpacaFakeFetch(),
         getCredentials: async () => ({ apiKeyId: 'PK-TEST', apiSecret: 'SK-TEST' }),
+      }),
+  },
+  {
+    name: 'alpaca-live',
+    paper: false,
+    make: () =>
+      createAlpacaLiveBroker({
+        fetch: createAlpacaLiveFakeFetch(),
+        getCredentials: async () => ({ apiKeyId: 'AK-TEST', apiSecret: 'SK-TEST' }),
+        isLiveGateOpen: () => true,
       }),
   },
 ];
@@ -47,18 +60,18 @@ const request = (patch: Partial<BrokerOrderRequest>): BrokerOrderRequest => ({
 
 const OPEN = BROKER_ORDER_OPEN_STATUSES as readonly string[];
 
-describe.each(adapters)('contrato BrokerAdapter — $name', ({ make }) => {
-  it('declara id estable y modo solo paper', () => {
+describe.each(adapters)('contrato BrokerAdapter — $name', ({ make, paper }) => {
+  it('declara id estable y su indicador de cuenta paper', () => {
     const adapter = make();
     expect(adapter.id).toEqual(expect.any(String));
     expect(adapter.id.length).toBeGreaterThan(0);
-    expect(adapter.paperOnly).toBe(true);
+    expect(adapter.paperOnly).toBe(paper);
   });
 
-  it('getAccount devuelve una cuenta paper con saldo', async () => {
+  it('getAccount devuelve una cuenta con saldo y su indicador paper', async () => {
     const adapter = make();
     const account = await adapter.getAccount();
-    expect(account.paper).toBe(true);
+    expect(account.paper).toBe(paper);
     expect(account.accountId).toEqual(expect.any(String));
     expect(account.currency).toBe('USD');
     expect(account.cash).toBeGreaterThan(0);

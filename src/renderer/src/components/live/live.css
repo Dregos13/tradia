@@ -86,6 +86,7 @@
   margin-bottom: var(--space-4);
 }
 .live-broker {
+  padding: var(--space-5);
   display: grid;
   gap: var(--space-4);
 }

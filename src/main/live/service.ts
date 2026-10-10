@@ -156,6 +156,15 @@ export interface LiveStore {
     suspendidoEn: string | null;
     actualizadoEn: string;
   }): void;
+  /**
+   * Anota el broker y la cuenta enmascarada de la conexión live para la
+   * franja (`live_mode.broker`/`cuenta`); null al desconectar.
+   */
+  setConnection(patch: {
+    broker: string | null;
+    cuenta: string | null;
+    actualizadoEn: string;
+  }): void;
   /** Estrategias candidatas (paper/activa) con su versión vigente. */
   listCandidates(): { strategyId: number; version: number; name: string }[];
   /** true si la versión tiene un run 'prueba-final' guardado. */
@@ -205,6 +214,9 @@ export function createLiveStore(db: Database.Database): LiveStore {
   const setModeStmt = db.prepare(
     `UPDATE live_mode SET estado = ?, motivo_suspension = ?, detalle_suspension = ?,
        activado_en = ?, suspendido_en = ?, actualizado_en = ? WHERE id = 1`,
+  );
+  const setConnectionStmt = db.prepare(
+    `UPDATE live_mode SET broker = ?, cuenta = ?, actualizado_en = ? WHERE id = 1`,
   );
   const candidatesStmt = db.prepare(
     `SELECT s.id AS strategy_id, v.version AS version, v.nombre AS name
@@ -276,6 +288,10 @@ export function createLiveStore(db: Database.Database): LiveStore {
         patch.suspendidoEn,
         patch.actualizadoEn,
       );
+    },
+
+    setConnection: (patch) => {
+      setConnectionStmt.run(patch.broker, patch.cuenta, patch.actualizadoEn);
     },
 
     listCandidates: () =>

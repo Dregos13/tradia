@@ -150,12 +150,7 @@ export const BROKER_ERROR_KINDS = [
 export type BrokerErrorKind = (typeof BROKER_ERROR_KINDS)[number];
 
 /** Kinds de `BrokerError` que corresponden a un fallo real del broker. */
-const RETRYABLE_KINDS: readonly BrokerErrorKind[] = [
-  'rate-limit',
-  'server',
-  'timeout',
-  'network',
-];
+const RETRYABLE_KINDS: readonly BrokerErrorKind[] = ['rate-limit', 'server', 'timeout', 'network'];
 
 export interface BrokerErrorDetails {
   /** Adaptador que lanzó el error ('alpaca', 'simulado'). */

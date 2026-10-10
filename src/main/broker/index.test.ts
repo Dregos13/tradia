@@ -605,4 +605,22 @@ describe('registerBroker · envoltura de broadcast', () => {
     // El evento siguió llegando al renderer (seguimiento local intacto).
     expect(sent.some((m) => m.channel === IPC_CHANNELS.signals.new)).toBe(true);
   });
+
+  it('con el modo real operando la señal no la ejecuta el gestor paper', async () => {
+    const { ctx } = await connectSimulated();
+    // El modo real está activo con su cuenta: las señales son del broker live.
+    ctx.services.live = { liveExecutionActive: () => true } as never;
+
+    const signal = seedSignal();
+    ctx.broadcast(IPC_CHANNELS.signals.new, { signal });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(repo.listOrders({})).toEqual([]);
+
+    // Con el modo real fuera, la misma señal sí la toma el paper.
+    ctx.services.live = { liveExecutionActive: () => false } as never;
+    const next = seedSignal();
+    ctx.broadcast(IPC_CHANNELS.signals.new, { signal: next });
+    await waitFor(() => repo.listOrders({}).length > 0);
+    expect(repo.listOrders({})).toHaveLength(1);
+  });
 });

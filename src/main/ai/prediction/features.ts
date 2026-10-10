@@ -17,14 +17,7 @@
  * - Todas las variables están definidas a partir de `t = 49` (la más
  *   exigente es `sma_ratio_50`); antes, la fila es `null`.
  */
-import {
-  atr,
-  ema,
-  rsi,
-  sma,
-  type Candle,
-  type IndicatorSeries,
-} from '../../../shared/indicators';
+import { atr, ema, rsi, sma, type Candle, type IndicatorSeries } from '../../../shared/indicators';
 
 /** Vela diaria ajustada que necesitan las variables (OHLCV + sesión). */
 export interface PredictionCandle extends Candle {

@@ -502,8 +502,7 @@ export function runBacktest(input: BacktestInput): BacktestResult {
       while (refIndex < refBars.length && refBars[refIndex]!.date <= date) {
         refIndex++;
       }
-      const current =
-        refIndex === 0 ? null : classifier.classifyAt(refIndex - 1);
+      const current = refIndex === 0 ? null : classifier.classifyAt(refIndex - 1);
       regimeEnabled.set(
         date,
         resolveStrategyRegime(filter, 'activa', current).regimeState !== 'desactivada',

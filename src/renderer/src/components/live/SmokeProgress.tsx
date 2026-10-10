@@ -42,32 +42,37 @@ export function SmokeProgress({
   ];
   const current = steps.findIndex((step) => !step.complete);
   return (
-    <ol className="live-smoke-steps" aria-label="Pasos de la prueba de humo">
-      {steps.map((step, index) => {
-        const status = step.failed
-          ? 'Fallido'
-          : step.complete
-            ? 'Completado'
-            : running && index === current
-              ? 'En curso'
-              : result?.failedStep && index > current
-                ? 'No ejecutado'
-                : 'Pendiente';
-        return (
-          <li
-            key={step.label}
-            className={`live-smoke-step ${step.failed ? 'live-smoke-failed' : step.complete ? 'live-smoke-complete' : running && index === current ? 'live-smoke-running' : ''}`}
-            aria-current={running && index === current ? 'step' : undefined}
-          >
-            <LiveIcon kind={step.failed ? 'pendiente' : step.complete ? 'cumplido' : 'revisar'} />
-            <div>
-              <strong>{step.label}</strong>
-              <span>{status}</span>
-              {step.at && <time dateTime={step.at}>{time(step.at)}</time>}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <p role="status" aria-atomic="true" className="live-meta">
+        {running && current >= 0 ? `Prueba en curso · ${steps[current]?.label}` : ''}
+      </p>
+      <ol className="live-smoke-steps" aria-label="Pasos de la prueba de humo">
+        {steps.map((step, index) => {
+          const status = step.failed
+            ? 'Fallido'
+            : step.complete
+              ? 'Completado'
+              : running && index === current
+                ? 'En curso'
+                : result?.failedStep && index > current
+                  ? 'No ejecutado'
+                  : 'Pendiente';
+          return (
+            <li
+              key={step.label}
+              className={`live-smoke-step ${step.failed ? 'live-smoke-failed' : step.complete ? 'live-smoke-complete' : running && index === current ? 'live-smoke-running' : ''}`}
+              aria-current={running && index === current ? 'step' : undefined}
+            >
+              <LiveIcon kind={step.failed ? 'pendiente' : step.complete ? 'cumplido' : 'revisar'} />
+              <div>
+                <strong>{step.label}</strong>
+                <span>{status}</span>
+                {step.at && <time dateTime={step.at}>{time(step.at)}</time>}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }

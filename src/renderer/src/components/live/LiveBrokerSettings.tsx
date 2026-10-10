@@ -31,6 +31,7 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
   const summary = useRef<HTMLParagraphElement>(null);
   const working = useRef(false);
   const mounted = useRef(false);
+  const available = useRef(false);
   const generation = useRef(0);
   const reload = useCallback(async () => {
     const version = ++generation.current;
@@ -71,6 +72,7 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
     !live.loading;
   const operating = live.state?.mode === 'activo' || live.state?.mode === 'suspendido';
   const disabled = !allowed || !safety.online || operating || busy;
+  available.current = allowed && safety.online && !operating;
   const credentials = { apiKeyId: key.trim(), apiSecret: secret.trim() };
   const keyValid =
     credentials.apiKeyId.startsWith('AK') &&
@@ -109,6 +111,8 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
         setChecklist(fresh);
         throw new Error('La lista ha cambiado. Completa los requisitos antes de conectar.');
       }
+      if (!mounted.current || !available.current)
+        throw new Error('La conexión o el modo ha cambiado. Verifica el estado antes de conectar.');
       const next = await window.tradia.live.connect(credentials);
       if (!mounted.current) return;
       live.accept(next);
@@ -182,8 +186,8 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
             <fieldset disabled={disabled}>
               <legend>Conexión de Alpaca Live</legend>
               <div className="live-fields">
-                <label className="live-field" htmlFor={`${id}-key`}>
-                  Clave de API live
+                <div className="live-field">
+                  <label htmlFor={`${id}-key`}>Clave de API live</label>
                   <input
                     ref={first}
                     id={`${id}-key`}
@@ -202,9 +206,9 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
                       ? 'Introduce una clave live con prefijo AK, de 6 a 256 caracteres alfanuméricos o guiones.'
                       : 'Usa la clave de la cuenta live (prefijo AK).'}
                   </span>
-                </label>
-                <label className="live-field" htmlFor={`${id}-secret`}>
-                  Secreto de API live
+                </div>
+                <div className="live-field">
+                  <label htmlFor={`${id}-secret`}>Secreto de API live</label>
                   <input
                     id={`${id}-secret`}
                     type="password"
@@ -222,7 +226,7 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
                       ? 'Introduce un secreto de 6 a 256 caracteres alfanuméricos o guiones.'
                       : 'No se vuelve a mostrar después de enviarlo.'}
                   </span>
-                </label>
+                </div>
               </div>
               <p>
                 Las claves se cifran en el llavero del sistema. Declara que no permiten retirar

@@ -71,7 +71,7 @@ export function SmokeTestPanel({
     live.state.limits.openPositions < 1
       ? ['Los límites confirmados deben permitir la prueba de 1,00 USD.']
       : []),
-    ...(failed ? ['Revisa la orden y su conciliación antes de repetir una prueba.'] : []),
+    ...(failed || error ? ['Revisa la orden y su conciliación antes de repetir una prueba.'] : []),
   ];
   canRun.current = reasons.length === 0 && !running;
   useEffect(() => {
@@ -110,7 +110,7 @@ export function SmokeTestPanel({
     <section
       className="live-surface live-sheet live-smoke"
       aria-labelledby={`${id}-title`}
-      aria-busy={live.loading || running}
+      aria-busy={live.loading}
     >
       <style>{liveTokens()}</style>
       <header className="live-panel-head">

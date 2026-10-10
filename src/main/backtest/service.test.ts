@@ -170,9 +170,14 @@ describe('semilla de estrategias clásicas', () => {
     await h.service.seedResults();
     const summary = h.strategies.list()[0]!;
     const runs = h.service.listRuns({ strategyId: summary.id });
-    expect(runs).toHaveLength(1);
+    // El canónico sin filtro y el lado filtrado de la comparación semilla.
+    expect(runs).toHaveLength(2);
     expect(summary.metricsSummary).not.toBeNull();
-    const report = h.service.getRun(runs[0]!.id)!;
+    const reports = runs.map((run) => h.service.getRun(run.id)!);
+    const report = reports.find((run) => run.config.regimeFilter !== true)!;
+    expect(report).toBeDefined();
+    expect(reports.find((run) => run.config.regimeFilter === true)).toBeDefined();
+    expect(h.service.getRegimeComparison({ strategyId: summary.id })).not.toBeNull();
     expect(report.walkForward!.windows.length).toBeGreaterThan(0);
     for (const window of report.walkForward!.windows) {
       expect(window.params.fastPeriod).toBeLessThan(window.params.slowPeriod!);
@@ -191,10 +196,18 @@ describe('semilla de estrategias clásicas', () => {
     expect(list).toHaveLength(4);
     for (const summary of list) {
       const runs = h.service.listRuns({ strategyId: summary.id, version: 1 });
+      // Dos 'completo': el canónico sin filtro y el lado filtrado de la
+      // comparación emparejada que también siembra el primer arranque.
       expect(
         runs.filter((r) => r.kind === 'completo'),
-        `la estrategia ${summary.id} no tiene backtest semilla`,
-      ).toHaveLength(1);
+        `la estrategia ${summary.id} no tiene el par semilla`,
+      ).toHaveLength(2);
+
+      const comparison = h.service.getRegimeComparison({ strategyId: summary.id });
+      expect(comparison, `la estrategia ${summary.id} no tiene comparación`).not.toBeNull();
+      expect(comparison!.comparable).toBe(true);
+      expect(comparison!.withoutFilter.runId).not.toBeNull();
+      expect(comparison!.withFilter.runId).not.toBeNull();
 
       const stress = h.service.getStress({ strategyId: summary.id });
       expect(stress.map((r) => r.crisisId).sort()).toEqual(['2008', '2020', '2022']);
@@ -203,7 +216,9 @@ describe('semilla de estrategias clásicas', () => {
         expect(row.providerId).toBe(SIMULATED_PROVIDER_ID);
       }
 
-      const report = h.service.getRun(runs[0]!.id)!;
+      const report = runs
+        .map((run) => h.service.getRun(run.id)!)
+        .find((run) => run.config.regimeFilter !== true)!;
       expect(report.walkForward?.trainSize).toBe(756);
       expect(report.walkForward?.testSize).toBe(252);
       expect(report.walkForward!.windows.length).toBeGreaterThan(0);

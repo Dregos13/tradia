@@ -1,3 +1,4 @@
+import { OrderModeBadge } from './OrderModeBadge';
 import type { BrokerOrder } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES } from '../../../../shared/broker';
 import { number, orderStatuses, orderTypes, price, slippage, time } from './orderPresentation';
@@ -42,6 +43,9 @@ export function OrderRow({
           {time(order.execution.requestedAt)}
         </time>
         {order.execution.executedAt && <small>Ejecutada: {time(order.execution.executedAt)}</small>}
+      </td>
+      <td>
+        <OrderModeBadge order={order} />
       </td>
       <td>
         <strong>{order.ticker}</strong>

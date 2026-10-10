@@ -1,29 +1,105 @@
-# Broker en modo paper (fase 5)
+# Broker: paper (fase 5) y real mínimo (fase 7)
 
 La app se conecta a una **cuenta de paper trading del broker** para
 ejecutar las señales aprobadas con dinero simulado, concilia su registro
-con el del broker y compara los resultados reales con el backtest. El
-dinero real sigue fuera del alcance (ver `docs/alcance.md`, sección 3).
+con el del broker y compara los resultados reales con el backtest. Con
+la lista del modo real cumplida, límites escritos y la frase de
+confirmación, puede además conectar una **cuenta real mínima**
+(máximo 1 000 USD) en `api.alpaca.markets`, con sus propias claves, su
+propia tabla de órdenes y sus propios techos.
 
 Piezas: `src/main/broker/alpaca.ts` (adaptador Alpaca paper),
+`alpacaLive.ts` (adaptador Alpaca live con la puerta de la lista),
 `simulated.ts` (broker simulado para pruebas y E2E), `orderManager.ts`
 (envío, reintentos y huérfanas), `reconcileService.ts` (conciliación),
 `deviationService.ts` (informe real vs backtest), `repository.ts`
-(persistencia, migración 010) e `index.ts` (servicio, IPC y ganchos).
+(persistencia de ambas tablas, migraciones 010 y 012) e `index.ts`
+(servicio, IPC y ganchos). El modo real vive en `src/main/live/`:
+`service.ts` (lista, modo y límites), `broker.ts` (conexión, claves y
+ejecución real), `orderGuard.ts` (los techos por orden) e `index.ts`
+(IPC `live:*` y enrutado de señales).
+
+## Separación paper/real (inviolable)
+
+- **URL fija cada adaptador**: `https://paper-api.alpaca.markets` para
+  paper y `https://api.alpaca.markets` para real. Cualquier otra URL
+  lanza `BrokerError('bad-data')` en el constructor —ninguna URL llega
+  desde la interfaz, un fichero o un canal IPC.
+- **Claves en ranuras distintas**: las paper (`broker-alpaca-key-id`,
+  `broker-alpaca-secret`, prefijo `PK`) y las live
+  (`broker-alpaca-live-key-id`, `broker-alpaca-live-secret`, prefijo
+  `AK`) nunca comparten ranura ni se aceptan cruzadas: unas `PK…` en
+  `live:connect` y unas `AK…` en `broker:connect` se rechazan antes de
+  tocar la red, con mensaje claro y sin guardar nada.
+- **Tablas de órdenes distintas**: las paper van a `broker_orders`
+  (migración 010) y las reales a `broker_orders_live` (migración 012,
+  mismo esquema). La conciliación, el informe real vs backtest y la
+  muestra «3 meses de paper» solo leen la tabla paper; la guarda de
+  techos solo lee la live. El repositorio interpola el nombre de la
+  tabla desde una lista blanca de dos valores —nunca texto de fuera.
+- **Una señal nunca sale dos veces**: con el modo real 'activo' y la
+  cuenta live conectada, `liveExecutionActive` hace que el gestor paper
+  ceda las señales al gestor real; el resto del tiempo las ejecuta el
+  paper como siempre.
 
 ## Solo paper
 
-- El adaptador real es Alpaca con la URL fija
-  `https://paper-api.alpaca.markets`: cualquier otra URL lanza
-  `BrokerError('bad-data')` en el constructor, así que una cuenta live
-  nunca se prueba por accidente.
-- Además, el servicio rechaza antes de tocar la red las claves cuyo id no
-  empieza por `PK` (la convención de Alpaca para paper; las live usan
-  `AK`). El mensaje es claro: «Estas claves no corresponden a una cuenta
-  paper. No se han guardado.»
+- Además de la URL fija, el servicio rechaza antes de tocar la red las
+  claves cuyo id no empieza por `PK` (la convención de Alpaca para
+  paper; las live usan `AK`). El mensaje es claro: «Estas claves no
+  corresponden a una cuenta paper. No se han guardado.»
 - La cuenta se valida contra el endpoint paper **antes** de guardar las
   claves: unas credenciales inválidas obtienen 401 y no se persisten.
 - En Ajustes la cuenta aparece con la insignia «Solo paper».
+
+## Dinero real mínimo (fase 7)
+
+La cuenta real solo existe si la **lista de comprobación** está
+completa (`live:checklist` → `allComplete`). Sin ella:
+
+- `live:connect` se rechaza con «La lista de comprobación del modo real
+  no está completa. Las claves live no se han guardado.»
+- `createAlpacaLiveBroker` no se puede construir (la puerta se evalúa
+  en el proceso principal al crear el adaptador y otra vez **antes de
+  cada envío**: una orden nunca sale a la red con la puerta cerrada).
+
+Con la lista cumplida, `live:connect` valida las claves `AK…` contra la
+cuenta real (`GET /v2/account` en `api.alpaca.markets`) **antes** de
+guardarlas cifradas en su ranura live. La franja muestra la cuenta
+enmascarada («•••• 4821») y el broker; el `live:changed` emite el
+nuevo estado a todas las ventanas. Al arrancar, con claves guardadas y
+la puerta abierta la cuenta reconecta sola (app residente en bandeja).
+
+**Techos por orden** (`live/orderGuard.ts`, consultados por el gestor
+antes de cada envío —además del motor de riesgo, la parada y la
+conectividad—, contra los límites escritos confirmados, siempre dentro
+de los fijos de la fase):
+
+- **Por orden**: nocional estimado (cantidad × limit/stop o precio de
+  referencia de la señal) ≤ `orderUsd` (≤ 200 USD).
+- **Posiciones abiertas**: una posición nueva se rechaza si ya hay
+  `openPositions` (≤ 2); ampliar una existente no cuenta.
+- **Capital**: posiciones abiertas (coste medio) + nocional de las
+  compras aún abiertas + la nueva orden ≤ `capitalUsd` (≤ 1 000 USD).
+- **Pérdida diaria**: la pérdida realizada en la sesión de Nueva York
+  de hoy ≥ `dailyLossUsd` (≤ 20 USD) bloquea nuevas entradas.
+- Una orden de mercado sin precio de referencia se bloquea (nunca a
+  ciegas); las patas de **salida** (el OCO de protección) pasan
+  siempre: cierran riesgo, y una posición real no queda atrapada por
+  un límite.
+- Una orden bloqueada queda en el Diario con el motivo legible y nunca
+  llega a la red.
+
+El modo real solo se activa escribiendo la frase literal generada con
+los límites vigentes (`live:activate`), y se suspende solo ante la
+parada de emergencia, la pérdida de conexión o una reevaluación que
+deje la lista incompleta —nunca se reactiva automáticamente.
+
+**Broker real simulado**: con `TRADIA_E2E=1` y sin empaquetar,
+`live:use-simulated-broker` conmuta el adaptador live al servidor falso
+(`createAlpacaLiveFakeFetch`): la misma API REST v2 y la misma puerta,
+pero exige claves con prefijo `AK` y devuelve 401 a cualquier otra —
+permite probar el flujo completo sin tocar la red real.
 
 ## Claves: cifradas y sin permiso de retirada
 
@@ -32,11 +108,12 @@ Piezas: `src/main/broker/alpaca.ts` (adaptador Alpaca paper),
   gnome-keyring/KWallet en Linux). Nunca en texto plano.
 - **Sin llavero no hay conexión**: si el SO no puede cifrar, `setKey`
   falla y la conexión no se completa con un mensaje legible.
-- Genera las claves en el panel de Alpaca paper **sin permiso de
-  retirada** (solo trading): la app nunca necesita mover fondos.
+- Genera las claves en el panel de Alpaca **sin permiso de retirada**
+  (solo trading): la app nunca necesita mover fondos.
 - Las claves no salen del proceso principal: ningún canal IPC las
-  devuelve (el renderer solo recibe `BrokerStatus`, con cuenta y saldo) y
-  `redact` las elimina de errores y registros.
+  devuelve (el renderer solo recibe `BrokerStatus`/`LiveState`, con
+  cuenta enmascarada y saldo) y `redact` las elimina de errores y
+  registros.
 - `broker:disconnect` las borra del almacén.
 - Al arrancar, si hay claves guardadas la app reconecta sola: es
   residente en bandeja y las señales deben seguir ejecutándose.
@@ -44,8 +121,10 @@ Piezas: `src/main/broker/alpaca.ts` (adaptador Alpaca paper),
 ## Ejecución de señales
 
 Cada `signals:new` con decisión `aprobada` o `reducida` entra al gestor
-de órdenes. Sin cuenta conectada sigue el seguimiento local de
-`signals/paper.ts` (la cartera simulada interna convive con el broker).
+de órdenes del modo vigente (paper siempre, real solo con el modo
+'activo' y la cuenta conectada). Sin cuenta conectada sigue el
+seguimiento local de `signals/paper.ts` (la cartera simulada interna
+convive con el broker).
 
 - Entrada: orden **de mercado** `tradia-<señal>-entrada` (buy/sell según
   largo/corto; cantidad = `decision.size`).
@@ -55,25 +134,27 @@ de órdenes. Sin cuenta conectada sigue el seguimiento local de
   partir de la señal persistida.
 - Puertas: parada de emergencia activa, sin conexión o interruptor
   «Ejecutar señales aprobadas en paper» apagado → la orden queda
-  `bloqueada` con entrada `error` en el Diario. Señales vetadas o sin
+  `bloqueada` con entrada `error` en el Diario. En real el interruptor
+  es el modo 'activo' y los techos escritos. Señales vetadas o sin
   tamaño se ignoran.
 - Cada orden registra hora y precio **pedidos** y **ejecutados**; el
   slippage en puntos básicos (`slippageBpsOf`) se muestra en la página
   «Órdenes». En el OCO la referencia es el nivel de la pata que ejecutó.
-- Tipos soportados por el adaptador: mercado, limitadas, stop y OCO.
-  La cancelación (`orders:cancel`) envía DELETE y confirma con un GET.
+- Tipos soportados por el adaptador: mercado (fraccionarias incluidas),
+  limitadas, stop y OCO. La cancelación (`orders:cancel`) envía DELETE
+  y confirma con un GET.
 - Órdenes manuales: `orders:create` envía una **limitada suelta** desde la
   página «Órdenes» (`{ticker, side, quantity, limitPrice}`, `gtc`, pata
   null y `client_order_id` `tradia-manual-<instante>-<n>`). Comparte el
   conducto de reintentos e idempotencia; la bloquean la parada de
   emergencia y la falta de conexión (el interruptor de ejecución es solo
-  de las señales).
+  de las señales), y en la cuenta real también los techos.
 
 ## Idempotencia, reintentos y huérfanas
 
 - **Duplicados**: el `clientOrderId` es determinista (`tradia-<señal>-<pata>`),
   así que una misma señal nunca crea dos órdenes; reemitir el evento es
-  inocuo.
+  inocuo. La unicidad es por cuenta: paper y real son libros distintos.
 - **Reintentos**: ante un fallo transitorio (timeout, 429, 5xx, red) se
   espera `250·2^(n-1)` ms —respetando el `Retry-After` del 429— y se
   reenvía **con el mismo `clientOrderId`**, hasta 3 intentos. Antes de
@@ -132,8 +213,8 @@ de órdenes. Sin cuenta conectada sigue el seguimiento local de
 ## Ganchos E2E
 
 Solo con `TRADIA_E2E=1` y sin empaquetar el adaptador es el broker
-simulado y se registran tres canales extra. El simulado ejecuta al
-último cierre ingerido del ticker —el mismo mercado del que salen las
+simulado y se registran canales extra. El simulado ejecuta al último
+cierre ingerido del ticker —el mismo mercado del que salen las
 señales— con el slippage fijo configurado; sin velas guardadas usa un
 precio fijo derivado de la semilla.
 
@@ -143,6 +224,9 @@ precio fijo derivado de la semilla.
   (`posicion-cantidad`, `orden-borrada`, `orden-fantasma`).
 - `broker:seed-weeks` — siembra N semanas de operaciones cerradas (8 por
   defecto) para el informe.
+- `live:use-simulated-broker` — conmuta la cuenta real al broker live
+  simulado (servidor falso con prefijo `AK`), para probar el flujo
+  completo del modo real sin tocar la red.
 
 ## Probar contra Alpaca paper de verdad
 

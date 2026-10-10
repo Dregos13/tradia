@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type {
-  BrokerOrder,
-  BrokerOrderSide,
-  BrokerOrderStatus,
-} from '../../../../shared/broker';
+import type { BrokerOrder, BrokerOrderSide, BrokerOrderStatus } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES, BROKER_ORDER_STATUSES } from '../../../../shared/broker';
 import { useOrders, useReconciliation } from '../../hooks/useOrders';
 import { useStrategies } from '../../hooks/useStrategies';
@@ -18,6 +14,7 @@ import {
   time,
 } from './orderPresentation';
 import { OrderRow } from './OrderRow';
+import { liveTokens } from '../live/presentation';
 import './orders.css';
 const cancelable = (order: BrokerOrder) =>
   BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
@@ -76,13 +73,7 @@ export function OrdersPage() {
     const quantity = Number(formQty);
     const limitPrice = Number(formPrice);
     const symbol = formTicker.trim().toUpperCase();
-    if (
-      createBusy.current ||
-      offline ||
-      symbol === '' ||
-      !(quantity > 0) ||
-      !(limitPrice > 0)
-    ) {
+    if (createBusy.current || offline || symbol === '' || !(quantity > 0) || !(limitPrice > 0)) {
       return;
     }
     createBusy.current = true;
@@ -144,15 +135,14 @@ export function OrdersPage() {
   });
 
   return (
-    <div className="orders-page orders-surface">
-      <style>{ordersTokenStylesheet()}</style>
+    <div className="orders-page orders-surface live-surface">
+      <style>{ordersTokenStylesheet() + liveTokens()}</style>
       <div className="orders-top">
         <header>
           <div className="orders-title">
             <h2>Órdenes</h2>
-            <span className="orders-paper">♢ Solo paper · sin dinero real</span>
           </div>
-          <p>Ejecuciones simuladas enviadas por Tradia</p>
+          <p>Órdenes enviadas por Tradia · modo indicado en cada orden</p>
           {state.updatedAt && (
             <small>
               {offline ? 'Datos congelados desde' : state.error ? 'Datos de' : 'Actualizado'}{' '}
@@ -368,16 +358,17 @@ export function OrdersPage() {
       <div
         className="orders-table-wrap"
         role="region"
-        aria-label="Órdenes paper, desplazamiento horizontal"
+        aria-label="Órdenes, desplazamiento horizontal"
         tabIndex={0}
         aria-busy={state.loading}
       >
         <table className={state.error || offline ? 'orders-frozen' : undefined}>
-          <caption className="sr-only">Órdenes paper y precios de ejecución</caption>
+          <caption className="sr-only">Modo de cada orden y precios de ejecución</caption>
           <thead>
             <tr>
               {[
                 'Hora',
+                'Modo',
                 'Activo',
                 'Tipo',
                 'Lado',
@@ -399,7 +390,7 @@ export function OrdersPage() {
             <tbody>
               {Array.from({ length: 5 }, (_, index) => (
                 <tr key={index}>
-                  <td colSpan={11}>
+                  <td colSpan={12}>
                     {index === 0 ? (
                       <span role="status">Cargando órdenes…</span>
                     ) : (
@@ -419,7 +410,7 @@ export function OrdersPage() {
               >
                 {key.startsWith('oco:') && (
                   <tr className="orders-oco-parent">
-                    <th scope="rowgroup" colSpan={11}>
+                    <th scope="rowgroup" colSpan={12}>
                       Protección OCO · {group[0]?.ticker} · {number(group[0]?.quantity ?? 0)} ·{' '}
                       {group.length} {group.length === 1 ? 'orden vinculada' : 'órdenes vinculadas'}{' '}
                       ·{' '}

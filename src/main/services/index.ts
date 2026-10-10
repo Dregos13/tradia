@@ -28,10 +28,12 @@ import { registerRisk, type RiskService } from '../risk/service';
 import { registerSignals, type SignalsService } from '../signals';
 import { registerJournal, type JournalService } from '../journal';
 import { registerRegime, type AiRegimeService } from '../ai/regime';
+import { registerPrediction, type AiPredictionService } from '../ai/prediction';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
 import { registerBroker, type BrokerService } from '../broker';
+import { registerLive, type LiveServices } from '../live';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -68,6 +70,8 @@ export interface MainServices {
   journal: JournalService;
   /** Régimen de mercado (fase 6): clasificador por activo y mercado, ai:regime-*. */
   aiRegime: AiRegimeService;
+  /** Predicción ONNX (fase 6): probabilidades calibradas, ai:predictions/model-card. */
+  aiPrediction: AiPredictionService;
   /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
   signals: SignalsService;
   /** Canales de entrega (fase 4): escritorio, Telegram y correo. */
@@ -78,6 +82,8 @@ export interface MainServices {
   routine: RoutineService;
   /** Broker en modo paper (fase 5): conexión, órdenes, conciliación e informe. */
   broker: BrokerService;
+  /** Modo real mínimo (fase 7): lista, límites, claves live y broker real. */
+  live: LiveServices;
 }
 
 export interface ServiceContext {
@@ -151,6 +157,11 @@ export function initServices(ctx: ServiceContext): MainServices {
   // fichas deciden qué estrategias habilita (strategies) y sus cambios
   // de mercado se anotan en el Diario (journal).
   services.aiRegime = registerRegime(ctx);
+  // Fase 6: la predicción ONNX se recalcula con cada lote de velas
+  // (market), registra su ficha en model_cards y publica su salud en
+  // data_status (health la observa por el broadcast envuelto). Antes de
+  // signals: la integración de señales consume sus probabilidades.
+  services.aiPrediction = registerPrediction(ctx);
   services.signals = registerSignals(ctx);
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
@@ -164,5 +175,11 @@ export function initServices(ctx: ServiceContext): MainServices {
   // backtest, strategies y routine (onPostMarket), y envuelve
   // ctx.broadcast para seguir `signals:new` y `connectivity:changed`.
   services.broker = registerBroker(ctx);
+  // Fase 7: el modo real va después del broker — su lista consume las
+  // órdenes paper, la última expectativa de backtest, la parada, las
+  // claves live, el Diario y los canales de alerta; y su broker real
+  // envuelve de nuevo ctx.broadcast para ejecutar las señales cuando el
+  // modo esté 'activo' con la cuenta conectada.
+  services.live = registerLive(ctx);
   return services as MainServices;
 }

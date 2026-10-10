@@ -274,3 +274,20 @@ it('bloquea cancelación sin conexión y conserva los datos', async () => {
   expect(screen.getByRole('button', { name: 'Cancelar orden 3 de SPY' })).toBeDisabled();
   expect(screen.getByText(/Datos congelados desde/)).toBeVisible();
 });
+
+it('cada orden conserva su modo histórico recibido y nunca se deduce del modo actual', async () => {
+  const sourced = [{ ...order(1), mode: 'live' }, { ...order(2), mode: 'paper' }, order(3)];
+  vi.spyOn(window.tradia.orders, 'list').mockResolvedValue(sourced);
+  render(<OrdersPage />);
+  await screen.findByText('DINERO REAL');
+  const rows = screen.getAllByRole('row');
+  expect(rows.find((row) => row.textContent?.includes('AAPL'))).toHaveTextContent('DINERO REAL');
+  expect(
+    rows
+      .filter((row) => row.textContent?.includes('SPY'))
+      .some((row) => row.textContent?.includes('Paper · sin dinero real')),
+  ).toBe(true);
+  expect(screen.getByText('Modo no disponible')).toBeVisible();
+  expect(screen.getByRole('columnheader', { name: 'Modo' })).toBeVisible();
+  expect(screen.queryByText('Solo paper · sin dinero real')).not.toBeInTheDocument();
+});

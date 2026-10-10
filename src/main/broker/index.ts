@@ -149,6 +149,13 @@ export interface BrokerServiceDeps {
   e2eBroker?: SimulatedBroker;
   /** Interruptor «Ejecutar señales aprobadas en paper» (settings). */
   isExecutionEnabled(): boolean;
+  /**
+   * true cuando el modo real está activo con su cuenta conectada
+   * (`services.live.liveExecutionActive`, fase 7): las señales las
+   * ejecuta el broker real con sus techos y este gestor paper se las
+   * cede (una señal nunca se envía dos veces a dos cuentas).
+   */
+  isLiveExecution?(): boolean;
   /** Conexión a internet disponible (services.connectivity). */
   isOnline?(): boolean;
   /** Parada de emergencia activa (services.killSwitch). */
@@ -616,7 +623,9 @@ export function createBrokerService(deps: BrokerServiceDeps): BrokerService {
 
     handleSignalEvent: (payload) => {
       const manager = orders;
-      if (manager === null || stopped) return;
+      // Con el modo real operando la señal la ejecuta el broker live;
+      // duplicarla en paper gastaría el cupo de la cuenta dos veces.
+      if (manager === null || stopped || deps.isLiveExecution?.() === true) return;
       void manager.handleSignalEvent(payload).catch((error: unknown) => {
         logger.warn?.(`[broker] el gestor de órdenes falló con una señal: ${errorMessage(error)}`);
       });
@@ -716,6 +725,9 @@ export function registerBroker(ctx: ServiceContext): BrokerService {
       createAlpacaBroker({ fetch: globalThis.fetch, getCredentials }),
     e2eBroker,
     isExecutionEnabled: () => ctx.services.settings?.get().brokerExecutionEnabled ?? true,
+    // Indirección perezosa: `live` se registra después que el broker;
+    // con el modo real activo y su cuenta conectada las señales son suyas.
+    isLiveExecution: () => ctx.services.live?.liveExecutionActive() ?? false,
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
     isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
     getSignal: (id) => ctx.services.signals?.engine.getSignal(id) ?? null,
