@@ -12,6 +12,7 @@ import raw008 from './008_signals_journal.sql?raw';
 import raw009 from './009_paper_positions.sql?raw';
 import raw010 from './010_broker.sql?raw';
 import raw011 from './011_ai_live.sql?raw';
+import raw012 from './012_live_orders.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -51,4 +52,5 @@ export const MIGRATIONS: Migration[] = [
   parseSqlMigration(9, 'paper-positions', raw009),
   parseSqlMigration(10, 'broker', raw010),
   parseSqlMigration(11, 'ai-live', raw011),
+  parseSqlMigration(12, 'live-orders', raw012),
 ];

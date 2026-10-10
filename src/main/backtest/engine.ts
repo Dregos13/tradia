@@ -30,7 +30,10 @@
  * las velas (`context.warmup === true`) pero sus órdenes se descartan y la
  * curva no registra puntos.
  */
+import { REGIME_LABELS, REGIME_MARKET_TICKER, type RegimeLabel } from '../../shared/ai';
 import { TICKER_PATTERN, type SessionDate } from '../market/providers/types';
+import { createRegimeClassifier } from '../ai/regime/classifier';
+import { resolveStrategyRegime } from '../ai/regime/enablement';
 import {
   DEFAULT_COSTS,
   DEFAULT_INITIAL_CASH,
@@ -168,6 +171,24 @@ function normalizeTicker(ticker: string): string {
   return normalized;
 }
 
+/**
+ * Valida la opción `regimeFilter`: objeto con dos listas de etiquetas de
+ * régimen conocidas (la regla worksIn/failsIn la resuelve el motor con
+ * `resolveStrategyRegime`, igual que la página «IA»).
+ */
+function assertRegimeLabels(labels: unknown, field: string): asserts labels is RegimeLabel[] {
+  if (!Array.isArray(labels)) {
+    throw new TypeError(`backtest: 'regimeFilter.${field}' debe ser una lista de etiquetas`);
+  }
+  for (const label of labels) {
+    if (!(REGIME_LABELS as readonly string[]).includes(label as string)) {
+      throw new RangeError(
+        `backtest: 'regimeFilter.${field}' tiene una etiqueta desconocida (${JSON.stringify(label)})`,
+      );
+    }
+  }
+}
+
 interface AssetState {
   ticker: string;
   /** Velas revelables: copias congeladas dentro de la ventana de cotización. */
@@ -290,6 +311,12 @@ interface ContextDeps {
   windows: Map<string, ListingWindow>;
   pending: Map<string, PendingOrder[]>;
   positions: Map<string, Position>;
+  /**
+   * Filtro de régimen (fase 6): por sesión, si la estrategia puede abrir
+   * operaciones (`false` = desactivada por el régimen de la referencia en
+   * esa fecha). null sin filtro: el motor se comporta como en la fase 2.
+   */
+  regimeEnabled: Map<SessionDate, boolean> | null;
 }
 
 class EngineContext implements StrategyContext {
@@ -343,6 +370,9 @@ class EngineContext implements StrategyContext {
   buy(ticker: string, options: BuyOptions = {}): void {
     const key = this.requireMember(ticker);
     if (this.warmup || !this.isListed(key)) return;
+    // Filtro de régimen: la señal de compra de una sesión desactivada se
+    // descarta. Las ventas y los stops nunca se bloquean.
+    if (this.deps.regimeEnabled?.get(this.date) === false) return;
     const stop = optionalPrice(options.stop, 'stop');
     const target = optionalPrice(options.target, 'target');
     this.enqueue(key, { kind: 'buy', signalDate: this.date, stop, target });
@@ -440,11 +470,52 @@ export function runBacktest(input: BacktestInput): BacktestResult {
   const timeline = [...tickersOfDate.keys()].sort();
   const lastTimelineDate = timeline.length > 0 ? timeline[timeline.length - 1]! : null;
 
+  // Filtro de régimen (fase 6): la etiqueta de cada sesión se calcula solo
+  // con las velas de la referencia reveladas hasta ella (`refIndex` avanza
+  // con la línea temporal y `classifyAt` es causal por construcción). La
+  // misma regla que la página «IA»: la ficha queda desactivada si una
+  // etiqueta vigente está en `failsIn`, o si `worksIn` no está vacío y no
+  // contiene ninguna. El estado del ciclo de vida no participa en el
+  // backtest —'degradada' es un diagnóstico de salud, no histórico—, así
+  // que se resuelve siempre con 'activa'.
+  let regimeEnabled: Map<SessionDate, boolean> | null = null;
+  if (input.regimeFilter !== undefined) {
+    const filter = input.regimeFilter;
+    if (filter === null || typeof filter !== 'object') {
+      throw new TypeError('backtest: se esperaba regimeFilter con worksIn y failsIn');
+    }
+    assertRegimeLabels(filter.worksIn, 'worksIn');
+    assertRegimeLabels(filter.failsIn, 'failsIn');
+    const refTicker = normalizeTicker(filter.referenceTicker ?? REGIME_MARKET_TICKER);
+    const refRaw = barsByTicker.get(refTicker);
+    if (refRaw === undefined || refRaw.length === 0) {
+      throw new RangeError(
+        `backtest: el filtro de régimen necesita velas de la referencia '${refTicker}' ` +
+          "en 'bars' (puede no pertenecer al universo)",
+      );
+    }
+    const refBars = buildAsset(refTicker, refRaw, { from: null, until: null }, config.endDate).bars;
+    const classifier = createRegimeClassifier(refBars);
+    regimeEnabled = new Map<SessionDate, boolean>();
+    let refIndex = 0;
+    for (const date of timeline) {
+      while (refIndex < refBars.length && refBars[refIndex]!.date <= date) {
+        refIndex++;
+      }
+      const current =
+        refIndex === 0 ? null : classifier.classifyAt(refIndex - 1);
+      regimeEnabled.set(
+        date,
+        resolveStrategyRegime(filter, 'activa', current).regimeState !== 'desactivada',
+      );
+    }
+  }
+
   const pending = new Map<string, PendingOrder[]>();
   const positions = new Map<string, Position>();
   const trades: Trade[] = [];
   const equityCurve: EquityPoint[] = [];
-  const context = new EngineContext({ assets, windows, pending, positions });
+  const context = new EngineContext({ assets, windows, pending, positions, regimeEnabled });
 
   let cash = config.initialCash;
   let lastEquity = config.initialCash;

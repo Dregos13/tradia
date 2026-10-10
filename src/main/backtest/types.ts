@@ -17,6 +17,7 @@
  *   fuera de ella no recibe señales y una posición abierta se cierra cuando
  *   el activo deja de cotizar (sesgo de supervivencia mitigado).
  */
+import type { RegimeLabel } from '../../shared/ai';
 import type { SessionDate } from '../market/providers/types';
 
 /** Vela diaria mínima que consume el motor. `Bar`/`AdjustedBar` del dominio de mercado son asignables. */
@@ -185,6 +186,38 @@ export interface Strategy {
   onBar(context: StrategyContext): void;
 }
 
+/**
+ * Filtro de régimen (fase 6): la estrategia solo abre operaciones en las
+ * sesiones cuyo régimen encaja con su ficha, con la misma regla que usa la
+ * página «IA» (`resolveStrategyRegime` de ai/regime/enablement): desactivada
+ * si alguna etiqueta vigente está en `failsIn`, o si `worksIn` no está vacío
+ * y no contiene ninguna etiqueta vigente.
+ *
+ * El régimen lo calcula el motor sesión a sesión sobre la serie de la
+ * referencia —solo con las velas disponibles hasta ese cierre (sin
+ * look-ahead)— y solo bloquea `buy`: las ventas, los stops y los cierres
+ * por fin de datos siempre se ejecutan (una posición abierta nunca queda
+ * atrapada por el filtro).
+ */
+export interface RegimeFilterOptions {
+  /**
+   * Etiquetas en las que la ficha declara que funciona. Vacío = sin
+   * preferencia declarada: solo `failsIn` puede desactivarla.
+   */
+  worksIn: readonly RegimeLabel[];
+  /**
+   * Etiquetas en las que la ficha declara fallar; tienen prioridad:
+   * cualquier etiqueta vigente aquí desactiva la estrategia.
+   */
+  failsIn: readonly RegimeLabel[];
+  /**
+   * Ticker cuyo régimen gobierna el filtro (def. SPY, la referencia de
+   * mercado del contrato). Debe tener velas en `bars` —no hace falta que
+   * pertenezca al universo—; si falta, el motor lanza `RangeError`.
+   */
+  referenceTicker?: string;
+}
+
 /** Motivo de cierre de una operación. */
 export type ExitReason =
   /** Orden de venta de la estrategia, ejecutada en la siguiente apertura. */
@@ -279,6 +312,13 @@ export interface BacktestInput {
   startDate?: SessionDate;
   /** Última fecha de la simulación (inclusive); las velas posteriores se descartan. */
   endDate?: SessionDate;
+  /**
+   * Filtro de régimen (fase 6). Ausente, el motor reproduce exactamente el
+   * comportamiento de la fase 2; presente, las compras de las sesiones en
+   * que la ficha queda desactivada por régimen se descartan (la señal se
+   * evalúa con el régimen del cierre de esa misma sesión).
+   */
+  regimeFilter?: RegimeFilterOptions;
 }
 
 /** Resultado del backtest: operaciones cerradas y curva de capital diaria. */

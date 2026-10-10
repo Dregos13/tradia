@@ -141,6 +141,17 @@ export interface OrderManagerDeps {
   isOnline?(): boolean;
   /** Interruptor «Ejecutar señales aprobadas en paper» (bloquea envíos). */
   isExecutionEnabled?(): boolean;
+  /**
+   * Puerta adicional por orden ya construida (los techos y límites
+   * escritos del modo real, fase 7): devuelve el motivo legible del
+   * bloqueo o null si la orden puede enviarse. Se consulta antes de cada
+   * envío con la pata y el precio de referencia del pedido, de modo que
+   * una orden por encima de un techo nunca llega a la red.
+   */
+  checkOrderAllowed?(
+    request: BrokerOrderRequest,
+    context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
+  ): string | null;
   /** Entrada del diario automático (`services.journal.record`). */
   recordJournal?(input: JournalRecordInput): void;
   /** Aviso por cada cambio persistido de una orden (`broker:order-updated`). */
@@ -261,6 +272,17 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     if (deps.isExecutionEnabled?.() === false) return 'la ejecución en paper está desactivada';
     return null;
   };
+
+  /**
+   * Motivo de bloqueo por la puerta por orden (techos del modo real), o
+   * null. Es posterior a las puertas externas y siempre anterior a la
+   * red: el motivo queda en el Diario igual que un envío bloqueado.
+   */
+  const orderCapReason = (
+    request: BrokerOrderRequest,
+    leg: BrokerOrderLeg | null,
+    requestedPrice: number | null,
+  ): string | null => deps.checkOrderAllowed?.(request, { leg, requestedPrice }) ?? null;
 
   /**
    * Precio de referencia para el slippage de una ejecución: en un OCO es
@@ -460,6 +482,20 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       // La protección debe sobrevivir al cierre de sesión: 'gtc'.
       timeInForce: 'gtc',
     };
+    const capped = orderCapReason(request, 'salida', resolvedSignal.target);
+    if (capped !== null) {
+      logger.warn?.(`[ordenes] OCO ${clientOrderId} bloqueado: ${capped}`);
+      recordJournal({
+        type: 'error',
+        ticker: entry.ticker,
+        reason: `OCO ${clientOrderId} no enviado: ${capped}`,
+        dataUsed: { clientOrderId, signalId },
+        result: 'error',
+        errors: [`envío bloqueado: ${capped}`],
+        signalId,
+      });
+      return null;
+    }
     const { order } = deps.repository.insertOrder({
       clientOrderId,
       signalId,
@@ -527,6 +563,20 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       quantity: decision.size,
       timeInForce: 'day',
     };
+    const capped = orderCapReason(request, 'entrada', signal.entry);
+    if (capped !== null) {
+      logger.warn?.(`[ordenes] señal ${signal.id} no ejecutada: ${capped}`);
+      recordJournal({
+        type: 'error',
+        ticker: signal.ticker,
+        reason: `Señal ${signal.id} aprobada pero no ejecutada: ${capped}`,
+        dataUsed: { clientOrderId, signalId: signal.id },
+        result: 'error',
+        errors: [`envío bloqueado: ${capped}`],
+        signalId: signal.id,
+      });
+      return { outcome: 'bloqueada', entry: null, exit: null };
+    }
     let order: BrokerOrder;
     try {
       order = deps.repository.insertOrder({
@@ -705,21 +755,35 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
           : deps.isOnline?.() === false
             ? 'sin conexión'
             : null;
-      if (blocked !== null) {
-        logger.warn?.(`[ordenes] orden limitada manual de ${ticker} bloqueada: ${blocked}`);
+      const capped =
+        blocked ??
+        orderCapReason(
+          {
+            clientOrderId: '',
+            ticker,
+            type: 'limit',
+            side: request.side,
+            quantity: request.quantity,
+            limitPrice: request.limitPrice,
+          },
+          null,
+          request.limitPrice,
+        );
+      if (capped !== null) {
+        logger.warn?.(`[ordenes] orden limitada manual de ${ticker} bloqueada: ${capped}`);
         recordJournal({
           type: 'error',
           ticker,
-          reason: `Orden limitada manual de ${ticker} no enviada: ${blocked}`,
+          reason: `Orden limitada manual de ${ticker} no enviada: ${capped}`,
           dataUsed: {
             lado: request.side,
             cantidad: request.quantity,
             precioLimite: request.limitPrice,
           },
           result: 'error',
-          errors: [`envío bloqueado: ${blocked}`],
+          errors: [`envío bloqueado: ${capped}`],
         });
-        throw new Error(`La orden limitada de ${ticker} no se envió: ${blocked}.`);
+        throw new Error(`La orden limitada de ${ticker} no se envió: ${capped}.`);
       }
 
       manualSeq += 1;

@@ -35,8 +35,8 @@ export interface ActiveRegime {
 
 /** Campos de la ficha que gobiernan la habilitación por régimen. */
 export interface RegimeRuleFields {
-  worksIn: RegimeLabel[];
-  failsIn: RegimeLabel[];
+  worksIn: readonly RegimeLabel[];
+  failsIn: readonly RegimeLabel[];
 }
 
 /** Resultado de la resolución: estado por régimen y motivo legible. */

@@ -18,12 +18,22 @@ export function useLiveSafety() {
       stopEvent = true;
       if (mounted) setStop(next.killSwitch);
     });
-    void window.tradia.connectivity.getState().then((next) => {
-      if (mounted && !connectionEvent) setConnection(next);
-    }).catch(() => { /* Remain blocked until a verified event arrives. */ });
-    void window.tradia.risk.getKillSwitch().then((next) => {
-      if (mounted && !stopEvent) setStop(next);
-    }).catch(() => { /* Remain blocked until a verified event arrives. */ });
+    void window.tradia.connectivity
+      .getState()
+      .then((next) => {
+        if (mounted && !connectionEvent) setConnection(next);
+      })
+      .catch(() => {
+        /* Remain blocked until a verified event arrives. */
+      });
+    void window.tradia.risk
+      .getKillSwitch()
+      .then((next) => {
+        if (mounted && !stopEvent) setStop(next);
+      })
+      .catch(() => {
+        /* Remain blocked until a verified event arrives. */
+      });
     return () => {
       mounted = false;
       offConnection();

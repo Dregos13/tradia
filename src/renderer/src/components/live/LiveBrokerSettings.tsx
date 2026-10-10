@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { isLiveConnectRequest } from '../../../../shared/ipc';
-import { LIVE_REQUIREMENTS, LIVE_REQUIREMENT_TITLES, type LiveChecklist } from '../../../../shared/live';
+import {
+  LIVE_REQUIREMENTS,
+  LIVE_REQUIREMENT_TITLES,
+  type LiveChecklist,
+} from '../../../../shared/live';
 import { SettingsFeedback, SettingsSection } from '../settings/SettingsSection';
 import { LiveIcon, liveTokens } from './presentation';
 import { LiveNavigation } from './LiveNavigation';
@@ -54,13 +58,27 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
       window.removeEventListener('focus', reload);
     };
   }, [reload]);
-  const pending = LIVE_REQUIREMENTS.filter((requirement) => checklist?.items.find((row) => row.requirement === requirement)?.state !== 'cumplido');
-  const allowed = !!checklist?.allComplete && pending.length === 0 && !checking && !checkError && !live.error && !live.loading;
+  const pending = LIVE_REQUIREMENTS.filter(
+    (requirement) =>
+      checklist?.items.find((row) => row.requirement === requirement)?.state !== 'cumplido',
+  );
+  const allowed =
+    !!checklist?.allComplete &&
+    pending.length === 0 &&
+    !checking &&
+    !checkError &&
+    !live.error &&
+    !live.loading;
   const operating = live.state?.mode === 'activo' || live.state?.mode === 'suspendido';
   const disabled = !allowed || !safety.online || operating || busy;
   const credentials = { apiKeyId: key.trim(), apiSecret: secret.trim() };
-  const keyValid = credentials.apiKeyId.startsWith('AK') && isLiveConnectRequest({ ...credentials, apiSecret: 'valid00' });
-  const secretValid = isLiveConnectRequest({ apiKeyId: 'AKvalid00', apiSecret: credentials.apiSecret });
+  const keyValid =
+    credentials.apiKeyId.startsWith('AK') &&
+    isLiveConnectRequest({ ...credentials, apiSecret: 'valid00' });
+  const secretValid = isLiveConnectRequest({
+    apiKeyId: 'AKvalid00',
+    apiSecret: credentials.apiSecret,
+  });
   useEffect(() => {
     if (!allowed || !safety.online || operating) {
       setKey('');
@@ -82,19 +100,28 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
     try {
       // Recheck immediately before handing credentials to main, which validates again.
       const fresh = await window.tradia.live.checklist();
-      if (!fresh.allComplete || LIVE_REQUIREMENTS.some((r) => fresh.items.find((row) => row.requirement === r)?.state !== 'cumplido')) {
+      if (
+        !fresh.allComplete ||
+        LIVE_REQUIREMENTS.some(
+          (r) => fresh.items.find((row) => row.requirement === r)?.state !== 'cumplido',
+        )
+      ) {
         setChecklist(fresh);
         throw new Error('La lista ha cambiado. Completa los requisitos antes de conectar.');
       }
       const next = await window.tradia.live.connect(credentials);
       if (!mounted.current) return;
       live.accept(next);
-      if (!next.hasCredentials || !next.accountMasked) throw new Error('La cuenta live no se pudo verificar. Revisa la conexión.');
+      if (!next.hasCredentials || !next.accountMasked)
+        throw new Error('La cuenta live no se pudo verificar. Revisa la conexión.');
       setEditing(false);
       setNotice('Cuenta live verificada. Conectar las claves no activa dinero real.');
       summary.current?.focus();
     } catch (cause) {
-      let reason = cause instanceof Error ? cause.message : 'No se pudo conectar la cuenta live. Revisa claves, conexión y permisos del llavero.';
+      let reason =
+        cause instanceof Error
+          ? cause.message
+          : 'No se pudo conectar la cuenta live. Revisa claves, conexión y permisos del llavero.';
       for (const value of Object.values(credentials)) reason = reason.split(value).join('[oculto]');
       if (mounted.current) setError(reason);
     } finally {
@@ -106,40 +133,148 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
       }
     }
   }
-  return <SettingsSection title="Cuenta de broker · Dinero real" description="Claves de Alpaca Live en una ranura cifrada separada. Solo disponible con la lista de comprobación cumplida.">
-    <div className="live-surface live-broker" aria-busy={checking || live.loading || busy}>
-      <style>{liveTokens()}</style>
-      <p className="live-warning"><LiveIcon /> Las órdenes live usan capital real y pueden generar pérdidas.</p>
-      {(checking || live.loading) && <p role="status">Comprobando requisitos y cuenta live…</p>}
-      {!allowed && !checking && <div role="region" aria-label="Claves live bloqueadas">
-        <strong>Completa la lista antes de conectar las claves live.</strong>
-        <ul>{pending.map((requirement) => <li key={requirement}>{LIVE_REQUIREMENT_TITLES[requirement]}</li>)}</ul>
-      </div>}
-      <LiveNavigation label="Ver lista de comprobación" href="#dinero-real" onOpen={onOpenChecklist} />
-      {!safety.online && <p role="status">Sin conexión verificada · las claves live están bloqueadas.</p>}
-      {live.state?.hasCredentials && <p ref={summary} tabIndex={-1}><strong>Claves live guardadas de forma cifrada</strong><br />Alpaca Live · {live.state.accountMasked ?? 'Cuenta sin verificar'} · Las claves nunca vuelven a mostrarse.</p>}
-      {operating && <p>Vuelve a paper desde Dinero real antes de reemplazar las claves live.</p>}
-      {allowed && (!live.state?.hasCredentials || editing) && !operating && <form noValidate onSubmit={(event) => { event.preventDefault(); void connect(); }}>
-        <fieldset disabled={disabled}>
-          <legend>Conexión de Alpaca Live</legend>
-          <div className="live-fields">
-            <label className="live-field" htmlFor={`${id}-key`}>Clave de API live
-              <input ref={first} id={`${id}-key`} type="password" autoComplete="off" spellCheck={false} maxLength={256} value={key} onChange={(event) => setKey(event.target.value)} onBlur={() => setTouched(true)} aria-invalid={touched && !keyValid} aria-describedby={`${id}-key-help`} />
-              <span id={`${id}-key-help`} className="live-field-error">{touched && !keyValid ? 'Introduce una clave live con prefijo AK, de 6 a 256 caracteres alfanuméricos o guiones.' : 'Usa la clave de la cuenta live (prefijo AK).'}</span>
-            </label>
-            <label className="live-field" htmlFor={`${id}-secret`}>Secreto de API live
-              <input id={`${id}-secret`} type="password" autoComplete="off" spellCheck={false} maxLength={256} value={secret} onChange={(event) => setSecret(event.target.value)} onBlur={() => setTouched(true)} aria-invalid={touched && !secretValid} aria-describedby={`${id}-secret-help`} />
-              <span id={`${id}-secret-help`} className="live-field-error">{touched && !secretValid ? 'Introduce un secreto de 6 a 256 caracteres alfanuméricos o guiones.' : 'No se vuelve a mostrar después de enviarlo.'}</span>
-            </label>
+  return (
+    <SettingsSection
+      title="Cuenta de broker · Dinero real"
+      description="Claves de Alpaca Live en una ranura cifrada separada. Solo disponible con la lista de comprobación cumplida."
+    >
+      <div className="live-surface live-broker" aria-busy={checking || live.loading || busy}>
+        <style>{liveTokens()}</style>
+        <p className="live-warning">
+          <LiveIcon /> Las órdenes live usan capital real y pueden generar pérdidas.
+        </p>
+        {(checking || live.loading) && <p role="status">Comprobando requisitos y cuenta live…</p>}
+        {!allowed && !checking && (
+          <div role="region" aria-label="Claves live bloqueadas">
+            <strong>Completa la lista antes de conectar las claves live.</strong>
+            <ul>
+              {pending.map((requirement) => (
+                <li key={requirement}>{LIVE_REQUIREMENT_TITLES[requirement]}</li>
+              ))}
+            </ul>
           </div>
-          <p>Las claves se cifran en el llavero del sistema. Declara que no permiten retirar fondos en la lista de comprobación.</p>
-          <div className="live-actions"><button className="button live-primary" type="submit">{busy ? 'Verificando cuenta live…' : 'Verificar y guardar claves live'}</button></div>
-        </fieldset>
-        {editing && <button className="button" type="button" disabled={busy} onClick={() => { setEditing(false); setKey(''); setSecret(''); }}>Cancelar reemplazo</button>}
-      </form>}
-      {live.state?.hasCredentials && !editing && <button className="button" disabled={disabled} onClick={() => { setEditing(true); setTouched(false); }}>Reemplazar claves live</button>}
-      <SettingsFeedback error={error || checkError || live.error} message={notice} />
-      {(checkError || live.error) && <button className="button" onClick={() => { void reload(); void live.reload(); }}>Reintentar cuenta live</button>}
-    </div>
-  </SettingsSection>;
+        )}
+        <LiveNavigation
+          label="Ver lista de comprobación"
+          href="#dinero-real"
+          onOpen={onOpenChecklist}
+        />
+        {!safety.online && (
+          <p role="status">Sin conexión verificada · las claves live están bloqueadas.</p>
+        )}
+        {live.state?.hasCredentials && (
+          <p ref={summary} tabIndex={-1}>
+            <strong>Claves live guardadas de forma cifrada</strong>
+            <br />
+            Alpaca Live · {live.state.accountMasked ?? 'Cuenta sin verificar'} · Las claves nunca
+            vuelven a mostrarse.
+          </p>
+        )}
+        {operating && <p>Vuelve a paper desde Dinero real antes de reemplazar las claves live.</p>}
+        {allowed && (!live.state?.hasCredentials || editing) && !operating && (
+          <form
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void connect();
+            }}
+          >
+            <fieldset disabled={disabled}>
+              <legend>Conexión de Alpaca Live</legend>
+              <div className="live-fields">
+                <label className="live-field" htmlFor={`${id}-key`}>
+                  Clave de API live
+                  <input
+                    ref={first}
+                    id={`${id}-key`}
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={256}
+                    value={key}
+                    onChange={(event) => setKey(event.target.value)}
+                    onBlur={() => setTouched(true)}
+                    aria-invalid={touched && !keyValid}
+                    aria-describedby={`${id}-key-help`}
+                  />
+                  <span id={`${id}-key-help`} className="live-field-error">
+                    {touched && !keyValid
+                      ? 'Introduce una clave live con prefijo AK, de 6 a 256 caracteres alfanuméricos o guiones.'
+                      : 'Usa la clave de la cuenta live (prefijo AK).'}
+                  </span>
+                </label>
+                <label className="live-field" htmlFor={`${id}-secret`}>
+                  Secreto de API live
+                  <input
+                    id={`${id}-secret`}
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={256}
+                    value={secret}
+                    onChange={(event) => setSecret(event.target.value)}
+                    onBlur={() => setTouched(true)}
+                    aria-invalid={touched && !secretValid}
+                    aria-describedby={`${id}-secret-help`}
+                  />
+                  <span id={`${id}-secret-help`} className="live-field-error">
+                    {touched && !secretValid
+                      ? 'Introduce un secreto de 6 a 256 caracteres alfanuméricos o guiones.'
+                      : 'No se vuelve a mostrar después de enviarlo.'}
+                  </span>
+                </label>
+              </div>
+              <p>
+                Las claves se cifran en el llavero del sistema. Declara que no permiten retirar
+                fondos en la lista de comprobación.
+              </p>
+              <div className="live-actions">
+                <button className="button live-primary" type="submit">
+                  {busy ? 'Verificando cuenta live…' : 'Verificar y guardar claves live'}
+                </button>
+              </div>
+            </fieldset>
+            {editing && (
+              <button
+                className="button"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEditing(false);
+                  setKey('');
+                  setSecret('');
+                }}
+              >
+                Cancelar reemplazo
+              </button>
+            )}
+          </form>
+        )}
+        {live.state?.hasCredentials && !editing && (
+          <button
+            className="button"
+            disabled={disabled}
+            onClick={() => {
+              setEditing(true);
+              setTouched(false);
+            }}
+          >
+            Reemplazar claves live
+          </button>
+        )}
+        <SettingsFeedback error={error || checkError || live.error} message={notice} />
+        {(checkError || live.error) && (
+          <button
+            className="button"
+            onClick={() => {
+              void reload();
+              void live.reload();
+            }}
+          >
+            Reintentar cuenta live
+          </button>
+        )}
+      </div>
+    </SettingsSection>
+  );
 }

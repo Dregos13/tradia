@@ -453,3 +453,16 @@ export function createAlpacaAdapter(
     },
   };
 }
+
+/**
+ * Adaptador Alpaca en modo paper (fase 5): URL fija
+ * `https://paper-api.alpaca.markets`, cuenta `paper` y claves 'PK…'.
+ */
+export function createAlpacaBroker(deps: AlpacaBrokerDeps): BrokerAdapter {
+  return createAlpacaAdapter(deps, {
+    adapterId: ALPACA_ADAPTER_ID,
+    baseUrl: ALPACA_PAPER_BASE_URL,
+    paper: true,
+    label: 'paper',
+  });
+}
