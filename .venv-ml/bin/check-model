@@ -1,0 +1,8 @@
+#!/bin/sh
+'''exec' "/Users/dregos/Library/Application Support/orquesta/worktrees/6e127493/e43b6d0f/.venv-ml/bin/python3" "$0" "$@"
+' '''
+import sys
+from onnx.bin.checker import check_model
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(check_model())
