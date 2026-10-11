@@ -192,10 +192,19 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
       model = loaded;
       status.state = 'listo';
       status.version = loaded.version;
-      status.reason = card === null ? 'sin ficha registrada; solo se informa' : null;
+      // El estado del sistema refleja la ficha tal cual: sin ficha o con
+      // una no apta («Datos sintéticos · no apto») el modelo sirve pero
+      // no puede venderse como fiable ni apoyar señales.
+      const cardNote =
+        card === null
+          ? 'sin ficha registrada; solo se informa'
+          : card.eligible
+            ? null
+            : (card.ineligibleReason ?? 'la ficha no es apta; el modelo no apoya señales');
+      status.reason = cardNote;
       reportStatus({
-        state: card === null ? 'desactualizado' : 'fiable',
-        reason: status.reason,
+        state: cardNote === null ? 'fiable' : 'desactualizado',
+        reason: cardNote,
       });
     } catch (error: unknown) {
       model = null;

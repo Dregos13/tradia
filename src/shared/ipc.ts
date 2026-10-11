@@ -878,6 +878,14 @@ export interface MarketRefreshResult {
   accepted: boolean;
   /** Motivo del rechazo, o null si el refresco quedó encolado. */
   reason: MarketRefreshRejection | null;
+  /**
+   * false cuando la pasada aceptada terminó con activos pendientes o
+   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar).
+   * Ausente/true si todos quedaron al día.
+   */
+  ok?: boolean;
+  /** Motivo legible del primer fallo de la pasada; null si ok. */
+  detail?: string | null;
 }
 
 /** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
@@ -888,6 +896,13 @@ export interface MacroRefreshResult {
   accepted: boolean;
   /** Motivo del rechazo, o null si el refresco quedó encolado. */
   reason: MacroRefreshRejection | null;
+  /**
+   * false cuando la pasada aceptada terminó con alguna serie fallida
+   * (proveedor caído, cuota, red). Ausente/true si todas quedaron al día.
+   */
+  ok?: boolean;
+  /** Motivo legible del fallo (el error, o «N de M series fallaron»); null si ok. */
+  detail?: string | null;
 }
 
 /**
@@ -950,8 +965,9 @@ export const dataStatusKey = {
 /**
  * Estados del resumen único de frescura (`data-status:freshness`), por
  * orden de prioridad al agregar: 'unreliable' (alguna 'no-fiable') >
- * 'stale' (alguna 'desactualizado') > 'catching-up' (alguna
- * 'actualizando') > 'no-data' (ninguna entrada con dato correcto
+ * 'catching-up' (una puesta al día en curso, con entradas 'actualizando'
+ * recientes o trabajo pendiente de ella) > 'stale' (alguna
+ * 'desactualizado') > 'no-data' (ninguna entrada con dato correcto
  * registrado) > 'current'. 'offline' lo añade el renderer con el estado
  * de conectividad, no forma parte de este resumen.
  */
@@ -981,6 +997,16 @@ export interface DataFreshnessItem {
 }
 
 /**
+ * Progreso de la puesta al día en curso dentro del resumen de frescura.
+ * `total` es el número de activos y series que hay que poner al día en
+ * esa pasada; `done`, los que ya han terminado, con éxito o con error.
+ */
+export interface DataFreshnessProgress {
+  done: number;
+  total: number;
+}
+
+/**
  * Resumen único «Datos desactualizados desde …» (`data-status:freshness`).
  * Agrega los estados «ticker:*», «macro:*» y «provider:*» con la fecha
  * real del último dato de cada uno, para que el renderer pinte un solo
@@ -1002,6 +1028,13 @@ export interface DataFreshnessSummary {
   missingSessions: number;
   /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */
   items: DataFreshnessItem[];
+  /**
+   * Progreso de la puesta al día: solo se rellena en 'catching-up'; en
+   * el resto de estados vale null. Con él el renderer enseña
+   * «Descargando {done} de {total} activos»; con null, «Poniéndose al
+   * día…».
+   */
+  progress?: DataFreshnessProgress | null;
   /** Instante del cálculo (ISO 8601). */
   updatedAt: string;
 }

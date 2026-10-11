@@ -73,6 +73,12 @@ export const HEALTH_NOTIFY_COOLDOWN_MS = 6 * 3_600_000;
 export const HEALTH_EVAL_INTERVAL_MS = 15 * 60_000;
 /** Fallos seguidos del proveedor que declaran el dato 'no-fiable'. */
 export const HEALTH_MAX_CONSECUTIVE_FAILURES = 3;
+/**
+ * Silencio que cierra la ventana de puesta al día: entre dos activos de
+ * la misma pasada puede no haber ningún 'actualizando' un instante;
+ * pasado este margen sin trabajo nuevo, la pasada se da por terminada.
+ */
+export const HEALTH_CATCHUP_QUIET_MS = 15_000;
 
 const DAY_MS = 86_400_000;
 
@@ -125,6 +131,8 @@ export interface DataHealthDeps {
   staleGraceMs?: number;
   notifyCooldownMs?: number;
   maxFailures?: number;
+  /** Silencio que cierra la ventana de puesta al día; por defecto 15 s. */
+  catchupQuietMs?: number;
   logger?: { warn(message: string): void; info?(message: string): void };
 }
 
@@ -186,6 +194,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const staleGraceMs = deps.staleGraceMs ?? HEALTH_STALE_GRACE_MS;
   const notifyCooldownMs = deps.notifyCooldownMs ?? HEALTH_NOTIFY_COOLDOWN_MS;
   const maxFailures = deps.maxFailures ?? HEALTH_MAX_CONSECUTIVE_FAILURES;
+  const catchupQuietMs = deps.catchupQuietMs ?? HEALTH_CATCHUP_QUIET_MS;
   const logger = deps.logger;
 
   let started = false;
@@ -195,6 +204,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const badSince = new Set<string>();
   /** Último aviso enviado por clave: estado y cuándo (agrupación de 6 h). */
   const notified = new Map<string, { state: DataStatusState; at: number }>();
+  /**
+   * Ventana de puesta al día en curso: claves 'ticker:*'/'macro:*' que
+   * pasaron por 'actualizando' en esta pasada. Se cierra cuando todo lo
+   * pendiente quedó procesado o tras `catchupQuietMs` sin novedad.
+   */
+  const catchUpTouched = new Set<string>();
+  let catchUpLastActivity = Number.NEGATIVE_INFINITY;
 
   const emit = (patch: Parameters<MarketRepository['setDataStatus']>[0]): DataStatusEntry => {
     const entry = repo.setDataStatus(patch);
@@ -211,6 +227,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       return repo.getMacroSeries(id)?.name ?? id;
     }
     if (key.startsWith('provider:')) return `proveedor '${key.slice('provider:'.length)}'`;
+    if (key.startsWith('modelo:')) return `modelo v${key.slice('modelo:'.length)}`;
     return key;
   };
 
@@ -395,6 +412,77 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     return { state: current?.state ?? 'fiable', reason: current?.reason ?? null };
   };
 
+  // -- Frescura por proveedor ---------------------------------------------------
+
+  /**
+   * Claves 'ticker:*'/'macro:*' que alimenta un proveedor: sus series
+   * propias en los proveedores macro; el seguimiento completo en los de
+   * mercado (el proveedor de velas sirve a toda la lista).
+   */
+  const providerChildKeys = (providerId: string): string[] => {
+    if (MACRO_PROVIDER_IDS.has(providerId)) {
+      return repo
+        .listMacroSeries()
+        .filter((series) => series.source === providerId)
+        .map((series) => dataStatusKey.macro(series.id));
+    }
+    return repo.listWatchlist().map((item) => dataStatusKey.ticker(item.ticker));
+  };
+
+  /**
+   * La misma regla de frescura aplicada al proveedor: si alguno de sus
+   * hijos quedó 'desactualizado'/'no-fiable' el proveedor sirve datos
+   * viejos aunque responda bien (caso del proveedor que solo publica
+   * hasta una fecha antigua), y se dice con la fecha real del último
+   * dato. Al revés, con los hijos al día un 'desactualizado' que no era
+   * de fallos (consecutiveFailures en 0) vuelve a 'fiable'. Los
+   * 'no-fiable' y las cuentas de fallos solo los levanta un refresco con
+   * éxito, que escribe el propio servicio.
+   */
+  const computeProvider = (providerId: string): Desired | null => {
+    const key = dataStatusKey.provider(providerId);
+    const rawCurrent = repo.getDataStatus(key);
+    if (rawCurrent === null) return null;
+    if ((rawCurrent.consecutiveFailures ?? 0) >= maxFailures) {
+      return {
+        state: 'no-fiable',
+        reason: rawCurrent.reason ?? `${maxFailures} fallos seguidos del proveedor`,
+      };
+    }
+    if (rawCurrent.state === 'no-fiable') return null;
+
+    const { respected } = respectsInFlight(rawCurrent);
+    if (respected) return null;
+
+    const children = providerChildKeys(providerId);
+    if (children.length === 0) return null;
+
+    let oldestBadDate: string | null = null;
+    let anyBad = false;
+    for (const childKey of children) {
+      const child = repo.getDataStatus(childKey);
+      if (child === null || !isBad(child.state)) continue;
+      anyBad = true;
+      const date = lastDataDateFor(childKey);
+      if (date !== null && (oldestBadDate === null || date < oldestBadDate)) {
+        oldestBadDate = date;
+      }
+    }
+    if (anyBad) {
+      return {
+        state: 'desactualizado',
+        reason:
+          oldestBadDate === null
+            ? 'el proveedor no tiene el dato esperado todavía'
+            : `faltan datos recientes; último dato: ${oldestBadDate}`,
+      };
+    }
+    if (rawCurrent.state !== 'fiable' && (rawCurrent.consecutiveFailures ?? 0) === 0) {
+      return { state: 'fiable', reason: null, confirmOk: true };
+    }
+    return null;
+  };
+
   const needsWrite = (current: DataStatusEntry | null, desired: Desired): boolean => {
     if (current === null) return true;
     return (
@@ -436,6 +524,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         const desired = computeMacro(series.id, series.frequency);
         if (desired) applyDesired(dataStatusKey.macro(series.id), desired, written);
       }
+      // Los proveedores se evalúan al final: su frescura es la de sus
+      // hijos (tickers y series), ya escritos en esta misma pasada.
+      for (const entry of repo.listDataStatus()) {
+        if (!entry.key.startsWith('provider:')) continue;
+        const desired = computeProvider(entry.key.slice('provider:'.length));
+        if (desired) applyDesired(entry.key, desired, written);
+      }
     } catch (error: unknown) {
       logger?.warn(`[health] la evaluación de salud falló: ${String(error)}`);
     }
@@ -446,6 +541,15 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
 
   const observe = (incoming: DataStatusEntry): void => {
     let entry = incoming;
+    // Ventana de puesta al día: cada activo o serie que entra en
+    // 'actualizando' se apunta para el progreso del resumen de frescura.
+    if (
+      (entry.key.startsWith('ticker:') || entry.key.startsWith('macro:')) &&
+      entry.state === 'actualizando'
+    ) {
+      catchUpTouched.add(entry.key);
+      catchUpLastActivity = now();
+    }
     // Regla central de los 3 fallos: aunque el escritor dejara otro estado,
     // el contador manda y la clave pasa a 'no-fiable'.
     if (entry.state !== 'no-fiable' && (entry.consecutiveFailures ?? 0) >= maxFailures) {
@@ -545,6 +649,73 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     return null;
   };
 
+  /**
+   * Claves que una pasada todavía tendría que traer: el dato guardado
+   * queda por detrás de lo que espera la regla de frescura de cada
+   * ámbito (vela de la última sesión para los tickers; observación
+   * mínima según frecuencia y calendario para las series).
+   */
+  const pendingFetchKeys = (): Set<string> => {
+    const pending = new Set<string>();
+    const lastExpected = calendar.lastExpectedSession(now());
+    if (lastExpected === null) return pending;
+    for (const { ticker } of repo.listWatchlist()) {
+      const last = repo.lastBarDate(ticker);
+      if (last === null || last < lastExpected.date) {
+        pending.add(dataStatusKey.ticker(ticker));
+      }
+    }
+    for (const series of repo.listMacroSeries()) {
+      const lastObs = repo.lastMacroObservationDate(series.id);
+      const expectedMin = expectedMacroMinDate(series.id, series.frequency, lastExpected.date);
+      if (lastObs === null || lastObs < expectedMin) {
+        pending.add(dataStatusKey.macro(series.id));
+      }
+    }
+    return pending;
+  };
+
+  /** true si la entrada sigue en 'actualizando' dentro del margen. */
+  const isInFlight = (key: string): boolean => {
+    const entry = repo.getDataStatus(key);
+    return (
+      entry?.state === 'actualizando' && now() - Date.parse(entry.updatedAt) < staleGraceMs
+    );
+  };
+
+  /**
+   * La ventana de puesta al día está activa mientras quede algún
+   * 'actualizando' en vuelo o trabajo pendiente que la pasada aún no
+   * tocó, y solo durante `catchupQuietMs` desde la última novedad. Así
+   * el resumen muestra 'catching-up' durante toda la pasada —no solo en
+   * el instante en que hay una descarga en el aire— y vuelve a 'stale'
+   * si el proveedor no puede completar lo que falta.
+   */
+  const catchUpActive = (): boolean => {
+    if (catchUpTouched.size === 0) return false;
+    for (const key of catchUpTouched) {
+      if (isInFlight(key)) return true;
+    }
+    const pending = pendingFetchKeys();
+    const untouchedPending = [...pending].some((key) => !catchUpTouched.has(key));
+    return untouchedPending && now() - catchUpLastActivity < catchupQuietMs;
+  };
+
+  /**
+   * Progreso de la pasada en curso: `total` son los activos y series
+   * que hay que poner al día (los ya tocados por la pasada más los que
+   * aún le quedan por traer); `done`, los que ya terminaron, con éxito
+   * o con error.
+   */
+  const catchUpProgress = (): { done: number; total: number } => {
+    const total = new Set<string>([...catchUpTouched, ...pendingFetchKeys()]);
+    let done = 0;
+    for (const key of total) {
+      if (catchUpTouched.has(key) && !isInFlight(key)) done += 1;
+    }
+    return { done, total: total.size };
+  };
+
   const freshness = (): DataFreshnessSummary => {
     const entries = repo
       .listDataStatus()
@@ -554,8 +725,22 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
           entry.key.startsWith('macro:') ||
           entry.key.startsWith('provider:'),
       );
+    // Los 'actualizando' escritos sin pasar por observe() (p. ej. antes
+    // de que la vigilancia envolviera broadcast) también abren ventana.
+    for (const entry of entries) {
+      if (
+        (entry.key.startsWith('ticker:') || entry.key.startsWith('macro:')) &&
+        entry.state === 'actualizando'
+      ) {
+        catchUpTouched.add(entry.key);
+        catchUpLastActivity = Math.max(catchUpLastActivity, Date.parse(entry.updatedAt));
+      }
+    }
+    // La pasada terminada (o caducada por silencio) cierra la ventana.
+    if (!catchUpActive()) catchUpTouched.clear();
+
     const items: DataFreshnessItem[] = [];
-    let updating = false;
+    let updating = catchUpTouched.size > 0;
     for (const entry of entries) {
       if (entry.state === 'actualizando') {
         // Un 'actualizando' colgado no cuenta como «poniéndose al día».
@@ -574,12 +759,14 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // Las más antiguas primero: el último dato más viejo marca el «desde».
     items.sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
 
+    // 'catching-up' por encima de 'stale': mientras corre la puesta al
+    // día el aviso es «Poniéndose al día…», no «desactualizado».
     const state: DataFreshnessState = items.some((item) => item.state === 'no-fiable')
       ? 'unreliable'
-      : items.length > 0
-        ? 'stale'
-        : updating
-          ? 'catching-up'
+      : updating
+        ? 'catching-up'
+        : items.length > 0
+          ? 'stale'
           : entries.some((entry) => entry.lastOkAt !== null)
             ? 'current'
             : 'no-data';
@@ -601,6 +788,8 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       expectedSessionDate,
       missingSessions,
       items,
+      // Solo durante la puesta al día: «Descargando X de Y activos».
+      progress: state === 'catching-up' ? catchUpProgress() : null,
       updatedAt: isoNow(),
     };
   };

@@ -351,7 +351,19 @@ describe('actualización incremental', () => {
     const first = slowService.refreshNow();
     expect(await slowService.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
     release();
-    expect(await first).toEqual({ accepted: true, reason: null });
+    expect(await first).toEqual({ accepted: true, reason: null, ok: true, detail: null });
+  });
+
+  it('refreshNow con la pasada fallida devuelve ok:false y el motivo real, no un «solicitado»', async () => {
+    await service.addTicker('AAPL');
+    provider.setFailing('network');
+    // Ya hay una sesión nueva esperada (viernes 09): la pasada intenta traerla.
+    vi.setSystemTime('2026-10-10T12:00:00.000Z');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('fallo simulado del proveedor');
   });
 
   it('getBars devuelve las velas guardadas con su fuente y filtra por rango', async () => {

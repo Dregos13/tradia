@@ -301,6 +301,75 @@ describe('servicio macro: configuración y refresco manual', () => {
     expect(await service.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
     await pending;
 
-    expect(await service.refreshNow()).toEqual({ accepted: true, reason: null });
+    expect(await service.refreshNow()).toEqual({
+      accepted: true,
+      reason: null,
+      ok: true,
+      detail: null,
+    });
+  });
+
+  it('refreshNow con el proveedor caído devuelve ok:false y el motivo real, no un «solicitado»', async () => {
+    const service = makeService();
+    provider.setFailing('network');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('fallo simulado del proveedor macro');
+  });
+
+  it('refreshNow con un fallo parcial informa del recuento de series', async () => {
+    const service = makeService();
+    provider.queueFailures(2, 'network');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('2 de 6 series fallaron');
+    expect(result.detail).toContain('fallo simulado del proveedor macro');
+  });
+});
+
+describe('servicio macro: puesta al día al despertar', () => {
+  class FakePowerMonitor {
+    private listeners = new Set<() => void>();
+
+    on(_event: 'resume', listener: () => void): void {
+      this.listeners.add(listener);
+    }
+
+    removeListener(_event: 'resume', listener: () => void): void {
+      this.listeners.delete(listener);
+    }
+
+    emitResume(): void {
+      for (const listener of this.listeners) listener();
+    }
+  }
+
+  const flushAsync = async (): Promise<void> => {
+    for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  };
+
+  it('powerMonitor resume lanza la puesta al día y stop la desengancha', async () => {
+    const powerMonitor = new FakePowerMonitor();
+    const service = makeService({ powerMonitor });
+    const spy = vi.spyOn(provider, 'getObservations');
+
+    service.start();
+    await flushAsync();
+    const afterStart = spy.mock.calls.length;
+    expect(afterStart).toBe(6);
+
+    powerMonitor.emitResume();
+    await flushAsync();
+    expect(spy.mock.calls.length).toBeGreaterThan(afterStart);
+
+    service.stop();
+    const afterStop = spy.mock.calls.length;
+    powerMonitor.emitResume();
+    await flushAsync();
+    expect(spy.mock.calls.length).toBe(afterStop);
   });
 });

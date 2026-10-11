@@ -153,9 +153,11 @@ describe('registerPrediction', () => {
     expect(first.expectedVolatility).toBeGreaterThan(0);
     expect(first.modelHash).toMatch(/^[0-9a-f]{64}$/);
 
-    // El estado del sistema comunica que el modelo sirve.
+    // El estado del sistema refleja la ficha tal cual: el modelo sirve
+    // pero no es apto para señales (datos sintéticos), nunca 'fiable'.
     const status = createMarketRepository(db).getDataStatus('modelo:0.1.0');
-    expect(status?.state).toBe('fiable');
+    expect(status?.state).toBe('desactualizado');
+    expect(status?.reason).toContain('no apto');
     await registered.stop();
   });
 

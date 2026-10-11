@@ -8,7 +8,7 @@
  * - `service.start()` arma el refresco al arrancar y el diario programado;
  *   `will-quit` debe llamar a `service.stop()` (ver `main/index.ts`).
  */
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, powerMonitor } from 'electron';
 
 import {
   IPC_CHANNELS,
@@ -69,6 +69,8 @@ export function registerMacro(
     broadcast: ctx.broadcast,
     now: options.now,
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
+    // Al despertar el equipo se pone al día igual que al reconectar.
+    powerMonitor,
     // Sin clave de FRED el proveedor es 'sin configurar': los refrescos se
     // omiten sin estados de fallo (un perfil vacío no enseña aviso rojo).
     isConfigured:

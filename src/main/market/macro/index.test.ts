@@ -18,6 +18,10 @@ vi.mock('electron', () => ({
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
       electron.handlers.set(channel, handler),
   },
+  powerMonitor: {
+    on: () => undefined,
+    removeListener: () => undefined,
+  },
 }));
 
 import { registerMacro } from './index';

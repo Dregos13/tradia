@@ -708,7 +708,10 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
         lastDatos?.drifted === true
           ? `Drift de datos en vigilancia: ${lastDatos.streak} de ${DRIFT_SUSTAIN_SESSIONS} sesiones.`
           : `Drift de resultados en vigilancia: ${lastResult!.streak} de ${DRIFT_SUSTAIN_SESSIONS} sesiones.`;
-    } else if (dataChecks.length === 0 && resultChecks.length === 0) {
+    } else if (resolvedCount === 0 || (dataChecks.length === 0 && resultChecks.length === 0)) {
+      // Sin una sola predicción resuelta (o sin revisiones) no hay
+      // evidencia para llamar al modelo saludable: «Sin datos
+      // suficientes», igual que las estrategias sin muestra.
       state = 'insuficiente';
       reason =
         resolvedCount < DRIFT_BRIER_WINDOW

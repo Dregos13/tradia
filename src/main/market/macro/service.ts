@@ -53,6 +53,14 @@ export interface MacroServiceDeps {
   /** Guarda de conexión; por defecto siempre en línea. */
   isOnline?: () => boolean;
   /**
+   * Recuperación al volver de la suspensión (`powerMonitor` resume):
+   * lanza la misma puesta al día deduplicada que `refreshNow`.
+   */
+  powerMonitor?: {
+    on(event: 'resume', listener: () => void): unknown;
+    removeListener(event: 'resume', listener: () => void): unknown;
+  };
+  /**
    * true si el proveedor tiene credencial configurada (por defecto sí).
    * Sin clave el refresco se omite por completo: el proveedor queda en
    * estado neutro «Sin configurar», no en fallo, así un perfil vacío no
@@ -352,6 +360,12 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     (timer as { unref?: () => void }).unref?.();
   };
 
+  /** Al despertar el equipo: la misma pasada deduplicada que refreshNow. */
+  const onResume = (): void => {
+    logger?.info?.('[macro] el equipo despertó; se pide una puesta al día');
+    void refreshNow();
+  };
+
   /**
    * Refresco manual (`macro:refresh-now`): mismas guardas que el refresco
    * programado más el rechazo legible para la franja del dato.
@@ -362,12 +376,28 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
       return { accepted: false, reason: 'sin-proveedor' };
     }
     if (refreshing) return { accepted: false, reason: 'en-curso' };
+    let results: MacroRefreshSeriesResult[] = [];
+    let crash: string | null = null;
     try {
-      await refreshAll();
+      results = await refreshAll();
     } catch (error) {
-      logger?.warn(`[macro] refresco manual falló: ${failureReason(error)}`);
+      crash = failureReason(error);
+      logger?.warn(`[macro] refresco manual falló: ${crash}`);
     }
-    return { accepted: true, reason: null };
+    // La franja del dato necesita el resultado real de la pasada, no un
+    // «solicitado» optimista: con todas las series fallidas se devuelve
+    // el error del proveedor; con un fallo parcial, el recuento.
+    const errors = results
+      .filter((result) => result.error !== undefined)
+      .map((result) => result.error!);
+    const detail =
+      crash ??
+      (errors.length === 0
+        ? null
+        : errors.length === results.length
+          ? errors[0]!
+          : `${errors.length} de ${results.length} series fallaron (${errors[0]!})`);
+    return { accepted: true, reason: null, ok: detail === null, detail };
   };
 
   const service: MacroService = {
@@ -396,6 +426,7 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     start: () => {
       if (started) return;
       started = true;
+      deps.powerMonitor?.on('resume', onResume);
       arm();
       void runRefresh();
     },
@@ -405,6 +436,7 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
       if (timer !== null) clearTimer(timer);
       timer = null;
       nextRun = null;
+      deps.powerMonitor?.removeListener('resume', onResume);
     },
   };
 

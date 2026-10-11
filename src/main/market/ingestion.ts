@@ -852,8 +852,15 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       if (provider === null) return { accepted: false, reason: 'sin-proveedor' };
       if (repo.listWatchlist().length === 0) return { accepted: false, reason: 'sin-activos' };
       if (running) return { accepted: false, reason: 'en-curso' };
-      await runUpdate(provider);
-      return { accepted: true, reason: null };
+      const result = await runUpdate(provider);
+      // La pasada corrió pero puede no haber puesto todo al día: la
+      // franja del dato necesita el motivo real (HTTP 503, cuota, la
+      // vela esperada aún sin publicar), no un «solicitado» optimista.
+      const detail =
+        result.results.find((r) => r.providerError === true)?.reason ??
+        result.results.find((r) => r.reason !== undefined)?.reason ??
+        null;
+      return { accepted: true, reason: null, ok: result.ok, detail };
     },
 
     onWatchlistChanged: (listener) => {

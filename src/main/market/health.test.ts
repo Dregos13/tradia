@@ -284,6 +284,126 @@ describe('vigilancia de tickers', () => {
     expect(written).toEqual([]);
     expect(status(dataStatusKey.ticker('NUEVO'))).toBeNull();
   });
+
+  it('tras un fin de semana con la vela del viernes no marca desactualizado; tras 3 sesiones sin datos sí', async () => {
+    repo.addWatchlistTicker('AAPL');
+    // Domingo 11-10-2026: la última sesión esperada es el viernes 09 y está.
+    nowMs = Date.parse('2026-10-11T12:00:00.000Z');
+    seedBars('AAPL', '2026-10-09', ['2026-10-08', '2026-10-09']);
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.ticker('AAPL'))).toMatchObject({ state: 'fiable' });
+    expect(notifications).toEqual([]);
+
+    // Jueves 15-10: faltan las velas del lunes 12, martes 13 y miércoles 14
+    // (Columbus Day cierra bonos pero no la bolsa): 3 sesiones sin datos.
+    nowMs = Date.parse('2026-10-15T12:00:00.000Z');
+    service.evaluate();
+    await flush();
+
+    const s = status(dataStatusKey.ticker('AAPL'))!;
+    expect(s.state).toBe('desactualizado');
+    expect(s.reason).toContain('falta la vela del 2026-10-12');
+    expect(s.reason).toContain('+2 más');
+    expect(notifications.map((n) => n.level)).toEqual(['alerta']);
+  });
+});
+
+describe('frescura por proveedor', () => {
+  const iso = (): string => new Date(nowMs).toISOString();
+
+  it('un proveedor que responde pero sirve datos viejos queda desactualizado con la fecha real', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    // La pasada respondió bien (fiable) pero el último dato sigue viejo.
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'fiable',
+      lastOkAt: iso(),
+      consecutiveFailures: 0,
+    });
+
+    service.evaluate();
+    await flush();
+
+    const s = status(dataStatusKey.provider('tiingo'))!;
+    expect(s.state).toBe('desactualizado');
+    expect(s.reason).toContain(`último dato: ${PREV_SESSION}`);
+  });
+
+  it('un proveedor macro con series atrasadas queda desactualizado igual', async () => {
+    repo.upsertMacroSeries([
+      { id: 'DGS10', source: 'fred', name: 'Bono 10 años', frequency: 'daily' },
+    ]);
+    repo.upsertMacroObservations('DGS10', null, [{ date: '2026-10-05', value: 4.1 }]);
+    repo.setDataStatus({
+      key: dataStatusKey.provider('fred'),
+      state: 'fiable',
+      lastOkAt: iso(),
+      consecutiveFailures: 0,
+    });
+
+    service.evaluate();
+    await flush();
+
+    const s = status(dataStatusKey.provider('fred'))!;
+    expect(s.state).toBe('desactualizado');
+    expect(s.reason).toContain('2026-10-05');
+  });
+
+  it('con los hijos al día un desactualizado sin fallos vuelve a fiable', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'desactualizado',
+      consecutiveFailures: 0,
+      reason: 'faltan datos recientes',
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.provider('tiingo'))!.state).toBe('fiable');
+  });
+
+  it('los fallos acumulados del proveedor no los levanta la frescura de los hijos', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'desactualizado',
+      consecutiveFailures: 2,
+      reason: 'error del servidor (HTTP 503)',
+    });
+
+    service.evaluate();
+    await flush();
+
+    // Los fallos solo los limpia un refresco con éxito (lo escribe la ingesta).
+    expect(status(dataStatusKey.provider('tiingo'))).toMatchObject({
+      state: 'desactualizado',
+      consecutiveFailures: 2,
+    });
+  });
+
+  it('un no-fiable del proveedor no lo degrada la evaluación', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+      reason: '3 fallos seguidos del proveedor',
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.provider('tiingo'))!.state).toBe('no-fiable');
+  });
 });
 
 describe('vigilancia de series macro', () => {
@@ -538,6 +658,111 @@ describe('resumen de frescura', () => {
       { autoStart: false },
     );
     expect(electron.handlers.has(IPC_CHANNELS.dataStatus.freshness)).toBe(true);
+  });
+
+  it('informa el progreso durante la puesta al día: done sube de 0 a total', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('MSFT');
+    seedBars('AAPL', PREV_SESSION);
+    seedBars('MSFT', PREV_SESSION);
+    service.evaluate();
+    await flush();
+    expect(service.freshness().state).toBe('stale');
+    expect(service.freshness().progress).toBeNull();
+
+    const write = (key: string, state: DataStatusState): void => {
+      service.observe(
+        repo.setDataStatus({
+          key,
+          state,
+          ...(state === 'fiable' ? { lastOkAt: new Date(nowMs).toISOString() } : {}),
+          consecutiveFailures: 0,
+        }),
+      );
+    };
+
+    // La pasada empieza por AAPL: mientras haya trabajo en vuelo el
+    // resumen es 'catching-up', aunque MSFT siga desactualizado.
+    write(dataStatusKey.ticker('AAPL'), 'actualizando');
+    let summary = service.freshness();
+    expect(summary.state).toBe('catching-up');
+    expect(summary.progress).toEqual({ done: 0, total: 2 });
+
+    // AAPL terminó; MSFT sigue sin tocar: el progreso dice 1 de 2.
+    seedBars('AAPL', LAST_SESSION, [PREV_SESSION, LAST_SESSION]);
+    write(dataStatusKey.ticker('AAPL'), 'fiable');
+    summary = service.freshness();
+    expect(summary.state).toBe('catching-up');
+    expect(summary.progress).toEqual({ done: 1, total: 2 });
+
+    // MSFT entra en vuelo: sigue 1 de 2.
+    write(dataStatusKey.ticker('MSFT'), 'actualizando');
+    summary = service.freshness();
+    expect(summary.progress).toEqual({ done: 1, total: 2 });
+
+    // Al terminar todo el resumen vuelve a 'current' y el progreso a null.
+    seedBars('MSFT', LAST_SESSION, [PREV_SESSION, LAST_SESSION]);
+    write(dataStatusKey.ticker('MSFT'), 'fiable');
+    summary = service.freshness();
+    expect(summary.state).toBe('current');
+    expect(summary.progress).toBeNull();
+  });
+
+  it('si la pasada no alcanza todo lo pendiente, el resumen vuelve a stale tras la quietud', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('MSFT');
+    seedBars('AAPL', PREV_SESSION);
+    seedBars('MSFT', PREV_SESSION);
+    service.evaluate();
+    await flush();
+
+    // La pasada procesó AAPL sin conseguir la vela (queda pendiente) y
+    // nunca llegó a MSFT: aún hay trabajo sin tocar, así que dentro del
+    // silencio de la ventana el estado sigue siendo puesta al día.
+    service.observe(
+      repo.setDataStatus({ key: dataStatusKey.ticker('AAPL'), state: 'actualizando' }),
+    );
+    service.observe(
+      repo.setDataStatus({
+        key: dataStatusKey.ticker('AAPL'),
+        state: 'desactualizado',
+        reason: `esperando la vela del ${LAST_SESSION}`,
+      }),
+    );
+    nowMs += 1_000;
+    let summary = service.freshness();
+    expect(summary.state).toBe('catching-up');
+    expect(summary.progress).toEqual({ done: 1, total: 2 });
+
+    // Pasado el margen sin novedad, la pasada se da por terminada.
+    nowMs += 60_000;
+    summary = service.freshness();
+    expect(summary.state).toBe('stale');
+    expect(summary.progress).toBeNull();
+  });
+
+  it('si todo lo pendiente quedó procesado sin llegar al día, vuelve a stale al instante', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    service.evaluate();
+    await flush();
+
+    service.observe(
+      repo.setDataStatus({ key: dataStatusKey.ticker('AAPL'), state: 'actualizando' }),
+    );
+    service.observe(
+      repo.setDataStatus({
+        key: dataStatusKey.ticker('AAPL'),
+        state: 'desactualizado',
+        reason: `esperando la vela del ${LAST_SESSION}`,
+      }),
+    );
+
+    // No queda trabajo sin tocar: la pasada terminó sin éxito y el
+    // estado real vuelve a mostrarse sin esperar a la quietud.
+    const summary = service.freshness();
+    expect(summary.state).toBe('stale');
+    expect(summary.progress).toBeNull();
   });
 });
 
