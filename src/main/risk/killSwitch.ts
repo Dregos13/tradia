@@ -16,9 +16,15 @@
  *   lo mismo que `agents:pause`), refresca la bandeja, emite
  *   `risk:changed` con el `RiskOverview` y envía la notificación crítica
  *   cuyo clic abre `#riesgo`.
- * - `resume` exige `confirm: true` (`KillSwitchResumeRequest`): nunca se
- *   reanuda de forma automática, ni al volver la conexión ni al
- *   recuperarse el dato.
+ * - `resume` exige `confirm: true` (`KillSwitchResumeRequest`): ninguna
+ *   parada se reanuda sola por recuperarse el dato. La única excepción es
+ *   una 'sin-conexion' activada por este vigilante (un corte real): su
+ *   causa deja de existir en cuanto vuelve la red, así que
+ *   `checkConnectivity` la levanta automáticamente al primer sondeo
+ *   'online' (la pausa mientras dura el corte la cubre connectivity con
+ *   `pauseDecisions`, sin parada). Una 'sin-conexion' persistida de otro
+ *   proceso o sembrada por el gancho E2E en línea sigue exigiendo la
+ *   reanudación confirmada.
  *
  * Disparadores automáticos (umbrales de `shared/risk.ts`):
  * - 'perdida-anomala': `observeDailyLoss` (pérdida diaria ≥ 1,5 × límite)
@@ -29,7 +35,9 @@
  *   envolviendo `ctx.broadcast` como hace health) y `observePriceJump`
  *   (|Δ%| ≥ 20).
  * - 'sin-conexion': `checkConnectivity` sondea el estado de connectivity
- *   (reloj inyectable): 'offline' sostenido ≥ 60 s dispara la parada.
+ *   (reloj inyectable): 'offline' sostenido ≥ 60 s dispara la parada y
+ *   volver 'online' la levanta sin intervención (solo si el propio
+ *   sondeo la activó).
  * - 'modelo-erratico': `observeSignal` (ráfaga de más de 20 señales por
  *   hora, 5 señales inválidas seguidas o confianza fuera de 0–1).
  *
@@ -234,7 +242,10 @@ export interface KillSwitchService {
    * disparadores.
    */
   activate(cause: KillSwitchCause, actor: KillSwitchActor, detail?: string | null): KillSwitchState;
-  /** Reanuda solo con `{confirm: true}`; nunca de forma automática. */
+  /**
+   * Reanuda solo con `{confirm: true}`. La única reanudación automática
+   * es la de la parada 'sin-conexion' al volver la red (`checkConnectivity`).
+   */
   resume(request: KillSwitchResumeRequest): KillSwitchState;
   /** Pérdida diaria realizada (% del capital); ≥ 1,5 × límite → parada. */
   observeDailyLoss(lossPct: number): void;
@@ -281,6 +292,13 @@ export function createKillSwitchService(deps: KillSwitchDeps): KillSwitchService
   let timer: TimerHandle | null = null;
   /** Desde cuándo está 'offline' seguido (null si está en línea o sin muestras). */
   let offlineSince: number | null = null;
+  /**
+   * La parada por pérdida de conexión se levanta sola solo si la activó
+   * este vigilante (un corte real). Una 'sin-conexion' sembrada por el
+   * gancho E2E estando en línea, o persistida de un proceso anterior,
+   * sigue exigiendo la reanudación confirmada.
+   */
+  let offlineStopActive = false;
   /** Instantes de las señales observadas en la última hora. */
   const signalTimes: number[] = [];
   let consecutiveInvalid = 0;
@@ -336,6 +354,7 @@ export function createKillSwitchService(deps: KillSwitchDeps): KillSwitchService
       }
       if (!state.active) return { ...state };
       deps.store.append('reanudada', 'manual', 'usuario', request.note ?? null, isoNow());
+      offlineStopActive = false;
       state = stateFromStore(deps.store);
       deps.resumeAgents();
       logger.info('[risk] parada de emergencia reanudada por el usuario');
@@ -446,9 +465,33 @@ export function createKillSwitchService(deps: KillSwitchDeps): KillSwitchService
             'automatico',
             `sin conexión durante más de ${Math.round(offlineThresholdMs / 1_000)} s`,
           );
+          offlineStopActive = state.active && state.cause === 'sin-conexion';
         }
       } else if (connectivity.status === 'online') {
         offlineSince = null;
+        // La parada por pérdida de conexión es la única que se levanta
+        // sola: su causa deja de existir al volver la red, así que la
+        // persistiría sin información nueva. Las demás causas exigen la
+        // reanudación confirmada del usuario.
+        if (state.active && state.cause === 'sin-conexion' && offlineStopActive) {
+          offlineStopActive = false;
+          deps.store.append(
+            'reanudada',
+            'sin-conexion',
+            'automatico',
+            'conexión recuperada',
+            isoNow(),
+          );
+          state = stateFromStore(deps.store);
+          deps.resumeAgents();
+          deps.notify?.({
+            level: 'info',
+            title: 'Tradia — Parada levantada',
+            body: 'Se recuperó la conexión a internet; la parada por pérdida de conexión queda levantada y los agentes reanudan su actividad.',
+          });
+          logger.info('[risk] parada por pérdida de conexión levantada: la conexión volvió');
+          emitChanged();
+        }
       }
       // 'checking' ni cuenta ni reinicia: es un estado de paso entre sondeos.
     },

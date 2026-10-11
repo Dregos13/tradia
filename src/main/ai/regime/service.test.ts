@@ -7,7 +7,12 @@ import type { JournalRecordInput } from '../../../shared/journal';
 import type { StrategyStatus } from '../../../shared/strategy';
 import { openDatabase } from '../../db/database';
 import { createRegimeRepository } from './repository';
-import { createRegimeService, type RegimeCandle, type RegimeStrategyCard } from './service';
+import {
+  createRegimeService,
+  type RegimeCandle,
+  type RegimeServiceDeps,
+  type RegimeStrategyCard,
+} from './service';
 
 // ---------------------------------------------------------------------------
 // Utilidades: series sintéticas deterministas con fechas correlativas
@@ -105,7 +110,7 @@ const strategy = (over: Partial<RegimeStrategyCard> & { id: number }): RegimeStr
   ...over,
 });
 
-const makeService = () =>
+const makeService = (over: Partial<RegimeServiceDeps> = {}) =>
   createRegimeService({
     repo: createRegimeRepository(db),
     barsFor: (ticker) => seriesByTicker.get(ticker) ?? [],
@@ -116,6 +121,7 @@ const makeService = () =>
     broadcast: (channel, payload) => emitted.push({ channel, payload }),
     now: () => NOW,
     logger: {},
+    ...over,
   });
 
 const aiChangedCount = (): number =>
@@ -317,6 +323,88 @@ describe('vista del overview', () => {
     expect(view.computedAt).toBe(new Date(NOW).toISOString());
     // SPY figura dos veces: como referencia de mercado y como activo.
     expect(service.regimeFor('SPY')!.scope).toBe('activo');
+  });
+});
+
+describe('guarda de frescura (datos desactualizados)', () => {
+  // La serie termina el viernes 25-09-2026; la última sesión esperada al
+  // «ahora» del servicio (viernes 09-10-2026 tras el cierre) es el propio
+  // 09-10, así que todo lote que no la alcance está desactualizado.
+  const seriesEnding = (n: number, end: string): RegimeCandle[] =>
+    datedSeries(
+      n,
+      trendReturn,
+      new Date(Date.parse(`${end}T00:00:00.000Z`) - (n - 1) * 86_400_000)
+        .toISOString()
+        .slice(0, 10),
+    );
+  let expectedSession: string | null;
+  const freshnessService = () =>
+    makeService({ expectedSessionDate: () => expectedSession });
+
+  beforeEach(() => {
+    expectedSession = null;
+  });
+
+  it('una serie por detrás de la sesión esperada no calcula régimen nuevo', () => {
+    expectedSession = '2026-10-09';
+    seriesByTicker.set('SPY', seriesEnding(300, '2026-09-25'));
+    const service = freshnessService();
+    service.handleBarStored(event('SPY', '2026-09-25'));
+
+    expect(service.marketRegime()).toBeNull();
+    expect(service.history('mercado', 'SPY')).toHaveLength(0);
+    expect(aiChangedCount()).toBe(0);
+    expect(journal).toHaveLength(0);
+  });
+
+  it('con el mercado desactualizado las estrategias no se activan ni desactivan por régimen', () => {
+    // Régimen calculado cuando el 25-09 aún era la sesión esperada.
+    expectedSession = '2026-09-25';
+    seriesByTicker.set('SPY', seriesEnding(300, '2026-09-25'));
+    strategies = [
+      strategy({ id: 1, worksIn: ['lateral'] }), // fuera del régimen vigente
+      strategy({ id: 2, failsIn: ['tendencia'] }), // choca con el régimen vigente
+      strategy({ id: 3, status: 'degradada' }),
+      strategy({ id: 4 }),
+    ];
+    const service = freshnessService();
+    service.handleBarStored(event('SPY', '2026-09-25'));
+    expect(service.marketRegime()!.sessionDate).toBe('2026-09-25');
+    expect(service.overview().stale).toBe(false);
+
+    // El mercado se queda atrás: el régimen guardado deja de mandar y la
+    // instantánea queda marcada, no presentada como vigente.
+    expectedSession = '2026-10-09';
+    const view = service.overview();
+    expect(view.stale).toBe(true);
+    expect(view.expectedSessionDate).toBe('2026-10-09');
+    expect(view.market!.sessionDate).toBe('2026-09-25');
+    const states = view.strategies;
+    expect(states[0]!.regimeState).toBe('desactualizada');
+    expect(states[1]!.regimeState).toBe('desactualizada');
+    expect(states[2]!.regimeState).toBe('degradada'); // el drift manda aunque el dato sea viejo
+    expect(states[3]!.regimeState).toBe('desactualizada');
+    expect(states[0]!.reason).toContain('desactualizado');
+  });
+
+  it('un lote atrasado no recalcula; al ponerse al día cubre las sesiones pendientes', () => {
+    expectedSession = '2026-09-25';
+    seriesByTicker.set('SPY', seriesEnding(300, '2026-09-25'));
+    const service = freshnessService();
+    service.handleBarStored(event('SPY', '2026-09-25'));
+
+    // Puesta al día que aún no alcanza la sesión esperada: no recalcula.
+    expectedSession = '2026-10-09';
+    seriesByTicker.set('SPY', seriesEnding(307, '2026-10-02'));
+    service.handleBarStored(event('SPY', '2026-10-02'));
+    expect(service.marketRegime()!.sessionDate).toBe('2026-09-25');
+
+    // Al alcanzar la sesión esperada cubre todas las sesiones pendientes.
+    seriesByTicker.set('SPY', seriesEnding(314, '2026-10-09'));
+    service.handleBarStored(event('SPY', '2026-10-09'));
+    expect(service.marketRegime()!.sessionDate).toBe('2026-10-09');
+    expect(service.overview().stale).toBe(false);
   });
 });
 

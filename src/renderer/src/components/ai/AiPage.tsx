@@ -101,6 +101,7 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
             predictions={state.predictions}
             model={state.model}
             modelUnavailable={modelUnavailable}
+            expectedSessionDate={state.overview?.expectedSessionDate ?? null}
           />
           <ModelCard model={state.model} unavailable={modelUnavailable} />
           {onOpenMarketSources && !state.overview?.market && (

@@ -19,6 +19,12 @@
  * - El servicio no clasifica series con menos de `REGIME_MIN_BARS`
  *   velas: sin pendiente de la SMA50 la etiqueta sería solo el valor por
  *   defecto.
+ * - Guarda de frescura (`expectedSessionDate`, la misma regla que el
+ *   motor de señales): si la última vela de la serie es anterior a la
+ *   última sesión esperada no se recalcula — el lote llega de una puesta
+ *   al día atrasada y una etiqueta nueva se presentaría como vigente.
+ *   El overview marca entonces la instantánea como desactualizada y las
+ *   estrategias no se habilitan ni desactivan por régimen.
  */
 import {
   IPC_CHANNELS,
@@ -38,7 +44,11 @@ import type { JournalRecordInput } from '../../../shared/journal';
 import type { StrategyStatus } from '../../../shared/strategy';
 import type { Candle } from '../../../shared/indicators';
 import { createRegimeClassifier, REGIME_MIN_BARS } from './classifier';
-import { REGIME_LABEL_TEXT, resolveStrategyRegime } from './enablement';
+import {
+  REGIME_LABEL_TEXT,
+  resolveStrategyRegime,
+  staleRegimeResolution,
+} from './enablement';
 import type { RegimesRepository, RegimeRowLabels } from './repository';
 
 /** Vela mínima que necesita el clasificador (fecha + OHLC). */
@@ -79,6 +89,16 @@ export interface RegimeServiceDeps {
   recordJournal(input: JournalRecordInput): void;
   /** `ctx.broadcast` perezoso para `ai:changed`. */
   broadcast(channel: string, payload: unknown): void;
+  /**
+   * Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'),
+   * al instante dado. Guarda de frescura (misma regla que el motor de
+   * señales): una serie cuya última vela es anterior no recalcula el
+   * régimen — los datos llegan de una puesta al día atrasada y una
+   * etiqueta calculada sobre ellos se presentaría como vigente—; el
+   * overview la marca como desactualizada. Sin la dependencia no se
+   * aplica la guarda.
+   */
+  expectedSessionDate?(nowMs: number): string | null;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   logger?: Partial<RegimeServiceLogger>;
@@ -211,6 +231,21 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
     const candles = deps.barsFor(ticker, preferSource);
     if (candles.length < REGIME_MIN_BARS) return false;
 
+    // Guarda de frescura: con la serie por detrás de la última sesión
+    // esperada no se recalcula — el lote viene de una puesta al día
+    // atrasada y el resultado se mostraría como vigente. Cuando los
+    // datos se ponen al día, esta misma pasada cubre las sesiones
+    // pendientes, así que no queda hueco en el historial.
+    const expected = deps.expectedSessionDate?.(now()) ?? null;
+    const lastCandle = candles[candles.length - 1]!.date;
+    if (expected !== null && lastCandle < expected) {
+      logger.info?.(
+        `[ai/regime] ${ticker}: última vela ${lastCandle} anterior a la sesión ` +
+          `esperada ${expected}; no se recalcula el régimen`,
+      );
+      return false;
+    }
+
     const priorLatest = deps.repo.latestSession(scope, ticker);
     let startIndex = REGIME_MIN_BARS - 1;
     if (priorLatest !== null) {
@@ -295,8 +330,17 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
         .listWatchlistTickers()
         .map((ticker) => deps.repo.latest('activo', ticker.trim().toUpperCase()))
         .filter((snapshot): snapshot is RegimeSnapshot => snapshot !== null);
+      // Frescura: un régimen cuya sesión es anterior a la última esperada
+      // está desactualizado — se muestra marcado y no habilita ni
+      // desactiva estrategias ('desactualizada'), salvo 'degradada', que
+      // manda por el drift aunque los datos sean viejos.
+      const expected = deps.expectedSessionDate?.(now()) ?? null;
+      const stale =
+        market !== null && expected !== null && market.sessionDate < expected;
       const current =
-        market === null ? null : { direction: market.direction, volatility: market.volatility };
+        market === null || stale
+          ? null
+          : { direction: market.direction, volatility: market.volatility };
       const strategies: StrategyRegimeStatus[] = deps
         .listStrategies()
         .filter((strategy) => strategy.status !== 'retirada')
@@ -307,7 +351,9 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
           status: strategy.status,
           worksIn: strategy.worksIn,
           failsIn: strategy.failsIn,
-          ...resolveStrategyRegime(strategy, strategy.status, current),
+          ...(stale && strategy.status !== 'degradada'
+            ? staleRegimeResolution(market!.sessionDate, expected!)
+            : resolveStrategyRegime(strategy, strategy.status, current)),
         }));
       const computedAt =
         [market, ...assets]
@@ -315,7 +361,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
           .map((snapshot) => snapshot.computedAt)
           .sort()
           .pop() ?? null;
-      return { market, assets, strategies, computedAt };
+      return { market, assets, strategies, computedAt, expectedSessionDate: expected, stale };
     },
 
     regimeFor: (ticker, session) => {

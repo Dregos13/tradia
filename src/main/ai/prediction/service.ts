@@ -75,6 +75,16 @@ export interface PredictionServiceDeps {
   recordJournal?(input: JournalRecordInput): void;
   /** `ctx.broadcast` perezoso para `ai:changed`. */
   broadcast(channel: string, payload: unknown): void;
+  /**
+   * Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'),
+   * al instante dado. Guarda de frescura (misma regla que régimen y
+   * señales): una serie cuya última vela es anterior a la esperada no
+   * genera predicciones nuevas — llega de una puesta al día atrasada y
+   * una predicción sobre ella se presentaría como vigente—; sí se
+   * resuelven las pendientes con las velas que sí llegaron. Sin la
+   * dependencia no se aplica la guarda.
+   */
+  expectedSessionDate?(nowMs: number): string | null;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   logger?: Partial<PredictionServiceLogger>;
@@ -305,7 +315,21 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
     if (candles.length === 0) return;
     let changed = false;
     if (model !== null) {
-      changed = await predictSessions(model, ticker, candles);
+      // Guarda de frescura: con la serie por detrás de la última sesión
+      // esperada no se crean predicciones nuevas (llegarían de una puesta
+      // al día atrasada y se presentarían como vigentes). Al ponerse al
+      // día, la pasada cubre todas las sesiones pendientes. Las
+      // predicciones ya emitidas sí se resuelven con las velas llegadas.
+      const expected = deps.expectedSessionDate?.(now()) ?? null;
+      const lastCandle = candles[candles.length - 1]!.date;
+      if (expected !== null && lastCandle < expected) {
+        logger.info?.(
+          `[ai/prediction] ${ticker}: última vela ${lastCandle} anterior a la sesión ` +
+            `esperada ${expected}; no se predicen sesiones`,
+        );
+      } else {
+        changed = await predictSessions(model, ticker, candles);
+      }
     }
     changed = resolveSessions(ticker, candles) || changed;
     if (changed) emitChanged();

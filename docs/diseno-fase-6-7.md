@@ -49,6 +49,7 @@ Tabla `Estrategias según el régimen` con `Estrategia`, `Estado por régimen`, 
 - `Desactivada por régimen` · `El mercado está en Tendencia y la estrategia declara que falla en Tendencia.`
 - `Desactivada por régimen` · `Solo funciona en Lateral; el régimen actual es Tendencia.`
 - `Degradada` · `El drift sostenido tiene prioridad. Revisa Salud de modelos.`
+- `Régimen desactualizado` · `El régimen del mercado está desactualizado (último cierre …; se esperaba la sesión del …): no habilita ni desactiva.` — cuando el régimen guardado es anterior a la última sesión esperada; `Degradada` mantiene la prioridad.
 
 Una estrategia desactivada conserva enlace `Ver ficha`; no ofrece un interruptor para eludir el motor. El estado no se expresa solo con opacidad.
 
@@ -364,7 +365,7 @@ Los contrastes declarados en los tokens se comprueban entre texto y su superfici
 | --- | --- | --- |
 | `RegimeSummary` | cargando, conocido, sin clasificar, obsoleto, error | dos ejes, método y fecha |
 | `RegimeAssetTable` | cargando, vacío, error parcial, congelado | dirección + volatilidad escritas |
-| `StrategyRegimeStatus` | activa, desactivada, degradada | motivo humano, sin bypass |
+| `StrategyRegimeStatus` | activa, desactivada, degradada, desactualizada | motivo humano, sin bypass |
 | `ProbabilityPanel` | cargando, disponible, no apto, sin modelo, error | porcentaje + horizonte + versión; nunca certeza |
 | `ModelCard` | completa, sintética, no apta, incompleta, error, sin permisos | Brier vs referencia, periodos y calibración |
 | `RegimeBacktestComparison` | cargando, comparable, no comparable, vacío, error | mismos datos, periodo y costes |

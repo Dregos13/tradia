@@ -1,5 +1,5 @@
 import type { RegimeOverview } from '../../../../shared/ai';
-import { date, number, percent, RegimeBadge, regimeLabel, TableWrap } from './presentation';
+import { Badge, date, number, percent, RegimeBadge, regimeLabel, TableWrap } from './presentation';
 export function RegimePanel({ overview }: { overview: RegimeOverview | null }) {
   const market = overview?.market;
   return (
@@ -11,9 +11,22 @@ export function RegimePanel({ overview }: { overview: RegimeOverview | null }) {
             Referencia {market.ticker} · cierre{' '}
             <time dateTime={market.sessionDate}>{date(market.sessionDate)}</time>
           </p>
+          {overview?.stale && (
+            <div className="ai-warning" role="status">
+              <p>
+                Datos desactualizados desde el {date(market.sessionDate)}
+                {overview.expectedSessionDate
+                  ? ` · se esperaba la sesión del ${date(overview.expectedSessionDate)}`
+                  : ''}
+                . El régimen y las estrategias se recalculan al ponerse al día; hasta entonces no
+                habilitan ni desactivan nada.
+              </p>
+            </div>
+          )}
           <div className="ai-regime-summary">
             <RegimeBadge label={market.direction} />
             <RegimeBadge label={market.volatility} />
+            {overview?.stale && <Badge kind="regime-unknown">Desactualizado</Badge>}
           </div>
           <p>
             Dirección: ADX(14){' '}
@@ -71,6 +84,10 @@ export function RegimePanel({ overview }: { overview: RegimeOverview | null }) {
                   </td>
                   <td>
                     <time dateTime={asset.sessionDate}>{date(asset.sessionDate)}</time>
+                    {overview?.expectedSessionDate &&
+                      asset.sessionDate < overview.expectedSessionDate && (
+                        <small> · desactualizado</small>
+                      )}
                   </td>
                   <td>
                     {asset.previousChange

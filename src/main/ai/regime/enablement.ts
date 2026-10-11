@@ -49,6 +49,20 @@ const joinLabels = (labels: readonly RegimeLabel[]): string =>
   labels.map((label) => REGIME_LABEL_TEXT[label]).join(' · ');
 
 /**
+ * Resolución cuando el régimen guardado está desactualizado: hay una
+ * etiqueta pero su sesión es anterior a la última esperada, así que no
+ * habilita ni desactiva hasta que los datos se pongan al día.
+ */
+export function staleRegimeResolution(sessionDate: string, expected: string): StrategyRegimeResolution {
+  return {
+    regimeState: 'desactualizada',
+    reason:
+      `El régimen del mercado está desactualizado (último cierre ${sessionDate}; ` +
+      `se esperaba la sesión del ${expected}): no habilita ni desactiva.`,
+  };
+}
+
+/**
  * Resuelve una estrategia frente al régimen vigente (`current`: el del
  * mercado en la vista general; una capa posterior puede pasar el del
  * activo, cambiando `reference` para el motivo). `current === null`

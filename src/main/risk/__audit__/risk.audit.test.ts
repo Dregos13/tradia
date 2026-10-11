@@ -585,7 +585,7 @@ describe('auditoría · causas automáticas de la parada', () => {
     expect(killSwitch.getState().active).toBe(false);
   });
 
-  it('sin-conexion: 60 s sin conexión activa la parada y no se reanuda sola', () => {
+  it('sin-conexion: 60 s sin conexión activa la parada y se levanta sola al volver la red', () => {
     connectivity = { ...connectivity, status: 'offline' };
     killSwitch.checkConnectivity();
     expect(killSwitch.getState().active).toBe(false);
@@ -595,10 +595,12 @@ describe('auditoría · causas automáticas de la parada', () => {
     expectActiveKillSwitch('sin-conexion');
     expectVeto(service.submitSignal(signal()), 'KILL_SWITCH_ACTIVE');
 
-    // Aunque vuelva la conexión, la parada no se levanta sola.
+    // Al volver la conexión la causa deja de existir: la parada se
+    // levanta en el primer sondeo y vuelven a admitirse señales.
     connectivity = { ...connectivity, status: 'online', attempt: 0 };
     killSwitch.checkConnectivity();
-    expect(killSwitch.getState().active).toBe(true);
+    expect(killSwitch.getState().active).toBe(false);
+    expect(service.submitSignal(signal()).status).not.toBe('vetada');
   });
 
   it('modelo-erratico: una ráfaga de más de 20 señales/hora activa la parada', () => {

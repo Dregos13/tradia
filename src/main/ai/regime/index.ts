@@ -26,6 +26,7 @@ import {
   isSimulateRegimeRequest,
 } from '../../../shared/ipc';
 import type { JournalRecordInput } from '../../../shared/journal';
+import * as nyseCalendar from '../../market/calendar';
 import type { StoredBar } from '../../market/repository';
 import { createMarketRepository } from '../../market/repository';
 import { openDatabase } from '../../db/database';
@@ -69,7 +70,21 @@ export function registerRegimeIpc(service: RegimeService): void {
   }
 }
 
-export function registerRegime(ctx: ServiceContext): AiRegimeService {
+export interface RegisterRegimeOptions {
+  /**
+   * Reloj compartido con la ingesta de mercado (adelantable por
+   * `market:advance-clock`): fija la sesión esperada de la guarda de
+   * frescura, así una vela vieja que llega en una puesta al día atrasada
+   * no recalcula el régimen como si fuera vigente. Por defecto, el reloj
+   * real.
+   */
+  clock?: { now(): number };
+}
+
+export function registerRegime(
+  ctx: ServiceContext,
+  options: RegisterRegimeOptions = {},
+): AiRegimeService {
   let db = ctx.services.storage?.getDb() ?? null;
   if (!db) {
     console.error('[ai/regime] almacén no disponible: el régimen solo vivirá en memoria');
@@ -102,6 +117,11 @@ export function registerRegime(ctx: ServiceContext): AiRegimeService {
     listStrategies: () => ctx.services.strategies?.list() ?? [],
     recordJournal: (input) => journal?.record?.(input),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    // Guarda de frescura: una serie por detrás de la última sesión
+    // esperada no recalcula el régimen (datos viejos de una puesta al
+    // día atrasada) y el overview lo marca como desactualizado.
+    expectedSessionDate: () =>
+      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
   });
 
   // Disparo: cada lote guardado recalcula el régimen del activo (y del

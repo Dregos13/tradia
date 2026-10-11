@@ -1,3 +1,4 @@
+import { KILL_SWITCH_CAUSE_MESSAGES, type KillSwitchState } from '../../../shared/risk';
 import type { SystemState } from '../hooks/useSystemState';
 
 export function heartbeatTime(at: string | null | undefined): string {
@@ -27,7 +28,13 @@ export function ConnectionStatus({ state }: { state: SystemState }) {
   );
 }
 
-export function AgentsStatus({ state }: { state: SystemState }) {
+export function AgentsStatus({
+  state,
+  killSwitch,
+}: {
+  state: SystemState;
+  killSwitch?: KillSwitchState | null;
+}) {
   const label = state.agentsError
     ? 'Agentes no disponibles'
     : !state.agents
@@ -35,32 +42,41 @@ export function AgentsStatus({ state }: { state: SystemState }) {
       : state.agents.paused
         ? 'Agentes en pausa'
         : 'Agentes activos';
+  // Motivo de la pausa: una parada activa manda sobre la pausa del
+  // planificador, así la barra nunca dice «Pausa manual» cuando quien
+  // detiene a los agentes es la parada (p. ej. por pérdida de conexión).
+  const pauseReason = killSwitch?.active
+    ? killSwitch.cause === 'manual' || killSwitch.cause === null
+      ? 'Pausa manual'
+      : KILL_SWITCH_CAUSE_MESSAGES[killSwitch.cause]
+    : state.agents?.pauseReason === 'sin-conexion'
+      ? 'Sin conexión'
+      : state.agents?.pauseReason === 'usuario'
+        ? 'Pausa manual'
+        : 'Motivo no disponible';
   return (
     <span
       className={`state ${state.agentsError ? 'offline' : state.agents?.paused ? 'paused' : state.agents ? 'online' : ''}`}
     >
       <span className="symbol" aria-hidden="true" />
       <span>{label}</span>
-      {state.agents?.paused && !state.agentsError && (
-        <span>
-          ·{' '}
-          {state.agents.pauseReason === 'sin-conexion'
-            ? 'Sin conexión'
-            : state.agents.pauseReason === 'usuario'
-              ? 'Pausa manual'
-              : 'Motivo no disponible'}
-        </span>
-      )}
+      {state.agents?.paused && !state.agentsError && <span>· {pauseReason}</span>}
     </span>
   );
 }
 
-export function StatusBar({ state }: { state: SystemState }) {
+export function StatusBar({
+  state,
+  killSwitch,
+}: {
+  state: SystemState;
+  killSwitch?: KillSwitchState | null;
+}) {
   return (
     <footer className="statusbar" aria-label="Estado del sistema">
       <div role="status" aria-live="polite">
         <ConnectionStatus state={state} />
-        <AgentsStatus state={state} />
+        <AgentsStatus state={state} killSwitch={killSwitch} />
       </div>
       <span className="numeric">
         Última comprobación{' '}

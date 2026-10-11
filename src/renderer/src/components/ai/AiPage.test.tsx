@@ -59,6 +59,8 @@ beforeEach(async () => {
       },
     ],
     computedAt: snapshot.computedAt,
+    expectedSessionDate: snapshot.sessionDate,
+    stale: false,
   };
   const predictions: Prediction[] = ['AAPL', 'MSFT'].map((ticker, index) => ({
     id: index + 1,
@@ -147,6 +149,8 @@ it('cubre carga y vacío sin inventar cifras', async () => {
     assets: [],
     strategies: [],
     computedAt: null,
+    expectedSessionDate: null,
+    stale: false,
   });
   vi.spyOn(adapter.api.ai, 'predictions').mockResolvedValue([]);
   await mount();

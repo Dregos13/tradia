@@ -167,13 +167,15 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.journal = registerJournal(ctx);
   // Fase 6: el régimen se recalcula con cada lote de velas (market), las
   // fichas deciden qué estrategias habilita (strategies) y sus cambios
-  // de mercado se anotan en el Diario (journal).
-  services.aiRegime = registerRegime(ctx);
+  // de mercado se anotan en el Diario (journal). El reloj de mercado fija
+  // la guarda de frescura: un lote viejo de una puesta al día atrasada
+  // no recalcula nada como si fuera vigente.
+  services.aiRegime = registerRegime(ctx, { clock: marketClock });
   // Fase 6: la predicción ONNX se recalcula con cada lote de velas
   // (market), registra su ficha en model_cards y publica su salud en
   // data_status (health la observa por el broadcast envuelto). Antes de
   // signals: la integración de señales consume sus probabilidades.
-  services.aiPrediction = registerPrediction(ctx);
+  services.aiPrediction = registerPrediction(ctx, { clock: marketClock });
   // Fase 6: el análisis de noticias encola los titulares confirmados que
   // entrega cada pasada del lector (poller.onItemsStored) y los resume
   // con el LLM o el léxico local; en E2E usa el analizador simulado.

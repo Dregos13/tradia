@@ -127,6 +127,36 @@ it('permite comprobar ahora, bloquea duplicados y muestra errores recuperables',
     screen.queryByText('No pudimos comprobar la conexión. Vuelve a intentarlo.'),
   ).not.toBeInTheDocument();
 });
+it('una parada activa se rotula por su causa, no como «Pausa manual»', () => {
+  // El planificador solo sabe que la pausa es «manual» (la pidió la
+  // parada); la barra muestra la causa real del kill switch.
+  render(
+    <StatusBar
+      state={{
+        connectivity: {
+          status: 'online',
+          lastCheckedAt: checked,
+          nextRetryAt: null,
+          attempt: 0,
+        },
+        agents: { paused: true, pauseReason: 'usuario', lastHeartbeatAt: checked },
+        connectionError: false,
+        agentsError: false,
+      }}
+      killSwitch={{
+        active: true,
+        cause: 'sin-conexion',
+        actor: 'automatico',
+        activatedAt: checked,
+        detail: 'sin conexión durante más de 60 s',
+      }}
+    />,
+  );
+  expect(screen.getByText('Agentes en pausa')).toBeInTheDocument();
+  expect(screen.getByText('· Pérdida de conexión')).toBeInTheDocument();
+  expect(screen.queryByText('· Pausa manual')).not.toBeInTheDocument();
+});
+
 it('mantiene la pausa manual al reconectar y no inventa un banner ante errores IPC', async () => {
   vi.spyOn(adapter.api.connectivity, 'getState').mockRejectedValue(new Error('IPC'));
   await mount();

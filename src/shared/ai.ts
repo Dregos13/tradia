@@ -87,8 +87,17 @@ export interface RegimeSnapshot {
   computedAt: string;
 }
 
-/** Estado de una estrategia frente al régimen vigente (página «IA»). */
-export const STRATEGY_REGIME_STATES = ['habilitada', 'desactivada', 'degradada'] as const;
+/**
+ * Estado de una estrategia frente al régimen vigente (página «IA»).
+ * 'desactualizada' significa que el régimen guardado es anterior a la
+ * última sesión esperada: no habilita ni desactiva hasta ponerse al día.
+ */
+export const STRATEGY_REGIME_STATES = [
+  'habilitada',
+  'desactivada',
+  'degradada',
+  'desactualizada',
+] as const;
 export type StrategyRegimeState = (typeof STRATEGY_REGIME_STATES)[number];
 
 /**
@@ -121,6 +130,18 @@ export interface RegimeOverview {
   strategies: StrategyRegimeStatus[];
   /** Instante de la instantánea (ISO 8601). */
   computedAt: string | null;
+  /**
+   * Última sesión esperada según el calendario de mercado ('YYYY-MM-DD');
+   * null si no se pudo calcular. Una instantánea con `sessionDate`
+   * anterior está desactualizada.
+   */
+  expectedSessionDate: string | null;
+  /**
+   * true si el régimen del mercado corresponde a una sesión anterior a la
+   * esperada: la instantánea está desactualizada y no habilita ni
+   * desactiva estrategias por régimen.
+   */
+  stale: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -308,7 +308,7 @@ function AppShell() {
           </>
         )}
       </main>
-      <StatusBar state={state} />
+      <StatusBar state={state} killSwitch={risk.killSwitch} />
     </div>
   );
 }

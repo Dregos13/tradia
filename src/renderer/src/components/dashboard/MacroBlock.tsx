@@ -38,7 +38,9 @@ export function MacroBlock({
   }, []);
 
   const regimeText = overview?.market
-    ? `${regimeLabels[overview.market.direction]} · ${regimeLabels[overview.market.volatility]}`
+    ? overview.stale
+      ? `Desactualizado (cierre ${overview.market.sessionDate})`
+      : `${regimeLabels[overview.market.direction]} · ${regimeLabels[overview.market.volatility]}`
     : 'Sin clasificar';
 
   return (

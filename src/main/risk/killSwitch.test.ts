@@ -379,18 +379,59 @@ describe('parada de emergencia · reanudación', () => {
     expect(resumes).toBe(0);
   });
 
-  it('recuperarse la conexión o el dato no reanuda la parada', () => {
+  it('la parada por pérdida de conexión se levanta sola al volver la red', () => {
     const service = makeService();
     connectivityStatus = 'offline';
     service.checkConnectivity();
     nowMs += 61_000;
     service.checkConnectivity();
+    expect(service.getState()).toMatchObject({ active: true, cause: 'sin-conexion' });
+
+    connectivityStatus = 'online';
+    service.checkConnectivity();
+
+    // La causa deja de existir al volver la red: la parada se levanta en
+    // el primer sondeo, queda en el historial y reanuda los agentes.
+    const released = service.getState();
+    expect(released.active).toBe(false);
+    expect(released).toMatchObject({ cause: 'sin-conexion', actor: 'automatico' });
+    expect(resumes).toBe(1);
+    expect(eventCount('reanudada')).toBe(1);
+    expect(lastRiskChanged().killSwitch.active).toBe(false);
+    expect(notifications.at(-1)).toMatchObject({ level: 'info' });
+    expect(notifications.at(-1)?.body).toContain('pérdida de conexión');
+  });
+
+  it('una parada sin-conexion que no vino de un corte real no se levanta sola', () => {
+    // El gancho E2E (`risk:simulate-cause`) puede activar 'sin-conexion'
+    // estando en línea: como no la disparó el vigilante tras un corte,
+    // exige la reanudación confirmada igual que cualquier otra causa.
+    const service = makeService();
+    connectivityStatus = 'online';
+    service.checkConnectivity();
+    service.activate('sin-conexion', 'automatico');
     expect(service.getState().active).toBe(true);
+
+    service.checkConnectivity();
+    expect(service.getState().active).toBe(true);
+    expect(resumes).toBe(0);
+  });
+
+  it('las demás causas no se reanudan solas ni al volver la conexión ni el dato', () => {
+    const service = makeService();
+    service.observePriceJump('TSLA', -25);
+    expect(service.getState()).toMatchObject({ active: true, cause: 'dato-anomalo' });
 
     connectivityStatus = 'online';
     service.checkConnectivity();
     service.observeDataStatus(dataStatus({ state: 'fiable' }));
-    expect(service.getState().active).toBe(true); // sigue parada: jamás automática
+    expect(service.getState().active).toBe(true); // sigue parada
+    expect(resumes).toBe(0);
+
+    const manual = makeService({ store: createKillSwitchStore(openDatabase(':memory:')) });
+    manual.activate('manual', 'usuario');
+    manual.checkConnectivity();
+    expect(manual.getState().active).toBe(true);
   });
 });
 

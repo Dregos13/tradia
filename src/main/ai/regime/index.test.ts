@@ -29,6 +29,9 @@ vi.mock('electron', () => ({
 }));
 
 const NOW = '2026-10-09T21:00:00.000Z';
+// Reloj de mercado fijado antes de la serie sembrada (que empieza el
+// 02-01-2024): la guarda de frescura ve los datos como vigentes.
+const REGIME_CLOCK = { clock: { now: () => Date.parse('2024-01-01T21:00:00.000Z') } };
 
 /** Serie lateral sintética: seno amplio que se calma las 40 últimas. */
 function seedBars(ticker: string, n: number, source = 'simulado'): void {
@@ -117,7 +120,7 @@ describe('registerRegime', () => {
     seedBars('SPY', 300);
     seedBars('AAPL', 300);
     watchlist = [{ ticker: 'SPY' }, { ticker: 'AAPL' }];
-    registerRegime(makeCtx());
+    registerRegime(makeCtx(), REGIME_CLOCK);
 
     expect(electron.handlers.has(IPC_CHANNELS.ai.regimeOverview)).toBe(true);
     const overview = electron.handlers.get(IPC_CHANNELS.ai.regimeOverview)!({}) as Awaited<
@@ -134,7 +137,7 @@ describe('registerRegime', () => {
   it('un lote guardado dispara el recálculo a través de onBarsStored', () => {
     seedBars('SPY', 300);
     watchlist = [{ ticker: 'SPY' }];
-    registerRegime(makeCtx());
+    registerRegime(makeCtx(), REGIME_CLOCK);
     expect(barsStoredListener).not.toBeNull();
 
     const market = createMarketRepository(db);
@@ -166,7 +169,7 @@ describe('registerRegime', () => {
 
   it('un alta en el seguimiento dispara el recálculo con datos ya guardados', () => {
     seedBars('MSFT', 300);
-    registerRegime(makeCtx());
+    registerRegime(makeCtx(), REGIME_CLOCK);
     expect(watchlistListener).not.toBeNull();
 
     watchlist = [{ ticker: 'MSFT' }];
@@ -176,16 +179,33 @@ describe('registerRegime', () => {
     expect(view.assets.map((a) => a.ticker)).toEqual(['MSFT']);
   });
 
+  it('una serie por detrás de la sesión esperada no recalcula y el overview lo expone', () => {
+    seedBars('SPY', 300);
+    watchlist = [{ ticker: 'SPY' }];
+    // Domingo 11-10-2026: la sesión esperada es el viernes 09-10, muy por
+    // delante de la última vela sembrada → nada se recalcula.
+    registerRegime(makeCtx(), { clock: { now: () => Date.parse('2026-10-11T12:00:00.000Z') } });
+    const handler = electron.handlers.get(IPC_CHANNELS.ai.regimeOverview)!;
+    const view = handler({}) as {
+      market: { sessionDate: string } | null;
+      stale: boolean;
+      expectedSessionDate: string | null;
+    };
+    expect(view.market).toBeNull();
+    expect(view.stale).toBe(false); // no hay instantánea que marcar
+    expect(view.expectedSessionDate).toBe('2026-10-09');
+  });
+
   it('ai:simulate-regime solo existe en modo E2E sin empaquetar', () => {
     seedBars('SPY', 300);
     watchlist = [{ ticker: 'SPY' }];
-    registerRegime(makeCtx());
+    registerRegime(makeCtx(), REGIME_CLOCK);
     expect(electron.handlers.has(IPC_CHANNELS.ai.simulateRegime)).toBe(false);
 
     electron.isPackaged = false;
     vi.stubEnv('TRADIA_E2E', '1');
     electron.handlers.clear();
-    registerRegime(makeCtx());
+    registerRegime(makeCtx(), REGIME_CLOCK);
     const handler = electron.handlers.get(IPC_CHANNELS.ai.simulateRegime);
     expect(handler).toBeDefined();
     expect(() => handler!({}, { direction: 'norte' })).toThrow(IpcValidationError);

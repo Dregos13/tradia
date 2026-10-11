@@ -21,6 +21,13 @@ import {
 
 const HASH = 'a'.repeat(64);
 
+/** Serie de n velas que termina en la fecha dada. */
+const candlesEnding = (n: number, end: string): PredictionCandle[] =>
+  makeCandles(
+    n,
+    new Date(Date.parse(`${end}T00:00:00.000Z`) - (n - 1) * 86_400_000).toISOString().slice(0, 10),
+  );
+
 /** Paseo determinista para las velas sembradas (sin aleatoriedad). */
 function makeCandles(n: number, start = '2024-01-02', firstClose = 100): PredictionCandle[] {
   const candles: PredictionCandle[] = [];
@@ -324,5 +331,39 @@ describe('aptitud para señales', () => {
     expect(service.modelCard()!.eligible).toBe(false);
     expect(service.modelCard()!.ineligibleReason).toBe('Datos sintéticos · no apto');
     expect(service.eligibleModel()).toBeNull();
+  });
+});
+
+describe('guarda de frescura (datos desactualizados)', () => {
+  it('una serie por detrás de la sesión esperada no predice sesiones nuevas pero resuelve las pendientes', async () => {
+    // El 18-09-2026 aún es la sesión esperada: la pasada predice hasta ahí.
+    let expectedSession: string | null = '2026-09-18';
+    const candles = candlesEnding(60, '2026-09-18');
+    candlesByTicker.set('AAPL', candles);
+    const { service } = makeService({ expectedSessionDate: () => expectedSession });
+    await service.ready();
+
+    const initial = service.predictions({ ticker: 'AAPL' });
+    const resolvedBefore = initial.filter((p) => p.resolvedSession !== null).length;
+    expect(initial[0]!.sessionDate).toBe('2026-09-18'); // la más reciente primero
+
+    // Puesta al día atrasada: llegan cierres hasta el 25-09, pero la
+    // sesión esperada ya es el 09-10 → no se crean predicciones nuevas;
+    // las pendientes cuyo horizonte t+5 ya llegó sí se resuelven.
+    expectedSession = '2026-10-09';
+    candlesByTicker.set('AAPL', candlesEnding(60, '2026-09-25'));
+    service.handleBarStored(barEvent('AAPL'));
+    await service.ready();
+
+    const after = service.predictions({ ticker: 'AAPL' });
+    expect(after).toHaveLength(initial.length);
+    expect(after[0]!.sessionDate).toBe('2026-09-18');
+    expect(after.filter((p) => p.resolvedSession !== null).length).toBeGreaterThan(resolvedBefore);
+
+    // Al alcanzar la sesión esperada, la pasada cubre todo lo pendiente.
+    candlesByTicker.set('AAPL', candlesEnding(60, '2026-10-09'));
+    service.handleBarStored(barEvent('AAPL'));
+    await service.ready();
+    expect(service.predictions({ ticker: 'AAPL' })[0]!.sessionDate).toBe('2026-10-09');
   });
 });

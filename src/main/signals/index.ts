@@ -259,11 +259,15 @@ export function registerSignals(
     ai: {
       // El régimen del mercado (referencia SPY) habilita o desactiva las
       // estrategias: misma referencia que la página «IA» y el backtest.
+      // Si el régimen guardado es anterior a la sesión esperada está
+      // desactualizado y no decide nada (como si no hubiera régimen).
       marketRegime: () => {
         const snapshot = aiRegime?.service.marketRegime() ?? null;
-        return snapshot === null
-          ? null
-          : { direction: snapshot.direction, volatility: snapshot.volatility };
+        if (snapshot === null) return null;
+        const expected =
+          nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null;
+        if (expected !== null && snapshot.sessionDate < expected) return null;
+        return { direction: snapshot.direction, volatility: snapshot.volatility };
       },
       // Solo un modelo apto apoya señales; la predicción se usa solo si
       // casa con su versión y hash (lo decide el motor).

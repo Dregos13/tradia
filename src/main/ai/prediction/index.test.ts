@@ -40,6 +40,9 @@ vi.mock('electron', () => ({
 }));
 
 const MODELS_DIR = fileURLToPath(new URL('../../../../resources/models', import.meta.url));
+// Reloj de mercado fijado antes de la serie sembrada (que empieza el
+// 02-01-2024): la guarda de frescura ve los datos como vigentes.
+const PREDICTION_CLOCK = { clock: { now: () => Date.parse('2024-01-01T21:00:00.000Z') } };
 
 function seedBars(ticker: string, n: number, source = 'simulado'): void {
   const market = createMarketRepository(db);
@@ -121,7 +124,7 @@ describe('registerPrediction', () => {
   it('registra ai:predictions y ai:model-card, carga el bundle real y predice sobre velas guardadas', async () => {
     seedBars('AAPL', 70);
     watchlist = [{ ticker: 'AAPL' }];
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR });
+    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
     await registered.service.ready();
 
     expect(electron.handlers.has(IPC_CHANNELS.ai.predictions)).toBe(true);
@@ -159,7 +162,7 @@ describe('registerPrediction', () => {
   it('un lote guardado dispara la predicción a través de onBarsStored', async () => {
     seedBars('AAPL', 55);
     watchlist = [{ ticker: 'AAPL' }];
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR });
+    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
     await registered.service.ready();
     expect(barsStoredListener).not.toBeNull();
     const before = (invoke(IPC_CHANNELS.ai.predictions, { ticker: 'AAPL' }) as Prediction[]).length;
@@ -193,8 +196,22 @@ describe('registerPrediction', () => {
     await registered.stop();
   });
 
+  it('una serie por detrás de la sesión esperada no genera predicciones nuevas', async () => {
+    seedBars('AAPL', 70);
+    watchlist = [{ ticker: 'AAPL' }];
+    // Domingo 11-10-2026: la sesión esperada es el viernes 09-10, muy por
+    // delante de la última vela sembrada → no se predice nada nuevo.
+    const registered = registerPrediction(makeCtx(), {
+      modelsDir: MODELS_DIR,
+      clock: { now: () => Date.parse('2026-10-11T12:00:00.000Z') },
+    });
+    await registered.service.ready();
+    expect(invoke(IPC_CHANNELS.ai.predictions, { ticker: 'AAPL' })).toEqual([]);
+    await registered.stop();
+  });
+
   it('valida la entrada de ai:predictions', async () => {
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR });
+    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
     await registered.service.ready();
     expect(() => invoke(IPC_CHANNELS.ai.predictions, { limit: 0 })).toThrow(IpcValidationError);
     expect(() => invoke(IPC_CHANNELS.ai.predictions, { fuera: 1 })).toThrow(IpcValidationError);
@@ -206,7 +223,7 @@ describe('registerPrediction', () => {
     tmpDirs.push(empty);
     writeFileSync(join(empty, 'current.json'), JSON.stringify({ version: '9.9.9' }));
 
-    const registered = registerPrediction(makeCtx(), { modelsDir: empty });
+    const registered = registerPrediction(makeCtx(), { modelsDir: empty, ...PREDICTION_CLOCK });
     await registered.service.ready();
 
     expect(registered.service.status().state).toBe('degradado');

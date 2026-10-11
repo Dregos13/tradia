@@ -5,19 +5,32 @@ export function PredictionsTable({
   predictions,
   model,
   modelUnavailable = false,
+  expectedSessionDate = null,
 }: {
   predictions: Prediction[];
   model: ModelCard | null;
   modelUnavailable?: boolean;
+  /** Última sesión esperada ('YYYY-MM-DD'); las predicciones anteriores están desactualizadas. */
+  expectedSessionDate?: string | null;
 }) {
   const id = useId();
   const [ticker, setTicker] = useState('');
   const tickers = [...new Set(predictions.map((row) => row.ticker))];
   const selected = tickers.includes(ticker) ? ticker : '';
+  const latestSession = predictions.map((row) => row.sessionDate).sort().at(-1) ?? null;
+  const stale = expectedSessionDate !== null && latestSession !== null && latestSession < expectedSessionDate;
   return (
     <section className="ai-section" aria-labelledby="ai-predictions-title">
       <h3 id="ai-predictions-title">Predicción por activo</h3>
       <p>No crea señales por sí solo · Riesgo conserva el veto.</p>
+      {stale && (
+        <div className="ai-warning" role="status">
+          <p>
+            Datos desactualizados desde el {date(latestSession!)} · se esperaba la sesión del{' '}
+            {date(expectedSessionDate)}. No se crean predicciones nuevas hasta ponerse al día.
+          </p>
+        </div>
+      )}
       {!predictions.length ? (
         <p>Aún no hay estimaciones por activo.</p>
       ) : (

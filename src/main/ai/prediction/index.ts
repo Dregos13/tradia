@@ -34,6 +34,7 @@ import {
 } from '../../../shared/ipc';
 import type { JournalRecordInput } from '../../../shared/journal';
 import { openDatabase } from '../../db/database';
+import * as nyseCalendar from '../../market/calendar';
 import { createMarketRepository, type StoredBar } from '../../market/repository';
 import { resourcePath } from '../../resources';
 import type { ServiceContext } from '../../services';
@@ -55,6 +56,14 @@ export interface RegisterPredictionOptions {
    * apuntan a fixtures temporales.
    */
   modelsDir?: string;
+  /**
+   * Reloj compartido con la ingesta de mercado (adelantable por
+   * `market:advance-clock`): fija la sesión esperada de la guarda de
+   * frescura, así una vela vieja que llega en una puesta al día atrasada
+   * no genera predicciones nuevas como si fueran vigentes. Por defecto,
+   * el reloj real.
+   */
+  clock?: { now(): number };
 }
 
 /** La vela sobre la que se calculan las variables: serie ajustada, cruda de respaldo. */
@@ -153,6 +162,11 @@ export function registerPrediction(
     },
     recordJournal: (input) => journal?.record?.(input),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
+    // Guarda de frescura: una serie por detrás de la última sesión
+    // esperada no genera predicciones nuevas (datos viejos de una
+    // puesta al día atrasada); la resolución de las pendientes sí corre.
+    expectedSessionDate: () =>
+      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
   });
 
   // Disparo: cada lote guardado predice lo pendiente del ticker y

@@ -2843,6 +2843,8 @@ export function createSimulatedAdapter() {
           assets: tickers.map((ticker) => fakeRegime('activo', ticker)),
           strategies: strategyRegimeStatuses(),
           computedAt: nowIso(),
+          expectedSessionDate: lastSession(),
+          stale: false,
         };
         return overview;
       },

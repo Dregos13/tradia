@@ -82,6 +82,16 @@ it('muestra conexión, fuentes y frescura verificadas', async () => {
   expect(within(connection).getByText('Comprobando…')).toBeVisible();
 });
 it('reutiliza macro con indicadores, procedencia y datos obsoletos', async () => {
+  // Régimen sin clasificar de forma determinista: sin el mock la
+  // resolución del adaptador corre con la aserción y el texto cambia.
+  vi.spyOn(window.tradia.ai, 'regimeOverview').mockResolvedValue({
+    market: null,
+    assets: [],
+    strategies: [],
+    computedAt: null,
+    expectedSessionDate: null,
+    stale: false,
+  });
   vi.spyOn(window.tradia.macro, 'getSeries').mockResolvedValue([
     {
       id: 'VIXCLS',
