@@ -19,11 +19,16 @@
  *   no cambian el pasado al alterar velas futuras.
  * - Los ganchos E2E (`ai:simulate-*`) no existen en la app empaquetada.
  *
- * Las pruebas que fallan por un bug real están documentadas en
- * docs/qa/fase-6-7-auditoria.md, llevan «HALLAZGO Hn» en el nombre y se
- * declaran con `it.fails`: forman parte de `npm test` y pasan mientras
- * el bug exista. Cuando se corrija, la prueba se pondrá en rojo; en ese
- * momento hay que cambiar `it.fails` por `it`.
+ * - Ninguna señal con datos desactualizados: ni una vela anterior a la
+ *   sesión esperada, ni una predicción de una sesión anterior, ni un
+ *   titular publicado hace semanas.
+ *
+ * Los hallazgos H3, H4 y H5 de docs/qa/fase-6-7-auditoria.md están
+ * cerrados y sus pruebas corren como `it`. Los hallazgos nuevos de la
+ * auditoría de cierre (docs/qa/auditoria-continuacion-fase-6-7.md) llevan
+ * «HALLAZGO Cn» en el nombre y se declaran como fallo esperado (`fails`
+ * de vitest): pasan mientras el bug exista y se ponen en rojo al
+ * corregirlo; en ese momento hay que quitarles el `.fails`.
  */
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -112,6 +117,7 @@ const insertNewsItem = (
   title: string,
   confirmed: boolean,
   assets: readonly string[] = ['AAPL'],
+  publishedAt: string = NOW_ISO,
 ): NewsItem => {
   const id = Number(
     db
@@ -119,7 +125,7 @@ const insertNewsItem = (
         `INSERT INTO news_items (titulo, url, publicado, resumen, prioridad, confirmada, hash)
          VALUES (?, NULL, ?, NULL, 'activo', ?, ?)`,
       )
-      .run(title, NOW_ISO, confirmed ? 1 : 0, `audit-${Math.random()}`).lastInsertRowid,
+      .run(title, publishedAt, confirmed ? 1 : 0, `audit-${Math.random()}`).lastInsertRowid,
   );
   for (const ticker of assets) {
     db.prepare('INSERT INTO news_item_assets (item_id, ticker) VALUES (?, ?)').run(id, ticker);
@@ -128,7 +134,7 @@ const insertNewsItem = (
     id,
     title,
     url: null,
-    publishedAt: NOW_ISO,
+    publishedAt,
     summary: null,
     priority: 'activo',
     confirmed,
@@ -495,6 +501,102 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
     expect(after.confidence).toBe(SIGNAL_DEFAULT_CONFIDENCE);
     expect(after.confidence).toBeLessThan(withNews.confidence);
   });
+
+  it.fails(
+    'HALLAZGO C6 · un titular publicado hace semanas y analizado hoy no ajusta la confianza de la señal',
+    async () => {
+      // Una fuente nueva (o la vuelta tras días sin conexión) trae titulares
+      // viejos: se guardan con su fecha de publicación y se analizan ahora.
+      const repo = createNewsAnalysisRepository(db);
+      const service = createNewsAiService({
+        repo,
+        localAnalyzer: {
+          analyzer: 'local',
+          model: null,
+          analyze: async () => ({
+            assets: [{ ticker: 'AAPL', summary: 'Apple sube.', sentiment: 'positivo' }],
+          }),
+        },
+        store: { getValue: () => null, setValue: () => undefined },
+        now: () => NOW,
+        logger: { warn: () => undefined },
+      });
+      const old = insertNewsItem(
+        'Apple raises guidance',
+        true,
+        ['AAPL'],
+        '2026-09-10T13:00:00.000Z',
+      );
+      service.enqueueItem({ id: old.id, confirmed: true });
+      await service.drain();
+
+      const signals: Signal[] = [];
+      const engine = createSignalEngine({
+        repo: {
+          insertSignal: (input: NewSignal): InsertSignalResult => {
+            const signal: Signal = {
+              id: signals.length + 1,
+              ticker: input.ticker,
+              direction: input.direction,
+              entry: input.entry,
+              stop: input.stop,
+              target: input.target,
+              confidence: input.confidence,
+              reason: input.reason,
+              strategies: input.strategies,
+              dataUsed: input.dataUsed,
+              decision: input.decision,
+              createdAt: NOW_ISO,
+            };
+            signals.push(signal);
+            return { signal, inserted: true };
+          },
+          signalExists: () => false,
+          getSignal: (id) => signals.find((s) => s.id === id) ?? null,
+          listSignals: () => [...signals],
+        },
+        listEvaluables: () => [{ ficha, create: buyer }],
+        listStrategies: () => [{ id: 1, name: 'Auditada', version: 1, status: 'activa' }],
+        listWatchlistTickers: () => ['AAPL'],
+        barsFor: (_ticker, hasta) => BARS.filter((b) => b.date <= hasta),
+        lastBarDate: () => '2026-10-09',
+        getBatchVersion: () => 1,
+        submitSignal: () => ({
+          status: 'aprobada',
+          size: 1,
+          sizeFactor: 1,
+          riskAmount: 0,
+          notional: 0,
+          reasons: [],
+          decidedAt: NOW_ISO,
+        }),
+        recordJournal: () => undefined,
+        broadcast: () => undefined,
+        isAgentsPaused: () => false,
+        isOffline: () => false,
+        isKillSwitchActive: () => false,
+        wasProcessed: () => false,
+        markProcessed: () => undefined,
+        ai: {
+          // Misma lectura que signals/index.ts (newsAnalysesFor).
+          newsAnalysesFor: (ticker) =>
+            repo.list({ ticker, limit: SIGNAL_NEWS_MAX_ITEMS }).map((row) => ({
+              newsItemId: row.newsItemId,
+              sentiment: row.sentiment,
+              analyzedAt: row.analyzedAt,
+            })),
+        },
+        now: () => NOW,
+        logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+      });
+
+      expect(engine.evaluateTicker('AAPL', '2026-10-09')).toBe('emitted');
+      const signal = signals.at(-1)!;
+      // Publicado el 10 de septiembre: un mes antes de la vela evaluada.
+      expect(signal.dataUsed.ai?.newsItemIds ?? []).not.toContain(old.id);
+      expect(signal.confidence).toBe(SIGNAL_DEFAULT_CONFIDENCE);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -557,7 +659,11 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
     onBar: (context) => context.buy('AAPL', { stop: 95, target: 115 }),
   });
 
-  const harness = (ficha: StrategyCard, create: () => ExecutableStrategy) => {
+  const harness = (
+    ficha: StrategyCard,
+    create: () => ExecutableStrategy,
+    patch: Partial<SignalEngineDeps> = {},
+  ) => {
     const signals: Signal[] = [];
     const repo: SignalsRepository = {
       insertSignal: (input: NewSignal): InsertSignalResult => {
@@ -621,6 +727,7 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
       },
       now: () => Date.parse('2026-10-08T21:00:00.000Z'),
       logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+      ...patch,
     };
     return { engine: createSignalEngine(deps), submitted, signals };
   };
@@ -646,6 +753,54 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
     expect(submitted[0]!.ai?.probability).toBe(0.99);
     expect(signals[0]!.decision.status).toBe('vetada');
   });
+  // -- Auditoría de cierre: datos desactualizados y régimen desconocido ------
+
+  it('una vela anterior a la sesión esperada no emite señal aunque la IA empuje a favor', () => {
+    const { engine, submitted, signals } = harness(card(), buyer, {
+      // Ya cerró la sesión del 9: la vela del 8 llega de una puesta al día.
+      expectedSessionDate: () => '2026-10-09',
+    });
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('stale-data');
+    expect(submitted).toHaveLength(0);
+    expect(signals).toHaveLength(0);
+  });
+
+  it('con régimen desconocido una ficha que declara «falla en» no vota; una sin «falla en» sí', () => {
+    const unknownRegime = {
+      eligibleModel: () => ELIGIBLE,
+      latestPrediction: () => extremePrediction,
+      newsAnalysesFor: () => euphoricNews,
+      marketRegime: () => null,
+    };
+    const closed = harness(card({ failsIn: ['volatilidad-alta'] }), buyer, { ai: unknownRegime });
+    expect(closed.engine.evaluateTicker('AAPL', BAR_DATE)).not.toBe('emitted');
+    expect(closed.submitted).toHaveLength(0);
+
+    const open = harness(card({ failsIn: [] }), buyer, { ai: unknownRegime });
+    expect(open.engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(open.submitted).toHaveLength(1);
+  });
+
+  it.fails(
+    'HALLAZGO C5 · una predicción de hace semanas no ajusta la señal de la sesión actual',
+    () => {
+      // Última predicción guardada de AAPL: la del 1 de septiembre (el
+      // servicio de predicción no predice con la serie atrasada, y el motor
+      // de señales evalúa la vela nueva antes de que se recalcule). Lleva la
+      // sesión para que el motor pueda descartarla.
+      const stalePrediction = { ...extremePrediction, probUp: 0.95, sessionDate: '2026-09-01' };
+      const { engine, submitted } = harness(card(), buyer, {
+        ai: {
+          marketRegime: () => ({ direction: 'tendencia', volatility: 'volatilidad-baja' }),
+          eligibleModel: () => ELIGIBLE,
+          latestPrediction: () => stalePrediction,
+          newsAnalysesFor: () => [],
+        },
+      });
+      expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+      expect(submitted[0]!.ai?.probability ?? null).toBeNull();
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -653,7 +808,10 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
 // ---------------------------------------------------------------------------
 
 describe('auditoría · drift vía IPC', () => {
+  let journal: { type: string; reason: string }[] = [];
+
   const setupDrift = () => {
+    journal = [];
     const strategies = createStrategiesRepository(db);
     const ficha = strategies.create({
       name: 'Estrategia auditada',
@@ -669,6 +827,7 @@ describe('auditoría · drift vía IPC', () => {
       broadcast: () => undefined,
       services: {
         storage: { getDb: () => db },
+        journal: { record: (entry: { type: string; reason: string }) => journal.push(entry) },
         strategies: {
           list: () => strategies.list(),
           setStatus: (request: Parameters<typeof strategies.setStatus>[0]) =>
@@ -706,6 +865,31 @@ describe('auditoría · drift vía IPC', () => {
     })) as ModelHealthOverview;
     expect(sustained.subjects.find((row) => row.subject === 'modelo')?.state).toBe('degradada');
     expect(sustained.proposals).toHaveLength(1);
+  });
+
+  it('ai:health: con la ficha registrada y ninguna predicción resuelta el modelo sale «insuficiente», no «saludable»', async () => {
+    setupDrift();
+    const health = (await invoke(IPC_CHANNELS.ai.health)) as ModelHealthOverview;
+    expect(health.subjects.find((row) => row.subject === 'modelo')?.state).toBe('insuficiente');
+  });
+
+  it('ai:resolve-retrain: posponer con un motivo acabado en punto deja su entrada en el Diario, sin «..»', async () => {
+    const { cardId } = setupDrift();
+    const sustained = (await invoke(IPC_CHANNELS.ai.simulateDrift, {
+      kind: 'datos',
+      subjectId: cardId,
+      streak: DRIFT_SUSTAIN_SESSIONS,
+    })) as ModelHealthOverview;
+    await invoke(IPC_CHANNELS.ai.resolveRetrain, {
+      id: sustained.proposals[0]!.id,
+      action: 'posponer',
+      postponeUntil: '2027-01-15',
+      note: 'Revisar con el cierre trimestral.',
+    });
+    const entry = journal.find((row) => /pospuesta/i.test(row.reason));
+    expect(entry).toBeDefined();
+    expect(entry!.reason).toContain('Revisar con el cierre trimestral');
+    expect(entry!.reason).not.toContain('..');
   });
 
   it('ai:simulate-drift rechaza peticiones malformadas', async () => {
@@ -763,51 +947,48 @@ describe('auditoría · racha aislada en la revisión mensual real', () => {
     slippageBps: [],
   }));
 
-  it(
-    'HALLAZGO H3 · dos revisiones en días consecutivos a caballo de fin de mes no cuentan como dos meses',
-    () => {
-      let nowMs = Date.parse('2026-09-30T21:00:00.000Z'); // 30-sep, 17:00 en Nueva York
-      const strategies = createStrategiesRepository(db);
-      const created = strategies.create({
-        name: 'Auditada',
-        hypothesis: 'Reversión en SPY',
-        rules: { entry: 'e', exit: 'x', stop: 's', target: 't' },
-        parameters: {},
-        markets: ['SPY'],
-        regime: 'lateral',
-      });
-      strategies.setStatus({ id: created.id, status: 'paper' });
-      const statuses: string[] = [];
-      const service = createDriftService({
-        repo: createDriftRepository(db),
-        listWatchlistTickers: () => [],
-        barsFor: () => [],
-        listStrategies: (): StrategySummary[] => strategies.list(),
-        setStrategyStatus: (request) => {
-          statuses.push(request.status);
-          return strategies.setStatus(request);
-        },
-        closedTrades: () => trades.map((trade) => ({ ...trade, strategyId: created.id })),
-        expectationFor: () => ({
-          perTradeReturnPct: 0.5,
-          winRate: 0.6,
-          backtestVersion: 1,
-          backtestRunId: 1,
-        }),
-        now: () => nowMs,
-        logger: { warn: () => undefined, error: () => undefined },
-      });
+  it('HALLAZGO H3 · dos revisiones en días consecutivos a caballo de fin de mes no cuentan como dos meses', () => {
+    let nowMs = Date.parse('2026-09-30T21:00:00.000Z'); // 30-sep, 17:00 en Nueva York
+    const strategies = createStrategiesRepository(db);
+    const created = strategies.create({
+      name: 'Auditada',
+      hypothesis: 'Reversión en SPY',
+      rules: { entry: 'e', exit: 'x', stop: 's', target: 't' },
+      parameters: {},
+      markets: ['SPY'],
+      regime: 'lateral',
+    });
+    strategies.setStatus({ id: created.id, status: 'paper' });
+    const statuses: string[] = [];
+    const service = createDriftService({
+      repo: createDriftRepository(db),
+      listWatchlistTickers: () => [],
+      barsFor: () => [],
+      listStrategies: (): StrategySummary[] => strategies.list(),
+      setStrategyStatus: (request) => {
+        statuses.push(request.status);
+        return strategies.setStatus(request);
+      },
+      closedTrades: () => trades.map((trade) => ({ ...trade, strategyId: created.id })),
+      expectationFor: () => ({
+        perTradeReturnPct: 0.5,
+        winRate: 0.6,
+        backtestVersion: 1,
+        backtestRunId: 1,
+      }),
+      now: () => nowMs,
+      logger: { warn: () => undefined, error: () => undefined },
+    });
 
-      service.evaluate();
-      expect(statuses).toEqual([]); // primera revisión: en observación
+    service.evaluate();
+    expect(statuses).toEqual([]); // primera revisión: en observación
 
-      nowMs = Date.parse('2026-10-01T21:00:00.000Z'); // 24 h después, sin operaciones nuevas
-      service.evaluate();
-      // La misma racha, revisada un día después, no es «2 revisiones
-      // mensuales seguidas»: no debe degradar.
-      expect(statuses).not.toContain('degradada');
-    },
-  );
+    nowMs = Date.parse('2026-10-01T21:00:00.000Z'); // 24 h después, sin operaciones nuevas
+    service.evaluate();
+    // La misma racha, revisada un día después, no es «2 revisiones
+    // mensuales seguidas»: no debe degradar.
+    expect(statuses).not.toContain('degradada');
+  });
 });
 
 // ---------------------------------------------------------------------------

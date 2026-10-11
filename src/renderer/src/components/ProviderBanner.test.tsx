@@ -38,9 +38,9 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
   render(<ProviderBanner />);
   act(() => simulation.emitDataStatus(staleTicker));
 
-  const banner = await screen.findByRole('region', { name: 'Datos del mercado' });
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/falta la vela del 2026-10-08/)).toBeTruthy();
+  expect(within(banner).getByText(/falta la vela del 2026-10-08/, { selector: 'p' })).toBeTruthy();
   expect(within(banner).getByText(/en pausa hasta ponerse al día/)).toBeTruthy();
 
   act(() =>
@@ -52,7 +52,7 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
     }),
   );
   await waitFor(() =>
-    expect(screen.queryByRole('region', { name: 'Datos del mercado' })).toBeNull(),
+    expect(screen.queryByRole('region', { name: 'Estado de los datos' })).toBeNull(),
   );
 });
 
@@ -62,7 +62,7 @@ it('«Actualizar ahora» refresca mercado cuando fallan tickers y macro cuando f
   render(<ProviderBanner />);
 
   act(() => simulation.emitDataStatus(staleTicker));
-  await screen.findByRole('region', { name: 'Datos del mercado' });
+  await screen.findByRole('region', { name: 'Estado de los datos' });
   await userEvent.click(screen.getByRole('button', { name: 'Actualizar ahora' }));
   expect(marketRefresh).toHaveBeenCalledTimes(1);
   expect(macroRefresh).not.toHaveBeenCalled();
@@ -83,9 +83,9 @@ it('un estado no fiable muestra «Datos no fiables desde …»', async () => {
       reason: 'valor anómalo grave en el último lote',
     }),
   );
-  const banner = await screen.findByRole('region', { name: 'Datos del mercado' });
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos no fiables desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/valor anómalo grave/)).toBeTruthy();
+  expect(within(banner).getByText(/valor anómalo grave/, { selector: 'p' })).toBeTruthy();
 });
 
 it('las tarjetas de Datos siguen marcando su propio estado', async () => {
@@ -115,7 +115,7 @@ it('explica el rechazo del refresco sin ocultar el aviso', async () => {
   const button = await screen.findByRole('button', { name: 'Actualizar ahora' });
   await userEvent.click(button);
   expect(screen.getByText('Actualización ya en curso.')).toBeTruthy();
-  expect(screen.getByRole('region', { name: 'Datos del mercado' })).toBeTruthy();
+  expect(screen.getByRole('region', { name: 'Estado de los datos' })).toBeTruthy();
 });
 
 it('limpia la suscripción al desmontar', async () => {

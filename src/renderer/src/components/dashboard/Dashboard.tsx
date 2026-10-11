@@ -75,6 +75,7 @@ export function Dashboard({
             signals={state.signals.data ?? []}
             contradictions={state.contradictions.data ?? []}
             stopped={stopped}
+            strategies={state.strategies.data ?? []}
           />
         </DashboardBlock>
         <DashboardBlock

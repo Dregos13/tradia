@@ -1,4 +1,4 @@
-import type { JournalEntryType, JournalResult } from '../../../../shared/journal';
+import type { JournalEntry, JournalEntryType, JournalResult } from '../../../../shared/journal';
 export const typeLabel: Record<JournalEntryType, string> = {
   senal: 'Señal',
   veto: 'Veto',
@@ -25,3 +25,8 @@ export const localDate = (iso: string) =>
   new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'long' }).format(
     new Date(iso),
   );
+
+export const entryLabel = (entry: JournalEntry): string =>
+  entry.mode === 'live'
+    ? `Dinero real · ${entry.type === 'operacion' ? 'Operación' : typeLabel[entry.type]}`
+    : typeLabel[entry.type];

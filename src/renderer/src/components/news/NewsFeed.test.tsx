@@ -2,6 +2,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
+import { readFileSync } from 'node:fs';
+const globalStyles = readFileSync('src/renderer/src/styles.css', 'utf8');
 import { NewsFeed } from './NewsFeed';
 import type { NewsItem } from '../../../../shared/ipc';
 
@@ -198,4 +200,41 @@ it('actualiza el análisis al recibir ai:changed sin sustituir el titular', asyn
   act(() => simulation.emitAiChanged('noticias'));
   await screen.findAllByText('SPY · Sentimiento Mixto');
   expect(screen.getByRole('link', { name: /La Fed/ })).toBe(headline);
+});
+
+it('mantiene el aviso del navegador externo solo para lectores de pantalla', async () => {
+  render(
+    <>
+      <style>{globalStyles}</style>
+      <NewsFeed />
+    </>,
+  );
+  const link = await screen.findByRole('link', { name: /La Fed.*abre en el navegador externo/ });
+  const hint = within(link).getByText('(abre en el navegador externo)');
+  const style = getComputedStyle(hint);
+  expect(style.position).toBe('absolute');
+  expect(style.width).toBe('1px');
+  expect(style.height).toBe('1px');
+  expect(style.overflow).toBe('hidden');
+  expect(style.clip).toBe('rect(0px, 0px, 0px, 0px)');
+  expect(hint).not.toHaveAttribute('aria-hidden');
+  expect(link).toHaveAccessibleName(/abre en el navegador externo/);
+});
+
+it('identifica los resúmenes de suscripción como Claude Code', async () => {
+  vi.spyOn(simulation.api.ai, 'newsAnalysis').mockImplementation(async ({ newsItemId } = {}) => [
+    {
+      id: 99,
+      newsItemId: newsItemId!,
+      ticker: 'SPY',
+      summary: 'Resumen confirmado por suscripción.',
+      sentiment: 'neutro',
+      analyzer: 'suscripcion',
+      model: 'claude-code',
+      analyzedAt: '2026-10-11T12:00:00Z',
+    },
+  ]);
+  render(<NewsFeed />);
+  const methods = await screen.findAllByText(/Método: Suscripción \(Claude Code\)/);
+  expect(methods.length).toBeGreaterThan(0);
 });

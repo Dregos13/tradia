@@ -180,3 +180,38 @@ it('permite reintentar los errores de lista y detalle', async () => {
   await user.click(screen.getByRole('button', { name: 'Reintentar detalle' }));
   expect(await within(screen.getByRole('dialog')).findByText('250')).toBeVisible();
 });
+
+it('rotula operaciones y prueba de humo reales en la tabla, el botón y el detalle', async () => {
+  const real: JournalEntry = {
+    ...entry,
+    id: 2,
+    type: 'operacion',
+    mode: 'live',
+    reason: 'Orden real ejecutada',
+  };
+  const smoke: JournalEntry = {
+    ...real,
+    id: 3,
+    type: 'resumen',
+    reason: 'Prueba de humo conciliada',
+  };
+  const paper: JournalEntry = { ...real, id: 4, mode: 'paper', reason: 'Orden paper ejecutada' };
+  vi.mocked(window.tradia.journal.list).mockResolvedValue({
+    entries: [real, smoke, paper],
+    limit: 20,
+    offset: 0,
+    total: 3,
+  });
+  vi.mocked(window.tradia.journal.get).mockResolvedValue(smoke);
+  const user = userEvent.setup();
+  render(<JournalPage />);
+  await screen.findByText(smoke.reason);
+  const smokeRow = screen.getByText(smoke.reason).closest('tr')!;
+  expect(smokeRow).toHaveTextContent('Dinero real · Resumen');
+  expect(screen.getByText(real.reason).closest('tr')).toHaveTextContent('Dinero real · Operación');
+  expect(screen.getByText(paper.reason).closest('tr')).toHaveTextContent('Operación simulada');
+  await user.click(within(smokeRow).getByRole('button', { name: /Ver detalle de Dinero real/ }));
+  const dialog = screen.getByRole('dialog');
+  expect(await within(dialog).findByText('Dinero real · Resumen')).toBeVisible();
+  expect(within(dialog).queryByText('Operación simulada')).not.toBeInTheDocument();
+});

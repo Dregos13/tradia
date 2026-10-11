@@ -1,0 +1,90 @@
+.data-freshness-inline {
+  padding: var(--space-3);
+  font-size: var(--type-sm);
+  flex-wrap: wrap;
+}
+.data-freshness-current {
+  color: var(--dataStatus-reliable);
+  font-size: var(--type-sm);
+}
+.data-freshness-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.provider-banner details {
+  margin-top: var(--space-2);
+}
+.provider-banner summary {
+  cursor: pointer;
+}
+.provider-connection {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--connection-idle);
+  background: var(--connection-idle-surface);
+}
+.provider-form .provider-connection p {
+  color: inherit;
+}
+.provider-connection--testing {
+  color: var(--connection-testing);
+  background: var(--connection-testing-surface);
+}
+.provider-connection--ok {
+  color: var(--connection-ok);
+  background: var(--connection-ok-surface);
+}
+.provider-connection--sin-clave {
+  color: var(--connection-missingKey);
+  background: var(--connection-missingKey-surface);
+}
+.provider-connection--clave-rechazada {
+  color: var(--connection-rejectedKey);
+  background: var(--connection-rejectedKey-surface);
+}
+.provider-connection--cuota {
+  color: var(--connection-quota);
+  background: var(--connection-quota-surface);
+}
+.provider-connection--sin-red {
+  color: var(--connection-offline);
+  background: var(--connection-offline-surface);
+}
+.provider-connection--error {
+  color: var(--connection-error);
+  background: var(--connection-error-surface);
+}
+.data-state-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.15em;
+  margin-inline-end: var(--space-2);
+}
+.data-freshness-inline {
+  color: var(--color-text);
+}
+.provider-banner--stale strong {
+  color: var(--freshness-stale);
+}
+.provider-banner--unreliable strong {
+  color: var(--freshness-unreliable);
+}
+.provider-banner--updating strong {
+  color: var(--freshness-catchingUp);
+}
+.provider-banner--no-data {
+  color: var(--freshness-noData);
+  background: var(--freshness-noData-surface);
+}
+
+.provider-connection .settings-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.provider-banner.data-freshness-banner,
+.provider-banner.data-freshness-inline {
+  color: var(--color-text);
+}

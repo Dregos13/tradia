@@ -146,6 +146,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   entrada mala con su fecha de último dato real, incluidos los `provider:*`) y `progress` ({done,total}
   durante la puesta al día). `catching-up` tiene prioridad sobre `stale` mientras la pasada corre. La
   pinta del aviso único es de Frontend.
+- **Estado (Frontend):** corregido. `DataFreshness` (franja e indicador inline) y `useDataFreshness` comparten una sola instantánea/suscripción de `data-status:freshness` en Inicio, Mercado, Macro e IA. Muestran `sinceDate`, el motivo de la entrada más antigua y las mismas acciones, sin recalcular el calendario. Regresión con el adaptador simulado en `DataFreshness.test.tsx`.
 
 ### P4 · El régimen, las predicciones y las señales se calculan y se muestran sobre datos viejos como si fueran actuales — alta · Backend (y Frontend para el aviso)
 
@@ -178,6 +179,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   `stale`), la predicción no crea sesiones nuevas (sí resuelve las pendientes) y las señales devuelven
   `'stale-data'` sin emitir ni pasar a riesgo ni marcar la vela como procesada. El aviso «Sin calcular»
   en IA es de Frontend.
+- **Estado (Frontend):** corregido. IA sustituye régimen y probabilidades caducadas por «En pausa» mientras el resumen indica datos atrasados, no fiables o puesta al día; Inicio tampoco presenta un régimen caducado como vigente. Prueba en `DataFreshness.test.tsx`.
 
 ### P5 · La deriva del modelo suma «sesiones» con cada revisión aunque no lleguen datos nuevos — media · Backend
 
@@ -250,6 +252,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   'fred'`) lanza la primera descarga igual que volver la red o despertar el equipo. La asignación del
   botón «Reintentar» a cada proveedor es de Frontend (`affectedProviders` ya decide market/macro por las
   entradas del resumen).
+- **Estado (Frontend):** corregido. `DataFreshness.affectedProviders` envía la actualización de series/FRED a `macro.refreshNow`, la de tickers/Tiingo a `market.refreshNow` y ambas cuando corresponde. El éxito de «Probar conexión» actualiza solo su proveedor. Pruebas en `ProviderBanner.test.tsx` y `DataProvidersSettings.test.tsx`.
 
 ### P9 · Con el perfil vacío y sin claves salta la franja roja «FRED · Desactualizado · 6 de 6 series fallaron» — media · Backend + Frontend
 
@@ -268,6 +271,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
 - **Estado (Backend):** corregido. `isConfigured` corta el refresco sin clave de FRED: no se descarga, no
   se escribe ningún estado de fallo y la entrada `provider:fred` desaparece, así que un perfil vacío no
   enseña un aviso rojo («no-data» en el resumen de frescura). El texto «Sin configurar» es de Frontend.
+- **Estado (Frontend):** corregido. El resumen `no-data` se muestra con «Sin configurar · añade tus claves», superficie neutra y acceso a Ajustes, sin alerta roja. Prueba en `DataFreshness.test.tsx`.
 
 ### P10 · Inicio dice «Régimen · Sin clasificar» mientras IA muestra «Tendencia · Volatilidad baja» — media · Frontend
 
@@ -280,6 +284,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
 - **Evidencia:** `d1-inicio.png` / `.txt`, `d1-ia.png` / `.txt`.
 - **Sospechoso:** `src/renderer/src/components/dashboard/MacroBlock.tsx:15` (`Régimen · <strong>Sin
   clasificar</strong>` fijo).
+- **Estado (Frontend):** corregido. `MacroBlock` consulta `ai.regimeOverview` y se suscribe a `ai.onChanged`: la clasificación de Inicio coincide con IA. La procedencia dice referencia SPY / precios diarios, no FRED. Prueba en `DataFreshness.test.tsx`.
 
 ### P11 · «Precios · Tiingo» muestra la hora de la última consulta, no la fecha del último dato — media · Frontend (con Backend)
 
@@ -299,6 +304,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   dato real de cada `provider:*` (la más reciente de sus tickers o series, no el `lastOkAt` del HTTP), y
   la evaluación marca el proveedor `desactualizado` con la fecha real cuando su dato más reciente queda
   por detrás de lo esperado. El repintado de «Precios · Tiingo · último cierre …» es de Frontend.
+- **Estado (Frontend):** corregido. `ConnectionBlock` muestra `lastDataDate` del resumen para los datos afectados y fechas reales de velas/observaciones para los datos al día. Nunca usa `lastOkAt` como fecha de mercado. Prueba en `DataFreshness.test.tsx` con una consulta del 11-oct y dato del 25-sept.
 
 ### P12 · El modelo sale «Saludable» y `modelo:0.1.0` «fiable» sin un solo dato, mientras su ficha dice «no apto» — media · Backend
 
@@ -335,6 +341,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   fallo fue parcial. `accepted: false` sigue solo para los rechazos (sin conexión, sin proveedor, sin
   activos, en curso). El mensaje al usuario es de Frontend (`result.ok === false` → «No se pudo
   actualizar: {detail}»).
+- **Estado (Frontend):** corregido. Las respuestas `ok:false` se muestran como «No se pudo actualizar: {detail}»; los rechazos conservan su acción y las excepciones permiten reintentar sin exponer su contenido. Se relee el resumen al terminar. Pruebas en `DataFreshness.test.tsx`, `ProviderBanner.test.tsx` y `DataProvidersSettings.test.tsx`.
 
 ### P14 · Con cuatro estrategias en paper, Inicio dice «Todavía no hay señales. Activa una estrategia…» — baja · Frontend
 
@@ -345,6 +352,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
 - **Observado:** «Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.»
 - **Evidencia:** `b3-inicio.txt` (línea 110 y siguientes), `b3-estado.json` (`signalStrategies`).
 - **Sospechoso:** `src/renderer/src/components/dashboard/` (bloque de señales de Inicio).
+- **Estado (Frontend):** corregido. `SignalsBlock` distingue estrategias paper que esperan un cierre verificado y cálculos pausados por frescura, sin pedir activar de nuevo las estrategias. Prueba en `DataFreshness.test.tsx`.
 
 ### P15 · «Configurar claves» lleva a la parte de arriba de Ajustes, no a «Proveedores de datos» — baja · Frontend
 
@@ -357,6 +365,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
 - **Evidencia:** `a3-configurar-claves.png` / `.txt`.
 - **Sospechoso:** `src/renderer/src/components/MarketDataPage.tsx` (enlace a `#ajustes` sin ancla de
   sección).
+- **Estado (Frontend):** corregido. Los enlaces usan `#ajustes?provider=tiingo|fred&focus=key|test`; `App` reconoce la ruta y `DataProvidersSettings` desplaza/enfoca el control del proveedor tras montarse. Pruebas en `App.test.tsx` y `DataFreshness.test.tsx`.
 
 ## Lo que funciona
 
@@ -421,6 +430,4 @@ Cubiertas por `npx vitest run src/main/market src/main/ai src/main/signals` (560
   con 3 sesiones de mercado sin datos (p. ej. Columbus Day, que cierra bonos y no la bolsa) sí sale
   `desactualizado` (`health.test.ts`).
 
-Pendiente de `fe-datos-conexion`: la pinta del aviso único (P3), los avisos de «datos
-desactualizados» en IA (P4), el botón «Reintentar» por proveedor y los textos de `ok/detail`
-(P8/P13), el bloque de conexión con la fecha del último dato (P11) y P10/P14/P15.
+Frontend (`fe-datos-conexion`): P3, P4 (aviso), P8, P9 (texto neutro), P10, P11, P13, P14 y P15 corregidos y cubiertos por pruebas de Testing Library; véase el estado de cada problema arriba.

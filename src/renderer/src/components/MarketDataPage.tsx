@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
+import { DataFreshness, providerSettingsLink } from './DataFreshness';
 import { MacroPanel } from './macro/MacroPanel';
 import { useMarketData } from '../hooks/useMarketData';
 import { MarketWorkspace } from './market/MarketWorkspace';
 
 /** Shell for the watchlist/chart and macro panel implemented in the next tasks. */
-export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
+export function MarketDataPage({
+  kind,
+  offline = false,
+}: {
+  kind: 'mercado' | 'macro';
+  offline?: boolean;
+}) {
   const data = useMarketData();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [keyError, setKeyError] = useState(false);
@@ -38,6 +45,7 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
+      <DataFreshness offline={offline} />
       {data.statusError && (
         <p className="market-error" role="alert">
           {data.statusError}
@@ -65,7 +73,10 @@ export function MarketDataPage({ kind }: { kind: 'mercado' | 'macro' }) {
           <p>
             Añade las claves de Tiingo y FRED para recibir precios y contexto macro actualizados.
           </p>
-          <a className="button primary" href="#ajustes">
+          <a
+            className="button primary"
+            href={providerSettingsLink(kind === 'macro' ? 'fred' : 'tiingo', 'key')}
+          >
             Configurar claves
           </a>
         </div>

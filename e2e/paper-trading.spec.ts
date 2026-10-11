@@ -41,6 +41,7 @@ test.beforeEach(async () => {
   page = await app.firstWindow();
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await page.getByRole('button', { name: 'Saltar tour', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 });
 

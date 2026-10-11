@@ -3,7 +3,7 @@ import tokens from '../../design/dashboard.tokens.json';
 import { JOURNAL_PAGE_SIZE, useJournal } from '../../hooks/useJournal';
 import { JournalDetail } from './JournalDetail';
 import { JournalFilters } from './JournalFilters';
-import { localDate, resultLabel, typeLabel } from './labels';
+import { entryLabel, localDate, resultLabel } from './labels';
 import './journal.css';
 export function JournalPage() {
   const journal = useJournal();
@@ -14,7 +14,10 @@ export function JournalPage() {
       <div className="headline journal-heading">
         <div>
           <h2>Diario</h2>
-          <p>{journal.total} entradas · Señales, operaciones simuladas y decisiones auditables.</p>
+          <p>
+            {journal.total} entradas · Señales, operaciones paper y de dinero real, y decisiones
+            auditables.
+          </p>
         </div>
         <button
           disabled={journal.exporting || journal.loading || journal.error || journal.total === 0}
@@ -74,7 +77,7 @@ export function JournalPage() {
                 <td>
                   <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
                 </td>
-                <td>{typeLabel[entry.type]}</td>
+                <td>{entryLabel(entry)}</td>
                 <td>{entry.ticker ?? 'No aplica'}</td>
                 <td>
                   {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
@@ -84,7 +87,7 @@ export function JournalPage() {
                 <td>{entry.reason}</td>
                 <td>
                   <button
-                    aria-label={`Ver detalle de ${typeLabel[entry.type]} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
+                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
                     onClick={() => setSelected(entry.id)}
                   >
                     Ver detalle

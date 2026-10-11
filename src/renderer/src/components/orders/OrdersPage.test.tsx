@@ -114,7 +114,7 @@ it('confirma cancelación, conserva la orden al fallar y actualiza tras reintent
   await user.click(screen.getByRole('button', { name: 'Confirmar cancelación' }));
   expect(await screen.findByText('Orden limitada de SPY: cancelada')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Cancelar orden 3 de SPY' })).not.toBeInTheDocument();
-  expect(cancel).toHaveBeenLastCalledWith({ id: 3 });
+  expect(cancel).toHaveBeenLastCalledWith({ id: 3, mode: 'paper' });
 });
 it('crea una orden limitada pendiente y la cancela desde la tabla', async () => {
   const user = userEvent.setup();
@@ -184,7 +184,7 @@ it('agrupa OCO sin inventar patas y muestra vacío y reintento de error', async 
   render(<OrdersPage />);
   expect(await screen.findByText(/No se pudieron actualizar las órdenes/)).toBeVisible();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Reintentar órdenes' }));
-  expect(await screen.findByText('Todavía no hay órdenes paper')).toBeVisible();
+  expect(await screen.findByText('Todavía no hay órdenes')).toBeVisible();
 });
 it('muestra el banner al recibir discrepancy y lo retira al resolver', async () => {
   let listener: ((event: ReconcileDiscrepancyEvent) => void) | undefined;
@@ -281,20 +281,74 @@ it('cada orden conserva su modo histórico recibido y nunca se deduce del modo a
     { ...order(1), mode: 'live' },
     { ...order(2), mode: 'paper' },
     // Una orden registrada antes del campo llega sin modo: la interfaz
-    // la rotula «Modo no disponible» en vez de deducirlo.
+    // deja el modo sin registrar en vez de deducirlo.
     { ...order(3), mode: undefined },
   ];
   vi.spyOn(window.tradia.orders, 'list').mockResolvedValue(sourced);
   render(<OrdersPage />);
-  await screen.findByText('DINERO REAL');
+  await screen.findByText('Dinero real');
   const rows = screen.getAllByRole('row');
-  expect(rows.find((row) => row.textContent?.includes('AAPL'))).toHaveTextContent('DINERO REAL');
+  expect(rows.find((row) => row.textContent?.includes('AAPL'))).toHaveTextContent('Dinero real');
   expect(
     rows
       .filter((row) => row.textContent?.includes('SPY'))
       .some((row) => row.textContent?.includes('Paper · sin dinero real')),
   ).toBe(true);
-  expect(screen.getByText('Modo no disponible')).toBeVisible();
+  expect(screen.queryByText('Modo no disponible')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Modo sin registrar')).toBeVisible();
   expect(screen.getByRole('columnheader', { name: 'Modo' })).toBeVisible();
   expect(screen.queryByText('Solo paper · sin dinero real')).not.toBeInTheDocument();
+});
+
+it('conserva órdenes con el mismo id en ambas cuentas y combina y limpia el filtro de modo', async () => {
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    order(1, 'pendiente', null),
+    { ...order(1, 'enviada', null), mode: 'live', ticker: 'MSFT' },
+  ]);
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  const table = await screen.findByRole('table');
+  await within(table).findByText('Dinero real');
+  expect(within(table).getByText('Paper · sin dinero real')).toBeVisible();
+  expect(screen.getAllByRole('button', { name: /^Cancelar orden/ })).toHaveLength(1);
+  await user.selectOptions(screen.getByLabelText('Modo'), 'live');
+  expect(within(table).queryByText('AAPL')).not.toBeInTheDocument();
+  expect(within(table).getByText('MSFT')).toBeVisible();
+  expect(screen.getByText('1 de 2 órdenes · Hora local')).toBeVisible();
+  await user.selectOptions(screen.getByLabelText('Estado'), 'pendiente');
+  expect(screen.getByText('No hay órdenes con estos filtros')).toBeVisible();
+  await user.click(screen.getAllByRole('button', { name: 'Limpiar filtros' })[0]!);
+  expect(screen.getByLabelText('Modo')).toHaveValue('');
+  await user.selectOptions(screen.getByLabelText('Modo'), 'paper');
+  expect(within(table).getByText('AAPL')).toBeVisible();
+  expect(within(table).queryByText('MSFT')).not.toBeInTheDocument();
+});
+
+it('relee las órdenes tras un cambio live y aplica eventos sin pisar la cuenta paper', async () => {
+  let changed: (() => void) | undefined;
+  let updated: ((value: BrokerOrder) => void) | undefined;
+  const off = vi.fn();
+  vi.spyOn(window.tradia.live, 'onChanged').mockImplementation((callback) => {
+    changed = () => callback({} as Parameters<typeof callback>[0]);
+    return off;
+  });
+  vi.spyOn(window.tradia.broker, 'onOrderUpdated').mockImplementation((callback) => {
+    updated = callback;
+    return () => {};
+  });
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([order(1)]);
+  const view = render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+  act(() => updated?.({ ...order(1), mode: 'live', ticker: 'MSFT' }));
+  expect(screen.getByText('AAPL')).toBeVisible();
+  expect(screen.getByText('MSFT')).toBeVisible();
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    order(1),
+    { ...order(1), mode: 'live', ticker: 'NVDA' },
+  ]);
+  act(() => changed?.());
+  expect(await screen.findByText('NVDA')).toBeVisible();
+  expect(screen.getByText('AAPL')).toBeVisible();
+  view.unmount();
+  expect(off).toHaveBeenCalledOnce();
 });

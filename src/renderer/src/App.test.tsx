@@ -166,7 +166,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configurar claves' })).toHaveAttribute(
       'href',
-      '#ajustes',
+      name === 'Macro' ? '#ajustes?provider=fred&focus=key' : '#ajustes?provider=tiingo&focus=key',
     );
   }
   await user.click(screen.getByRole('link', { name: 'Configurar claves' }));

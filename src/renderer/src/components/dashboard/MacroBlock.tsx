@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MacroSeriesSnapshot } from '../../../../shared/ipc';
 import type { RegimeOverview } from '../../../../shared/ai';
+import { useDataFreshness } from '../../hooks/useDataFreshness';
 import { MacroCard } from '../macro/MacroCard';
 import { indicators } from '../macro/model';
 import { regimeLabels } from '../strategies/regimeLabels';
@@ -13,6 +14,7 @@ export function MacroBlock({
   series: MacroSeriesSnapshot[];
   simulated: boolean;
 }) {
+  const { summary } = useDataFreshness();
   const [overview, setOverview] = useState<RegimeOverview | null>(null);
 
   // El mismo régimen que la página «IA»: una única fuente evita que Inicio
@@ -38,15 +40,18 @@ export function MacroBlock({
   }, []);
 
   const regimeText = overview?.market
-    ? overview.stale
-      ? `Desactualizado (cierre ${overview.market.sessionDate})`
+    ? overview.stale || (summary && summary.state !== 'current' && summary.state !== 'no-data')
+      ? summary?.state === 'catching-up'
+        ? 'En pausa: poniéndose al día'
+        : 'En pausa: datos desactualizados'
       : `${regimeLabels[overview.market.direction]} · ${regimeLabels[overview.market.volatility]}`
     : 'Sin clasificar';
 
   return (
     <>
       <p>
-        Régimen · <strong>{regimeText}</strong> · Fuente {simulated ? 'Simulada' : 'FRED'}
+        Régimen · <strong>{regimeText}</strong> · Referencia {overview?.market?.ticker ?? 'SPY'} ·
+        Fuente {simulated ? 'Simulada' : 'precios diarios'}
       </p>
       <div className="dashboard-macro">
         {['VIXCLS', 'DGS10', 'CPIAUCSL']

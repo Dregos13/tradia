@@ -1,3 +1,5 @@
+import { DataFreshness } from '../DataFreshness';
+import { useDataFreshness } from '../../hooks/useDataFreshness';
 import { useAi } from '../../hooks/useAi';
 import { ModelCard } from './ModelCard';
 import { PredictionsTable } from './PredictionsTable';
@@ -11,6 +13,10 @@ export interface AiPageProps {
 }
 export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}) {
   const state = useAi();
+  const { summary } = useDataFreshness();
+  const paused = !!summary && summary.state !== 'current' && summary.state !== 'no-data';
+  const pauseReason =
+    summary?.state === 'catching-up' ? 'puesta al día en curso' : 'datos desactualizados';
   const hasData = !!state.overview || state.predictions.length > 0 || !!state.model;
   const modelUnavailable = state.errors.some((error) => error.includes('ficha del modelo'));
   return (
@@ -37,6 +43,7 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
           </button>
         </div>
       </header>
+      <DataFreshness offline={state.offline} />
       <p className="ai-notice">
         Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el
         motor de riesgo.
@@ -92,17 +99,40 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
         </div>
       ) : (
         <>
-          <RegimePanel overview={state.overview} />
-          <StrategyRegimeTable
-            strategies={state.overview?.strategies ?? []}
-            onOpenStrategy={onOpenStrategy}
-          />
-          <PredictionsTable
-            predictions={state.predictions}
-            model={state.model}
-            modelUnavailable={modelUnavailable}
-            expectedSessionDate={state.overview?.expectedSessionDate ?? null}
-          />
+          {paused ? (
+            <section className="ai-section" data-tour="ia-regimen" aria-label="Régimen del mercado">
+              <h3>Régimen del mercado</h3>
+              <p>En pausa: {pauseReason}. No se calcula el régimen hasta ponerse al día.</p>
+            </section>
+          ) : (
+            <RegimePanel overview={state.overview} />
+          )}
+          {paused ? (
+            <section className="ai-section" aria-label="Estrategias por régimen">
+              <h3>Estrategias por régimen</h3>
+              <p>En pausa: un régimen caducado no habilita ni desactiva estrategias.</p>
+            </section>
+          ) : (
+            <StrategyRegimeTable
+              strategies={state.overview?.strategies ?? []}
+              onOpenStrategy={onOpenStrategy}
+            />
+          )}
+          {paused ? (
+            <section className="ai-section" aria-label="Predicción por activo">
+              <h3>Predicción por activo</h3>
+              <p>
+                En pausa: {pauseReason}. No se calculan nuevas probabilidades hasta ponerse al día.
+              </p>
+            </section>
+          ) : (
+            <PredictionsTable
+              predictions={state.predictions}
+              model={state.model}
+              modelUnavailable={modelUnavailable}
+              expectedSessionDate={state.overview?.expectedSessionDate ?? null}
+            />
+          )}
           <ModelCard model={state.model} unavailable={modelUnavailable} />
           {onOpenMarketSources && !state.overview?.market && (
             <button className="button" onClick={onOpenMarketSources}>

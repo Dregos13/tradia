@@ -25,6 +25,11 @@ npm install
 
 ## Scripts
 
+Las comprobaciones manuales que solo puede hacer el usuario (claves reales,
+prueba de humo con dinero real, reentrenamiento, app empaquetada, revisión
+legal) están paso a paso en [`docs/tareas-del-usuario.md`](docs/tareas-del-usuario.md).
+Los scripts `qa:*` y `eval:*` sin claves muestran su uso y no consultan nada.
+
 | Script                         | Qué hace                                                   |
 | ------------------------------ | ---------------------------------------------------------- |
 | `npm run dev`                  | Arranca electron-vite en modo desarrollo y abre la ventana |
@@ -37,6 +42,7 @@ npm install
 | `npm run format`               | Formatea con Prettier                                      |
 | `npm run format:check`         | Comprueba el formato sin escribir                          |
 | `npm run qa:alpaca-paper`      | Verificación manual contra una cuenta paper de Alpaca      |
+| `npm run qa:providers`         | Prueba manual de las claves de Tiingo y FRED               |
 | `npm run qa:alpaca-live-smoke` | Prueba de humo manual con importe mínimo en cuenta real    |
 | `npm run eval:news-llm`        | Evalúa el LLM de noticias sobre el conjunto etiquetado     |
 | `npm run dist`                 | Empaqueta el instalador del sistema actual a `release/`    |

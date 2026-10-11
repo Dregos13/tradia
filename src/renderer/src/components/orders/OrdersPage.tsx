@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BrokerOrder, BrokerOrderSide, BrokerOrderStatus } from '../../../../shared/broker';
+import type {
+  BrokerOrder,
+  BrokerOrderMode,
+  BrokerOrderSide,
+  BrokerOrderStatus,
+} from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES, BROKER_ORDER_STATUSES } from '../../../../shared/broker';
-import { useOrders, useReconciliation } from '../../hooks/useOrders';
+import { orderKey, useOrders, useReconciliation } from '../../hooks/useOrders';
 import { useStrategies } from '../../hooks/useStrategies';
 import { useSystemState } from '../../hooks/useSystemState';
 import { ReconcileStatus } from './ReconcileStatus';
@@ -17,17 +22,18 @@ import { OrderRow } from './OrderRow';
 import { liveTokens } from '../live/presentation';
 import './orders.css';
 const cancelable = (order: BrokerOrder) =>
-  BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
+  order.mode === 'paper' && BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
 export function OrdersPage() {
   const state = useOrders();
   const reconciliation = useReconciliation();
   const strategies = useStrategies();
   const system = useSystemState();
   const offline = system.connectivity?.status === 'offline';
+  const [mode, setMode] = useState<BrokerOrderMode | ''>('');
   const [status, setStatus] = useState<BrokerOrderStatus | ''>('');
   const [strategy, setStrategy] = useState('');
   const [ticker, setTicker] = useState('');
-  const [confirmation, setConfirmation] = useState<number | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -47,12 +53,13 @@ export function OrdersPage() {
   const rows = state.orders
     .filter(
       (row) =>
+        (!mode || row.mode === mode) &&
         (!status || row.status === status) &&
         (!strategy || row.strategyId === Number(strategy)) &&
         row.ticker.toUpperCase().includes(ticker.trim().toUpperCase()),
     )
     .sort((a, b) => b.execution.requestedAt.localeCompare(a.execution.requestedAt) || b.id - a.id);
-  const selected = state.orders.find((order) => order.id === confirmation);
+  const selected = state.orders.find((order) => orderKey(order) === confirmation);
   useEffect(() => {
     if (confirmation !== null) keep.current?.focus();
   }, [confirmation]);
@@ -109,7 +116,7 @@ export function OrdersPage() {
     setCanceling(true);
     setCancelError(null);
     try {
-      const updated = await window.tradia.orders.cancel({ id: selected.id });
+      const updated = await window.tradia.orders.cancel({ id: selected.id, mode: selected.mode });
       state.update(updated);
       setAnnouncement(
         `Orden ${orderTypes[selected.type].toLowerCase()} de ${selected.ticker}: ${orderStatuses[updated.status].label.toLowerCase()}`,
@@ -123,6 +130,7 @@ export function OrdersPage() {
     }
   };
   const clear = () => {
+    setMode('');
     setStatus('');
     setStrategy('');
     setTicker('');
@@ -130,7 +138,7 @@ export function OrdersPage() {
   const names = new Map(strategies.strategies.map((value) => [value.id, value.name]));
   const groups = new Map<string, BrokerOrder[]>();
   rows.forEach((row) => {
-    const key = row.ocoGroupId ? `oco:${row.ocoGroupId}` : `order:${row.id}`;
+    const key = row.ocoGroupId ? `oco:${row.mode}:${row.ocoGroupId}` : `order:${orderKey(row)}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
   });
 
@@ -153,6 +161,17 @@ export function OrdersPage() {
         <ReconcileStatus state={reconciliation} />
       </div>
       <section className="orders-filters" aria-label="Filtros de órdenes">
+        <label>
+          Modo
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value as BrokerOrderMode | '')}
+          >
+            <option value="">Todos los modos</option>
+            <option value="paper">Paper</option>
+            <option value="live">Dinero real</option>
+          </select>
+        </label>
         <label>
           Estado
           <select
@@ -349,7 +368,7 @@ export function OrdersPage() {
         </section>
       )}
       <p>
-        {status || strategy || ticker
+        {mode || status || strategy || ticker
           ? `${rows.length} de ${state.orders.length}`
           : state.orders.length}{' '}
         órdenes · Hora local
@@ -425,7 +444,7 @@ export function OrdersPage() {
                 )}
                 {group.map((row) => (
                   <OrderRow
-                    key={row.id}
+                    key={orderKey(row)}
                     order={row}
                     grouped={key.startsWith('oco:')}
                     names={names}
@@ -434,7 +453,7 @@ export function OrdersPage() {
                     onCancel={(order, button) => {
                       trigger.current = button;
                       setCancelError(null);
-                      setConfirmation(order.id);
+                      setConfirmation(orderKey(order));
                     }}
                   />
                 ))}
@@ -446,9 +465,7 @@ export function OrdersPage() {
       {!state.loading && !state.error && !rows.length && (
         <section className="orders-empty">
           <h2>
-            {state.orders.length
-              ? 'No hay órdenes con estos filtros'
-              : 'Todavía no hay órdenes paper'}
+            {state.orders.length ? 'No hay órdenes con estos filtros' : 'Todavía no hay órdenes'}
           </h2>
           {state.orders.length ? (
             <button className="button" onClick={clear}>

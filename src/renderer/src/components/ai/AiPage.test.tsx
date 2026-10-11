@@ -248,7 +248,7 @@ it('no atribuye las métricas vigentes a una predicción de otra versión', asyn
   const table = screen.getByRole('table', { name: 'Probabilidades estimadas al cierre diario' });
   expect(table).toHaveTextContent('Sin evaluar · no apto');
   expect(
-    within(table).queryByRole('link', { name: 'Ver ficha del modelo' }),
+    within(table).queryByRole('button', { name: 'Ver ficha del modelo' }),
   ).not.toBeInTheDocument();
 });
 
@@ -320,4 +320,72 @@ it('cubre apertura sin conexión y no solicita estimaciones nuevas', async () =>
   expect(adapter.api.ai.regimeOverview).not.toHaveBeenCalled();
   expect(screen.getByText(/sin una instantánea disponible/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Actualizar' })).toBeDisabled();
+});
+
+it('abre la ficha con teclado, desplaza y enfoca sin cambiar el hash', async () => {
+  window.location.hash = '#ia';
+  const scroll = vi.fn();
+  const original = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = scroll;
+  try {
+    await mount();
+    const button = screen.getAllByRole('button', { name: 'Ver ficha del modelo' })[0]!;
+    button.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(document.getElementById('ai-model-card')).toHaveFocus();
+    expect(scroll).toHaveBeenCalledWith({ block: 'start' });
+    expect(window.location.hash).toBe('#ia');
+  } finally {
+    HTMLElement.prototype.scrollIntoView = original;
+    window.location.hash = '';
+  }
+});
+
+it('elige el último cierre por activo aunque el histórico llegue desordenado y se calcule después', async () => {
+  const rows = await adapter.api.ai.predictions();
+  vi.mocked(adapter.api.ai.predictions).mockResolvedValue([
+    {
+      ...rows[0]!,
+      id: 3,
+      sessionDate: '2026-10-08',
+      probUp: 0.1,
+      createdAt: '2026-10-11T23:00:00Z',
+    },
+    rows[1]!,
+    rows[0]!,
+  ]);
+  await mount();
+  const table = screen.getByRole('table', { name: 'Probabilidades estimadas al cierre diario' });
+  expect(within(table).getAllByRole('row')).toHaveLength(3);
+  expect(within(table).getByRole('row', { name: /AAPL/ })).toHaveTextContent('62 %');
+  const history = screen.getByText('Histórico de predicciones (1)').closest('details')!;
+  expect(history).not.toHaveAttribute('open');
+  expect(
+    screen.queryByRole('table', { name: 'Predicciones de cierres anteriores' }),
+  ).not.toBeVisible();
+  await userEvent.click(screen.getByText('Histórico de predicciones (1)'));
+  expect(
+    screen.getByRole('table', { name: 'Predicciones de cierres anteriores' }),
+  ).toHaveTextContent('10 %');
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Activo' }), 'MSFT');
+  expect(within(table).getAllByRole('row')).toHaveLength(2);
+  expect(screen.queryByText(/Histórico de predicciones/)).not.toBeInTheDocument();
+});
+
+it('expone Régimen desconocido como estado y motivo de la estrategia desactivada', async () => {
+  const overview = await adapter.api.ai.regimeOverview();
+  vi.mocked(adapter.api.ai.regimeOverview).mockResolvedValue({
+    ...overview,
+    market: null,
+    strategies: [
+      {
+        ...overview.strategies[0]!,
+        regimeState: 'desactivada',
+        reason: 'Régimen desconocido: la estrategia declara falla en Tendencia.',
+      },
+    ],
+  });
+  await mount();
+  expect(screen.getByText('Régimen desconocido')).toBeInTheDocument();
+  expect(screen.getByText(/Régimen desconocido: la estrategia/)).toBeInTheDocument();
 });

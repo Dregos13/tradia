@@ -3,7 +3,7 @@ import type { BrokerOrder } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES } from '../../../../shared/broker';
 import { number, orderStatuses, orderTypes, price, slippage, time } from './orderPresentation';
 const cancelable = (order: BrokerOrder) =>
-  BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
+  order.mode === 'paper' && BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
 function Status({ order }: { order: BrokerOrder }) {
   const status = orderStatuses[order.status];
   return (

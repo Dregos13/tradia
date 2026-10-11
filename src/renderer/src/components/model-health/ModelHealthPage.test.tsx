@@ -95,6 +95,9 @@ it('muestra PSI por variable, Brier contra ficha, persistencia y evidencia de de
   await mount();
   const rows = within(screen.getByRole('table')).getAllByRole('row');
   expect(rows[1]).toHaveTextContent('Brier móvil 0,229');
+  expect(rows[1]).toHaveTextContent('60/60 predicciones resueltas');
+  expect(rows[1]).toHaveTextContent('diferencia 0,045');
+  expect(rows[1]).not.toHaveTextContent('Sin referencia');
   expect(rows[1]).toHaveTextContent('Ficha 0,184');
   expect(rows[1]).toHaveTextContent('umbral +0,02');
   expect(rows[1]).toHaveTextContent('Desde hace 20 sesiones');
@@ -257,4 +260,35 @@ it('muestra carga, vacío y error de actualización con la última revisión con
   expect(
     screen.getByText('Se conserva la última revisión; consulta su fecha.'),
   ).toBeInTheDocument();
+});
+
+it('muestra motivos reales sin unidad porcentual cuando faltan las referencias', async () => {
+  overview.subjects[0]!.resultsDrift = {
+    ...overview.subjects[0]!.resultsDrift!,
+    rollingBrier: null,
+    delta: null,
+    missingReason: 'No hay predicciones resueltas con resultado verificable.',
+  };
+  overview.subjects[1]!.strategyEval = {
+    ...overview.subjects[1]!.strategyEval!,
+    deviationPct: null,
+    missingReason: 'Sin backtest aprobado para esta estrategia.',
+  };
+  await mount();
+  const rows = within(screen.getByRole('table')).getAllByRole('row');
+  expect(rows[1]).toHaveTextContent(
+    'Brier móvil No hay predicciones resueltas con resultado verificable.',
+  );
+  expect(rows[2]).toHaveTextContent('desviación Sin backtest aprobado para esta estrategia.');
+  expect(rows[2]).not.toHaveTextContent('estrategia. %');
+  await userEvent.click(within(rows[2]!).getByRole('button'));
+  expect(screen.getByText(/frente al backtest ·/)).not.toHaveTextContent('estrategia. %');
+});
+
+it('presenta el motivo de degradación sin puntos duplicados', async () => {
+  overview.subjects[0]!.reason = 'Drift sostenido.. Revisa la ficha:.';
+  await mount();
+  const row = within(screen.getByRole('table')).getAllByRole('row')[1]!;
+  expect(row).toHaveTextContent('Drift sostenido. Revisa la ficha:');
+  expect(row.textContent).not.toMatch(/\.\.|:\./);
 });

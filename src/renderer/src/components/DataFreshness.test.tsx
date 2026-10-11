@@ -1,0 +1,237 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { createSimulatedAdapter } from '../adapters/simulated';
+import { DataFreshness } from './DataFreshness';
+import { ProviderBanner } from './ProviderBanner';
+import { Dashboard } from './dashboard/Dashboard';
+import { MarketDataPage } from './MarketDataPage';
+import { AiPage } from './ai/AiPage';
+import { strategies as strategyFixtures } from './dashboard/testFixtures';
+import { regimeLabels } from './strategies/regimeLabels';
+import { DataProvidersSettings } from './DataProvidersSettings';
+import type { DataFreshnessSummary } from '../../../shared/ipc';
+let simulation: ReturnType<typeof createSimulatedAdapter>;
+const stale = {
+  key: 'ticker:AAPL',
+  state: 'desactualizado' as const,
+  lastOkAt: '2026-09-25T20:00:00Z',
+  consecutiveFailures: 1,
+  reason: 'Falta la vela del 28 sept; último dato: 25 sept.',
+  updatedAt: '2026-10-11T10:00:00Z',
+};
+beforeEach(() => {
+  simulation = createSimulatedAdapter();
+  window.tradia = simulation.api;
+  simulation.emitConnectivity({
+    status: 'online',
+    lastCheckedAt: null,
+    nextRetryAt: null,
+    attempt: 0,
+  });
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  window.location.hash = '';
+});
+
+it('banner, Inicio, Mercado, Macro e IA comparten fecha, motivo y acciones del adaptador', async () => {
+  simulation.emitDataStatus(stale);
+  for (const surface of [
+    <ProviderBanner />,
+    <Dashboard
+      system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+    />,
+    <MarketDataPage kind="mercado" />,
+    <MarketDataPage kind="macro" />,
+    <AiPage />,
+  ]) {
+    const view = render(surface);
+    expect(
+      await screen.findByText('Datos desactualizados desde el 25 sept 2026'),
+    ).toBeInTheDocument();
+    const freshness = screen.getByLabelText(
+      surface.type === ProviderBanner ? 'Estado de los datos' : 'Frescura de datos',
+    );
+    expect(within(freshness).getByText(stale.reason, { selector: 'p' })).toBeInTheDocument();
+    expect(within(freshness).getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
+    expect(within(freshness).getByRole('link', { name: 'Probar conexión' })).toHaveAttribute(
+      'href',
+      '#ajustes?provider=tiingo&focus=test',
+    );
+    view.unmount();
+  }
+  expect(simulation.listenerCount()).toBe(0);
+});
+it('usa una sola suscripción y protege contra lecturas previas al push', async () => {
+  let resolveInitial!: (value: DataFreshnessSummary) => void;
+  const initial = await simulation.api.dataStatus.freshness();
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveInitial = resolve;
+    }),
+  );
+  const view = render(
+    <>
+      <DataFreshness />
+      <ProviderBanner />
+    </>,
+  );
+  expect(simulation.listenerCount()).toBe(1);
+  act(() => simulation.emitDataStatus(stale));
+  expect(await screen.findAllByText('Datos desactualizados desde el 25 sept 2026')).toHaveLength(2);
+  await act(async () => resolveInitial(initial));
+  expect(screen.getAllByText('Datos desactualizados desde el 25 sept 2026')).toHaveLength(2);
+  view.unmount();
+  expect(simulation.listenerCount()).toBe(0);
+});
+it.each([{ done: 3, total: 7 }, null])(
+  'puesta al día muestra el progreso recibido: %j',
+  async (progress) => {
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+      state: 'catching-up',
+      sinceDate: '2026-09-25',
+      expectedSessionDate: '2026-10-09',
+      missingSessions: 10,
+      items: [],
+      progress,
+      updatedAt: '2026-10-11T10:00:00Z',
+    });
+    render(<DataFreshness />);
+    expect(
+      await screen.findByText(
+        progress
+          ? /Descargando 3 de 7 activos/
+          : /Régimen, predicciones y señales esperan a terminar/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actualizar ahora' })).not.toBeInTheDocument();
+  },
+);
+it('un fallo de actualización muestra el motivo real y la franja permanece', async () => {
+  simulation.emitDataStatus(stale);
+  vi.spyOn(simulation.api.market, 'refreshNow').mockResolvedValue({
+    accepted: true,
+    reason: null,
+    ok: false,
+    detail: 'Tiingo no responde (HTTP 503).',
+  });
+  render(<ProviderBanner />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
+  expect(
+    await screen.findByText('No se pudo actualizar: Tiingo no responde (HTTP 503).'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Actualización solicitada/)).not.toBeInTheDocument();
+});
+it('sin conexión conserva fecha y motivo y oculta las acciones de red', async () => {
+  simulation.emitDataStatus(stale);
+  render(<ProviderBanner offline />);
+  expect(
+    await screen.findByText('Datos desactualizados desde el 25 sept 2026'),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Actualizar ahora' })).not.toBeInTheDocument();
+  expect(screen.queryByText('Sin conexión')).not.toBeInTheDocument();
+});
+it('un perfil sin configurar usa texto neutro y dirige al campo del proveedor', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    state: 'no-data',
+    sinceDate: null,
+    expectedSessionDate: null,
+    missingSessions: 0,
+    items: [],
+    updatedAt: '2026-10-11T10:00:00Z',
+  });
+  render(<ProviderBanner />);
+  expect(await screen.findByText(/Sin configurar · añade tus claves/)).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+it.each(['key', 'test'])('Ajustes enfoca FRED con focus=%s', async (focus) => {
+  window.location.hash = `#ajustes?provider=fred&focus=${focus}`;
+  render(<DataProvidersSettings />);
+  await waitFor(() => expect(document.getElementById(`fred-${focus}`)).toHaveFocus());
+});
+it('anuncia recuperación y permite reintentar un error al leer el resumen', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockRejectedValueOnce(new Error('IPC'));
+  render(<DataFreshness />);
+  expect(await screen.findByText(/No se pudo comprobar la frescura/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+  expect(await screen.findByText(/Al día/)).toBeInTheDocument();
+});
+
+it('IA mantiene régimen y probabilidades en pausa y oculta los valores caducados', async () => {
+  simulation.emitDataStatus(stale);
+  render(<AiPage />);
+  expect(
+    await screen.findByText(/No se calcula el régimen hasta ponerse al día/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/No se calculan nuevas probabilidades/)).toBeInTheDocument();
+  expect(screen.queryByRole('table', { name: 'Predicción por activo' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Dirección: ADX/)).not.toBeInTheDocument();
+});
+it('Inicio muestra el mismo régimen SPY que IA y su procedencia en precios', async () => {
+  const overview = await simulation.api.ai.regimeOverview();
+  expect(overview.market).not.toBeNull();
+  render(
+    <Dashboard
+      system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+    />,
+  );
+  expect(
+    await screen.findByText(
+      `${regimeLabels[overview.market!.direction]} · ${regimeLabels[overview.market!.volatility]}`,
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Referencia SPY · Fuente precios diarios/)).toBeInTheDocument();
+});
+it('Inicio muestra la fecha del dato real, nunca la hora de consulta del proveedor', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    state: 'stale',
+    sinceDate: '2026-09-25',
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 10,
+    items: [
+      {
+        key: 'provider:tiingo',
+        label: 'Tiingo',
+        state: 'desactualizado',
+        lastDataDate: '2026-09-25',
+        reason: 'Faltan cierres.',
+      },
+    ],
+    updatedAt: '2026-10-11T10:00:00Z',
+  });
+  simulation.emitDataStatus({ ...stale, key: 'provider:tiingo', lastOkAt: '2026-10-11T10:00:00Z' });
+  render(
+    <Dashboard
+      system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+    />,
+  );
+  expect(await screen.findByText('Último cierre 25 sept 2026')).toBeInTheDocument();
+});
+it('con estrategias paper el vacío de señales no pide activarlas otra vez', async () => {
+  const strategies = strategyFixtures;
+  vi.spyOn(simulation.api.signals, 'strategies').mockResolvedValue(
+    strategies.map((row) => ({ ...row, status: 'paper' })),
+  );
+  render(
+    <Dashboard
+      system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+    />,
+  );
+  expect(
+    await screen.findByText(/estrategias en paper esperan el siguiente cierre verificado/),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Activa una estrategia/)).not.toBeInTheDocument();
+});
+
+it('un fallo del estado detallado de Mercado mantiene un único indicador de frescura', async () => {
+  simulation.emitDataStatus(stale);
+  vi.spyOn(simulation.api.dataStatus, 'get').mockRejectedValue(new Error('IPC'));
+  render(<MarketDataPage kind="mercado" />);
+  await screen.findByText(/No pudimos comprobar el estado del dato/);
+  expect(screen.getAllByLabelText('Frescura de datos')).toHaveLength(1);
+  expect(document.querySelector('p section')).toBeNull();
+});

@@ -15,12 +15,17 @@
  *   suspenden y ninguna orden nueva llega al broker.
  * - Los ganchos E2E no existen en la app empaquetada.
  *
- * Las pruebas que fallan por un bug real están documentadas en
- * docs/qa/fase-6-7-auditoria.md, llevan «HALLAZGO Hn» en el nombre y se
- * declaran con `it.fails`: forman parte de `npm test` y pasan mientras
- * el bug exista. Cuando se corrija, la prueba se pondrá en rojo; en ese
- * momento hay que cambiar `it.fails` por `it`.
+ * Los hallazgos H1 y H2 de docs/qa/fase-6-7-auditoria.md están cerrados y
+ * sus pruebas corren como `it`. Los hallazgos nuevos de la auditoría de
+ * cierre (docs/qa/auditoria-continuacion-fase-6-7.md) llevan «HALLAZGO
+ * Cn» en el nombre y se declaran como fallo esperado (`fails` de vitest):
+ * pasan mientras el bug exista y se ponen en rojo al corregirlo; en ese
+ * momento hay que quitarles el `.fails`.
  */
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,6 +59,7 @@ import {
 } from '../../../shared/live';
 import { openDatabase } from '../../db/database';
 import { createBrokerRepository } from '../../broker/repository';
+import { createMarketRepository } from '../../market/repository';
 import { createSignalsRepository, type NewSignal } from '../../signals/repository';
 import type { ServiceContext } from '../../services';
 import { createSettingsService } from '../../services/settings';
@@ -153,17 +159,18 @@ const approved = (size: number, notional: number): RiskDecision => ({
   decidedAt: new Date(NOW).toISOString(),
 });
 
-const signalInput = (
-  decision: RiskDecision,
-  patch: { ticker?: string; entry?: number } = {},
-): NewSignal => {
+type SignalPatch = { ticker?: string; entry?: number; direction?: 'largo' | 'corto' };
+
+const signalInput = (decision: RiskDecision, patch: SignalPatch = {}): NewSignal => {
   const entry = patch.entry ?? 50;
+  const direction = patch.direction ?? 'largo';
+  const short = direction === 'corto';
   return {
     ticker: patch.ticker ?? 'AAPL',
-    direction: 'largo',
+    direction,
     entry,
-    stop: entry * 0.9,
-    target: entry * 1.3,
+    stop: short ? entry * 1.1 : entry * 0.9,
+    target: short ? entry * 0.7 : entry * 1.3,
     confidence: 0.8,
     reason: 'orden de auditoría',
     strategies: [
@@ -171,7 +178,7 @@ const signalInput = (
         strategyId: 1,
         name: 'Estrategia auditada',
         version: 1,
-        direction: 'largo',
+        direction,
         confidence: 0.8,
         reason: 'fixture controlada',
       },
@@ -193,7 +200,7 @@ const signalInput = (
 const sendSignal = async (
   live: ReturnType<typeof registerLive>,
   decision: RiskDecision,
-  patch: { ticker?: string; entry?: number } = {},
+  patch: SignalPatch = {},
 ) => {
   const signal = signalRepository.insertSignal(signalInput(decision, patch)).signal;
   await live.broker.handleSignalEvent({ signal });
@@ -360,51 +367,48 @@ describe('auditoría · activación y límites vía IPC', () => {
     expect(await modeOf()).toBe('suspendido');
   });
 
-  it(
-    'HALLAZGO H1 · fuera de E2E, una evidencia «live.evidence» manipulada en la base no cumple los requisitos automáticos',
-    async () => {
-      // App empaquetada: el gancho live:seed-progress no existe…
-      electron.isPackaged = true;
-      vi.stubEnv('TRADIA_E2E', '');
-      // …pero la evidencia vive en settings: una base restaurada de una
-      // copia de seguridad o editada a mano puede traerla escrita.
-      const at = new Date().toISOString();
-      settings.setValue(
-        LIVE_EVIDENCE_KEY,
-        JSON.stringify({
-          paperDays: 400,
-          paperTrades: 500,
-          deviationPct: 0,
-          finalTestDoneAt: at,
-          killSwitchTestedAt: at,
-          alertTestedAt: at,
-          alertChannel: 'simulado',
-        }),
-      );
-      makeLive();
-      expect(handlers.has(IPC_CHANNELS.live.seedProgress)).toBe(false);
+  it('HALLAZGO H1 · fuera de E2E, una evidencia «live.evidence» manipulada en la base no cumple los requisitos automáticos', async () => {
+    // App empaquetada: el gancho live:seed-progress no existe…
+    electron.isPackaged = true;
+    vi.stubEnv('TRADIA_E2E', '');
+    // …pero la evidencia vive en settings: una base restaurada de una
+    // copia de seguridad o editada a mano puede traerla escrita.
+    const at = new Date().toISOString();
+    settings.setValue(
+      LIVE_EVIDENCE_KEY,
+      JSON.stringify({
+        paperDays: 400,
+        paperTrades: 500,
+        deviationPct: 0,
+        finalTestDoneAt: at,
+        killSwitchTestedAt: at,
+        alertTestedAt: at,
+        alertChannel: 'simulado',
+      }),
+    );
+    makeLive();
+    expect(handlers.has(IPC_CHANNELS.live.seedProgress)).toBe(false);
 
-      for (const requirement of ['claves-sin-retirada', 'plan-contingencia', 'revision-legal']) {
-        await invoke(IPC_CHANNELS.live.declare, { requirement, confirmed: true });
-      }
-      await invoke(IPC_CHANNELS.live.setLimits, LIVE_LIMITS);
-      const result = (await invoke(IPC_CHANNELS.live.activate, {
-        phrase: liveConfirmationPhrase(LIVE_LIMITS),
-      })) as LiveActivateResult;
+    for (const requirement of ['claves-sin-retirada', 'plan-contingencia', 'revision-legal']) {
+      await invoke(IPC_CHANNELS.live.declare, { requirement, confirmed: true });
+    }
+    await invoke(IPC_CHANNELS.live.setLimits, LIVE_LIMITS);
+    const result = (await invoke(IPC_CHANNELS.live.activate, {
+      phrase: liveConfirmationPhrase(LIVE_LIMITS),
+    })) as LiveActivateResult;
 
-      // Sin una sola orden paper, ni estrategia candidata, ni prueba de
-      // parada, ni canal de alertas configurado, la activación debe fallar.
-      expect(result.activated).toBe(false);
-      expect(result.pendingRequirements).toEqual(
-        expect.arrayContaining([
-          'validacion-fuera-muestra',
-          'paper-continuo',
-          'parada-probada',
-          'alertas-activas',
-        ]),
-      );
-    },
-  );
+    // Sin una sola orden paper, ni estrategia candidata, ni prueba de
+    // parada, ni canal de alertas configurado, la activación debe fallar.
+    expect(result.activated).toBe(false);
+    expect(result.pendingRequirements).toEqual(
+      expect.arrayContaining([
+        'validacion-fuera-muestra',
+        'paper-continuo',
+        'parada-probada',
+        'alertas-activas',
+      ]),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -532,35 +536,32 @@ describe('auditoría · guarda de órdenes reales', () => {
     expect(await modeOf()).toBe('suspendido');
   });
 
-  it(
-    'HALLAZGO H2 · una orden de mercado no puede ejecutarse por encima del techo por orden',
-    async () => {
-      const limits: LiveLimits = {
-        capitalUsd: 1_000,
-        orderUsd: 200,
-        dailyLossUsd: 20,
-        openPositions: 2,
-      };
-      const { live } = await activeLiveAccount(limits);
-      // La señal se calculó con el cierre de ayer (199 USD); el mercado
-      // abre con hueco al alza y el servidor ejecuta a 250 USD.
-      await sendSignal(live, approved(1, 199), { entry: 199 });
+  it('HALLAZGO H2 · una orden de mercado no puede ejecutarse por encima del techo por orden', async () => {
+    const limits: LiveLimits = {
+      capitalUsd: 1_000,
+      orderUsd: 200,
+      dailyLossUsd: 20,
+      openPositions: 2,
+    };
+    const { live } = await activeLiveAccount(limits);
+    // La señal se calculó con el cierre de ayer (199 USD); el mercado
+    // abre con hueco al alza y el servidor ejecuta a 250 USD.
+    await sendSignal(live, approved(1, 199), { entry: 199 });
 
-      // La orden no sale de mercado a ciegas: sale limitada con un tope
-      // que impide ejecutar por encima del límite por orden escrito.
-      for (const order of liveEntries()) {
-        if (order.type === 'limit' && order.limitPrice !== null) {
-          expect(order.limitPrice * order.quantity).toBeLessThanOrEqual(limits.orderUsd);
-        }
+    // La orden no sale de mercado a ciegas: sale limitada con un tope
+    // que impide ejecutar por encima del límite por orden escrito.
+    for (const order of liveEntries()) {
+      if (order.type === 'limit' && order.limitPrice !== null) {
+        expect(order.limitPrice * order.quantity).toBeLessThanOrEqual(limits.orderUsd);
       }
-      const executedNotional = executedEntries().map(
-        (order) => order.filledQuantity * (order.execution.executedPrice ?? 0),
-      );
-      for (const notional of executedNotional) {
-        expect(notional).toBeLessThanOrEqual(limits.orderUsd);
-      }
-    },
-  );
+    }
+    const executedNotional = executedEntries().map(
+      (order) => order.filledQuantity * (order.execution.executedPrice ?? 0),
+    );
+    for (const notional of executedNotional) {
+      expect(notional).toBeLessThanOrEqual(limits.orderUsd);
+    }
+  });
 });
 
 describe('auditoría · prueba de humo', () => {
@@ -592,5 +593,155 @@ describe('auditoría · ganchos E2E del dinero real no registrados en producció
     expect(handlers.has(IPC_CHANNELS.live.seedProgress)).toBe(false);
     expect(handlers.has(IPC_CHANNELS.live.useSimulatedBroker)).toBe(false);
     return expect(live.broker.useSimulatedBroker(true)).rejects.toThrow(/E2E/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auditoría de cierre (continuación de la fase 6-7)
+// ---------------------------------------------------------------------------
+
+describe('auditoría de cierre · copia restaurada con dinero real activo', () => {
+  let dir: string | null = null;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    if (dir !== null) rmSync(dir, { recursive: true, force: true });
+    dir = null;
+  });
+
+  it('una copia con live.evidence, la lista cumplida y el modo «activo», restaurada en la app empaquetada, no deja el dinero real activo', async () => {
+    // 1. Perfil de desarrollo (E2E): lista sembrada, límites confirmados,
+    //    modo activo y claves live guardadas. Es el estado que acabaría en
+    //    una copia de seguridad hecha con TRADIA_E2E o editada a mano.
+    await activeLiveAccount();
+    expect(await modeOf()).toBe('activo');
+    expect(settings.getValue(LIVE_EVIDENCE_KEY)).not.toBeNull();
+    for (const live of registered) live.broker.stop();
+    registered = [];
+
+    // 2. Copia con la API online de better-sqlite3 (la misma que usa
+    //    backup:create) y restauración: la app arranca sobre ese archivo.
+    dir = mkdtempSync(join(tmpdir(), 'tradia-audit-restore-'));
+    const file = join(dir, 'tradia-restaurada.db');
+    await db.backup(file);
+    db.close();
+    db = openDatabase(file);
+    signalRepository = createSignalsRepository(db);
+    settings = createSettingsService(db);
+
+    // 3. App empaquetada, sin ganchos E2E. Si algo intentara reconectar la
+    //    cuenta real con las claves restauradas, iría a la red: se vigila.
+    electron.isPackaged = true;
+    vi.stubEnv('TRADIA_E2E', '');
+    const network = vi.fn(async () => {
+      throw new Error('red no permitida en la auditoría');
+    });
+    vi.stubGlobal('fetch', network);
+    electron.handlers.clear();
+    const { live } = makeLive();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // La evidencia restaurada no cumple nada y el modo deja de estar activo.
+    const state = (await invoke(IPC_CHANNELS.live.state)) as { mode: string };
+    expect(state.mode).not.toBe('activo');
+    expect(live.liveExecutionActive()).toBe(false);
+    const checklist = (await invoke(IPC_CHANNELS.live.checklist)) as {
+      allComplete: boolean;
+      items: { requirement: string; state: string }[];
+    };
+    expect(checklist.allComplete).toBe(false);
+    for (const requirement of [
+      'validacion-fuera-muestra',
+      'paper-continuo',
+      'parada-probada',
+      'alertas-activas',
+    ]) {
+      expect(checklist.items.find((item) => item.requirement === requirement)?.state).not.toBe(
+        'cumplido',
+      );
+    }
+    // Reactivar con la misma frase tampoco funciona.
+    const retry = (await invoke(IPC_CHANNELS.live.activate, {
+      phrase: liveConfirmationPhrase(LIVE_LIMITS),
+    })) as LiveActivateResult;
+    expect(retry.activated).toBe(false);
+    // Ninguna orden llega a la red con las claves restauradas.
+    await sendSignal(live, approved(1, 50));
+    expect(liveOrders()).toHaveLength(0);
+    expect(network).not.toHaveBeenCalled();
+  });
+});
+
+describe('auditoría de cierre · techo por orden con hueco de apertura', () => {
+  const limits: LiveLimits = {
+    capitalUsd: 1_000,
+    orderUsd: 200,
+    dailyLossUsd: 20,
+    openPositions: 2,
+  };
+
+  it('con una referencia muy desfasada a la baja, la compra sale limitada y no ejecuta por encima del techo', async () => {
+    const { live } = await activeLiveAccount(limits);
+    // Señal calculada con un cierre de 60 USD (3 × 60 = 180 USD, dentro
+    // del techo); el servidor cotiza a 250 USD (hueco de +317 %).
+    await sendSignal(live, approved(3, 180), { entry: 60 });
+
+    const entries = liveEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.type).toBe('limit');
+    expect(entries[0]!.limitPrice! * entries[0]!.quantity).toBeLessThanOrEqual(limits.orderUsd);
+    for (const order of executedEntries()) {
+      expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
+        limits.orderUsd,
+      );
+    }
+  });
+
+  it.fails(
+    'HALLAZGO C4 · una entrada en corto de mercado no puede ejecutarse por encima del techo por orden con un hueco al alza',
+    async () => {
+      const { live } = await activeLiveAccount(limits);
+      // Señal corta calculada con el cierre de ayer (180 USD): el nocional
+      // estimado con el margen del 5 % (189 USD) cabe en el techo de 200.
+      // El mercado abre con hueco al alza y el servidor ejecuta a 250 USD.
+      await sendSignal(live, approved(1, 180), { entry: 180, direction: 'corto' });
+
+      for (const order of executedEntries()) {
+        expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
+          limits.orderUsd,
+        );
+      }
+    },
+  );
+});
+
+describe('auditoría de cierre · prueba de humo con referencia desfasada (P7)', () => {
+  it('con el último cierre de SPY de hace semanas no envía ninguna orden real', async () => {
+    await activeLiveAccount();
+    const market = createMarketRepository(db);
+    const batch = market.createBatch({
+      version: 1,
+      hash: 'audit-spy-viejo',
+      provider: 'audit',
+      scope: 'bars',
+      ticker: 'SPY',
+      rangeStart: '2026-09-18',
+      rangeEnd: '2026-09-18',
+    });
+    // Referencia del QA de la fase (1.451,93 USD) y de hace semanas.
+    market.upsertBars('SPY', 'audit', batch.id, [
+      { date: '2026-09-18', open: 1450, high: 1455, low: 1448, close: 1451.93, volume: 1_000 },
+    ]);
+
+    const outcome = await Promise.resolve(
+      invoke(IPC_CHANNELS.live.smokeTest, { confirm: true }),
+    ).then(
+      (result) => ({ result: result as { state: string; errorCode?: string | null } }),
+      (error: unknown) => ({ error }),
+    );
+
+    // Falla antes de la red: ni compra ni cierre en broker_orders_live.
+    expect(liveOrders()).toHaveLength(0);
+    if ('result' in outcome) expect(outcome.result.state).not.toBe('cerrada-conciliada');
   });
 });

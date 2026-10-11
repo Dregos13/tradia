@@ -1,4 +1,6 @@
-import type { Signal } from '../../../../shared/signals';
+import { useDataFreshness } from '../../hooks/useDataFreshness';
+import { sessionDateLabel } from '../DataFreshness';
+import type { Signal, SignalStrategyState } from '../../../../shared/signals';
 import type { JournalEntry } from '../../../../shared/journal';
 import { direction, number, time } from './model';
 const decisions = { aprobada: '✓ Aprobada', reducida: '△ Reducida', vetada: '× Vetada' };
@@ -6,11 +8,16 @@ export function SignalsBlock({
   signals,
   contradictions,
   stopped,
+  strategies = [],
 }: {
   signals: Signal[];
   contradictions: JournalEntry[];
   stopped: boolean;
+  strategies?: SignalStrategyState[];
 }) {
+  const { summary } = useDataFreshness();
+  const paperCount = strategies.filter((strategy) => strategy.status === 'paper').length;
+  const paused = summary && summary.state !== 'current' && summary.state !== 'no-data';
   const rows = [
     ...signals.map((signal) => ({ kind: 'signal' as const, value: signal })),
     ...contradictions.map((entry) => ({ kind: 'conflict' as const, value: entry })),
@@ -20,8 +27,16 @@ export function SignalsBlock({
       {stopped && <p className="dashboard-stop">No se admiten nuevas señales.</p>}
       {!rows.length && (
         <p>
-          Todavía no hay señales. <a href="#estrategias">Activa una estrategia</a> y espera el
-          siguiente cierre de vela.
+          {paused ? (
+            `Sin señales nuevas: en pausa hasta poner al día los datos del ${sessionDateLabel(summary.sinceDate)}.`
+          ) : paperCount ? (
+            `Sin señales nuevas: ${paperCount} estrategias en paper esperan el siguiente cierre verificado.`
+          ) : (
+            <>
+              Todavía no hay señales. <a href="#estrategias">Activa una estrategia</a> y espera el
+              siguiente cierre de vela.
+            </>
+          )}
         </p>
       )}
       <ol className="dashboard-signals">

@@ -47,7 +47,7 @@ type Page =
   | 'ajustes'
   | 'estrategias';
 const currentPage = (): Page => {
-  const hash = window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1).split('?')[0] ?? '';
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
   return hash === 'ia' ||
     hash === 'salud-modelos' ||
@@ -227,7 +227,7 @@ function AppShell() {
       </div>
       {!discrepancy && <ReconcileBannerContent state={reconciliation} />}
       <main id="contenido" className="main" tabIndex={-1}>
-        <ProviderBanner />
+        <ProviderBanner offline={state.connectivity?.status === 'offline'} />
         {legalOpen ? (
           <RiskDisclaimer
             onClose={() => {
@@ -286,7 +286,7 @@ function AppShell() {
             <HomePage state={state} />
           </>
         ) : page === 'mercado' || page === 'macro' ? (
-          <MarketDataPage kind={page} />
+          <MarketDataPage kind={page} offline={state.connectivity?.status === 'offline'} />
         ) : page === 'noticias' ? (
           <NewsPage />
         ) : page === 'calendario' ? (

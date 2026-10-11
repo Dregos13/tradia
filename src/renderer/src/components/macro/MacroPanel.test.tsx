@@ -99,7 +99,11 @@ it('reconcilia el estado de una serie recibido en segundo plano', async () => {
     }),
   );
   await waitFor(() => expect(screen.getByText('No fiable')).toBeTruthy());
-  expect(screen.getByText('Proveedor caído')).toBeTruthy();
+  expect(
+    within(screen.getByRole('article', { name: 'Tipo efectivo federal' })).getByText(
+      'Proveedor caído',
+    ),
+  ).toBeTruthy();
 });
 it('mantiene seis tarjetas vacías sin inventar valores ni fechas', () => {
   render(<MacroPanel series={[]} />);

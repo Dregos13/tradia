@@ -55,7 +55,9 @@ export function StrategyRegimeTable({
                           ? 'Degradada'
                           : strategy.regimeState === 'desactualizada'
                             ? 'Régimen desactualizado'
-                            : 'Desactivada por régimen'}
+                            : strategy.reason.startsWith('Régimen desconocido')
+                              ? 'Régimen desconocido'
+                              : 'Desactivada por régimen'}
                     </Badge>
                   </td>
                   <td>

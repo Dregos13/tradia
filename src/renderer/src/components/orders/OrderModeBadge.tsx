@@ -13,11 +13,11 @@ export function OrderModeBadge({ order }: { order: BrokerOrder }) {
   return mode === 'live' ? (
     <span className="orders-mode orders-mode-live">
       <LiveIcon />
-      DINERO REAL
+      Dinero real
     </span>
   ) : mode === 'paper' ? (
     <span className="orders-mode orders-paper">Paper · sin dinero real</span>
   ) : (
-    <span className="orders-mode orders-mode-unknown">Modo no disponible</span>
+    <span aria-label="Modo sin registrar">—</span>
   );
 }

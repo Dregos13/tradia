@@ -17,6 +17,11 @@ export const healthStates: Record<ModelHealthState, { label: string; kind: strin
   degradada: { label: 'Degradada', kind: 'degraded' },
   insuficiente: { label: 'Sin datos suficientes', kind: 'unknown' },
 };
+const cleanReason = (value: string) => value.replace(/\.{2,}/g, '.').replace(/:\s*\./g, ':');
+const deviation = (value: number | null, reason?: string | null) =>
+  value === null
+    ? (reason ?? 'Sin backtest de referencia para calcular la desviación')
+    : `${number(value, 3)} %`;
 const metric = (value: number | null) => (value === null ? 'Sin referencia' : number(value, 3));
 function HealthRow({ row }: { row: ModelHealthRow }) {
   const [expanded, setExpanded] = useState(false);
@@ -35,7 +40,7 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
           <Badge kind={`health-${healthStates[row.state].kind}`}>
             {healthStates[row.state].label}
           </Badge>
-          {row.reason && <small>{row.reason}</small>}
+          {row.reason && <small>{cleanReason(row.reason)}</small>}
         </td>
         <td>
           {data
@@ -50,10 +55,16 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
         <td>
           {results ? (
             <>
-              Brier móvil {metric(results.rollingBrier)}
+              Brier móvil{' '}
+              {results.rollingBrier === null
+                ? (results.missingReason ?? 'No hay predicciones resueltas para calcular el Brier')
+                : metric(results.rollingBrier)}
               <small>
-                Ficha {metric(results.cardBrier)} · diferencia {metric(results.delta)} · umbral +
-                {number(DRIFT_BRIER_DELTA, 2)}
+                Ficha {metric(results.cardBrier)} · diferencia{' '}
+                {results.delta === null
+                  ? (results.missingReason ?? 'Falta la ventana completa o el Brier de la ficha')
+                  : metric(results.delta)}{' '}
+                · umbral +{number(DRIFT_BRIER_DELTA, 2)}
               </small>
               <small>
                 {results.resolvedCount}/{DRIFT_BRIER_WINDOW} predicciones resueltas
@@ -68,7 +79,8 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
             </>
           ) : strategy ? (
             <>
-              {strategy.trades} operaciones · desviación {metric(strategy.deviationPct)} %
+              {strategy.trades} operaciones · desviación{' '}
+              {deviation(strategy.deviationPct, strategy.missingReason)}
               <small>
                 Umbral ±{DEGRADE_DEVIATION_PCT} % · mínimo {DEGRADE_MIN_TRADES} operaciones
               </small>
@@ -139,7 +151,8 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
                 <div>
                   <strong>Evidencia de rendimiento</strong>
                   <p>
-                    {strategy.trades} operaciones · desviación {metric(strategy.deviationPct)} %
+                    {strategy.trades} operaciones · desviación{' '}
+                    {deviation(strategy.deviationPct, strategy.missingReason)}
                     frente al backtest · {strategy.consecutiveReviews} revisiones mensuales
                     consecutivas.
                   </p>

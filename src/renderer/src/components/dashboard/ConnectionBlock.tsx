@@ -1,7 +1,39 @@
+import { useEffect, useState } from 'react';
+import { DataFreshness, sessionDateLabel } from '../DataFreshness';
+import { useDataFreshness } from '../../hooks/useDataFreshness';
 import type { SystemState } from '../../hooks/useSystemState';
 import type { DashboardState } from './useDashboard';
 import { timestamp } from './model';
 export function ConnectionBlock({ system, state }: { system: SystemState; state: DashboardState }) {
+  const { summary } = useDataFreshness();
+  const [lastClose, setLastClose] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void window.tradia.watchlist
+      .list()
+      .then(async (watchlist) => {
+        const results = await Promise.allSettled(
+          watchlist.map((item) =>
+            window.tradia.market.getBars({
+              ticker: item.ticker,
+              ...(summary?.expectedSessionDate ? { desde: summary.expectedSessionDate } : {}),
+            }),
+          ),
+        );
+        const dates = results
+          .flatMap((result) =>
+            result.status === 'fulfilled' ? result.value.bars.map((bar) => bar.date) : [],
+          )
+          .sort();
+        if (active) setLastClose(dates.at(-1) ?? null);
+      })
+      .catch(() => {
+        if (active) setLastClose(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [summary?.updatedAt]);
   const status = system.connectionError
     ? 'No disponible'
     : system.connectivity?.status === 'online'
@@ -28,28 +60,43 @@ export function ConnectionBlock({ system, state }: { system: SystemState; state:
             : 'Sin configurar';
   };
   const latest = (prefix: string) =>
-    (state.statuses.data ?? [])
-      .filter((row) => row.key.startsWith(prefix))
-      .map((row) => row.lastOkAt)
-      .filter((at): at is string => !!at)
+    summary?.items
+      .filter(
+        (item) =>
+          item.key.startsWith(prefix) ||
+          item.key === (prefix === 'ticker:' ? 'provider:tiingo' : 'provider:fred'),
+      )
+      .map((item) => item.lastDataDate)
+      .filter((date): date is string => !!date)
       .sort()
-      .at(-1);
+      .at(-1) ?? null;
   return (
     <>
+      <DataFreshness offline={system.connectivity?.status === 'offline'} />
       <p className="dashboard-connection">
         <strong>{status}</strong>
       </p>
       <div className="dashboard-row">
         <div>
           <strong>Precios · {providerName(state, false)}</strong>
-          <p>{timestamp(latest('ticker:'))}</p>
+          <p>Último cierre {sessionDateLabel(latest('ticker:') ?? lastClose)}</p>
         </div>
         <span>{health('ticker:')}</span>
       </div>
       <div className="dashboard-row">
         <div>
           <strong>Macro · {providerName(state, true)}</strong>
-          <p>{timestamp(latest('macro:'))}</p>
+          <p>
+            Última observación{' '}
+            {sessionDateLabel(
+              latest('macro:') ??
+                state.macro.data
+                  ?.flatMap((series) => series.observations.map((point) => point.date))
+                  .sort()
+                  .at(-1) ??
+                null,
+            )}
+          </p>
         </div>
         <span>{health('macro:')}</span>
       </div>

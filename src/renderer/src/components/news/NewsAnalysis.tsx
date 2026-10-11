@@ -56,7 +56,9 @@ export function NewsAnalysis({ id, offline }: { id: number; offline: boolean }) 
                 Método:{' '}
                 {analysis.analyzer === 'llm'
                   ? `LLM · ${analysis.model ?? 'modelo no informado'}`
-                  : 'Análisis local'}{' '}
+                  : analysis.analyzer === 'suscripcion'
+                    ? 'Suscripción (Claude Code)'
+                    : 'Análisis local'}{' '}
                 · Analizado: <time dateTime={analysis.analyzedAt}>{date(analysis.analyzedAt)}</time>
               </p>
             </div>

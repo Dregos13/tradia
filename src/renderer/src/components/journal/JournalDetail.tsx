@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JournalEntry } from '../../../../shared/journal';
-import { localDate, resultLabel, typeLabel } from './labels';
+import { entryLabel, localDate, resultLabel } from './labels';
 const valueText = (value: unknown): string =>
   value === null ? 'No aplica' : typeof value === 'object' ? JSON.stringify(value) : String(value);
 export function JournalDetail({ id, close }: { id: number; close: () => void }) {
@@ -69,7 +69,7 @@ export function JournalDetail({ id, close }: { id: number; close: () => void }) 
         <header>
           <h2 id="journal-detail-title" tabIndex={-1} ref={title}>
             Detalle del diario
-            {entry ? ` · ${typeLabel[entry.type]} · ${entry.ticker ?? 'General'}` : ''}
+            {entry ? ` · ${entryLabel(entry)} · ${entry.ticker ?? 'General'}` : ''}
           </h2>
           <button onClick={close} aria-label="Cerrar detalle">
             ×
@@ -91,7 +91,7 @@ export function JournalDetail({ id, close }: { id: number; close: () => void }) 
             </time>
             <dl>
               <dt>Tipo</dt>
-              <dd>{typeLabel[entry.type]}</dd>
+              <dd>{entryLabel(entry)}</dd>
               <dt>Activo</dt>
               <dd>{entry.ticker ?? 'No aplica'}</dd>
               <dt>Estrategias y versiones</dt>
