@@ -294,6 +294,41 @@ describe('drift de datos (PSI por variable)', () => {
     expect(row.dataDrift?.driftSince).not.toBeNull();
   });
 
+  it('la persistencia solo avanza con sesiones nuevas: los mismos datos congelan la racha', () => {
+    registerCard();
+    bars = makeCandles(true);
+    const service = makeService();
+    const first = service.evaluate().find((c) => c.kind === 'datos')!;
+    expect(first.drifted).toBe(true);
+    expect(first.streak).toBe(1);
+    expect(first.detail.ultimaVela).toBe(bars.at(-1)!.date);
+
+    // La revisión del día siguiente ve los mismos datos: la racha no
+    // suma una sesión fantasma y queda marcada «sin datos nuevos».
+    nowMs += 86_400_000;
+    const second = service.evaluate().find((c) => c.kind === 'datos')!;
+    expect(second.drifted).toBe(true);
+    expect(second.streak).toBe(1);
+    expect(second.detail.sinDatosNuevos).toBe('si');
+
+    // Cuando llega una vela nueva la racha retoma su avance.
+    nowMs += 86_400_000;
+    const last = bars.at(-1)!;
+    bars = [
+      ...bars,
+      {
+        date: '2026-08-30',
+        open: last.close,
+        high: last.close * 1.001,
+        low: last.close * 0.999,
+        close: last.close * 1.02,
+        volume: 1_000_000,
+      },
+    ];
+    const third = service.evaluate().find((c) => c.kind === 'datos')!;
+    expect(third.streak).toBe(2);
+  });
+
   it('una segunda evaluación el mismo día no duplica revisiones', () => {
     registerCard();
     bars = makeCandles(true);
@@ -361,7 +396,7 @@ describe('drift de resultados (Brier móvil)', () => {
         subjectName: 'modelo',
         kind: 'resultados',
         streak: DRIFT_SUSTAIN_SESSIONS - i,
-        detail: { rollingBrier: 0.5, cardBrier: 0.18, delta: 0.32, resolvedCount: 60 },
+        detail: { rollingBrier: 0.5, cardBrier: 0.18, delta: 0.32, resolvedCount: 59 },
         drifted: true,
         evaluatedAt: new Date(NOW_MS - i * 86_400_000).toISOString(),
       });
@@ -373,6 +408,20 @@ describe('drift de resultados (Brier móvil)', () => {
     expect(marked.ineligibleReason).toContain(MODEL_DEGRADED_MARK);
     expect(notices.some((n) => n.level === 'critica')).toBe(true);
     expect(repo.listProposals()).toHaveLength(1);
+  });
+
+  it('sin resoluciones nuevas el drift de resultados tampoco suma sesión', () => {
+    const card = registerCard();
+    seedResolvedPredictions(card.id, DRIFT_BRIER_WINDOW, 0.5); // delta ≈ +0,32
+    const service = makeService();
+    const first = service.evaluate().find((c) => c.kind === 'resultados')!;
+    expect(first.drifted).toBe(true);
+    expect(first.streak).toBe(1);
+
+    nowMs += 86_400_000;
+    const second = service.evaluate().find((c) => c.kind === 'resultados')!;
+    expect(second.streak).toBe(1);
+    expect(second.detail.sinDatosNuevos).toBe('si');
   });
 
   it('un Brier móvil en línea con la ficha no alerta', () => {

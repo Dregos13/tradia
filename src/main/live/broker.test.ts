@@ -114,7 +114,9 @@ const liveStub = () => ({
 });
 
 const liveFakeFetch = (): typeof globalThis.fetch => {
-  const inner = createAlpacaLiveFakeFetch({ now: () => nowMs, prices: { AAPL: 200, SPY: 500 } });
+  // El mercado del falso cotiza donde las señales del arnés (entry 60):
+  // una limitada con tope (referencia × 1,05) es cruzable y ejecuta.
+  const inner = createAlpacaLiveFakeFetch({ now: () => nowMs, prices: { AAPL: 60, SPY: 60 } });
   return (input, init) => {
     fetchCalls.push({ url: String(input), method: (init?.method ?? 'GET').toUpperCase() });
     return inner(input, init);
@@ -669,7 +671,9 @@ describe('registerLive · IPC del broker real', () => {
     process.env.TRADIA_E2E = '1';
     electron.isPackaged = false;
     const ctx = makeLiveCtx([]);
-    const live = registerLive(ctx);
+    // Reloj de mercado fijo: la frescura de la referencia se juzga con
+    // él (la vela del 8 es la última sesión cerrada el 9 a las 15:00 UTC).
+    const live = registerLive(ctx, { marketNow: () => NOW });
     registeredLive.push(live);
 
     // Precio de referencia de SPY: último cierre ingerido (500 USD).
@@ -698,8 +702,11 @@ describe('registerLive · IPC del broker real', () => {
 
     expect(result.state).toBe('cerrada-conciliada');
     expect(result.steps.every((s) => s.at !== null)).toBe(true);
-    expect(result.buyExecutedPrice).toBe(250); // precio del servidor falso
-    expect(result.sellExecutedPrice).toBe(250);
+    // El broker real simulado ejecuta al último cierre ingerido (500):
+    // slippage honesto ≈ 0 frente a la referencia de la prueba.
+    expect(result.buyExecutedPrice).toBe(500);
+    expect(result.sellExecutedPrice).toBe(500);
+    expect(result.slippageBps).toBe(0);
     expect(result.discrepancies).toBe(0);
     expect(result.reconcileRunId).toEqual(expect.any(Number));
     // Compra y cierre registradas en la tabla live; la app quedó plana.

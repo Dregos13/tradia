@@ -24,6 +24,7 @@
 import {
   IPC_CHANNELS,
   dataStatusKey,
+  type MacroRefreshResult,
   type MacroSeriesQuery,
   type MacroSeriesSnapshot,
 } from '../../../shared/ipc';
@@ -51,6 +52,13 @@ export interface MacroServiceDeps {
   broadcast?: (channel: string, payload: unknown) => void;
   /** Guarda de conexión; por defecto siempre en línea. */
   isOnline?: () => boolean;
+  /**
+   * true si el proveedor tiene credencial configurada (por defecto sí).
+   * Sin clave el refresco se omite por completo: el proveedor queda en
+   * estado neutro «Sin configurar», no en fallo, así un perfil vacío no
+   * muestra un aviso rojo que no puede resolver.
+   */
+  isConfigured?: () => Promise<boolean>;
   /** Temporizadores inyectables para las pruebas; por defecto los globales. */
   setTimer?: (callback: () => void, delayMs: number) => TimerHandle;
   clearTimer?: (handle: TimerHandle) => void;
@@ -80,6 +88,12 @@ export interface MacroService {
   refreshSeries(seriesId: string): Promise<MacroRefreshSeriesResult>;
   /** Refresca todas las series del catálogo; un fallo no aborta las demás. */
   refreshAll(): Promise<MacroRefreshSeriesResult[]>;
+  /**
+   * Refresco manual fuera del horario (`macro:refresh-now`): el
+   * «Reintentar» de la franja del dato y la puesta al día al reconectar
+   * o guardar la clave. Devuelve el motivo del rechazo, nunca lanza.
+   */
+  refreshNow(): Promise<MacroRefreshResult>;
   /** Snapshots para `macro:get-series` (todas las series registradas). */
   getSeries(query?: MacroSeriesQuery): MacroSeriesSnapshot[];
   /** Instante del próximo refresco programado (ISO 8601) o null. */
@@ -107,6 +121,7 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
   const { provider, repository } = deps;
   const now = deps.now ?? (() => Date.now());
   const isOnline = deps.isOnline ?? (() => true);
+  const isConfigured = deps.isConfigured ?? (() => Promise.resolve(true));
   const setTimer = deps.setTimer ?? ((cb, ms) => setTimeout(cb, ms));
   const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h));
   const historyDays = deps.historyDays ?? MACRO_HISTORY_DAYS;
@@ -169,8 +184,9 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     const count = (prev?.consecutiveFailures ?? 0) + 1;
     publishStatus({
       key,
-      state:
-        count >= MACRO_MAX_CONSECUTIVE_FAILURES ? 'no-fiable' : (prev?.state ?? 'desactualizado'),
+      // Mismo semáforo que el proveedor de velas: fallos que se acumulan
+      // como 'desactualizado' y a los 3 seguidos, 'no-fiable'.
+      state: count >= MACRO_MAX_CONSECUTIVE_FAILURES ? 'no-fiable' : 'desactualizado',
       consecutiveFailures: count,
       reason: `${failures} de ${total} series fallaron en el último refresco`,
     });
@@ -257,20 +273,43 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
       logger?.warn('[macro] sin base de datos: refresco omitido');
       return [];
     }
-    syncCatalog();
-    const results: MacroRefreshSeriesResult[] = [];
-    let failures = 0;
-    for (const meta of provider.listSeries()) {
-      try {
-        results.push(await refreshSeries(meta.id));
-      } catch (error) {
-        failures++;
-        logger?.warn(`[macro] refresco de '${meta.id}' falló: ${failureReason(error)}`);
-        results.push({ seriesId: meta.id, stored: 0, batchId: null, error: failureReason(error) });
+    // El cerrojo vive aquí: manual, programado y gancho de reconexión
+    // comparten la misma pasada en vuelo en lugar de duplicar trabajo.
+    if (refreshing) return [];
+    refreshing = true;
+    try {
+      syncCatalog();
+      if (!(await isConfigured())) {
+        // Sin credencial el proveedor es 'sin configurar', no 'en fallo':
+        // se borra su estado (si lo hubiera) y no se escribe nada en las
+        // series, así el perfil vacío no muestra un aviso rojo.
+        repository.deleteDataStatus(dataStatusKey.provider(provider.id));
+        logger?.info?.(`[macro] '${provider.id}' sin credencial configurada: refresco omitido`);
+        return [];
       }
+      const results: MacroRefreshSeriesResult[] = [];
+      let failures = 0;
+      for (const meta of provider.listSeries()) {
+        try {
+          results.push(await refreshSeries(meta.id));
+        } catch (error) {
+          failures++;
+          logger?.warn(
+            `[macro] refresco de '${meta.id}' falló: ${failureReason(error)}`,
+          );
+          results.push({
+            seriesId: meta.id,
+            stored: 0,
+            batchId: null,
+            error: failureReason(error),
+          });
+        }
+      }
+      markProvider(provider.listSeries().length, failures);
+      return results;
+    } finally {
+      refreshing = false;
     }
-    markProvider(provider.listSeries().length, failures);
-    return results;
   };
 
   // -- Programación diaria ---------------------------------------------------
@@ -286,13 +325,10 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
       logger?.info?.('[macro] sin conexión: refresco pospuesto a la siguiente cita');
       return;
     }
-    refreshing = true;
     try {
       await refreshAll();
     } catch (error) {
       logger?.warn(`[macro] refresco diario falló: ${failureReason(error)}`);
-    } finally {
-      refreshing = false;
     }
   };
 
@@ -316,11 +352,30 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     (timer as { unref?: () => void }).unref?.();
   };
 
+  /**
+   * Refresco manual (`macro:refresh-now`): mismas guardas que el refresco
+   * programado más el rechazo legible para la franja del dato.
+   */
+  const refreshNow = async (): Promise<MacroRefreshResult> => {
+    if (!isOnline()) return { accepted: false, reason: 'sin-conexion' };
+    if (!repository || !(await isConfigured())) {
+      return { accepted: false, reason: 'sin-proveedor' };
+    }
+    if (refreshing) return { accepted: false, reason: 'en-curso' };
+    try {
+      await refreshAll();
+    } catch (error) {
+      logger?.warn(`[macro] refresco manual falló: ${failureReason(error)}`);
+    }
+    return { accepted: true, reason: null };
+  };
+
   const service: MacroService = {
     providerId: provider.id,
     syncCatalog,
     refreshSeries,
     refreshAll,
+    refreshNow,
 
     getSeries: (query) => {
       if (!repository) return [];

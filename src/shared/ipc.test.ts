@@ -180,9 +180,13 @@ describe('contrato IPC', () => {
       updated: 'market:updated',
       advanceClock: 'market:advance-clock',
     });
-    expect(IPC_CHANNELS.macro.getSeries).toBe('macro:get-series');
+    expect(IPC_CHANNELS.macro).toEqual({
+      getSeries: 'macro:get-series',
+      refreshNow: 'macro:refresh-now',
+    });
     expect(IPC_CHANNELS.dataStatus).toEqual({
       get: 'data-status:get',
+      freshness: 'data-status:freshness',
       simulateProviderFailure: 'data-status:simulate-provider-failure',
       changed: 'data-status:changed',
     });
@@ -378,7 +382,14 @@ describe('contrato IPC', () => {
 
   it('secrets no expone ningún canal de lectura', () => {
     const secretChannels = Object.values(IPC_CHANNELS.secrets);
-    expect(secretChannels).toHaveLength(3);
+    expect(secretChannels).toHaveLength(4);
+    // secrets:changed solo notifica el nombre del proveedor, nunca lee claves.
+    expect(secretChannels).toEqual([
+      'secrets:set-key',
+      'secrets:has-key',
+      'secrets:delete-key',
+      'secrets:changed',
+    ]);
     for (const channel of secretChannels) {
       expect(channel).not.toContain('get');
     }

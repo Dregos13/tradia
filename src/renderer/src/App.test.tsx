@@ -138,7 +138,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(13);
+    expect(simulation.listenerCount()).toBe(14);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });

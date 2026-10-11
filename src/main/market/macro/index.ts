@@ -44,9 +44,10 @@ export function registerMacro(
     console.warn('[macro] sin base de datos: las series macro quedan desactivadas');
   }
 
+  const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
   const provider =
     options.provider ??
-    (isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E)
+    (e2e
       ? createSimulatedMacroProvider({ seed: 'tradia-e2e' })
       : createFredProvider({
           fetch: (...args) => globalThis.fetch(...args),
@@ -68,6 +69,20 @@ export function registerMacro(
     broadcast: ctx.broadcast,
     now: options.now,
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
+    // Sin clave de FRED el proveedor es 'sin configurar': los refrescos se
+    // omiten sin estados de fallo (un perfil vacío no enseña aviso rojo).
+    isConfigured:
+      options.provider !== undefined || e2e
+        ? undefined
+        : async () => {
+            const secrets = ctx.services.secrets;
+            if (!secrets) return false;
+            try {
+              return await secrets.hasKey(FRED_SECRETS_KEY);
+            } catch {
+              return false;
+            }
+          },
     logger: console,
   });
 
@@ -79,6 +94,26 @@ export function registerMacro(
     };
   }
 
+  // Puesta al día sin esperar al horario: al volver la conexión y al
+  // guardar la clave de FRED (mismo patrón de envoltura que market).
+  let connectivityWasDown = ctx.services.connectivity?.getState().status === 'offline';
+  const innerBroadcast = ctx.broadcast;
+  ctx.broadcast = (channel, payload) => {
+    innerBroadcast(channel, payload);
+    if (channel === IPC_CHANNELS.connectivity.changed) {
+      const status = (payload as { status?: unknown }).status;
+      if (status === 'online' && connectivityWasDown) {
+        void service.refreshNow();
+      }
+      if (status === 'offline') connectivityWasDown = true;
+      else if (status === 'online') connectivityWasDown = false;
+    } else if (channel === IPC_CHANNELS.secrets.changed) {
+      if ((payload as { provider?: unknown }).provider === FRED_SECRETS_KEY) {
+        void service.refreshNow();
+      }
+    }
+  };
+
   ipcMain.handle(IPC_CHANNELS.macro.getSeries, (_event, query: unknown) => {
     if (!isMacroSeriesQuery(query)) {
       throw new IpcValidationError(
@@ -88,6 +123,7 @@ export function registerMacro(
     }
     return service.getSeries(query);
   });
+  ipcMain.handle(IPC_CHANNELS.macro.refreshNow, () => service.refreshNow());
 
   if (options.autoStart ?? true) service.start();
   return service;

@@ -319,6 +319,43 @@ describe('vigilancia de series macro', () => {
     expect(notifications).toEqual([]);
   });
 
+  it('una serie mensual no se exige hasta la ventana de publicación', async () => {
+    // 09-10-2026: el IPC de septiembre aún no se publica (sale hacia
+    // mediados de mes); a esta fecha solo se exige el dato de agosto.
+    seedMacro('CPIAUCSL', 'monthly', '2026-08-01');
+    nowMs = Date.parse('2026-10-09T19:00:00.000Z');
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.macro('CPIAUCSL'))).toMatchObject({ state: 'fiable' });
+  });
+
+  it('pasada la ventana de publicación la serie mensual sí se caduca', async () => {
+    // 21-10-2026: el dato de septiembre ya debería estar; sin él la
+    // serie queda desactualizada.
+    seedMacro('CPIAUCSL', 'monthly', '2026-08-01');
+    nowMs = Date.parse('2026-10-21T19:00:00.000Z');
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.macro('CPIAUCSL'))!.state).toBe('desactualizado');
+  });
+
+  it('las series del Tesoro no se caducan en festivos del mercado de bonos', async () => {
+    // Miércoles 14-10-2026: Columbus Day (lunes 12) cerró el mercado de
+    // bonos pero no la bolsa; la última publicación exigible de DGS10 es
+    // la del viernes 09-10, no la del lunes.
+    seedMacro('DGS10', 'daily', '2026-10-09');
+    nowMs = Date.parse('2026-10-14T19:00:00.000Z');
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.macro('DGS10'))).toMatchObject({ state: 'fiable' });
+  });
+
   it('los fallos seguidos de una serie también escalan a no-fiable', async () => {
     seedMacro('VIXCLS', 'daily', LAST_SESSION);
     repo.setDataStatus({
@@ -459,6 +496,48 @@ describe('notificaciones al observar cambios', () => {
 
     expect(notifications.map((n) => n.level)).toEqual(['info']);
     service.stop();
+  });
+});
+
+describe('resumen de frescura', () => {
+  it('agrega los estados malos con la fecha real del último dato', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    service.evaluate();
+    await flush();
+
+    const summary = service.freshness();
+    expect(summary.state).toBe('stale');
+    expect(summary.sinceDate).toBe(PREV_SESSION);
+    expect(summary.expectedSessionDate).toBe(LAST_SESSION);
+    expect(summary.missingSessions).toBe(1);
+    expect(summary.items.map((item) => item.key)).toEqual([dataStatusKey.ticker('AAPL')]);
+    expect(summary.items[0]).toMatchObject({ label: 'AAPL', lastDataDate: PREV_SESSION });
+  });
+
+  it('prioriza «no fiable» sobre «desactualizado» y «sin datos» sin entradas', async () => {
+    expect(service.freshness().state).toBe('no-data');
+
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('MSFT'),
+      state: 'no-fiable',
+      consecutiveFailures: 0,
+      reason: 'valor anómalo grave',
+    });
+    service.evaluate();
+    await flush();
+
+    expect(service.freshness().state).toBe('unreliable');
+  });
+
+  it('registra el handler data-status:freshness', () => {
+    registerHealth(
+      { broadcast: vi.fn(), services: { storage: { getDb: () => db } } } as never,
+      { autoStart: false },
+    );
+    expect(electron.handlers.has(IPC_CHANNELS.dataStatus.freshness)).toBe(true);
   });
 });
 

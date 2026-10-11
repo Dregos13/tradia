@@ -18,11 +18,18 @@ Ajustes
 Diario
 Señales + paper trading
 Parada
+Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+
+falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
 Diario
 
-6 entradas · Señales, operaciones simuladas y decisiones auditables.
+0 entradas · Señales, operaciones simuladas y decisiones auditables.
 
-Exportar CSV · 6 entradas
+Exportar CSV · 0 entradas
 Desde
 Hasta
 Tipo
@@ -61,17 +68,14 @@ Desplázate para ver todas las columnas.
 
 Diario ordenado por fecha descendente
 Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
-11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Momentum entre activos · v1	Sin señal	'Momentum entre activos' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
-11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Ruptura de rangos · v1	Sin señal	'Ruptura de rangos' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
-11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Cruce de medias · v1	Sin señal	'Cruce de medias' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
-11 oct 2026, 2:15:55 CEST	Resumen	SPY	Momentum entre activos · v1	Sin señal	'Momentum entre activos' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
-11 oct 2026, 2:15:55 CEST	Resumen	SPY	Ruptura de rangos · v1	Sin señal	'Ruptura de rangos' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
-11 oct 2026, 2:15:55 CEST	Resumen	SPY	Cruce de medias · v1	Sin señal	'Cruce de medias' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+
+El diario todavía está vacío
+
 Anterior
 Página 1 de 1
 Siguiente
 En línea
 Agentes activos
-Última comprobación 02:16:10
+Última comprobación 10:59:16
 Próximo reintento —
 Último latido Pendiente

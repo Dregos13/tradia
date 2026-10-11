@@ -419,6 +419,33 @@ describe('salud del dato', () => {
     expect(changes.length).toBeGreaterThan(0);
   });
 
+  it('una sola caída del proveedor cuenta una vez por pasada, no por activo', async () => {
+    await service.addTicker('AAPL');
+    await service.addTicker('MSFT');
+    await service.addTicker('NVDA');
+    await service.addTicker('JNJ');
+    await service.start();
+    provider.setFailing('network');
+
+    // Una pasada con los 4 activos fallando suma 1 fallo del proveedor,
+    // no 4: una sola caída de red no puede llegar a «no fiable».
+    vi.setSystemTime('2026-10-10T12:00:00.000Z');
+    await service.refreshNow();
+    const firstPass = repo.getDataStatus(dataStatusKey.provider('simulated'));
+    expect(firstPass).toMatchObject({ state: 'desactualizado', consecutiveFailures: 1 });
+    for (const ticker of ['AAPL', 'MSFT', 'NVDA', 'JNJ']) {
+      expect(tickerStatus(ticker)!.consecutiveFailures).toBe(1);
+    }
+
+    // La regla de los 3 fallos sigue midiendo pasadas, no activos.
+    await service.refreshNow();
+    await service.refreshNow();
+    expect(repo.getDataStatus(dataStatusKey.provider('simulated'))).toMatchObject({
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+    });
+  });
+
   it('watchlist remove quita el ticker de la lista', async () => {
     await service.addTicker('AAPL');
     const list = service.removeTicker('aapl');

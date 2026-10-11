@@ -206,6 +206,13 @@ export interface SignalEngineDeps {
   wasProcessed(ticker: string, barDate: SessionDate): boolean;
   markProcessed(ticker: string, barDate: SessionDate): void;
   /**
+   * Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'),
+   * al instante dado. Una vela anterior no se evalúa: llega de una puesta
+   * al día atrasada y una señal sobre ella sería una decisión con datos
+   * viejos. Sin la dependencia el motor no aplica la guarda de frescura.
+   */
+  expectedSessionDate?(nowMs: number): SessionDate | null;
+  /**
    * Fuentes de IA de la fase 6 (régimen, modelo apto y noticias
    * confirmadas). Sin el bloque el motor replica la fase 4 a la letra.
    */
@@ -226,6 +233,7 @@ export type TickerEvaluationOutcome =
   | 'low-confidence'
   | 'error'
   | 'already-processed'
+  | 'stale-data'
   | 'blocked';
 
 export interface SignalEngine {
@@ -529,6 +537,18 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
   ): TickerEvaluationOutcome => {
     if (stopped || blocked()) return 'blocked';
     const ticker = rawTicker.trim().toUpperCase();
+    // Guarda de frescura: una vela anterior a la última sesión esperada
+    // no se evalúa (llega de una puesta al día atrasada). Solo la sesión
+    // vigente puede emitir una señal; la vela vieja tampoco queda marcada
+    // como procesada, no era evaluable.
+    const expectedSession = deps.expectedSessionDate?.(now());
+    if (expectedSession != null && barDate < expectedSession) {
+      logger.info?.(
+        `[signals] ${ticker} ${barDate}: vela anterior a la sesión esperada ` +
+          `${expectedSession}; no se evalúa`,
+      );
+      return 'stale-data';
+    }
     if (deps.wasProcessed(ticker, barDate) || deps.repo.signalExists(ticker, barDate)) {
       return 'already-processed';
     }
@@ -859,7 +879,8 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         if (barDate === null) continue;
         const outcome = evaluateTicker(ticker, barDate, null);
         if (outcome === 'blocked') break;
-        if (outcome === 'already-processed') continue;
+        // 'stale-data' tampoco cuenta: la vela vieja no se evaluó.
+        if (outcome === 'already-processed' || outcome === 'stale-data') continue;
         result.tickers += 1;
         if (outcome === 'emitted') result.emitted += 1;
         if (outcome === 'contradiction') result.contradictions += 1;

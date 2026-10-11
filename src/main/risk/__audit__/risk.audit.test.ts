@@ -554,18 +554,35 @@ describe('auditoría · causas automáticas de la parada', () => {
     expect(killSwitch.getState().detail).toContain('JUMP');
   });
 
-  it('dato-anomalo: un data-status no fiable también activa la parada', () => {
+  it('dato-anomalo: un data-status no fiable por contenido también activa la parada', () => {
+    // 'no-fiable' con fallos en 0: anomalía de contenido (valor grave,
+    // lote rechazado) — los cortes del proveedor llevan fallos > 0.
     killSwitch.observeDataStatus({
       key: 'ticker:AAPL',
       state: 'no-fiable',
       lastOkAt: NOW_ISO,
-      consecutiveFailures: 3,
-      reason: 'valores anómalos',
+      consecutiveFailures: 0,
+      reason: 'valor anómalo grave en el último lote',
       updatedAt: NOW_ISO,
     });
 
     expectActiveKillSwitch('dato-anomalo');
     expectVeto(service.submitSignal(signal()), 'KILL_SWITCH_ACTIVE');
+  });
+
+  it('un data-status no fiable por caída del proveedor no dispara la parada', () => {
+    // 3 fallos seguidos del proveedor: el dato no es fiable pero no hay
+    // anomalía; la conectividad ya pausa las decisiones durante el corte.
+    killSwitch.observeDataStatus({
+      key: 'ticker:AAPL',
+      state: 'no-fiable',
+      lastOkAt: NOW_ISO,
+      consecutiveFailures: 3,
+      reason: '3 fallos seguidos del proveedor',
+      updatedAt: NOW_ISO,
+    });
+
+    expect(killSwitch.getState().active).toBe(false);
   });
 
   it('sin-conexion: 60 s sin conexión activa la parada y no se reanuda sola', () => {

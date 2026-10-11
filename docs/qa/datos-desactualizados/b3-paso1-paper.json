@@ -82,9 +82,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: seguimiento de tendencia clásico (SMA 50/200 con stop ATR).",
-    "createdAt": "2026-10-11T00:15:31.957Z",
-    "updatedAt": "2026-10-11T00:15:54.907Z",
-    "versionCreatedAt": "2026-10-11T00:15:31.957Z"
+    "createdAt": "2026-10-11T08:55:17.240Z",
+    "updatedAt": "2026-10-11T08:59:00.634Z",
+    "versionCreatedAt": "2026-10-11T08:55:17.240Z"
   },
   {
     "id": 2,
@@ -181,9 +181,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: reversión a la media con RSI(2) y filtro de tendencia (variante Connors del sistema RSI/Bollinger).",
-    "createdAt": "2026-10-11T00:15:31.958Z",
-    "updatedAt": "2026-10-11T00:15:54.908Z",
-    "versionCreatedAt": "2026-10-11T00:15:31.958Z"
+    "createdAt": "2026-10-11T08:55:17.240Z",
+    "updatedAt": "2026-10-11T08:59:00.635Z",
+    "versionCreatedAt": "2026-10-11T08:55:17.240Z"
   },
   {
     "id": 3,
@@ -267,9 +267,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: ruptura de rangos con canal de Donchian 55/20 (sistema tortuga).",
-    "createdAt": "2026-10-11T00:15:31.958Z",
-    "updatedAt": "2026-10-11T00:15:54.908Z",
-    "versionCreatedAt": "2026-10-11T00:15:31.958Z"
+    "createdAt": "2026-10-11T08:55:17.241Z",
+    "updatedAt": "2026-10-11T08:59:00.635Z",
+    "versionCreatedAt": "2026-10-11T08:55:17.241Z"
   },
   {
     "id": 4,
@@ -342,8 +342,8 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: rotación mensual al top 3 por momentum de 6 meses sobre el universo de ETF.",
-    "createdAt": "2026-10-11T00:15:31.958Z",
-    "updatedAt": "2026-10-11T00:15:54.908Z",
-    "versionCreatedAt": "2026-10-11T00:15:31.958Z"
+    "createdAt": "2026-10-11T08:55:17.241Z",
+    "updatedAt": "2026-10-11T08:59:00.635Z",
+    "versionCreatedAt": "2026-10-11T08:55:17.241Z"
   }
 ]

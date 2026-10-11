@@ -18,13 +18,10 @@ Ajustes
 IA
 Señales + paper trading
 Parada
-FRED · Desactualizado
+Aún no hay datos de mercado
 
-6 de 6 series fallaron en el último refresco
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 IA
 
 Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
@@ -89,7 +86,7 @@ Prueba final intacta
 Entrenado
 10 oct 2026, 22:40 CEST
 Registrado
-11 oct 2026, 02:09 CEST
+11 oct 2026, 10:55 CEST
 Evaluación fuera de muestra
 
 En Brier, menos es mejor. 0 indica probabilidades perfectas; la comparación solo usa la prueba final fuera de muestra.
@@ -125,6 +122,6 @@ Ver datos del gráfico
 Revisar fuentes de mercado
 En línea
 Agentes activos
-Última comprobación 02:09:44
+Última comprobación 10:55:01
 Próximo reintento —
 Último latido Pendiente

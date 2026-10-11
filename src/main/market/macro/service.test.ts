@@ -273,3 +273,34 @@ describe('servicio macro: getSeries (contrato IPC)', () => {
     );
   });
 });
+
+describe('servicio macro: configuración y refresco manual', () => {
+  it('sin proveedor configurado queda neutro: no descarga observaciones ni escribe fallos', async () => {
+    const getObservations = vi.spyOn(provider, 'getObservations');
+    const service = makeService({ isConfigured: async () => false });
+
+    const results = await service.refreshAll();
+
+    expect(results).toEqual([]);
+    expect(getObservations).not.toHaveBeenCalled();
+    expect(repo.getDataStatus(dataStatusKey.provider(provider.id))).toBeNull();
+  });
+
+  it('refreshNow rechaza sin conexión, sin proveedor y con refresco en curso', async () => {
+    const offline = makeService({ isOnline: () => false });
+    expect(await offline.refreshNow()).toEqual({ accepted: false, reason: 'sin-conexion' });
+
+    const unconfigured = makeService({ isConfigured: async () => false });
+    expect(await unconfigured.refreshNow()).toEqual({
+      accepted: false,
+      reason: 'sin-proveedor',
+    });
+
+    const service = makeService();
+    const pending = service.refreshAll();
+    expect(await service.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
+    await pending;
+
+    expect(await service.refreshNow()).toEqual({ accepted: true, reason: null });
+  });
+});

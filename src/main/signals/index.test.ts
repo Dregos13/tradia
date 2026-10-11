@@ -31,6 +31,9 @@ vi.mock('electron', () => ({
 }));
 
 const NOW = Date.parse('2026-10-09T21:00:00.000Z');
+// Reloj del mercado para la guarda de frescura: jueves 08-10 tras el
+// cierre, así la vela del 08-10 sigue siendo la sesión esperada.
+const SIGNAL_CLOCK = { clock: { now: () => Date.parse('2026-10-08T21:00:00.000Z') } };
 
 const DECISION: RiskDecision = {
   status: 'aprobada',
@@ -192,7 +195,7 @@ describe('registerSignals: cableado en la app', () => {
   it('al guardarse una vela nueva se evalúa la estrategia activa y se emite la señal', () => {
     seedAaplBars();
     const strategyId = seedStrategy();
-    const service = registerSignals(makeCtx());
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
 
     fireBarStored();
 
@@ -228,7 +231,7 @@ describe('registerSignals: cableado en la app', () => {
   it('es idempotente: la misma vela no genera dos señales (ni con la marca, ni sin ella)', () => {
     seedAaplBars();
     seedStrategy();
-    const service = registerSignals(makeCtx());
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
 
     fireBarStored();
     fireBarStored();
@@ -237,7 +240,7 @@ describe('registerSignals: cableado en la app', () => {
 
     // Las marcas persisten en settings: un «reinicio» (servicio nuevo sobre
     // la misma base) tampoco reevalúa la vela.
-    const service2 = registerSignals(makeCtx());
+    const service2 = registerSignals(makeCtx(), SIGNAL_CLOCK);
     fireBarStored();
     expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(1);
     service2.stop();
@@ -247,7 +250,7 @@ describe('registerSignals: cableado en la app', () => {
   it('no evalúa con los agentes en pausa, sin conexión ni con la parada activa', () => {
     seedAaplBars();
     seedStrategy();
-    const service = registerSignals(makeCtx());
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
 
     flags.paused = true;
     fireBarStored();
@@ -266,7 +269,7 @@ describe('registerSignals: cableado en la app', () => {
   it('signals:get devuelve el detalle y rechaza ids inválidos', () => {
     seedAaplBars();
     seedStrategy();
-    const service = registerSignals(makeCtx());
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
     fireBarStored();
 
     const detail = invoke(IPC_CHANNELS.signals.get, 1) as { ticker: string; dataUsed: unknown };
@@ -288,13 +291,13 @@ describe('registerSignals: cableado en la app', () => {
 
     electron.isPackaged = true;
     vi.stubEnv('TRADIA_E2E', '1');
-    const prod = registerSignals(makeCtx());
+    const prod = registerSignals(makeCtx(), SIGNAL_CLOCK);
     expect(electron.handlers.has(IPC_CHANNELS.signals.evaluateNow)).toBe(false);
     prod.stop();
 
     electron.handlers.clear();
     electron.isPackaged = false;
-    const dev = registerSignals(makeCtx());
+    const dev = registerSignals(makeCtx(), SIGNAL_CLOCK);
     expect(electron.handlers.has(IPC_CHANNELS.signals.evaluateNow)).toBe(true);
     const result = invoke(IPC_CHANNELS.signals.evaluateNow) as { emitted: number };
     expect(result.emitted).toBe(1);
@@ -304,7 +307,7 @@ describe('registerSignals: cableado en la app', () => {
   it('stop() desuscribe del evento de velas guardadas', () => {
     seedAaplBars();
     seedStrategy();
-    const service = registerSignals(makeCtx());
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
     service.stop();
     fireBarStored();
     expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(0);
@@ -361,7 +364,7 @@ describe('registerSignals: cableado en la app', () => {
       }),
       getLimits: () => ({}),
     } as unknown as ServiceContext['services']['risk'];
-    const service = registerSignals(ctx);
+    const service = registerSignals(ctx, SIGNAL_CLOCK);
 
     // Vela que genera la señal (entrada = cierre 12, tamaño DECISION.size).
     fireBarStored();

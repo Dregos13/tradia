@@ -17,30 +17,16 @@ Dinero real
 Ajustes
 IA
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
-provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
-
-Sin conexión. Ver estado
-
-Ver en Riesgo
-Reanudar
-Sin conexión: las decisiones están en pausa. Reintentando en 9 s.
+Parada
+Sin conexión: las decisiones están en pausa. Reintentando en 8 s.
 Comprobar ahora
-Tiingo · No fiable
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
-[tiingo] fallo de transporte: TypeError: fetch failed
+falta la observación esperada; último dato: 2026-09-17
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Actualizar ahora
 IA
 
 Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
@@ -86,6 +72,6 @@ Revisar fuentes de mercado
 Sin conexión
 Agentes en pausa
 · Sin conexión
-Última comprobación 02:11:44
-Próximo reintento 02:11:53
+Última comprobación 10:56:38
+Próximo reintento 10:56:46
 Último latido Pendiente

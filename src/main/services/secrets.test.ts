@@ -3,16 +3,35 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { IPC_CHANNELS } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
 import {
   createSecretsService,
   ERR_ENCRYPTION_UNAVAILABLE,
   ERR_STORAGE_UNAVAILABLE,
+  registerSecrets,
   SecretsError,
   type SafeStorageLike,
 } from './secrets';
+
+const electron = vi.hoisted(() => ({
+  handlers: new Map<string, (...args: unknown[]) => unknown>(),
+}));
+
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
+      electron.handlers.set(channel, handler),
+  },
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (plain: string) => Buffer.from([...plain].reverse().join(''), 'utf8'),
+    decryptString: (encrypted: Buffer) =>
+      [...encrypted.toString('utf8')].reverse().join(''),
+  },
+}));
 
 const SAMPLE_KEY = 'sk-test-CLAVE-SECRETA-0123456789';
 
@@ -171,5 +190,31 @@ describe('servicio de claves cifradas', () => {
     await secrets.setKey('proveedor', SAMPLE_KEY);
 
     await expect(secrets.getKey('proveedor')).rejects.toThrowError(SecretsError);
+  });
+});
+
+describe('registro IPC', () => {
+  it('emite secrets:changed con solo el proveedor al guardar y al borrar', async () => {
+    electron.handlers.clear();
+    const { db } = fileDb();
+    const sent: { channel: string; payload: unknown }[] = [];
+    const ctx = {
+      services: { storage: { getDb: () => db } },
+      broadcast: (channel: string, payload: unknown) => sent.push({ channel, payload }),
+    };
+    const service = registerSecrets(ctx as never);
+
+    const setKey = electron.handlers.get(IPC_CHANNELS.secrets.setKey)!;
+    const deleteKey = electron.handlers.get(IPC_CHANNELS.secrets.deleteKey)!;
+    await setKey(null, 'fred', SAMPLE_KEY);
+    await deleteKey(null, 'fred');
+
+    expect(sent).toEqual([
+      { channel: IPC_CHANNELS.secrets.changed, payload: { provider: 'fred' } },
+      { channel: IPC_CHANNELS.secrets.changed, payload: { provider: 'fred' } },
+    ]);
+    // El evento nunca lleva la clave.
+    expect(JSON.stringify(sent)).not.toContain(SAMPLE_KEY);
+    expect(await service.hasKey('fred')).toBe(false);
   });
 });

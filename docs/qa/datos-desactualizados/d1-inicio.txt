@@ -22,7 +22,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 02:12:35 CEST
+Actualizado 10:57:28 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -31,14 +31,14 @@ En línea
 
 Precios · Tiingo
 
-11 oct 2026, 02:12 CEST
+11 oct 2026, 10:57 CEST
 
 Disponible
 Macro · FRED
 
-11 oct 2026, 02:12 CEST
+11 oct 2026, 10:57 CEST
 
-Con retraso
+Disponible
 Noticias · Reserva Federal — comunicados y FOMC
 
 19 sept 2026, 12:00 CEST
@@ -72,7 +72,7 @@ Con retraso
 Contexto macro
 Ver macro
 
-Régimen · Sin clasificar · Fuente FRED
+Régimen · Tendencia · Volatilidad baja · Fuente FRED
 
 VIXCLS
 ✓ Fiable
@@ -96,7 +96,7 @@ Treasury · 10 años
 Dato diario
 8 oct 2026
 CPIAUCSL
-◷ Desactualizado
+✓ Fiable
 IPC de EE. UU. · interanual
 2,44 %
 
@@ -104,9 +104,6 @@ IPC de EE. UU. · interanual
 
 Dato mensual
 1 ago 2026
-
-falta la observación esperada; último dato: 2026-08-01
-
 Señales vivas
 Ver en Diario
 
@@ -127,7 +124,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 02:12 CEST
+Datos de 11 oct 2026, 10:57 CEST
 
 Ver límites de riesgo
 Exposición
@@ -170,6 +167,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 02:12:50
+Última comprobación 10:57:43
 Próximo reintento —
 Último latido Pendiente

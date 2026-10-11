@@ -15,191 +15,102 @@ Diario
 Real vs backtest
 Dinero real
 Ajustes
-Estado del sistema
+Fuentes
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
-provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
+Parada
+Canales de información bajo tu control.
 
-[tiingo] fallo de transporte: TypeError: fetch failed
+6 fuentes configuradas · 6 activas
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Añadir nueva fuente
+Actualizar lista
 
-Reintentar
-FRED · Desactualizado
+Fuentes oficiales predefinidas
 
-6 de 6 series fallaron en el último refresco
+Protegidas: puedes pausar su lectura; su fiabilidad siempre es Oficial.
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Fuente	Tipo	Fiabilidad	Estado	Última lectura	Actividad	Acciones
+Reserva Federal — comunicados y FOMC
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:33
+Cada 10 min
+	
+Activa
+	
+Probar conexión
 
-Reintentar
-Situación del mercado
+BCE — notas de prensa
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:33
+Cada 10 min
+	
+Activa
+	
+Probar conexión
 
-Seguridad, señales y cartera simulada de un vistazo.
+BLS — nóminas no agrícolas e IPC
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:34
+Cada 15 min
+	
+Activa
+	
+Probar conexión
 
-Actualizado 02:11:53 CEST
+BEA — comunicados (PIB, PCE…)
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:34
+Cada 15 min
+	
+Activa
+	
+Probar conexión
 
-Conexión y fuentes
-Ver fuentes
+SEC EDGAR — 8-K y Form 4 de los activos seguidos
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:45
+Cada 10 min
+	
+Activa
+	
+Probar conexión
 
+CNMV — información privilegiada y relevante
+Fuente protegida
+	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:45
+Cada 10 min
+	
+Activa
+	
+Probar conexión
+Añadir nueva fuente de noticias
+
+Verifica la respuesta antes de guardarla.
+
+Tipo de fuente
+RSS / Feed Atom
+API financiera
+URL del Feed RSS o Atom
+HTTPS para fuentes remotas; HTTP para feeds locales.
+Nombre descriptivo
+Nivel de fiabilidad
+Oficial (Reservado para organismos del sistema)
+Agencia
+Prensa
+Redes
+Intervalo de consulta
+Cada 5 minutos
+Cada 10 minutos
+Cada 15 minutos
+Cada 30 minutos
+Cada 60 minutos
+
+Las noticias de Redes nunca se marcan como confirmadas por sí solas. Las consultas respetan los límites de cada proveedor.
+
+Probar conexión
+Guardar fuente
 En línea
-
-Precios · Tiingo
-
-19 sept 2026, 12:00 CEST
-
-No disponible
-Macro · FRED
-
-Sin actualización
-
-Con retraso
-Noticias · Reserva Federal — comunicados y FOMC
-
-11 oct 2026, 02:11 CEST
-
-Disponible
-Noticias · BCE — notas de prensa
-
-11 oct 2026, 02:11 CEST
-
-Disponible
-Noticias · BLS — nóminas no agrícolas e IPC
-
-11 oct 2026, 02:11 CEST
-
-Disponible
-Noticias · BEA — comunicados (PIB, PCE…)
-
-11 oct 2026, 02:11 CEST
-
-Disponible
-Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
-
-19 sept 2026, 12:00 CEST
-
-Con retraso
-Noticias · CNMV — información privilegiada y relevante
-
-19 sept 2026, 12:00 CEST
-
-Con retraso
-Contexto macro
-Ver macro
-
-Régimen · Sin clasificar · Fuente FRED
-
-VIXCLS
-◷ Desactualizado
-Volatilidad VIX
-Sin dato
-
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
-
-Dato diario
-Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
-DGS10
-◷ Desactualizado
-Treasury · 10 años
-Sin dato
-
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
-
-Dato diario
-Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
-CPIAUCSL
-◷ Desactualizado
-IPC de EE. UU. · interanual
-Sin dato
-
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
-
-Dato mensual
-Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
-Señales vivas
-Ver en Diario
-
-No se admiten nuevas señales.
-
-Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
-
-Posiciones simuladas
-◇ Simulación
-
-No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
-
-No son posiciones reales.
-
-Drawdown
-
-Actual −0 %
-
-Máximo permitido −10 % · quedan 10 puntos
-
-Dentro del límite
-
-Datos de 11 oct 2026, 02:11 CEST
-
-Ver límites de riesgo
-Exposición
-Por activo
-Por sector
-
-No hay exposición simulada por activo.
-
-Estado por estrategia
-Ver biblioteca
-Cruce de medias
-◌ Investigación
-
-v1 · cierre Sin evaluar
-
-Bloqueada por parada
-
-Reversión RSI/Bollinger
-◌ Investigación
-
-v1 · cierre Sin evaluar
-
-Bloqueada por parada
-
-Ruptura de rangos
-◌ Investigación
-
-v1 · cierre Sin evaluar
-
-Bloqueada por parada
-
-Momentum entre activos
-◌ Investigación
-
-v1 · cierre Sin evaluar
-
-Bloqueada por parada
-
-Tradia informa y simula; no ejecuta órdenes reales.
-
-En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:12:23
+Agentes activos
+Última comprobación 10:57:16
 Próximo reintento —
-Último latido Pendiente
+Último latido 10:57:03

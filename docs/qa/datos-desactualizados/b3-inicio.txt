@@ -18,11 +18,18 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada
+Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+
+falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
 Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 02:15:55 CEST
+Actualizado 10:59:01 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -31,14 +38,14 @@ En línea
 
 Precios · Tiingo
 
-11 oct 2026, 02:15 CEST
+11 oct 2026, 10:59 CEST
 
 Con retraso
 Macro · FRED
 
-11 oct 2026, 02:15 CEST
+11 oct 2026, 10:59 CEST
 
-Con retraso
+Disponible
 Noticias · Reserva Federal — comunicados y FOMC
 
 19 sept 2026, 12:00 CEST
@@ -72,7 +79,7 @@ Con retraso
 Contexto macro
 Ver macro
 
-Régimen · Sin clasificar · Fuente FRED
+Régimen · Lateral · Volatilidad alta · Fuente FRED
 
 VIXCLS
 ✓ Fiable
@@ -96,7 +103,7 @@ Treasury · 10 años
 Dato diario
 8 oct 2026
 CPIAUCSL
-◷ Desactualizado
+✓ Fiable
 IPC de EE. UU. · interanual
 2,44 %
 
@@ -104,9 +111,6 @@ IPC de EE. UU. · interanual
 
 Dato mensual
 1 ago 2026
-
-falta la observación esperada; último dato: 2026-08-01
-
 Señales vivas
 Ver en Diario
 
@@ -127,7 +131,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 02:15 CEST
+Datos de 11 oct 2026, 10:59 CEST
 
 Ver límites de riesgo
 Exposición
@@ -141,35 +145,35 @@ Ver biblioteca
 Cruce de medias
 ◇ Paper
 
-v1 · cierre 2026-09-25
+v1 · cierre Sin evaluar
 
-Sin señal
+Pendiente del primer cierre
 
 Reversión RSI/Bollinger
 ◇ Paper
 
-v1 · cierre 2026-09-25
+v1 · cierre Sin evaluar
 
-Sin señal
+Pendiente del primer cierre
 
 Ruptura de rangos
 ◇ Paper
 
-v1 · cierre 2026-09-25
+v1 · cierre Sin evaluar
 
-Sin señal
+Pendiente del primer cierre
 
 Momentum entre activos
 ◇ Paper
 
-v1 · cierre 2026-09-25
+v1 · cierre Sin evaluar
 
-Sin señal
+Pendiente del primer cierre
 
 Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 02:16:10
+Última comprobación 10:59:16
 Próximo reintento —
 Último latido Pendiente

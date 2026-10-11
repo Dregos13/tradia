@@ -150,7 +150,9 @@ const makeSmoke = (
     store,
     getChecklist: () => ({ allComplete: true }),
     checkOrderAllowed: (request, context) => liveOrderBlockReason(snapshot(), request, context),
-    referencePrice: () => 500,
+    // Cierre de la última sesión cerrada frente al reloj (2026-10-09
+    // 15:00 UTC, viernes): la referencia cuenta como reciente.
+    referencePrice: () => ({ price: 500, asOf: '2026-10-08' }),
     reconcileNow: () => reconcile.runNow('manual'),
     openDiscrepancyCount: () => reconcile.status().openDiscrepancies.length,
     suspend: suspendStub,
@@ -277,6 +279,25 @@ describe('live:smoke-test — puertas previas', () => {
     expect(persisted()).toBeNull();
   });
 
+  it('con un cierre desfasado no se envía ninguna orden al broker', async () => {
+    confirmLimits();
+    activateMode();
+    // El último cierre guardado es de hace semanas: dimensionar con él
+    // movería dinero real con un precio que ya no vale.
+    const { smoke } = makeSmoke(liveFakeFetch(), {
+      referencePrice: () => ({ price: 500, asOf: '2026-09-20' }),
+    });
+    await expect(smoke.run({ confirm: true })).rejects.toMatchObject({
+      code: 'precio-desfasado',
+    });
+    expect(postCalls()).toHaveLength(0);
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(persisted()).toBeNull();
+    // Rechazo previo a la red: el modo sigue activo, sin suspensión.
+    expect(store.getMode().estado).toBe('activo');
+    expect(suspensions).toHaveLength(0);
+  });
+
   it('un límite por orden por debajo de 1 USD bloquea la compra antes de la red', async () => {
     confirmLimits({ ...LIMITS, orderUsd: 0.5 });
     activateMode();
@@ -319,7 +340,8 @@ describe('live:smoke-test — flujo completo', () => {
     expect(result.ticker).toBe(LIVE_SMOKE_TICKER);
     expect(result.notionalUsd).toBe(LIVE_SMOKE_NOTIONAL_USD);
     expect(result.steps.every((s) => s.at !== null)).toBe(true);
-    expect(result.requestedPrice).toBeNull();
+    // La compra salió limitada con tope: referencia × (1 + 300 pb) = 515.
+    expect(result.requestedPrice).toBe(515);
     expect(result.buyExecutedPrice).toBe(500);
     expect(result.sellExecutedPrice).toBe(500);
     expect(result.slippageBps).toBe(0);
@@ -505,6 +527,61 @@ describe('live:smoke-test — fallos y suspensión', () => {
     expect(result.discrepancies).toBeGreaterThan(0);
     expect(suspensions).toHaveLength(1);
     expect(journal.some((j) => j.reason.includes('conciliación'))).toBe(true);
+  });
+
+  it('un slippage absurdo frente a la referencia da la prueba por fallida y suspende', async () => {
+    confirmLimits();
+    activateMode();
+    // El caso real del fallo P7: referencia del cierre a 1.451,93 USD y
+    // el broker ejecuta a 250 USD (slippage ≈ −8.278 pb): referencia y
+    // broker no cuadran y la prueba no puede salir «verde».
+    const { smoke } = makeSmoke(
+      createAlpacaLiveFakeFetch({ now: () => nowMs, prices: { SPY: 250 }, positions: [] }),
+      { referencePrice: () => ({ price: 1451.93, asOf: '2026-10-08' }) },
+    );
+
+    const result = await smoke.run({ confirm: true });
+
+    expect(result.state).toBe('fallida-posicion-abierta');
+    expect(result.failedStep).toBe('compra-enviada');
+    expect(result.slippageBps).toBeCloseTo(-8278, -1);
+    expect(result.error).toContain('slippage');
+    // El modo real queda suspendido y el paso fallido en el Diario.
+    expect(suspensions).toHaveLength(1);
+    expect(suspensions[0]).toContain('compra enviada');
+    expect(store.getMode().estado).toBe('suspendido');
+    expect(persisted()).toMatchObject({
+      state: 'fallida-posicion-abierta',
+      failedStep: 'compra-enviada',
+    });
+    expect(
+      journal.some(
+        (j) => j.type === 'error' && j.reason.includes('compra enviada'),
+      ),
+    ).toBe(true);
+    // La posición abierta queda a la vista: no se oculta una compra real.
+    expect(positionsFromOrders(liveRepo.listOrders())).toHaveLength(1);
+  });
+
+  it('un nocional ejecutado por encima del mínimo con margen da la prueba por fallida', async () => {
+    confirmLimits();
+    activateMode();
+    // El broker reporta una ejecución por encima del tope enviado (la
+    // compra salió limitada a 515 y el fill llega a 600): 0,002 × 600 =
+    // 1,20 USD supera el mínimo con margen (1,05 USD). Referencia y
+    // broker no cuadran.
+    const adapter = stubAdapter({
+      submitOrder: async (request) => remoteOf(request, { filledAvgPrice: 600 }),
+    });
+    const { smoke } = makeSmoke(liveFakeFetch(), { getAdapter: () => adapter });
+
+    const result = await smoke.run({ confirm: true });
+
+    expect(result.state).toBe('fallida-posicion-abierta');
+    expect(result.failedStep).toBe('compra-enviada');
+    expect(result.error).toContain('nocional');
+    expect(suspensions).toHaveLength(1);
+    expect(store.getMode().estado).toBe('suspendido');
   });
 
   it('una segunda prueba en curso se rechaza sin tocar nada', async () => {

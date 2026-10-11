@@ -17,25 +17,14 @@ Dinero real
 Ajustes
 Estrategias
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
-provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
+Parada
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
-[tiingo] error del servidor (HTTP 503): maintenance
+falta la observación esperada; último dato: 2026-09-17
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Actualizar ahora
 Biblioteca de estrategias
 
 Hipótesis versionadas, reglas reproducibles y evidencia.
@@ -75,8 +64,7 @@ Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en late
 	v1	● Investigación	5,51%	6,04%	0,19	64	11/10/2026
 Procedencia no disponible
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:10:58
+Agentes activos
+Última comprobación 10:55:54
 Próximo reintento —
 Último latido Pendiente

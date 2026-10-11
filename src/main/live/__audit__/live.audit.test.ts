@@ -360,7 +360,7 @@ describe('auditoría · activación y límites vía IPC', () => {
     expect(await modeOf()).toBe('suspendido');
   });
 
-  it.fails(
+  it(
     'HALLAZGO H1 · fuera de E2E, una evidencia «live.evidence» manipulada en la base no cumple los requisitos automáticos',
     async () => {
       // App empaquetada: el gancho live:seed-progress no existe…
@@ -532,7 +532,7 @@ describe('auditoría · guarda de órdenes reales', () => {
     expect(await modeOf()).toBe('suspendido');
   });
 
-  it.fails(
+  it(
     'HALLAZGO H2 · una orden de mercado no puede ejecutarse por encima del techo por orden',
     async () => {
       const limits: LiveLimits = {
@@ -546,6 +546,13 @@ describe('auditoría · guarda de órdenes reales', () => {
       // abre con hueco al alza y el servidor ejecuta a 250 USD.
       await sendSignal(live, approved(1, 199), { entry: 199 });
 
+      // La orden no sale de mercado a ciegas: sale limitada con un tope
+      // que impide ejecutar por encima del límite por orden escrito.
+      for (const order of liveEntries()) {
+        if (order.type === 'limit' && order.limitPrice !== null) {
+          expect(order.limitPrice * order.quantity).toBeLessThanOrEqual(limits.orderUsd);
+        }
+      }
       const executedNotional = executedEntries().map(
         (order) => order.filledQuantity * (order.execution.executedPrice ?? 0),
       );

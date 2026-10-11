@@ -18,13 +18,6 @@ Ajustes
 Mercado
 Señales + paper trading
 Parada
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 Tu mercado, con perspectiva.
 
 Precios diarios ajustados por splits y dividendos.
@@ -91,6 +84,6 @@ Gráficos con TradingView Lightweight Charts™.
 
 En línea
 Agentes activos
-Última comprobación 12:00:15
+Última comprobación 12:00:00
 Próximo reintento —
 Último latido Pendiente

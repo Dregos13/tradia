@@ -18,18 +18,15 @@ Ajustes
 Salud de modelos
 Señales + paper trading
 Parada
-FRED · Desactualizado
+Aún no hay datos de mercado
 
-6 de 6 series fallaron en el último refresco
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 Salud de modelos
 
 Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
 
-Revisado 11 oct 2026, 02:09 CEST
+Revisado 11 oct 2026, 10:55 CEST
 
 Revisar ahora
 
@@ -62,7 +59,7 @@ Ficha 0,197 · diferencia Sin referencia · umbral +0,02
 Desde hace 0 sesiones · mínimo 20 en 2 variables
 
 Ventana de 60 predicciones.
-	11 oct 2026, 02:09 CEST	Ver detalle
+	11 oct 2026, 10:55 CEST	Ver detalle
 Cruce de medias · v1
 Estrategia
 	Sin datos suficientes
@@ -117,6 +114,6 @@ Los modelos se mantienen bajo vigilancia.
 
 En línea
 Agentes activos
-Última comprobación 02:09:44
+Última comprobación 10:55:01
 Próximo reintento —
 Último latido Pendiente

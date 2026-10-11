@@ -47,6 +47,9 @@ import {
   IpcValidationError,
   isDataStatusState,
   isE2eEnabled,
+  type DataFreshnessItem,
+  type DataFreshnessState,
+  type DataFreshnessSummary,
   type DataStatusEntry,
   type DataStatusState,
   type NotificationPayload,
@@ -54,6 +57,7 @@ import {
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
+import { bondCalendar } from './calendar';
 import type { MarketSession } from './calendar';
 import { createMarketRepository, type MarketRepository } from './repository';
 
@@ -71,6 +75,30 @@ export const HEALTH_EVAL_INTERVAL_MS = 15 * 60_000;
 export const HEALTH_MAX_CONSECUTIVE_FAILURES = 3;
 
 const DAY_MS = 86_400_000;
+
+/**
+ * Series macro que siguen el calendario del mercado de bonos / Reserva
+ * Federal (SIFMA) en lugar del de NYSE: el Tesoro y la Fed no publican en
+ * Columbus Day ni Veterans Day, días en que la bolsa sí abre.
+ */
+const BOND_CALENDAR_SERIES = new Set(['DFF', 'DGS2', 'DGS10', 'T10Y2Y']);
+
+/**
+ * Margen de publicación de las series mensuales: FRED recibe el dato del
+ * mes M-1 hacia mediados/finales de M (el IPC sale sobre el día 10–14 y
+ * otras series a final de mes), así que hasta este día solo se exige el
+ * dato de M-2; a partir de él, el de M-1.
+ */
+const MONTHLY_PUBLICATION_DAY = 20;
+
+/** Nombres legibles de los proveedores conocidos (franja y resumen de frescura). */
+const PROVIDER_LABELS: Record<string, string> = {
+  tiingo: 'Tiingo',
+  fred: 'FRED',
+  simulated: 'Proveedor simulado',
+  'macro-simulated': 'Proveedor macro simulado',
+};
+const MACRO_PROVIDER_IDS = new Set(['fred', 'macro-simulated']);
 
 export type TimerHandle = ReturnType<typeof setTimeout>;
 
@@ -117,6 +145,12 @@ export interface DataHealthService {
   observe(entry: DataStatusEntry): void;
   /** Evaluación inicial + temporizador periódico. Idempotente. */
   start(): void;
+  /**
+   * Resumen único «Datos desactualizados desde …» (`data-status:freshness`):
+   * agrega los estados ticker/macro/proveedor con la fecha real del último
+   * dato de cada uno.
+   */
+  freshness(): DataFreshnessSummary;
   stop(): void;
 }
 
@@ -137,12 +171,6 @@ const isBad = (state: DataStatusState): boolean => SEVERITY[state] > 0;
 
 const shiftDays = (date: string, days: number): string =>
   new Date(Date.parse(`${date}T00:00:00.000Z`) + days * DAY_MS).toISOString().slice(0, 10);
-
-/** Primer día del mes anterior al de `date` ('YYYY-MM-DD'). */
-const firstOfPreviousMonth = (date: string): string => {
-  const [y, m] = date.split('-').map(Number) as [number, number];
-  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
-};
 
 // ---------------------------------------------------------------------------
 // Servicio
@@ -218,6 +246,14 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     reason: string | null;
     /** Solo en 'fiable': confirma el último dato bueno y limpia fallos. */
     confirmOk?: boolean;
+    /**
+     * Solo en 'no-fiable': la causa es el contenido del dato (valor
+     * anómalo, lote rechazado), no fallos del proveedor. Deja
+     * `consecutiveFailures` en 0 para que la parada de emergencia la
+     * distinga de una caída de red: un proveedor caído nunca dispara la
+     * parada, una anomalía de mercado sí.
+     */
+    anomaly?: boolean;
   }
 
   /**
@@ -259,7 +295,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     }
     if (lastStored !== null && lastStored >= lastExpected.date) {
       return lastBatchHasAnomaly(ticker)
-        ? { state: 'no-fiable', reason: 'valor anómalo grave en el último lote' }
+        ? { state: 'no-fiable', reason: 'valor anómalo grave en el último lote', anomaly: true }
         : { state: 'fiable', reason: null, confirmOk: true };
     }
 
@@ -292,11 +328,31 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     return repo.getQualityFlags({ batchId, kind: 'anomalo' }).length > 0;
   };
 
-  /** Fecha mínima de observación esperada según la frecuencia de la serie. */
-  const expectedMacroMinDate = (frequency: string | null, refDate: string): string => {
-    if (frequency === 'monthly') return firstOfPreviousMonth(refDate);
-    // Diaria (u otra): FRED publica con hasta una sesión de desfase.
-    const prev = calendar
+  /** Calendario de publicación de la serie: bonos/Fed para las del Tesoro, NYSE para el resto. */
+  const calendarForSeries = (seriesId: string): HealthCalendar =>
+    BOND_CALENDAR_SERIES.has(seriesId) ? bondCalendar : calendar;
+
+  /**
+   * Fecha mínima de observación esperada de una serie mensual: el dato del
+   * mes M-1 no se exige hasta `MONTHLY_PUBLICATION_DAY` de M (FRED lo
+   * recibe hacia mediados/finales de mes); antes basta el de M-2.
+   */
+  const monthlyExpectedMinDate = (refDate: string): string => {
+    const [y, m, d] = refDate.split('-').map(Number) as [number, number, number];
+    const back = d < MONTHLY_PUBLICATION_DAY ? 3 : 2;
+    return new Date(Date.UTC(y, m - back, 1)).toISOString().slice(0, 10);
+  };
+
+  /** Fecha mínima de observación esperada según la frecuencia y el calendario de la serie. */
+  const expectedMacroMinDate = (
+    seriesId: string,
+    frequency: string | null,
+    refDate: string,
+  ): string => {
+    if (frequency === 'monthly') return monthlyExpectedMinDate(refDate);
+    // Diaria (u otra): el proveedor publica con hasta una sesión de desfase,
+    // contada sobre el calendario propio de la serie.
+    const prev = calendarForSeries(seriesId)
       .expectedSessionsBetween(shiftDays(refDate, -14), shiftDays(refDate, -1))
       .pop();
     return prev?.date ?? shiftDays(refDate, -1);
@@ -312,7 +368,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     }
     if (rawCurrent?.state === 'no-fiable') return null;
 
-    const lastExpected = calendar.lastExpectedSession(now());
+    const lastExpected = calendarForSeries(seriesId).lastExpectedSession(now());
     if (lastExpected === null) return null;
 
     const { respected, current } = respectsInFlight(rawCurrent);
@@ -323,7 +379,10 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       // Sin datos ni estado previo: el estado lo fija el primer refresco.
       return null;
     }
-    if (lastObs !== null && lastObs >= expectedMacroMinDate(frequency, lastExpected.date)) {
+    if (
+      lastObs !== null &&
+      lastObs >= expectedMacroMinDate(seriesId, frequency, lastExpected.date)
+    ) {
       return { state: 'fiable', reason: null, confirmOk: true };
     }
     const deadline = Date.parse(lastExpected.updateAtUtc) + staleGraceMs;
@@ -342,7 +401,8 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       current.state !== desired.state ||
       (current.reason ?? null) !== desired.reason ||
       (desired.confirmOk === true &&
-        (current.consecutiveFailures !== 0 || current.lastOkAt === null))
+        (current.consecutiveFailures !== 0 || current.lastOkAt === null)) ||
+      (desired.anomaly === true && current.consecutiveFailures !== 0)
     );
   };
 
@@ -355,6 +415,10 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         state: desired.state,
         reason: desired.reason,
         ...(desired.confirmOk === true ? { lastOkAt: isoNow(), consecutiveFailures: 0 } : {}),
+        // Una anomalía de contenido queda marcada con fallos en 0: la
+        // parada de emergencia distingue así 'no-fiable' por dato malo
+        // (para) de 'no-fiable' por proveedor caído (no para).
+        ...(desired.anomaly === true ? { consecutiveFailures: 0 } : {}),
       }),
     );
   };
@@ -439,6 +503,108 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     }
   };
 
+  // -- Resumen único de frescura ----------------------------------------------
+
+  /** Etiqueta legible de una clave de estado para el resumen. */
+  const freshnessLabel = (key: string): string => {
+    if (key.startsWith('ticker:')) return key.slice('ticker:'.length);
+    if (key.startsWith('macro:')) {
+      const id = key.slice('macro:'.length);
+      return repo.getMacroSeries(id)?.name ?? id;
+    }
+    if (key.startsWith('provider:')) {
+      const id = key.slice('provider:'.length);
+      return PROVIDER_LABELS[id] ?? `proveedor '${id}'`;
+    }
+    return key;
+  };
+
+  /** Fecha real del último dato conocido de una clave ('YYYY-MM-DD'), o null. */
+  const lastDataDateFor = (key: string): string | null => {
+    if (key.startsWith('ticker:')) return repo.lastBarDate(key.slice('ticker:'.length));
+    if (key.startsWith('macro:')) {
+      return repo.lastMacroObservationDate(key.slice('macro:'.length));
+    }
+    if (key.startsWith('provider:')) {
+      const providerId = key.slice('provider:'.length);
+      const dates: string[] = [];
+      if (MACRO_PROVIDER_IDS.has(providerId)) {
+        for (const series of repo.listMacroSeries()) {
+          if (series.source !== providerId) continue;
+          const date = repo.lastMacroObservationDate(series.id);
+          if (date !== null) dates.push(date);
+        }
+      } else {
+        for (const { ticker } of repo.listWatchlist()) {
+          const date = repo.lastBarDate(ticker);
+          if (date !== null) dates.push(date);
+        }
+      }
+      return dates.sort().at(-1) ?? null;
+    }
+    return null;
+  };
+
+  const freshness = (): DataFreshnessSummary => {
+    const entries = repo
+      .listDataStatus()
+      .filter(
+        (entry) =>
+          entry.key.startsWith('ticker:') ||
+          entry.key.startsWith('macro:') ||
+          entry.key.startsWith('provider:'),
+      );
+    const items: DataFreshnessItem[] = [];
+    let updating = false;
+    for (const entry of entries) {
+      if (entry.state === 'actualizando') {
+        // Un 'actualizando' colgado no cuenta como «poniéndose al día».
+        if (now() - Date.parse(entry.updatedAt) < staleGraceMs) updating = true;
+        continue;
+      }
+      if (!isBad(entry.state)) continue;
+      items.push({
+        key: entry.key,
+        label: freshnessLabel(entry.key),
+        state: entry.state,
+        lastDataDate: lastDataDateFor(entry.key),
+        reason: entry.reason,
+      });
+    }
+    // Las más antiguas primero: el último dato más viejo marca el «desde».
+    items.sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
+
+    const state: DataFreshnessState = items.some((item) => item.state === 'no-fiable')
+      ? 'unreliable'
+      : items.length > 0
+        ? 'stale'
+        : updating
+          ? 'catching-up'
+          : entries.some((entry) => entry.lastOkAt !== null)
+            ? 'current'
+            : 'no-data';
+
+    const lastExpected = calendar.lastExpectedSession(now());
+    const expectedSessionDate = lastExpected?.date ?? null;
+    const sinceDate =
+      items
+        .map((item) => item.lastDataDate)
+        .filter((date): date is string => date !== null)
+        .sort()[0] ?? null;
+    const missingSessions =
+      sinceDate !== null && expectedSessionDate !== null && sinceDate < expectedSessionDate
+        ? calendar.expectedSessionsBetween(shiftDays(sinceDate, 1), expectedSessionDate).length
+        : 0;
+    return {
+      state,
+      sinceDate,
+      expectedSessionDate,
+      missingSessions,
+      items,
+      updatedAt: isoNow(),
+    };
+  };
+
   // -- Ciclo de vida -----------------------------------------------------------
 
   const armTimer = (): void => {
@@ -455,6 +621,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     list: () => repo.listDataStatus(),
     evaluate,
     observe,
+    freshness,
 
     start: () => {
       if (started) return;
@@ -536,6 +703,7 @@ export function registerHealth(
   };
 
   ipcMain.handle(IPC_CHANNELS.dataStatus.get, () => service.list());
+  ipcMain.handle(IPC_CHANNELS.dataStatus.freshness, () => service.freshness());
 
   // Gancho de desarrollo: solo con TRADIA_E2E y sin empaquetar. Activa el
   // fallo de los proveedores simulados y fuerza una pasada para que el

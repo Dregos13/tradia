@@ -44,6 +44,7 @@ import { openDatabase } from '../db/database';
 import { createBacktestRepository } from '../backtest/repository';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
 import { createNewsAnalysisRepository } from '../ai/news/repository';
+import * as nyseCalendar from '../market/calendar';
 import { createMarketRepository, type StoredBar } from '../market/repository';
 import type { ServiceContext } from '../services';
 import {
@@ -82,7 +83,20 @@ function toSourceBar(bar: StoredBar): SignalSourceBar {
   };
 }
 
-export function registerSignals(ctx: ServiceContext): SignalsService {
+export interface RegisterSignalsOptions {
+  /**
+   * Reloj compartido con la ingesta de mercado (adelantable por
+   * `market:advance-clock`): fija la sesión esperada de la guarda de
+   * frescura, así una vela vieja que llega en una puesta al día atrasada
+   * no se evalúa para señal. Por defecto, el reloj real.
+   */
+  clock?: { now(): number };
+}
+
+export function registerSignals(
+  ctx: ServiceContext,
+  options: RegisterSignalsOptions = {},
+): SignalsService {
   // Sin base de datos el motor degrada a memoria (mismo patrón que el
   // resto de servicios del proceso principal).
   let db = ctx.services.storage?.getDb() ?? null;
@@ -238,6 +252,10 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
     wasProcessed: (ticker, barDate) => loadMarks().has(`${ticker}|${barDate}`),
     markProcessed,
+    // Guarda de frescura: una vela anterior a la última sesión esperada
+    // no se evalúa (datos viejos de una puesta al día atrasada).
+    expectedSessionDate: () =>
+      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
     ai: {
       // El régimen del mercado (referencia SPY) habilita o desactiva las
       // estrategias: misma referencia que la página «IA» y el backtest.

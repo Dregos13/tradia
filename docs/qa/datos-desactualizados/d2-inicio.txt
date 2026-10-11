@@ -22,7 +22,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 02:13:06 CEST
+Actualizado 10:57:59 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -38,7 +38,7 @@ Macro · FRED
 
 14 oct 2026, 15:00 CEST
 
-Con retraso
+Disponible
 Noticias · Reserva Federal — comunicados y FOMC
 
 19 sept 2026, 12:00 CEST
@@ -72,7 +72,7 @@ Con retraso
 Contexto macro
 Ver macro
 
-Régimen · Sin clasificar · Fuente FRED
+Régimen · Tendencia · Volatilidad baja · Fuente FRED
 
 VIXCLS
 ✓ Fiable
@@ -87,7 +87,7 @@ Banda baja
 Dato diario
 12 oct 2026
 DGS10
-◷ Desactualizado
+✓ Fiable
 Treasury · 10 años
 3,42 %
 
@@ -95,9 +95,6 @@ Treasury · 10 años
 
 Dato diario
 9 oct 2026
-
-falta la observación esperada; último dato: 2026-10-09
-
 CPIAUCSL
 ✓ Fiable
 IPC de EE. UU. · interanual

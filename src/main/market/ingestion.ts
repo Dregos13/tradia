@@ -144,6 +144,12 @@ export interface TickerIngestResult {
   retryable: boolean;
   /** Motivo legible cuando no quedó 'actualizado'. */
   reason?: string;
+  /**
+   * true si el fallo es del proveedor entero (red, cuota, credencial): la
+   * pasada lo cuenta UNA vez en provider:<id>. Los fallos propios del
+   * activo ('not-found', 'bad-data', sin datos) no lo son.
+   */
+  providerError?: boolean;
 }
 
 export interface UpdateAllResult {
@@ -214,6 +220,13 @@ export interface MarketIngestionService {
   /** Arranca la programación y recupera cierres perdidos; devuelve cuando
    * termina la primera evaluación (útil en pruebas). */
   start(): Promise<void>;
+  /**
+   * Puesta al día inmediata fuera del horario programado (al volver la
+   * conexión o al guardar la clave del proveedor). No duplica trabajo:
+   * comparte la pasada en curso si la hay y arma el temporizador correcto
+   * al terminar.
+   */
+  requestCatchUp(): void;
   stop(): void;
 }
 
@@ -325,22 +338,44 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
   const classifyFailure = (
     error: unknown,
-  ): { retryable: boolean; reason: string; tickerState: 'desactualizado' | 'no-fiable' } => {
+  ): {
+    retryable: boolean;
+    reason: string;
+    tickerState: 'desactualizado' | 'no-fiable';
+    /** true si el error es del proveedor entero, no solo del activo. */
+    providerError: boolean;
+  } => {
     if (isMarketDataError(error)) {
       const e = error;
       if (e.kind === 'not-found' || e.kind === 'bad-data') {
-        return { retryable: false, reason: e.message, tickerState: 'no-fiable' };
+        return {
+          retryable: false,
+          reason: e.message,
+          tickerState: 'no-fiable',
+          providerError: false,
+        };
       }
       if (e.kind === 'auth') {
-        return { retryable: false, reason: e.message, tickerState: 'desactualizado' };
+        return {
+          retryable: false,
+          reason: e.message,
+          tickerState: 'desactualizado',
+          providerError: true,
+        };
       }
       // 'network' y 'rate-limit': se reintentan.
-      return { retryable: true, reason: e.message, tickerState: 'desactualizado' };
+      return {
+        retryable: true,
+        reason: e.message,
+        tickerState: 'desactualizado',
+        providerError: true,
+      };
     }
     return {
       retryable: false,
       reason: `error inesperado de ingesta: ${String(error)}`,
       tickerState: 'no-fiable',
+      providerError: false,
     };
   };
 
@@ -348,8 +383,9 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     ticker: string,
     provider: MarketDataProvider,
     error: unknown,
+    onProviderFailure?: (reason: string) => void,
   ): TickerIngestResult => {
-    const { retryable, reason, tickerState } = classifyFailure(error);
+    const { retryable, reason, tickerState, providerError } = classifyFailure(error);
     const key = dataStatusKey.ticker(ticker);
     const current = repo.getDataStatus(key);
     publishStatus({
@@ -358,7 +394,10 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       consecutiveFailures: (current?.consecutiveFailures ?? 0) + 1,
       reason,
     });
-    bumpProviderFailure(provider, reason);
+    // El fallo del proveedor se cuenta UNA vez por pasada (el primer
+    // fallo de la pasada lo escribe justo después del del activo, para
+    // que los avisos se agrupen en uno solo).
+    if (providerError) onProviderFailure?.(reason);
     logger.warn?.(`[market] ingesta de ${ticker} falló (${reason})`);
     return {
       ticker,
@@ -367,6 +406,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       lastDate: repo.lastBarDate(ticker, provider.id),
       retryable,
       reason,
+      providerError,
     };
   };
 
@@ -433,6 +473,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestOne = async (
     ticker: string,
     provider: MarketDataProvider,
+    onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult> => {
     const statusKey = dataStatusKey.ticker(ticker);
     const lastExpected = nyseCalendar.lastExpectedSession(now());
@@ -459,17 +500,21 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     try {
       newBars = await provider.getBars(ticker, desde, hasta);
     } catch (error: unknown) {
-      return failTicker(ticker, provider, error);
+      return failTicker(ticker, provider, error, onProviderFailure);
     }
 
     if (newBars.length === 0) {
       if (lastStored === null) {
+        const reason = `el proveedor '${provider.id}' no devolvió datos para ${ticker}`;
         publishStatus({
           key: statusKey,
           state: 'no-fiable',
-          consecutiveFailures: 0,
-          reason: `el proveedor '${provider.id}' no devolvió datos para ${ticker}`,
+          // Respuesta vacía del proveedor: cuenta como fallo de obtención,
+          // no como anomalía de contenido (no dispara la parada).
+          consecutiveFailures: 1,
+          reason,
         });
+        onProviderFailure?.(reason);
         return {
           ticker,
           outcome: 'fallido',
@@ -477,6 +522,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
           lastDate: null,
           retryable: false,
           reason: 'sin datos del proveedor',
+          providerError: true,
         };
       }
       // La sesión esperada aún no está publicada: merece reintento, pero no
@@ -587,14 +633,15 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestGuarded = async (
     ticker: string,
     provider: MarketDataProvider,
+    onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult | null> => {
     if (ingesting.has(ticker)) return null;
     ingesting.add(ticker);
     try {
-      return await ingestOne(ticker, provider);
+      return await ingestOne(ticker, provider, onProviderFailure);
     } catch (error: unknown) {
       // Defensa ante fallos de base de datos u otros no tipados.
-      return failTicker(ticker, provider, error);
+      return failTicker(ticker, provider, error, onProviderFailure);
     } finally {
       ingesting.delete(ticker);
     }
@@ -605,9 +652,16 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     if (running) return running;
     const task = (async () => {
       const results: TickerIngestResult[] = [];
-      let anyProviderError = false;
+      // Una caída del proveedor cuenta UNA vez por pasada, no por activo:
+      // un solo corte de red no alcanza la regla de los 3 fallos seguidos.
+      let providerBumped = false;
+      const bumpOnce = (reason: string): void => {
+        if (providerBumped) return;
+        providerBumped = true;
+        bumpProviderFailure(provider, reason);
+      };
       for (const { ticker } of repo.listWatchlist()) {
-        const result = await ingestGuarded(ticker, provider);
+        const result = await ingestGuarded(ticker, provider, bumpOnce);
         if (result === null) {
           results.push({
             ticker,
@@ -618,11 +672,12 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
           });
           continue;
         }
-        if (result.outcome === 'fallido') anyProviderError = true;
         results.push(result);
       }
+      const providerError = results.find((r) => r.providerError === true);
+      if (providerError !== undefined) bumpOnce(providerError.reason ?? 'fallo del proveedor');
+      else markProviderOk(provider);
       const ok = results.every((r) => !r.retryable);
-      if (!anyProviderError) markProviderOk(provider);
       return { ok, results };
     })();
     running = task;
@@ -835,6 +890,11 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       return evaluateSafely();
     },
 
+    requestCatchUp: () => {
+      logger.info?.('[market] se pide una puesta al día inmediata');
+      void evaluateSafely();
+    },
+
     stop: () => {
       started = false;
       clearTimer();
@@ -908,6 +968,28 @@ export function registerMarket(
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
     powerMonitor,
   });
+
+  // Puesta al día sin esperar al horario: al volver la conexión y al
+  // guardar la clave del proveedor. Los eventos se observan envolviendo
+  // ctx.broadcast (mismo patrón que health/broker); 'online' solo se
+  // dispara tras un 'offline' para no reevaluar en cada sondeo.
+  let connectivityWasDown = ctx.services.connectivity?.getState().status === 'offline';
+  const innerBroadcast = ctx.broadcast;
+  ctx.broadcast = (channel, payload) => {
+    innerBroadcast(channel, payload);
+    if (channel === IPC_CHANNELS.connectivity.changed) {
+      const status = (payload as { status?: unknown }).status;
+      if (status === 'online' && connectivityWasDown) {
+        service.requestCatchUp();
+      }
+      if (status === 'offline') connectivityWasDown = true;
+      else if (status === 'online') connectivityWasDown = false;
+    } else if (channel === IPC_CHANNELS.secrets.changed) {
+      if ((payload as { provider?: unknown }).provider === TIINGO_SECRETS_KEY) {
+        service.requestCatchUp();
+      }
+    }
+  };
 
   // Gancho de desarrollo para `market/health.ts` (simulateProviderFailure):
   // activa el fallo persistente del simulado; `resolveProvider` lo devuelve

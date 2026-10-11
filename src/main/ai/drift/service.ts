@@ -326,10 +326,12 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
   /**
    * Muestra del PSI: las últimas `sampleSessions` filas de variables
    * válidas por cada activo del seguimiento, en columnas por nombre.
+   * `newestDataDate` es la vela más reciente vista: la persistencia solo
+   * avanza cuando llegan sesiones nuevas, no con cada revisión diaria.
    */
   const featureSample = (
     card: ModelCard,
-  ): { values: Map<string, number[]>; rows: number } => {
+  ): { values: Map<string, number[]>; rows: number; newestDataDate: string | null } => {
     const indexByName = new Map<string, number>();
     for (const ref of card.referenceDistribution) {
       const index = FEATURE_NAMES.indexOf(ref.name as (typeof FEATURE_NAMES)[number]);
@@ -339,9 +341,12 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
       [...indexByName.keys()].map((name) => [name, []]),
     );
     let rows = 0;
+    let newestDataDate: string | null = null;
     for (const ticker of deps.listWatchlistTickers()) {
       const candles = deps.barsFor(ticker);
       if (candles.length === 0) continue;
+      const lastDate = candles[candles.length - 1]!.date;
+      if (newestDataDate === null || lastDate > newestDataDate) newestDataDate = lastDate;
       const series = precomputeFeatures(candles);
       const start = Math.max(0, candles.length - sampleSessions);
       for (let t = start; t < candles.length; t++) {
@@ -354,12 +359,12 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
         }
       }
     }
-    return { values, rows };
+    return { values, rows, newestDataDate };
   };
 
   const evaluateDataDrift = (card: ModelCard, evaluatedAt: string): DriftCheck | null => {
     if (card.referenceDistribution.length === 0) return null;
-    const { values, rows } = featureSample(card);
+    const { values, rows, newestDataDate } = featureSample(card);
     if (rows === 0) return null;
 
     const detail: Record<string, number | string> = { muestras: rows };
@@ -376,10 +381,21 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
       }
     }
     detail.variablesSobreUmbral = overCount;
+    if (newestDataDate !== null) detail.ultimaVela = newestDataDate;
 
     const drifted = overCount >= DRIFT_PSI_MIN_FEATURES;
     const previous = deps.repo.latestCheck('modelo', card.id, 'datos');
-    const streak = drifted ? (previous?.drifted === true ? previous.streak + 1 : 1) : 0;
+    // La persistencia cuenta sesiones de mercado, no revisiones: con los
+    // mismos datos se congela la racha y queda «sin datos nuevos».
+    const sameData = previous !== null && previous.detail['ultimaVela'] === newestDataDate;
+    if (sameData) detail.sinDatosNuevos = 'si';
+    const streak = drifted
+      ? sameData
+        ? previous!.streak
+        : previous?.drifted === true
+          ? previous.streak + 1
+          : 1
+      : 0;
     const check = deps.repo.insertCheck({
       subject: 'modelo',
       subjectId: card.id,
@@ -422,7 +438,18 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
 
     const drifted = delta !== null && delta > DRIFT_BRIER_DELTA;
     const previous = deps.repo.latestCheck('modelo', card.id, 'resultados');
-    const streak = drifted ? (previous?.drifted === true ? previous.streak + 1 : 1) : 0;
+    // Sin predicciones nuevas resueltas la ventana móvil no cambia: la
+    // racha se congela en lugar de sumar una sesión fantasma.
+    const sameData =
+      previous !== null && previous.detail['resolvedCount'] === resolvedCount;
+    if (sameData) detail.sinDatosNuevos = 'si';
+    const streak = drifted
+      ? sameData
+        ? previous!.streak
+        : previous?.drifted === true
+          ? previous.streak + 1
+          : 1
+      : 0;
     const check = deps.repo.insertCheck({
       subject: 'modelo',
       subjectId: card.id,

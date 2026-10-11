@@ -178,7 +178,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   // entrega cada pasada del lector (poller.onItemsStored) y los resume
   // con el LLM o el léxico local; en E2E usa el analizador simulado.
   services.newsAi = registerNewsAi(ctx);
-  services.signals = registerSignals(ctx);
+  services.signals = registerSignals(ctx, { clock: marketClock });
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
   services.routine = registerRoutine(ctx);

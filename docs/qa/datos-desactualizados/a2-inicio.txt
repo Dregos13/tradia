@@ -18,18 +18,15 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada
-FRED · Desactualizado
+Aún no hay datos de mercado
 
-6 de 6 series fallaron en el último refresco
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 02:09:45 CEST
+Actualizado 10:55:01 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -41,16 +38,16 @@ Precios · Sin configurar
 Sin actualización
 
 Sin configurar
-Macro · FRED
+Macro · Sin configurar
 
 Sin actualización
 
-Con retraso
+Sin configurar
 Noticias · Reserva Federal — comunicados y FOMC
 
-11 oct 2026, 02:09 CEST
+Sin actualización
 
-Disponible
+Sin evaluar
 Noticias · BCE — notas de prensa
 
 Sin actualización
@@ -82,7 +79,7 @@ Ver macro
 Régimen · Sin clasificar · Fuente FRED
 
 VIXCLS
-◷ Desactualizado
+— Sin evaluar
 Volatilidad VIX
 Sin dato
 
@@ -92,11 +89,8 @@ Histórico insuficiente para el minigráfico.
 
 Dato diario
 Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
 DGS10
-◷ Desactualizado
+— Sin evaluar
 Treasury · 10 años
 Sin dato
 
@@ -106,11 +100,8 @@ Histórico insuficiente para el minigráfico.
 
 Dato diario
 Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
 CPIAUCSL
-◷ Desactualizado
+— Sin evaluar
 IPC de EE. UU. · interanual
 Sin dato
 
@@ -120,9 +111,6 @@ Histórico insuficiente para el minigráfico.
 
 Dato mensual
 Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
 Señales vivas
 Ver en Diario
 
@@ -143,7 +131,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 02:09 CEST
+Datos de 11 oct 2026, 10:55 CEST
 
 Ver límites de riesgo
 Exposición
@@ -186,6 +174,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 02:09:44
+Última comprobación 10:55:01
 Próximo reintento —
 Último latido Pendiente

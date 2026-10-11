@@ -263,6 +263,13 @@ export const IPC_CHANNELS = {
     setKey: 'secrets:set-key',
     hasKey: 'secrets:has-key',
     deleteKey: 'secrets:delete-key',
+    /**
+     * Evento main → renderer (y observación interna entre servicios):
+     * cambió el conjunto de claves guardadas de un proveedor. Solo lleva
+     * el nombre del proveedor, nunca la clave. Los servicios de datos la
+     * usan para lanzar su primer refresco al guardar la clave.
+     */
+    changed: 'secrets:changed',
     // Sin canal de lectura a propósito.
   },
   agents: {
@@ -296,9 +303,21 @@ export const IPC_CHANNELS = {
   },
   macro: {
     getSeries: 'macro:get-series',
+    /**
+     * Fuerza un refresco de las series macro fuera del horario programado
+     * (el «Reintentar» de la franja de FRED y la puesta al día al
+     * reconectar o al guardar la clave).
+     */
+    refreshNow: 'macro:refresh-now',
   },
   dataStatus: {
     get: 'data-status:get',
+    /**
+     * Resumen único de frescura («Datos desactualizados desde …») que
+     * agrega los estados «ticker:*», «macro:*» y «provider:*» con la
+     * fecha real del último dato de cada uno.
+     */
+    freshness: 'data-status:freshness',
     /**
      * Solo desarrollo (TRADIA_E2E y sin empaquetar): activa o desactiva el
      * fallo persistente de los proveedores simulados y fuerza una pasada.
@@ -861,6 +880,26 @@ export interface MarketRefreshResult {
   reason: MarketRefreshRejection | null;
 }
 
+/** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
+export const MACRO_REFRESH_REJECTIONS = ['sin-proveedor', 'sin-conexion', 'en-curso'] as const;
+export type MacroRefreshRejection = (typeof MACRO_REFRESH_REJECTIONS)[number];
+
+export interface MacroRefreshResult {
+  accepted: boolean;
+  /** Motivo del rechazo, o null si el refresco quedó encolado. */
+  reason: MacroRefreshRejection | null;
+}
+
+/**
+ * Evento `secrets:changed`: solo lleva el nombre del proveedor cuyas
+ * claves cambiaron ('tiingo', 'fred', 'anthropic', 'alpaca-paper'…),
+ * nunca la clave. Los servicios de datos lo usan para lanzar su primer
+ * refresco al guardar su clave.
+ */
+export interface SecretsChangedEvent {
+  provider: string;
+}
+
 /** Evento `market:updated`: llegaron velas nuevas de un ticker. */
 export interface MarketUpdatedEvent {
   ticker: string;
@@ -907,6 +946,65 @@ export const dataStatusKey = {
   /** Modelo predictivo servido ('modelo:0.1.0'): su carga o degradación. */
   modelo: (version: string) => `modelo:${version}`,
 } as const;
+
+/**
+ * Estados del resumen único de frescura (`data-status:freshness`), por
+ * orden de prioridad al agregar: 'unreliable' (alguna 'no-fiable') >
+ * 'stale' (alguna 'desactualizado') > 'catching-up' (alguna
+ * 'actualizando') > 'no-data' (ninguna entrada con dato correcto
+ * registrado) > 'current'. 'offline' lo añade el renderer con el estado
+ * de conectividad, no forma parte de este resumen.
+ */
+export const DATA_FRESHNESS_STATES = [
+  'current',
+  'catching-up',
+  'stale',
+  'unreliable',
+  'no-data',
+] as const;
+export type DataFreshnessState = (typeof DATA_FRESHNESS_STATES)[number];
+
+/** Una entrada mala del resumen de frescura, con la fecha real de su último dato. */
+export interface DataFreshnessItem {
+  /** Clave de `data_status`: 'ticker:AAPL', 'macro:DFF' o 'provider:tiingo'. */
+  key: string;
+  /** Nombre legible: el ticker, el nombre de la serie o el proveedor. */
+  label: string;
+  state: DataStatusState;
+  /**
+   * Fecha del último dato conocido ('YYYY-MM-DD'): la vela más reciente,
+   * la última observación de la serie o, en un proveedor, la fecha más
+   * reciente servida entre sus hijos; null si nunca llegó dato.
+   */
+  lastDataDate: string | null;
+  reason: string | null;
+}
+
+/**
+ * Resumen único «Datos desactualizados desde …» (`data-status:freshness`).
+ * Agrega los estados «ticker:*», «macro:*» y «provider:*» con la fecha
+ * real del último dato de cada uno, para que el renderer pinte un solo
+ * aviso coherente en lugar de una franja por proveedor.
+ */
+export interface DataFreshnessSummary {
+  state: DataFreshnessState;
+  /**
+   * La fecha «desde» del aviso: el último dato más antiguo entre las
+   * entradas malas ('YYYY-MM-DD'); null si ninguna tiene dato.
+   */
+  sinceDate: string | null;
+  /** Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'). */
+  expectedSessionDate: string | null;
+  /**
+   * Sesiones de mercado que faltan entre `sinceDate` y
+   * `expectedSessionDate` (aproximación con el calendario de NYSE).
+   */
+  missingSessions: number;
+  /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */
+  items: DataFreshnessItem[];
+  /** Instante del cálculo (ISO 8601). */
+  updatedAt: string;
+}
 
 export interface MacroObservation {
   date: string;
@@ -1364,9 +1462,13 @@ export interface TradiaApi {
   };
   macro: {
     getSeries(query?: MacroSeriesQuery): Promise<MacroSeriesSnapshot[]>;
+    /** Fuerza un refresco de las series macro fuera del horario programado. */
+    refreshNow(): Promise<MacroRefreshResult>;
   };
   dataStatus: {
     get(): Promise<DataStatusEntry[]>;
+    /** Resumen único «Datos desactualizados desde …» (agregado de ticker/macro/proveedor). */
+    freshness(): Promise<DataFreshnessSummary>;
     onChanged(listener: (entry: DataStatusEntry) => void): () => void;
   };
   sources: {

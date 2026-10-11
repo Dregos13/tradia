@@ -17,25 +17,14 @@ Dinero real
 Ajustes
 Contexto macro
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
-provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
+Parada
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
-[tiingo] error del servidor (HTTP 503): maintenance
+falta la observación esperada; último dato: 2026-09-17
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Actualizar ahora
 El contexto detrás del precio.
 
 Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.
@@ -43,90 +32,77 @@ Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.
 DFF
 ◷ Desactualizado
 Tipo efectivo federal
-Sin dato
+3,67 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+= 0,00 pp respecto al dato diario anterior
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 CPIAUCSL
-◷ Desactualizado
+✓ Fiable
 IPC de EE. UU. · interanual
-Sin dato
+2,44 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+▼ -1,82 pp respecto al dato mensual anterior
 
 Dato mensual
-Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
+1 ago 2026
 DGS2
 ◷ Desactualizado
 Treasury · 2 años
-Sin dato
+4,55 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+= 0,00 pp respecto al dato diario anterior
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 DGS10
 ◷ Desactualizado
 Treasury · 10 años
-Sin dato
+3,62 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+= 0,00 pp respecto al dato diario anterior
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 T10Y2Y
 ◷ Desactualizado
 Diferencial 10–2
-Sin dato
+2,65 pp
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+= 0,00 pp respecto al dato diario anterior
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 VIXCLS
 ◷ Desactualizado
 Volatilidad VIX
-Sin dato
+2,46 puntos
 
-Histórico insuficiente para comparar.
+= 0,00 puntos respecto al dato diario anterior
 
-Histórico insuficiente para el minigráfico.
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:10:58
+Agentes activos
+Última comprobación 10:55:54
 Próximo reintento —
 Último latido Pendiente

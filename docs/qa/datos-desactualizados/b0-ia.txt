@@ -18,13 +18,6 @@ Ajustes
 IA
 Señales + paper trading
 Parada
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 IA
 
 Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
@@ -98,7 +91,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 sept 2026
 
 AAPL
@@ -108,7 +101,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 sept 2026
 
 QQQ
@@ -118,7 +111,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 sept 2026
 
 SPY
@@ -128,7 +121,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 sept 2026
 
 MSFT
@@ -138,7 +131,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 sept 2026
 
 AAPL
@@ -148,7 +141,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 sept 2026
 
 QQQ
@@ -158,7 +151,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 sept 2026
 
 SPY
@@ -168,7 +161,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 sept 2026
 
 MSFT
@@ -178,7 +171,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 sept 2026
 
 AAPL
@@ -188,7 +181,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 sept 2026
 
 QQQ
@@ -198,7 +191,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 sept 2026
 
 SPY
@@ -208,7 +201,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 sept 2026
 
 MSFT
@@ -218,7 +211,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 sept 2026
 
 AAPL
@@ -228,7 +221,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 sept 2026
 
 QQQ
@@ -238,7 +231,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 sept 2026
 
 SPY
@@ -248,7 +241,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 sept 2026
 
 MSFT
@@ -258,7 +251,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 sept 2026
 
 AAPL
@@ -268,7 +261,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 sept 2026
 
 QQQ
@@ -278,7 +271,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 sept 2026
 
 SPY
@@ -288,7 +281,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 sept 2026
 
 MSFT
@@ -298,7 +291,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 sept 2026
 
 AAPL
@@ -308,7 +301,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 sept 2026
 
 QQQ
@@ -318,7 +311,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 sept 2026
 
 SPY
@@ -328,7 +321,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 sept 2026
 
 MSFT
@@ -338,7 +331,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 sept 2026
 
 AAPL
@@ -348,7 +341,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 sept 2026
 
 QQQ
@@ -358,7 +351,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 sept 2026
 
 SPY
@@ -368,7 +361,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 sept 2026
 
 MSFT
@@ -378,7 +371,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 9 sept 2026
 
 AAPL
@@ -388,7 +381,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 9 sept 2026
 
 QQQ
@@ -398,7 +391,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 9 sept 2026
 
 SPY
@@ -408,7 +401,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 9 sept 2026
 
 MSFT
@@ -418,7 +411,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 8 sept 2026
 
 AAPL
@@ -428,7 +421,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 8 sept 2026
 
 QQQ
@@ -438,7 +431,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 8 sept 2026
 
 SPY
@@ -448,7 +441,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 8 sept 2026
 
 MSFT
@@ -458,7 +451,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 sept 2026
 
 AAPL
@@ -468,7 +461,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 sept 2026
 
 QQQ
@@ -478,7 +471,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 sept 2026
 
 SPY
@@ -488,7 +481,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 sept 2026
 
 MSFT
@@ -498,7 +491,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 sept 2026
 
 AAPL
@@ -508,7 +501,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 sept 2026
 
 QQQ
@@ -518,7 +511,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 sept 2026
 
 SPY
@@ -528,7 +521,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 sept 2026
 
 MSFT
@@ -538,7 +531,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 2 sept 2026
 
 AAPL
@@ -548,7 +541,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 2 sept 2026
 
 QQQ
@@ -558,7 +551,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 2 sept 2026
 
 SPY
@@ -568,7 +561,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 2 sept 2026
 
 MSFT
@@ -578,7 +571,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 1 sept 2026
 
 AAPL
@@ -588,7 +581,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 1 sept 2026
 
 QQQ
@@ -598,7 +591,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 1 sept 2026
 
 SPY
@@ -608,7 +601,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 1 sept 2026
 
 MSFT
@@ -618,7 +611,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 ago 2026
 
 AAPL
@@ -628,7 +621,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 ago 2026
 
 QQQ
@@ -638,7 +631,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 ago 2026
 
 SPY
@@ -648,7 +641,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 ago 2026
 
 MSFT
@@ -658,7 +651,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 ago 2026
 
 AAPL
@@ -668,7 +661,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 ago 2026
 
 QQQ
@@ -678,7 +671,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 ago 2026
 
 SPY
@@ -688,7 +681,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 ago 2026
 
 MSFT
@@ -698,7 +691,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 ago 2026
 
 AAPL
@@ -708,7 +701,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 ago 2026
 
 QQQ
@@ -718,7 +711,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 ago 2026
 
 SPY
@@ -728,7 +721,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 ago 2026
 
 MSFT
@@ -738,7 +731,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 26 ago 2026
 
 AAPL
@@ -748,7 +741,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 26 ago 2026
 
 QQQ
@@ -758,7 +751,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 26 ago 2026
 
 SPY
@@ -768,7 +761,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 26 ago 2026
 
 MSFT
@@ -778,7 +771,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 25 ago 2026
 
 AAPL
@@ -788,7 +781,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 25 ago 2026
 
 QQQ
@@ -798,7 +791,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 25 ago 2026
 
 SPY
@@ -808,7 +801,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 25 ago 2026
 
 MSFT
@@ -818,7 +811,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 ago 2026
 
 AAPL
@@ -828,7 +821,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 ago 2026
 
 QQQ
@@ -838,7 +831,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 ago 2026
 
 SPY
@@ -848,7 +841,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 ago 2026
 
 MSFT
@@ -858,7 +851,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 ago 2026
 
 AAPL
@@ -868,7 +861,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 ago 2026
 
 QQQ
@@ -878,7 +871,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 ago 2026
 
 SPY
@@ -888,7 +881,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 ago 2026
 
 MSFT
@@ -898,7 +891,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 ago 2026
 
 AAPL
@@ -908,7 +901,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 ago 2026
 
 QQQ
@@ -918,7 +911,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 ago 2026
 
 SPY
@@ -928,7 +921,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 ago 2026
 
 MSFT
@@ -938,7 +931,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 19 ago 2026
 
 AAPL
@@ -948,7 +941,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 19 ago 2026
 
 QQQ
@@ -958,7 +951,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 19 ago 2026
 
 SPY
@@ -968,7 +961,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 19 ago 2026
 
 MSFT
@@ -978,7 +971,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 ago 2026
 
 AAPL
@@ -988,7 +981,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 ago 2026
 
 QQQ
@@ -998,7 +991,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 ago 2026
 
 SPY
@@ -1008,7 +1001,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 18 ago 2026
 
 MSFT
@@ -1018,7 +1011,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 ago 2026
 
 AAPL
@@ -1028,7 +1021,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 ago 2026
 
 QQQ
@@ -1038,7 +1031,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 ago 2026
 
 SPY
@@ -1048,7 +1041,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 ago 2026
 
 MSFT
@@ -1058,7 +1051,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 ago 2026
 
 AAPL
@@ -1068,7 +1061,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 ago 2026
 
 QQQ
@@ -1078,7 +1071,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 ago 2026
 
 SPY
@@ -1088,7 +1081,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 ago 2026
 
 MSFT
@@ -1098,7 +1091,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 ago 2026
 
 AAPL
@@ -1108,7 +1101,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 ago 2026
 
 QQQ
@@ -1118,7 +1111,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 ago 2026
 
 SPY
@@ -1128,7 +1121,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 ago 2026
 
 MSFT
@@ -1138,7 +1131,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 12 ago 2026
 
 AAPL
@@ -1148,7 +1141,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 12 ago 2026
 
 QQQ
@@ -1158,7 +1151,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 12 ago 2026
 
 SPY
@@ -1168,7 +1161,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 12 ago 2026
 
 MSFT
@@ -1178,7 +1171,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 ago 2026
 
 AAPL
@@ -1188,7 +1181,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 ago 2026
 
 QQQ
@@ -1198,7 +1191,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 ago 2026
 
 SPY
@@ -1208,7 +1201,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 11 ago 2026
 
 MSFT
@@ -1218,7 +1211,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 ago 2026
 
 AAPL
@@ -1228,7 +1221,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 ago 2026
 
 QQQ
@@ -1238,7 +1231,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 ago 2026
 
 SPY
@@ -1248,7 +1241,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 ago 2026
 
 MSFT
@@ -1258,7 +1251,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 7 ago 2026
 
 AAPL
@@ -1268,7 +1261,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 7 ago 2026
 
 QQQ
@@ -1278,7 +1271,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 7 ago 2026
 
 SPY
@@ -1288,7 +1281,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 7 ago 2026
 
 MSFT
@@ -1298,7 +1291,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 6 ago 2026
 
 AAPL
@@ -1308,7 +1301,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 6 ago 2026
 
 QQQ
@@ -1318,7 +1311,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 6 ago 2026
 
 SPY
@@ -1328,7 +1321,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 6 ago 2026
 
 MSFT
@@ -1338,7 +1331,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 5 ago 2026
 
 AAPL
@@ -1348,7 +1341,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 5 ago 2026
 
 QQQ
@@ -1358,7 +1351,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 5 ago 2026
 
 SPY
@@ -1368,7 +1361,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 5 ago 2026
 
 MSFT
@@ -1378,7 +1371,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 ago 2026
 
 AAPL
@@ -1388,7 +1381,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 ago 2026
 
 QQQ
@@ -1398,7 +1391,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 ago 2026
 
 SPY
@@ -1408,7 +1401,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 4 ago 2026
 
 MSFT
@@ -1418,7 +1411,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 ago 2026
 
 AAPL
@@ -1428,7 +1421,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 ago 2026
 
 QQQ
@@ -1438,7 +1431,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 ago 2026
 
 SPY
@@ -1448,7 +1441,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 3 ago 2026
 
 MSFT
@@ -1458,7 +1451,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 jul 2026
 
 AAPL
@@ -1468,7 +1461,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 jul 2026
 
 QQQ
@@ -1478,7 +1471,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 jul 2026
 
 SPY
@@ -1488,7 +1481,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 31 jul 2026
 
 MSFT
@@ -1498,7 +1491,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 30 jul 2026
 
 AAPL
@@ -1508,7 +1501,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 30 jul 2026
 
 QQQ
@@ -1518,7 +1511,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 30 jul 2026
 
 SPY
@@ -1528,7 +1521,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 30 jul 2026
 
 MSFT
@@ -1538,7 +1531,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 29 jul 2026
 
 AAPL
@@ -1548,7 +1541,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 29 jul 2026
 
 QQQ
@@ -1558,7 +1551,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 29 jul 2026
 
 SPY
@@ -1568,7 +1561,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 29 jul 2026
 
 MSFT
@@ -1578,7 +1571,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 jul 2026
 
 AAPL
@@ -1588,7 +1581,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 jul 2026
 
 QQQ
@@ -1598,7 +1591,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 jul 2026
 
 SPY
@@ -1608,7 +1601,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 28 jul 2026
 
 MSFT
@@ -1618,7 +1611,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 jul 2026
 
 AAPL
@@ -1628,7 +1621,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 jul 2026
 
 QQQ
@@ -1638,7 +1631,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 jul 2026
 
 SPY
@@ -1648,7 +1641,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 27 jul 2026
 
 MSFT
@@ -1658,7 +1651,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 jul 2026
 
 AAPL
@@ -1668,7 +1661,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 jul 2026
 
 QQQ
@@ -1678,7 +1671,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 jul 2026
 
 SPY
@@ -1688,7 +1681,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 24 jul 2026
 
 MSFT
@@ -1698,7 +1691,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 23 jul 2026
 
 AAPL
@@ -1708,7 +1701,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 23 jul 2026
 
 QQQ
@@ -1718,7 +1711,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 23 jul 2026
 
 SPY
@@ -1728,7 +1721,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 23 jul 2026
 
 MSFT
@@ -1738,7 +1731,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 22 jul 2026
 
 AAPL
@@ -1748,7 +1741,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 22 jul 2026
 
 QQQ
@@ -1758,7 +1751,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 22 jul 2026
 
 SPY
@@ -1768,7 +1761,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 22 jul 2026
 
 MSFT
@@ -1778,7 +1771,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 jul 2026
 
 AAPL
@@ -1788,7 +1781,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 jul 2026
 
 QQQ
@@ -1798,7 +1791,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 jul 2026
 
 SPY
@@ -1808,7 +1801,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 21 jul 2026
 
 MSFT
@@ -1818,7 +1811,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 jul 2026
 
 AAPL
@@ -1828,7 +1821,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 jul 2026
 
 QQQ
@@ -1838,7 +1831,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 jul 2026
 
 SPY
@@ -1848,7 +1841,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 20 jul 2026
 
 MSFT
@@ -1858,7 +1851,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 jul 2026
 
 AAPL
@@ -1868,7 +1861,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 jul 2026
 
 QQQ
@@ -1878,7 +1871,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 jul 2026
 
 SPY
@@ -1888,7 +1881,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 17 jul 2026
 
 MSFT
@@ -1898,7 +1891,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 jul 2026
 
 AAPL
@@ -1908,7 +1901,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 jul 2026
 
 QQQ
@@ -1918,7 +1911,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 jul 2026
 
 SPY
@@ -1928,7 +1921,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 16 jul 2026
 
 MSFT
@@ -1938,7 +1931,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 jul 2026
 
 AAPL
@@ -1948,7 +1941,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 jul 2026
 
 QQQ
@@ -1958,7 +1951,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 jul 2026
 
 SPY
@@ -1968,7 +1961,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 15 jul 2026
 
 MSFT
@@ -1978,7 +1971,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 jul 2026
 
 AAPL
@@ -1988,7 +1981,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 jul 2026
 
 QQQ
@@ -1998,7 +1991,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 jul 2026
 
 SPY
@@ -2008,7 +2001,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 14 jul 2026
 
 MSFT
@@ -2018,7 +2011,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 jul 2026
 
 AAPL
@@ -2028,7 +2021,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 jul 2026
 
 QQQ
@@ -2038,7 +2031,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 jul 2026
 
 SPY
@@ -2048,7 +2041,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 13 jul 2026
 
 MSFT
@@ -2058,7 +2051,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 jul 2026
 
 AAPL
@@ -2068,7 +2061,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 jul 2026
 
 QQQ
@@ -2078,7 +2071,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 jul 2026
 
 SPY
@@ -2088,7 +2081,7 @@ Próximas 5 sesiones
 5 sesiones
 	v0.1.0 · 0cfda4e5424f
 Datos sintéticos · no apto
-Ver ficha del modelo	11 oct 2026, 02:15 CEST
+Ver ficha del modelo	11 oct 2026, 10:55 CEST
 Cierre 10 jul 2026
 
 Una probabilidad no significa que el precio vaya a subir. Expresa la frecuencia estimada para este horizonte según este modelo.

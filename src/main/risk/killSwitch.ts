@@ -24,8 +24,10 @@
  * - 'perdida-anomala': `observeDailyLoss` (pérdida diaria ≥ 1,5 × límite)
  *   y `observeDrawdown` (drawdown ≥ límite).
  * - 'dato-anomalo': `observeDataStatus` (`data-status:changed` con estado
- *   'no-fiable', observado envolviendo `ctx.broadcast` como hace health) y
- *   `observePriceJump` (|Δ%| ≥ 20).
+ *   'no-fiable' por contenido —los estados por fallos del proveedor llevan
+ *   `consecutiveFailures` > 0 y no disparan la parada—, observado
+ *   envolviendo `ctx.broadcast` como hace health) y `observePriceJump`
+ *   (|Δ%| ≥ 20).
  * - 'sin-conexion': `checkConnectivity` sondea el estado de connectivity
  *   (reloj inyectable): 'offline' sostenido ≥ 60 s dispara la parada.
  * - 'modelo-erratico': `observeSignal` (ráfaga de más de 20 señales por
@@ -238,7 +240,12 @@ export interface KillSwitchService {
   observeDailyLoss(lossPct: number): void;
   /** Drawdown actual (% del capital); ≥ límite → parada. */
   observeDrawdown(drawdownPct: number): void;
-  /** Entrada de `data-status:changed`; 'no-fiable' → parada. */
+  /**
+   * Entrada de `data-status:changed`; 'no-fiable' por contenido anómalo
+   * (`consecutiveFailures` en 0) → parada. Un 'no-fiable' o
+   * 'desactualizado' por fallos de red o del proveedor no la dispara:
+   * la conectividad ya pausa las decisiones mientras dure el corte.
+   */
   observeDataStatus(entry: DataStatusEntry): void;
   /** Salto de precio en %; |Δ%| ≥ 20 → parada. */
   observePriceJump(ticker: string, changePct: number): void;
@@ -361,9 +368,14 @@ export function createKillSwitchService(deps: KillSwitchDeps): KillSwitchService
     },
 
     observeDataStatus: (entry) => {
-      // 'desactualizado' no es anómalo: solo 'no-fiable' (valor anómalo
-      // grave o fallos repetidos del proveedor) dispara la parada.
+      // La parada solo reacciona a un 'no-fiable' por contenido anómalo
+      // (valor grave, lote rechazado): esas entradas se escriben con
+      // consecutiveFailures === 0. Los 'no-fiable' por caída de red o del
+      // proveedor (3 fallos seguidos) y los 'desactualizado' no son una
+      // emergencia: pausan decisiones mientras dure el corte, nada más.
       if (entry.state !== 'no-fiable') return;
+      if (!entry.key.startsWith('ticker:') && !entry.key.startsWith('macro:')) return;
+      if ((entry.consecutiveFailures ?? 0) > 0) return;
       service.activate(
         'dato-anomalo',
         'automatico',

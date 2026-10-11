@@ -178,9 +178,11 @@ const api: TradiaApi = {
   macro: {
     getSeries: (query?: MacroSeriesQuery) =>
       ipcRenderer.invoke(IPC_CHANNELS.macro.getSeries, query),
+    refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.macro.refreshNow),
   },
   dataStatus: {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.get),
+    freshness: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.freshness),
     onChanged: (listener) => subscribe<DataStatusEntry>(IPC_CHANNELS.dataStatus.changed, listener),
   },
   sources: {

@@ -17,30 +17,19 @@ Dinero real
 Ajustes
 Estado del sistema
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
-provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
+Parada
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
-[tiingo] error del servidor (HTTP 503): maintenance
+falta la observación esperada; último dato: 2026-09-17
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Actualizar ahora
 Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 02:10:44 CEST
+Actualizado 10:55:39 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -51,17 +40,17 @@ Precios · Tiingo
 
 19 sept 2026, 12:00 CEST
 
-No disponible
+Con retraso
 Macro · FRED
 
-Sin actualización
+11 oct 2026, 10:55 CEST
 
 Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
 
-11 oct 2026, 02:10 CEST
+19 sept 2026, 12:00 CEST
 
-Disponible
+Con retraso
 Noticias · BCE — notas de prensa
 
 19 sept 2026, 12:00 CEST
@@ -90,54 +79,46 @@ Con retraso
 Contexto macro
 Ver macro
 
-Régimen · Sin clasificar · Fuente FRED
+Régimen · Lateral · Volatilidad alta · Fuente FRED
 
 VIXCLS
 ◷ Desactualizado
 Volatilidad VIX
-Sin dato
+2,46 puntos
 
-Histórico insuficiente para comparar.
+= 0,00 puntos respecto al dato diario anterior
 
-Histórico insuficiente para el minigráfico.
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 DGS10
 ◷ Desactualizado
 Treasury · 10 años
-Sin dato
+3,62 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+= 0,00 pp respecto al dato diario anterior
 
 Dato diario
-Sin fecha de observación
+17 sept 2026
 
-falta la observación esperada; último dato: sin datos
+falta la observación esperada; último dato: 2026-09-17
 
 CPIAUCSL
-◷ Desactualizado
+✓ Fiable
 IPC de EE. UU. · interanual
-Sin dato
+2,44 %
 
-Histórico insuficiente para comparar.
-
-Histórico insuficiente para el minigráfico.
+▼ -1,82 pp respecto al dato mensual anterior
 
 Dato mensual
-Sin fecha de observación
-
-falta la observación esperada; último dato: sin datos
-
+1 ago 2026
 Señales vivas
 Ver en Diario
-
-No se admiten nuevas señales.
 
 Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
 
@@ -156,7 +137,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 02:10 CEST
+Datos de 11 oct 2026, 10:55 CEST
 
 Ver límites de riesgo
 Exposición
@@ -172,34 +153,33 @@ Cruce de medias
 
 v1 · cierre Sin evaluar
 
-Bloqueada por parada
+Pendiente del primer cierre
 
 Reversión RSI/Bollinger
 ◌ Investigación
 
 v1 · cierre Sin evaluar
 
-Bloqueada por parada
+Pendiente del primer cierre
 
 Ruptura de rangos
 ◌ Investigación
 
 v1 · cierre Sin evaluar
 
-Bloqueada por parada
+Pendiente del primer cierre
 
 Momentum entre activos
 ◌ Investigación
 
 v1 · cierre Sin evaluar
 
-Bloqueada por parada
+Pendiente del primer cierre
 
 Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:10:43
+Agentes activos
+Última comprobación 10:55:39
 Próximo reintento —
 Último latido Pendiente

@@ -1,75 +1,19 @@
 {
-  "now": "2026-10-11T00:10:07.704Z",
+  "now": "2026-10-11T08:55:16.732Z",
   "connectivity": {
     "status": "online",
-    "lastCheckedAt": "2026-10-11T00:09:59.954Z",
+    "lastCheckedAt": "2026-10-11T08:55:16.251Z",
     "nextRetryAt": null,
     "attempt": 0
   },
   "dataStatus": [
     {
-      "key": "macro:CPIAUCSL",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.523Z"
-    },
-    {
-      "key": "macro:DFF",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.519Z"
-    },
-    {
-      "key": "macro:DGS10",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.525Z"
-    },
-    {
-      "key": "macro:DGS2",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.524Z"
-    },
-    {
-      "key": "macro:T10Y2Y",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.526Z"
-    },
-    {
-      "key": "macro:VIXCLS",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "falta la observación esperada; último dato: sin datos",
-      "updatedAt": "2026-10-11T00:09:44.527Z"
-    },
-    {
       "key": "modelo:0.1.0",
       "state": "fiable",
-      "lastOkAt": "2026-10-11T00:09:45.050Z",
+      "lastOkAt": "2026-10-11T08:55:01.187Z",
       "consecutiveFailures": 0,
       "reason": null,
-      "updatedAt": "2026-10-11T00:09:45.050Z"
-    },
-    {
-      "key": "provider:fred",
-      "state": "desactualizado",
-      "lastOkAt": null,
-      "consecutiveFailures": 1,
-      "reason": "6 de 6 series fallaron en el último refresco",
-      "updatedAt": "2026-10-11T00:09:44.527Z"
+      "updatedAt": "2026-10-11T08:55:01.187Z"
     }
   ],
   "lastBars": {},
@@ -255,7 +199,7 @@
         },
         "strategyEval": null,
         "reason": null,
-        "lastReviewedAt": "2026-10-11T00:09:44.341Z"
+        "lastReviewedAt": "2026-10-11T08:55:00.570Z"
       },
       {
         "subject": "estrategia",
@@ -333,7 +277,7 @@
       "insuficiente": 4
     },
     "proposals": [],
-    "evaluatedAt": "2026-10-11T00:09:44.341Z"
+    "evaluatedAt": "2026-10-11T08:55:00.570Z"
   },
   "signals": [],
   "signalStrategies": [

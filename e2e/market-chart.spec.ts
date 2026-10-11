@@ -167,9 +167,12 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
         )
         .toBeGreaterThanOrEqual(failure);
     }
-    const providerBanner = page.getByRole('alert', { name: /Estado de Proveedor simulado/ });
+    const providerBanner = page.getByRole('region', { name: 'Datos del mercado' });
     await expect(providerBanner).toBeVisible();
-    await expect(providerBanner.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+    await expect(providerBanner).toContainText(/Datos no fiables desde el/);
+    await expect(
+      providerBanner.getByRole('button', { name: 'Actualizar ahora' }),
+    ).toBeVisible();
     await expect(page.locator('.market-chart-card')).toHaveClass(/data-unreliable/);
     await expect
       .poll(() =>
@@ -187,10 +190,10 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.screenshot({ path: 'test-results/provider-failure-dark.png' });
-    await providerBanner.getByRole('button', { name: 'Reintentar' }).click();
-    await expect(page.locator('.provider-banners').getByRole('status')).toContainText(
-      'Actualización solicitada',
-    );
+    await providerBanner.getByRole('button', { name: 'Actualizar ahora' }).click();
+    await expect(
+      page.locator('.provider-banners').getByRole('status').first(),
+    ).toContainText('Actualización solicitada');
     await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
     await expect(providerBanner).toHaveCount(0);
     await expect(page.locator('.market-chart-card')).not.toHaveClass(/data-unreliable/);

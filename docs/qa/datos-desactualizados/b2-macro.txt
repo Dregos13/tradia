@@ -32,7 +32,7 @@ Tipo efectivo federal
 Dato diario
 8 oct 2026
 CPIAUCSL
-◷ Desactualizado
+✓ Fiable
 IPC de EE. UU. · interanual
 2,44 %
 
@@ -40,9 +40,6 @@ IPC de EE. UU. · interanual
 
 Dato mensual
 1 ago 2026
-
-falta la observación esperada; último dato: 2026-08-01
-
 DGS2
 ✓ Fiable
 Treasury · 2 años
@@ -84,6 +81,6 @@ Dato diario
 8 oct 2026
 En línea
 Agentes activos
-Última comprobación 02:11:25
+Última comprobación 10:56:21
 Próximo reintento —
 Último latido Pendiente

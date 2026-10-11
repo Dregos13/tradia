@@ -90,6 +90,9 @@ import type {
   CalendarUpdatedEvent,
   CautionState,
   ConnectivityState,
+  DataFreshnessItem,
+  DataFreshnessState,
+  DataFreshnessSummary,
   DataStatusEntry,
   DeliveryConfig,
   DeviationPeriod,
@@ -1753,7 +1756,13 @@ export function createSimulatedAdapter() {
       completedCount,
       total: items.length,
       allComplete: completedCount === items.length,
-      limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
+      limits: {
+        limits: liveLimitsSaved,
+        confirmationPhrase:
+          liveLimitsSaved === null ? null : liveConfirmationPhrase(liveLimitsSaved),
+        confirmed: liveLimitsConfirmedAt !== null,
+        savedAt: liveLimitsSaved === null ? null : (liveLimitsConfirmedAt ?? nowIso()),
+      },
       evaluatedAt: nowIso(),
     };
   };
@@ -1932,9 +1941,53 @@ export function createSimulatedAdapter() {
           status: statuses.get(dataStatusKey.macro(series.id)) ?? series.status,
         }));
       },
+      refreshNow: async () => ({ accepted: true, reason: null }),
     },
     dataStatus: {
       get: async () => [...statuses.values()].sort((a, b) => a.key.localeCompare(b.key)),
+      freshness: async (): Promise<DataFreshnessSummary> => {
+        // Agregado sobre las entradas ticker:*/macro:*/provider:*; el
+        // renderer añade 'offline' encima con su propio estado de red.
+        const entries = [...statuses.values()].filter(
+          (entry) => !entry.key.startsWith('modelo:'),
+        );
+        const bad = entries.filter(
+          (entry) => entry.state === 'desactualizado' || entry.state === 'no-fiable',
+        );
+        const items: DataFreshnessItem[] = bad
+          .map((entry) => ({
+            key: entry.key,
+            label: entry.key.slice(entry.key.indexOf(':') + 1),
+            state: entry.state,
+            lastDataDate: entry.lastOkAt === null ? null : entry.lastOkAt.slice(0, 10),
+            reason: entry.reason,
+          }))
+          .sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
+        const state: DataFreshnessState =
+          items.some((item) => item.state === 'no-fiable')
+            ? 'unreliable'
+            : items.length > 0
+              ? 'stale'
+              : entries.some((entry) => entry.state === 'actualizando')
+                ? 'catching-up'
+                : entries.every((entry) => entry.lastOkAt === null)
+                  ? 'no-data'
+                  : 'current';
+        const dates = items
+          .map((item) => item.lastDataDate)
+          .filter((date): date is string => date !== null)
+          .sort();
+        return {
+          state,
+          sinceDate: dates[0] ?? null,
+          // Sin calendario de mercado en el renderer: la app real lo
+          // calcula en main; el falso deja el resumen sin sesiones.
+          expectedSessionDate: null,
+          missingSessions: 0,
+          items,
+          updatedAt: new Date().toISOString(),
+        };
+      },
       onChanged: (listener) => subscribe(dataStatusListeners, listener),
     },
     sources: {

@@ -574,17 +574,9 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       quantity: decision.size,
       timeInForce: 'day',
     };
-    // Una orden real de mercado sale limitada con tope (el precio lo da
-    // la guarda de techos): nunca puede ejecutarse por encima del límite
-    // por orden. En paper la puerta no existe y sale de mercado tal cual.
-    const wirePrice =
-      deps.orderWirePrice?.(request, { leg: 'entrada', requestedPrice: signal.entry }) ?? null;
-    if (wirePrice !== null) {
-      request = { ...request, type: 'limit', limitPrice: wirePrice };
-      logger.info?.(
-        `[ordenes] ${clientOrderId}: sale limitada con tope a ${wirePrice} (referencia ${signal.entry ?? 'sin precio'})`,
-      );
-    }
+    // La guarda de techos evalúa la orden tal como se pidió: un nocional
+    // estimado por encima del límite por orden o del capital libre se
+    // bloquea antes de la red, no se «arregla» bajando el precio tope.
     const capped = orderCapReason(request, 'entrada', signal.entry);
     if (capped !== null) {
       logger.warn?.(`[ordenes] señal ${signal.id} no ejecutada: ${capped}`);
@@ -598,6 +590,18 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
         signalId: signal.id,
       });
       return { outcome: 'bloqueada', entry: null, exit: null };
+    }
+    // Una orden real de mercado que cabe en los techos sale limitada con
+    // tope (el precio lo da la guarda): ni un hueco de apertura ni una
+    // referencia desfasada pueden ejecutarla por encima del límite
+    // escrito. En paper la puerta no existe y sale de mercado tal cual.
+    const wirePrice =
+      deps.orderWirePrice?.(request, { leg: 'entrada', requestedPrice: signal.entry }) ?? null;
+    if (wirePrice !== null) {
+      request = { ...request, type: 'limit', limitPrice: wirePrice };
+      logger.info?.(
+        `[ordenes] ${clientOrderId}: sale limitada con tope a ${wirePrice} (referencia ${signal.entry ?? 'sin precio'})`,
+      );
     }
     let order: BrokerOrder;
     try {

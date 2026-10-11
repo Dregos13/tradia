@@ -118,7 +118,12 @@ export function registerSecrets(ctx: ServiceContext): SecretsService {
     if (!isNonEmptyString(provider) || !isNonEmptyString(apiKey)) {
       throw new IpcValidationError(IPC_CHANNELS.secrets.setKey, 'provider y apiKey requeridos');
     }
-    return service.setKey(provider, apiKey);
+    return service.setKey(provider, apiKey).then(() => {
+      // Tras guardar la clave los proveedores de datos lanzan su primer
+      // refresco (la envoltura de ctx.broadcast lo observa). Solo va el
+      // nombre del proveedor, nunca la clave.
+      ctx.broadcast(IPC_CHANNELS.secrets.changed, { provider });
+    });
   });
   ipcMain.handle(IPC_CHANNELS.secrets.hasKey, (_event, provider: unknown) => {
     if (!isNonEmptyString(provider)) {
@@ -130,7 +135,9 @@ export function registerSecrets(ctx: ServiceContext): SecretsService {
     if (!isNonEmptyString(provider)) {
       throw new IpcValidationError(IPC_CHANNELS.secrets.deleteKey, 'provider requerido');
     }
-    return service.deleteKey(provider);
+    return service.deleteKey(provider).then(() => {
+      ctx.broadcast(IPC_CHANNELS.secrets.changed, { provider });
+    });
   });
 
   return service;

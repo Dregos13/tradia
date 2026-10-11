@@ -17,25 +17,14 @@ Dinero real
 Ajustes
 Mercado
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
-provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
+Parada
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
-[tiingo] error del servidor (HTTP 503): maintenance
+falta la observación esperada; último dato: 2026-09-17
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Actualizar ahora
 Tu mercado, con perspectiva.
 
 Precios diarios ajustados por splits y dividendos.
@@ -106,8 +95,7 @@ Ver tabla de datos · 1255 velas
 Gráficos con TradingView Lightweight Charts™.
 
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:10:43
+Agentes activos
+Última comprobación 10:55:39
 Próximo reintento —
 Último latido Pendiente

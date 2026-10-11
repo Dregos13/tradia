@@ -17,25 +17,7 @@ Dinero real
 Ajustes
 Estrategias
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
-provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
-
-[tiingo] fallo de transporte: TypeError: fetch failed
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Parada
 Biblioteca de estrategias
 
 Hipótesis versionadas, reglas reproducibles y evidencia.
@@ -75,8 +57,7 @@ Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en late
 	v1	● Investigación	5,51%	6,04%	0,19	64	11/10/2026
 Procedencia no disponible
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:12:23
+Agentes activos
+Última comprobación 10:57:16
 Próximo reintento —
-Último latido Pendiente
+Último latido 10:57:03

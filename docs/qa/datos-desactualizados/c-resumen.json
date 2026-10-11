@@ -1,27 +1,27 @@
 {
-  "reconnectMs": 3817,
+  "reconnectMs": 1871,
   "tiingoRequestsBefore": 4,
-  "tiingoRequestsAfter": 4,
+  "tiingoRequestsAfter": 8,
   "lastBars": {
     "SPY": {
       "source": "tiingo",
-      "count": 1255,
-      "last": "2026-09-18"
+      "count": 1270,
+      "last": "2026-10-09"
     },
     "QQQ": {
       "source": "tiingo",
-      "count": 1255,
-      "last": "2026-09-18"
+      "count": 1270,
+      "last": "2026-10-09"
     },
     "AAPL": {
       "source": "tiingo",
-      "count": 1255,
-      "last": "2026-09-18"
+      "count": 1270,
+      "last": "2026-10-09"
     },
     "MSFT": {
       "source": "tiingo",
-      "count": 1255,
-      "last": "2026-09-18"
+      "count": 1270,
+      "last": "2026-10-09"
     }
   }
 }

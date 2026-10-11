@@ -32,6 +32,25 @@ solo acepta las tres declaraciones y `live:seed-progress` solo existe en
 modo E2E. Las declaraciones guardan el texto suscrito, el detalle y la
 fecha; retirarlas (`confirmed: false`) las devuelve a pendiente.
 
+**La evidencia sembrada no vale fuera de E2E.** Los sellos que el gancho
+`live:seed-progress` escribe en `settings['live.evidence']` (días y
+operaciones de paper, desviación, prueba final, parada y alertas
+probadas) solo alimentan la evaluación cuando `TRADIA_E2E` está activo y
+la app no está empaquetada — el mismo contexto en que existen los
+ganchos. En la app real la clave se ignora por completo: una copia de
+seguridad restaurada con `backup:restore` o una base editada a mano
+pueden traerla escrita, pero no cumplen ningún requisito automático
+(hallazgo H1 de la auditoría). Lo que sí cuenta siempre es la evidencia
+real: las órdenes `broker_orders` ejecutadas, los runs `prueba-final`,
+las reanudaciones de `kill_switch_events` y el `delivery:test` correcto.
+
+La lista devuelta por `live:checklist` incluye además el **borrador de
+límites**: los valores guardados aunque aún no estén confirmados por
+escrito, con su frase de confirmación, así la pantalla los recupera al
+volver. Cada declaración cumplida trae su evidencia — el texto suscrito
+y la fecha local de la firma — y la de la parada se rotula con el día
+civil local del usuario («Última prueba hoy (11 oct 2026)»).
+
 ## Límites escritos y techos fijos
 
 `live:set-limits` guarda los cuatro límites siempre que sean positivos y
@@ -78,20 +97,52 @@ límites guardados con su comprobación de techos, cada activación
 rechazada con los motivos, la activación con los límites confirmados, la
 prueba de parada, cada suspensión y la vuelta a paper.
 
+## Guarda de techos por orden
+
+Antes de cada envío a la cuenta real (`checkOrderAllowed` en
+`live/orderGuard.ts`, consultada por el gestor de órdenes) se exige:
+modo `activo`, límites confirmados y, en este orden, nocional por orden
+(≤ `orderUsd`, estimado con el limit/stop del tipo o el precio de
+referencia del pedido), posiciones abiertas (≤ `openPositions`), capital
+en uso (≤ `capitalUsd`) y pérdida diaria realizada (≤ `dailyLossUsd`).
+Las patas `salida` pasan siempre: cerrar una posición real no se bloquea.
+
+**Una orden real de mercado nunca sale a ciegas** (hallazgo H2): la
+guarda evalúa primero la orden tal como se pidió — si su nocional
+estimado ya supera un techo se bloquea antes de la red — y si cabe, la
+compra de mercado sale **convertida en limitada con tope**
+(`liveOrderWirePrice`): `min(límite por orden, capital libre) /
+cantidad`, acotado además por la referencia × (1 +
+`LIVE_ORDER_PRICE_MARGIN` = 5 %) y redondeado a la baja en centavos. Ni
+un hueco de apertura ni una referencia desfasada pueden ejecutarla por
+encima del límite escrito. Una venta de entrada no admite precio tope —
+su nocional crece con el precio — y se bloquea si el estimado con ese
+mismo margen de hueco del 5 % supera el límite por orden.
+
 ## Prueba de humo con el importe mínimo
 
 `live:smoke-test` (`live/smoke.ts` sobre el servicio de `live/broker.ts`)
 comprueba de punta a punta la cuenta real con dinero de verdad:
 
-1. **Compra**: orden de mercado fraccionaria de **1 USD nocional en
-   SPY**. La cantidad se dimensiona con el último cierre ingerido del
-   ticker (sin velas no hay prueba) redondeando a la baja en 6
-   decimales, y pasa la misma guarda de techos que cualquier señal: un
-   límite por orden o de capital por debajo de 1 USD la bloquea antes de
-   la red, con entrada `limite` en el Diario.
-2. **Espera de la ejecución**: se consulta al broker hasta `ejecutada`,
-   un estado terminal o 20 s de espera; si no ejecuta, se intenta
-   cancelar la orden para no dejarla colgada.
+1. **Compra**: fracción de **1 USD nocional en SPY**. La cantidad se
+   dimensiona con el último cierre ingerido del ticker redondeando a la
+   baja en 6 decimales, pero solo si la referencia es **reciente**: la
+   fecha de su vela debe ser de una sesión cercana a la última esperada
+   (`LIVE_SMOKE_REFERENCE_MAX_AGE_DAYS` = 4 días de margen, medidos con
+   el reloj de mercado). Sin vela o con un cierre más viejo se rechaza
+   (`sin-precio` / `precio-desfasado`) antes de tocar la red. La compra
+   pasa la misma guarda de techos que cualquier señal — un límite por
+   orden o de capital por debajo de 1 USD la bloquea — y sale a la red
+   **limitada con tope**: `min(techo por orden, capital escrito) /
+   cantidad` acotado por la referencia × (1 +
+   `LIVE_SMOKE_MAX_SLIPPAGE_BPS`).
+2. **Espera y cordura de la ejecución**: se consulta al broker hasta
+   `ejecutada`, un estado terminal o 20 s de espera; si no ejecuta, se
+   intenta cancelar. La ejecución reportada se contrasta con la
+   referencia: si el nocional supera el mínimo con margen
+   (`LIVE_SMOKE_NOTIONAL_TOLERANCE` = 5 %) o el slippage es absurdo
+   (|pb| > `LIVE_SMOKE_MAX_SLIPPAGE_BPS` = 300 pb), la prueba es
+   **fallida** — referencia y broker no cuadran — y no sale «verde».
 3. **Cierre**: venta de mercado de lo ejecutado. Se evalúa como pata
    `salida`: una posición real abierta nunca queda atrapada por un
    techo ni por una suspensión.
@@ -170,4 +221,20 @@ a pendiente.
   una cuenta con meses de inactividad al final podría sobrestimar la
   continuidad. La evidencia del requisito muestra los números tal cual.
 - La evidencia sembrada (`live:seed-progress`) solo existe en E2E; en la
-  app empaquetada el canal no está registrado.
+  app empaquetada el canal no está registrado y la clave
+  `live.evidence` de settings se ignora aunque llegue escrita desde una
+  copia de seguridad.
+- Una compra real de mercado viaja limitada con tope (`referencia ×
+  1,05` como cota extra): si el mercado se aleja más de un 5 % de la
+  referencia de la señal la orden queda enviada sin ejecutar — es el
+  precio de garantizar el techo, no un fallo. La conciliación la ve
+  abierta y el usuario puede cancelarla desde Órdenes.
+- La referencia de la prueba de humo se juzga con el reloj de mercado;
+  un festivo largo inusual (más de 4 días sin sesión) haría «reciente» a
+  un cierre algo más viejo. Es el margen documentado, no un hueco: el
+  límite de la compra sigue acotado por el propio cierre.
+- El contraste post-ejecución de la prueba de humo compara contra la
+  referencia del último cierre ingerido; si el broker y el dato local se
+  desacuerdan dentro del margen (300 pb / 5 %), la prueba sale verde aun
+  con algo de desfase real — es el umbral elegido, visible en el Diario
+  y en `live:state.smokeTest`.

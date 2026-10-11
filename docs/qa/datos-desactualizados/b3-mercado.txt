@@ -18,6 +18,13 @@ Ajustes
 Mercado
 Señales + paper trading
 Parada
+Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+
+falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
 Tu mercado, con perspectiva.
 
 Precios diarios ajustados por splits y dividendos.
@@ -89,6 +96,6 @@ Gráficos con TradingView Lightweight Charts™.
 
 En línea
 Agentes activos
-Última comprobación 02:16:10
+Última comprobación 10:59:16
 Próximo reintento —
 Último latido Pendiente

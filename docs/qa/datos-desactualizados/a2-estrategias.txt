@@ -18,13 +18,10 @@ Ajustes
 Estrategias
 Señales + paper trading
 Parada
-FRED · Desactualizado
+Aún no hay datos de mercado
 
-6 de 6 series fallaron en el último refresco
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
 
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 Biblioteca de estrategias
 
 Hipótesis versionadas, reglas reproducibles y evidencia.
@@ -65,6 +62,6 @@ Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotac
 Procedencia no disponible
 En línea
 Agentes activos
-Última comprobación 02:09:44
+Última comprobación 10:55:01
 Próximo reintento —
 Último latido Pendiente

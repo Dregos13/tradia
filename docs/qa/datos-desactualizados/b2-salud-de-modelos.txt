@@ -22,7 +22,7 @@ Salud de modelos
 
 Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
 
-Revisado 11 oct 2026, 02:11 CEST
+Revisado 11 oct 2026, 10:56 CEST
 
 Revisar ahora
 
@@ -48,19 +48,19 @@ Modelo o estrategia	Estado	Drift de datos	Drift de resultados	Persistencia	Últi
 Modelo de dirección y volatilidad v0.1.0
 Modelo
 	En observación
-Drift de datos en vigilancia: 2 de 20 sesiones.
+Drift de datos en vigilancia: 1 de 20 sesiones.
 	16 variables con PSI > 0,25
 desde 19 sept 2026, 12:00 CEST
 	Brier móvil 0,41
 Ficha 0,197 · diferencia 0,214 · umbral +0,02
 60/60 predicciones resueltas
-desde 11 oct 2026, 02:11 CEST
+desde 11 oct 2026, 10:56 CEST
 	
 
-Desde hace 2 sesiones · mínimo 20 en 2 variables
+Desde hace 1 sesiones · mínimo 20 en 2 variables
 
 Ventana de 60 predicciones.
-	11 oct 2026, 02:11 CEST	Ver detalle
+	11 oct 2026, 10:56 CEST	Ver detalle
 Cruce de medias · v1
 Estrategia
 	Sin datos suficientes
@@ -115,6 +115,6 @@ Los modelos se mantienen bajo vigilancia.
 
 En línea
 Agentes activos
-Última comprobación 02:11:25
+Última comprobación 10:56:21
 Próximo reintento —
 Último latido Pendiente

@@ -17,25 +17,7 @@ Dinero real
 Ajustes
 Mercado
 Señales + paper trading
-Parada activa
-Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
-provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
-Ver en Riesgo
-Reanudar
-Tiingo · No fiable
-
-[tiingo] fallo de transporte: TypeError: fetch failed
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
+Parada
 Tu mercado, con perspectiva.
 
 Precios diarios ajustados por splits y dividendos.
@@ -46,42 +28,37 @@ Añadir universo inicial · 25
 Lista de seguimiento
 4 / 25
 SPY
-◷
-Desactualizado
+✓
+Fiable
 QQQ
-◷
-Desactualizado
+✓
+Fiable
 AAPL
-◷
-Desactualizado
+✓
+Fiable
 MSFT
-◷
-Desactualizado
+✓
+Fiable
 Quitar SPY
 SPY
 
 USD · Precios ajustados por splits y dividendos
 
-Fuente: tiingo · Última vela: 2026-09-18
+Fuente: tiingo · Última vela: 2026-10-09
 
-1051,9 USD
-◷
-Desactualizado
+1093,07 USD
+✓
+Fiable
 1A
 3A
 5A
-
-falta la vela del 2026-09-21 (+14 más); último dato: 2026-09-18
-
-El histórico está desactualizado; puede faltar el último cierre.
-
 Medias móviles
 SMA 20
 SMA 50
 SMA 200
 Alcista: cuerpo vacío · Bajista: cuerpo sólido
 
-RSI 14: 57,75 · Referencias 30 y 70. ATR 14: 20 USD.
+RSI 14: 70,58 · Referencias 30 y 70. ATR 14: 16,89 USD.
 
 	
 	
@@ -99,15 +76,14 @@ RSI 14: 57,75 · Referencias 30 y 70. ATR 14: 20 USD.
 	
 	
 
-2026-09-18 · Alcista · Apertura 1047,62 · Máximo 1058,21 · Mínimo 1041,34 · Cierre 1051,9 · Volumen 4.665.855
+2026-10-09 · Bajista · Apertura 1093,65 · Máximo 1100,21 · Mínimo 1086,51 · Cierre 1093,07 · Volumen 1.207.200
 
 Ver tabla de datos · 1255 velas
 
 Gráficos con TradingView Lightweight Charts™.
 
 En línea
-Agentes en pausa
-· Pausa manual
-Última comprobación 02:12:23
+Agentes activos
+Última comprobación 10:57:16
 Próximo reintento —
-Último latido Pendiente
+Último latido 10:57:03

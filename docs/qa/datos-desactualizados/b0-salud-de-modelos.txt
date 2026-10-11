@@ -18,13 +18,6 @@ Ajustes
 Salud de modelos
 Señales + paper trading
 Parada
-FRED · Desactualizado
-
-6 de 6 series fallaron en el último refresco
-
-Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
-
-Reintentar
 Salud de modelos
 
 Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.

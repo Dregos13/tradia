@@ -233,6 +233,46 @@ describe('parada de emergencia · disparadores automáticos', () => {
     expect(other.getState().cause).toBe('dato-anomalo');
   });
 
+  it('una caída de red o del proveedor no dispara la parada; solo la anomalía de contenido', () => {
+    const service = makeService();
+
+    // Un 'no-fiable' por fallos del proveedor (3 fallos seguidos) pausa
+    // decisiones vía conectividad, pero no es una emergencia de mercado.
+    service.observeDataStatus(
+      dataStatus({
+        key: 'provider:tiingo',
+        state: 'no-fiable',
+        consecutiveFailures: 3,
+        reason: 'network: error del servidor (HTTP 503)',
+      }),
+    );
+    expect(service.getState().active).toBe(false);
+    service.observeDataStatus(
+      dataStatus({
+        state: 'no-fiable',
+        consecutiveFailures: 3,
+        reason: 'network: error del servidor (HTTP 503)',
+      }),
+    );
+    expect(service.getState().active).toBe(false);
+
+    // El modelo degradado tampoco dispara la parada de mercado.
+    service.observeDataStatus(
+      dataStatus({ key: 'modelo:0.1.0', state: 'no-fiable', consecutiveFailures: 0 }),
+    );
+    expect(service.getState().active).toBe(false);
+
+    // La anomalía de contenido (fallos en 0) sí la dispara.
+    service.observeDataStatus(
+      dataStatus({
+        state: 'no-fiable',
+        consecutiveFailures: 0,
+        reason: 'valor anómalo grave en el último lote',
+      }),
+    );
+    expect(service.getState().cause).toBe('dato-anomalo');
+  });
+
   it('sin conexión: más de 60 s offline seguidos, con reloj inyectable', () => {
     const service = makeService();
     connectivityStatus = 'offline';

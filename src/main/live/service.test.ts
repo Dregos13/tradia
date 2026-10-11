@@ -23,7 +23,7 @@ import type { ServiceContext } from '../services';
 import { createSettingsService } from '../services/settings';
 import { createKillSwitchService, createKillSwitchStore } from '../risk/killSwitch';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
-import { DELIVERY_TEST_EVIDENCE_KEY } from './checklist';
+import { DELIVERY_TEST_EVIDENCE_KEY, formatLiveDate } from './checklist';
 import { registerLive, type LiveService } from './index';
 import {
   LiveServiceError,
@@ -89,6 +89,9 @@ const makeService = (extra: Partial<LiveServiceDeps> = {}): LiveService => {
   return createLiveService({
     store: createLiveStore(db),
     evidence: createLiveEvidenceStore(undefined, undefined),
+    // El arnés opta por el contexto E2E: la semilla de seedProgress cuenta
+    // aquí igual que con TRADIA_E2E y la app sin empaquetar.
+    allowSeededEvidence: () => true,
     killSwitch,
     recordJournal: (input) => journal.push(input),
     notify: (payload) => notifications.push(payload),
@@ -105,6 +108,9 @@ const makeCtx = (extra: Partial<ServiceContext['services']> = {}): Harness => {
   const ctx: ServiceContext = {
     broadcast: (channel, payload) => sent.push({ channel, payload }),
     services: {
+      // La misma base que el resto de servicios: sin ella registerLive
+      // monta el almacén en memoria y no ve kill_switch_events.
+      storage: { getDb: () => db } as never,
       settings,
       killSwitch: createKillSwitchService({
         store: createKillSwitchStore(db),
@@ -250,6 +256,31 @@ describe('live:checklist', () => {
       .items.find((i) => i.requirement === 'validacion-fuera-muestra')!;
     expect(item.state).toBe('cumplido');
     expect(item.evidence).toContain('1 de 1');
+  });
+
+  it('recupera los límites guardados sin confirmar y la evidencia de cada declaración', async () => {
+    makeCtx();
+    // Los límites guardados sin confirmar viajan con la lista: la
+    // pantalla recupera el borrador al volver a «Dinero real».
+    await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
+    const checklist = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    expect(checklist.limits.limits).toEqual(VALID_LIMITS);
+    expect(checklist.limits.confirmed).toBe(false);
+    expect(checklist.limits.confirmationPhrase).toBe(liveConfirmationPhrase(VALID_LIMITS));
+    expect(checklist.limits.savedAt).not.toBeNull();
+
+    // Cada declaración cumplida trae su evidencia: el texto suscrito y
+    // la fecha local de la firma (nunca «Sin evidencia guardada.»).
+    await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'plan-contingencia',
+      confirmed: true,
+      detail: '/ruta/plan.md',
+    });
+    const declared = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    const item = declared.items.find((i) => i.requirement === 'plan-contingencia')!;
+    expect(item.state).toBe('cumplido');
+    expect(item.evidence).toContain(LIVE_DECLARATION_TEXTS['plan-contingencia']);
+    expect(item.evidence).toContain(`suscrita el ${formatLiveDate(item.markedAt!)}`);
   });
 });
 
@@ -450,6 +481,8 @@ describe('live:activate', () => {
   });
 
   it('con la lista cumplida pero sin límites lo pide como motivo', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service } = makeCtx();
     await completeChecklist(service);
     const result = (await invoke(IPC_CHANNELS.live.activate, {
@@ -461,6 +494,8 @@ describe('live:activate', () => {
   });
 
   it('rechaza una frase de confirmación incorrecta', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service } = makeCtx();
     await completeChecklist(service);
     await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
@@ -473,6 +508,8 @@ describe('live:activate', () => {
   });
 
   it('con todo cumplido y la frase exacta activa el modo real', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service } = makeCtx();
     await completeChecklist(service);
     await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
@@ -495,6 +532,8 @@ describe('live:activate', () => {
 
 describe('live:deactivate', () => {
   it('vuelve a listo conservando la lista y los límites', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service } = makeCtx();
     await completeChecklist(service);
     await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
@@ -539,6 +578,8 @@ describe('suspensión del modo real', () => {
   });
 
   it('la parada de emergencia suspende el modo real al instante', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service, ctx } = makeCtx();
     await activateReal(service);
 
@@ -549,6 +590,8 @@ describe('suspensión del modo real', () => {
   });
 
   it('perder la conexión suspende el modo real', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     const { service, ctx } = makeCtx();
     await activateReal(service);
 
