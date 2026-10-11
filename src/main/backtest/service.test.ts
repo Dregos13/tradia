@@ -188,7 +188,17 @@ describe('semilla de estrategias clásicas', () => {
   }, 60_000);
 
   it('guarda un backtest y las tres crisis por estrategia (idempotente)', async () => {
-    const h = makeService();
+    // Misma configuración declarada que la semilla real (train 756 / test
+    // 252) pero menos trabajo: paso 756 deja ~6 ventanas walk-forward en vez
+    // de ~16 con paso 252 y Monte Carlo corre 250 simulaciones. El run sigue
+    // sembrando informe completo, comparación y las tres crisis; bajo carga
+    // (--maxWorkers=2) el pipeline de las cuatro estrategias ronda los 20 s.
+    const h = makeService({
+      seedRun: {
+        walkForward: { trainSize: 756, testSize: 252, step: 756 },
+        monteCarlo: { seed: 1, simulations: 250, method: 'permutation' },
+      },
+    });
     h.service.seedFichas();
     await h.service.seedResults();
 
@@ -233,7 +243,7 @@ describe('semilla de estrategias clásicas', () => {
     await h.service.seedResults();
     // Segunda pasada: nada nuevo (ni runs ni crisis duplicadas).
     expect(h.service.listRuns({})).toHaveLength(before);
-  }, 60_000);
+  }, 120_000);
 });
 
 // ---------------------------------------------------------------------------

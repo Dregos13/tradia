@@ -169,7 +169,9 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
         )
         .toBeGreaterThanOrEqual(failure);
     }
-    const providerBanner = page.getByRole('region', { name: 'Datos del mercado' });
+    // Franja única de frescura para toda la app (sustituye a la de cada proveedor).
+    const providerBanner = page.getByRole('region', { name: 'Estado de los datos' });
+    await expect(providerBanner).toHaveCount(1);
     await expect(providerBanner).toBeVisible();
     await expect(providerBanner).toContainText(/Datos no fiables desde el/);
     await expect(providerBanner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
@@ -191,9 +193,12 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.screenshot({ path: 'test-results/provider-failure-dark.png' });
     await providerBanner.getByRole('button', { name: 'Actualizar ahora' }).click();
-    await expect(page.locator('.provider-banners').getByRole('status').first()).toContainText(
-      'Actualización solicitada',
-    );
+    // Con el proveedor aún caído, la pasada falla y se explica el motivo real.
+    await expect(
+      providerBanner
+        .getByRole('status')
+        .filter({ hasText: /^No se pudo actualizar: fallo simulado del proveedor \(network\)/ }),
+    ).toBeVisible();
     await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
     await expect(providerBanner).toHaveCount(0);
     await expect(page.locator('.market-chart-card')).not.toHaveClass(/data-unreliable/);

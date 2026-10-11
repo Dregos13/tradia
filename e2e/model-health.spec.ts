@@ -114,11 +114,16 @@ test.describe('Responsable de equipo que revisa entregas', () => {
   test('una estrategia solo se degrada tras dos revisiones mensuales seguidas y sale de la IA', async () => {
     test.setTimeout(180_000);
     const { app, page } = context!;
+    // La degradación exige muestra: al menos 30 operaciones paper cerradas.
+    // `broker.seedWeeks` cierra 2 por semana para las semillas 1 y 2; la 2
+    // pierde un 4 % por operación, el caso de un rendimiento que se aleja.
+    const seeded = await page.evaluate(() =>
+      window.tradia.testing!.broker.seedWeeks({ weeks: 16 }),
+    );
+    expect(seeded.orders).toBeGreaterThan(0);
     const strategy = await page.evaluate(async () => {
-      const found = (await window.tradia.strategies.list()).find(
-        (item) => item.name === 'Reversión RSI/Bollinger',
-      );
-      if (!found) throw new Error('Falta la estrategia semilla Reversión RSI/Bollinger');
+      const found = (await window.tradia.strategies.list()).find((item) => item.id === 2);
+      if (!found) throw new Error('Falta la estrategia semilla con id 2');
       return found;
     });
 

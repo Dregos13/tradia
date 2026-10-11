@@ -201,3 +201,77 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await capturePhaseScreenshot(page, 'fase-6-7-ficha-estrategia-regimen.png', regimeFacts);
   });
 });
+
+test.describe('Responsable de equipo que revisa entregas', () => {
+  test('«Predicción por activo» destaca la vigente de cada activo y «Ver ficha del modelo» lleva a la ficha', async () => {
+    test.setTimeout(240_000);
+    const { page } = context!;
+    await watchTickers(page, ['SPY', 'AAPL']);
+    // Un cierre más: cada activo tiene una predicción vigente y otras anteriores.
+    await page.evaluate(() => window.tradia.testing!.advanceMarketClock(24 * 60 * 60 * 1000));
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const rows = await window.tradia.ai.predictions({ limit: 50 });
+            return ['SPY', 'AAPL'].every((ticker) =>
+              rows.some((row) => row.ticker === ticker && row.sessionDate === '2026-10-07'),
+            );
+          }),
+        { timeout: 60_000 },
+      )
+      .toBe(true);
+    const card = await page.evaluate(() => window.tradia.ai.modelCard());
+    expect(card).not.toBeNull();
+
+    await openPage(page, 'IA');
+    const current = page.getByRole('region', { name: 'Predicciones por activo' });
+    const body = current.getByRole('row').filter({ has: page.getByRole('rowheader') });
+    // Una sola fila por activo, la de su último cierre.
+    await expect(body).toHaveCount(2);
+    for (const ticker of ['SPY', 'AAPL']) {
+      const row = body.filter({ hasText: ticker });
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText('Último cierre disponible · Cierre 7 oct 2026');
+      await expect(row).not.toContainText('Desactualizada');
+    }
+    // El histórico queda aparte y plegado.
+    const history = page.getByText(/^Histórico de predicciones \(\d+\)$/);
+    await expect(history).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Histórico de predicciones' })).toBeHidden();
+    await history.click();
+    const past = page.getByRole('region', { name: 'Histórico de predicciones' });
+    await expect(past).toBeVisible();
+    await expect(past.getByRole('row').filter({ hasText: 'Cierre 6 oct 2026' }).first()).toBeVisible();
+    await expect(past).not.toContainText('Cierre 7 oct 2026');
+    await capturePhaseScreenshot(
+      page,
+      'continuacion-ia-prediccion-vigente.png',
+      page.getByRole('heading', { name: 'Predicción por activo' }),
+    );
+
+    // Filtro por activo sobre la tabla vigente.
+    const filter = page
+      .getByRole('region', { name: 'Predicción por activo', exact: true })
+      .getByRole('combobox', { name: /^Activo/ });
+    await filter.selectOption('AAPL');
+    await expect(body).toHaveCount(1);
+    await expect(body).toContainText('AAPL');
+    await filter.selectOption({ label: 'Todos los activos' });
+    await expect(body).toHaveCount(2);
+
+    // «Ver ficha del modelo» se queda en IA y pone el foco en la ficha.
+    const link = body.filter({ hasText: 'SPY' }).getByRole('button', { name: 'Ver ficha del modelo' });
+    await link.focus();
+    await page.keyboard.press('Enter');
+    const modelCard = page.getByRole('region', { name: /^Ficha del modelo/ });
+    await expect(modelCard).toBeFocused();
+    await expect(modelCard).toBeInViewport();
+    expect(await page.evaluate(() => location.hash)).toBe('#ia');
+    await expect(
+      page.getByRole('heading', { name: 'IA', exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(modelCard.getByText(`v${card!.version}`, { exact: true })).toBeVisible();
+    await capturePhaseScreenshot(page, 'continuacion-ia-ver-ficha-modelo.png');
+  });
+});
