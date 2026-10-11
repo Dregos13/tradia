@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const classicStrategies = [
   'Cruce de medias',
@@ -14,6 +15,7 @@ const classicStrategies = [
 async function acceptRisk(page: Page) {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await skipGuidedTour(page);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {

@@ -6,24 +6,24 @@
 
 ## Resultado de los criterios de aceptación
 
-| # | Criterio | Resultado | Evidencia |
-| --- | --- | --- | --- |
-| 1 | Contrato de proveedor, Tiingo (grabaciones, HTTP 401/429/5xx y límites de uso) y adaptador simulado | **APROBADO** | `npm test`: 39 archivos y 388 pruebas aprobadas. Pruebas en `src/main/market/providers/contract.test.ts`, `tiingo.test.ts`, `rateLimiter.test.ts` y `simulated.test.ts`. |
-| 2 | Ajustes por splits y dividendos; huecos, duplicados, anomalías y versiones de lote | **APROBADO** | `npm test`: pruebas de AAPL 4:1 (31-08-2020), NVDA 10:1 (10-06-2024), dividendos, huecos, duplicados y valores inválidos/anómalos en `src/main/market/cleaning/clean.test.ts`; versiones en `version.test.ts`. |
-| 3 | Actualización sin intervención tras cierre NYSE, con conversión a Madrid y desfases DST | **APROBADO** | `npm test`: integración del flujo de datos con reloj simulado en `src/main/market/__integration__/data-flow.test.ts`; calendario/ingesta en semanas de desfase de marzo y finales de octubre en `calendar.test.ts` e `ingestion.test.ts`. |
-| 4 | Añadir ticker, ver velas de varios años e indicadores y quitarlo | **APROBADO** | `npm run test:e2e`: 9 pruebas aprobadas. El caso `e2e/market-chart.spec.ts` valida más de 750 velas, SMA 20/50/200, RSI, ATR, tabla OHLCV, rango, entrada larga, ventana estrecha y retirada. Sesión Electron adicional añadió AAPL y MSFT, alternó la selección entre ambos y mostró sus gráficos. |
-| 5 | Macro con tipos, IPC, curva 2/10 años y VIX con valor, fecha y frescura | **APROBADO** | `e2e/macro-context.spec.ts`: almacén limpio sin clave FRED y seis tarjetas con datos, fecha `time[datetime]`, estado y distintivo simulado; incluye DFF, CPIAUCSL, DGS2, DGS10, T10Y2Y y VIXCLS. |
-| 6 | Fallo de proveedor: notificación y dato no fiable/desactualizado; calidad del build | **APROBADO en modo de prueba** | `e2e/market-chart.spec.ts` simula tres fallos, verifica banner, estado No fiable y llamada a notificación, y valida la recuperación. `npm run lint`, `npm run typecheck` y el build de `npm run test:e2e` terminaron sin errores. La prueba de notificación usa un espía de Electron; no acredita la presentación nativa del sistema operativo. |
+| #   | Criterio                                                                                            | Resultado                      | Evidencia                                                                                                                                                                                                                                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Contrato de proveedor, Tiingo (grabaciones, HTTP 401/429/5xx y límites de uso) y adaptador simulado | **APROBADO**                   | `npm test`: 39 archivos y 388 pruebas aprobadas. Pruebas en `src/main/market/providers/contract.test.ts`, `tiingo.test.ts`, `rateLimiter.test.ts` y `simulated.test.ts`.                                                                                                                                                                        |
+| 2   | Ajustes por splits y dividendos; huecos, duplicados, anomalías y versiones de lote                  | **APROBADO**                   | `npm test`: pruebas de AAPL 4:1 (31-08-2020), NVDA 10:1 (10-06-2024), dividendos, huecos, duplicados y valores inválidos/anómalos en `src/main/market/cleaning/clean.test.ts`; versiones en `version.test.ts`.                                                                                                                                  |
+| 3   | Actualización sin intervención tras cierre NYSE, con conversión a Madrid y desfases DST             | **APROBADO**                   | `npm test`: integración del flujo de datos con reloj simulado en `src/main/market/__integration__/data-flow.test.ts`; calendario/ingesta en semanas de desfase de marzo y finales de octubre en `calendar.test.ts` e `ingestion.test.ts`.                                                                                                       |
+| 4   | Añadir ticker, ver velas de varios años e indicadores y quitarlo                                    | **APROBADO**                   | `npm run test:e2e`: 9 pruebas aprobadas. El caso `e2e/market-chart.spec.ts` valida más de 750 velas, SMA 20/50/200, RSI, ATR, tabla OHLCV, rango, entrada larga, ventana estrecha y retirada. Sesión Electron adicional añadió AAPL y MSFT, alternó la selección entre ambos y mostró sus gráficos.                                             |
+| 5   | Macro con tipos, IPC, curva 2/10 años y VIX con valor, fecha y frescura                             | **APROBADO**                   | `e2e/macro-context.spec.ts`: almacén limpio sin clave FRED y seis tarjetas con datos, fecha `time[datetime]`, estado y distintivo simulado; incluye DFF, CPIAUCSL, DGS2, DGS10, T10Y2Y y VIXCLS.                                                                                                                                                |
+| 6   | Fallo de proveedor: notificación y dato no fiable/desactualizado; calidad del build                 | **APROBADO en modo de prueba** | `e2e/market-chart.spec.ts` simula tres fallos, verifica banner, estado No fiable y llamada a notificación, y valida la recuperación. `npm run lint`, `npm run typecheck` y el build de `npm run test:e2e` terminaron sin errores. La prueba de notificación usa un espía de Electron; no acredita la presentación nativa del sistema operativo. |
 
 ### Ejecuciones
 
-| Comando | Resultado |
-| --- | --- |
-| `npm test` | 39 archivos; 388/388 pruebas aprobadas. |
-| `npm run test:e2e` | Build y typecheck incluidos; 9/9 pruebas E2E aprobadas. |
-| `npm run lint` | Código de salida 0. |
-| `npm run typecheck` | Código de salida 0. |
-| `npm run build` | Ejecutado como parte de `npm run test:e2e`; código de salida 0. |
+| Comando             | Resultado                                                       |
+| ------------------- | --------------------------------------------------------------- |
+| `npm test`          | 39 archivos; 388/388 pruebas aprobadas.                         |
+| `npm run test:e2e`  | Build y typecheck incluidos; 9/9 pruebas E2E aprobadas.         |
+| `npm run lint`      | Código de salida 0.                                             |
+| `npm run typecheck` | Código de salida 0.                                             |
+| `npm run build`     | Ejecutado como parte de `npm run test:e2e`; código de salida 0. |
 
 ## Sesiones por perfil
 

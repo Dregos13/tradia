@@ -19,8 +19,8 @@ Tiingo ni instaladores.
 
 - **Esperado:** comparar informes de versiones propias con sus costes y métricas.
 - **Observado:** la ejecución no se inicia: `No se pudo completar el backtest.
-  Error invoking remote method 'backtest:run': BacktestError: la estrategia 5
-  no tiene una implementación ejecutable registrada`. No se crea informe ni
+Error invoking remote method 'backtest:run': BacktestError: la estrategia 5
+no tiene una implementación ejecutable registrada`. No se crea informe ni
   historial para la estrategia propia. Las estrategias clásicas sí pueden
   ejecutarse.
 - **Evidencia:** `docs/qa/capturas/fase-2-backtest-estrategia-propia-error.png`;
@@ -65,14 +65,14 @@ crisis no presentan toda la evidencia esperada.**
 
 ## Criterios de aceptación
 
-| # | Resultado | Evidencia y alcance |
-|---|---|---|
-| 1 | **Cumple** | `npm test`: 77 archivos y 941 pruebas pasaron. Incluye la auditoría anti-look-ahead para cuatro estrategias, el resultado sintético conocido y pruebas de métricas contrastadas manualmente. |
-| 2 | **Cumple con limitación de auditoría** | `npm run test:e2e`: 15/15. En modo simulado aparecen las cuatro estrategias clásicas y las fichas incluyen hipótesis, reglas, mercados, periodos, régimen, costes y registro. La procedencia del resultado no se propaga a la ficha; ver hallazgo. |
-| 3 | **Cumple** | Se crearon y editaron dos estrategias propias. Cada edición generó v2 con nota y v1 siguió consultable en solo lectura. Captura: `docs/qa/capturas/fase-2-versiones-estado-1440.png`. |
-| 4 | **Parcial** | Para una estrategia clásica el E2E lanza backtest con comisión, mínimo, slippage y spread configurables; verifica ocho métricas, curva, operaciones, walk-forward, sensibilidad y Monte Carlo. Para una estrategia creada por el usuario, el motor rechaza la ejecución por falta de implementación registrada (hallazgo bloqueante). |
-| 5 | **Parcial** | Las fichas muestran resultados simulados de las cuatro estrategias para 2008, 2020 y 2022, con fuente y número de operaciones. En el caso sin operaciones de Cruce de medias en 2020 el drawdown queda nulo y se muestra «Sin datos», no una métrica numérica. No se verificó con datos reales. |
-| 6 | **Cumple** | `npm run lint`, `npm run typecheck`, `npm run build` y `npm run test:e2e` pasaron en este equipo. E2E: 15/15. |
+| #   | Resultado                              | Evidencia y alcance                                                                                                                                                                                                                                                                                                                   |
+| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Cumple**                             | `npm test`: 77 archivos y 941 pruebas pasaron. Incluye la auditoría anti-look-ahead para cuatro estrategias, el resultado sintético conocido y pruebas de métricas contrastadas manualmente.                                                                                                                                          |
+| 2   | **Cumple con limitación de auditoría** | `npm run test:e2e`: 15/15. En modo simulado aparecen las cuatro estrategias clásicas y las fichas incluyen hipótesis, reglas, mercados, periodos, régimen, costes y registro. La procedencia del resultado no se propaga a la ficha; ver hallazgo.                                                                                    |
+| 3   | **Cumple**                             | Se crearon y editaron dos estrategias propias. Cada edición generó v2 con nota y v1 siguió consultable en solo lectura. Captura: `docs/qa/capturas/fase-2-versiones-estado-1440.png`.                                                                                                                                                 |
+| 4   | **Parcial**                            | Para una estrategia clásica el E2E lanza backtest con comisión, mínimo, slippage y spread configurables; verifica ocho métricas, curva, operaciones, walk-forward, sensibilidad y Monte Carlo. Para una estrategia creada por el usuario, el motor rechaza la ejecución por falta de implementación registrada (hallazgo bloqueante). |
+| 5   | **Parcial**                            | Las fichas muestran resultados simulados de las cuatro estrategias para 2008, 2020 y 2022, con fuente y número de operaciones. En el caso sin operaciones de Cruce de medias en 2020 el drawdown queda nulo y se muestra «Sin datos», no una métrica numérica. No se verificó con datos reales.                                       |
+| 6   | **Cumple**                             | `npm run lint`, `npm run typecheck`, `npm run build` y `npm run test:e2e` pasaron en este equipo. E2E: 15/15.                                                                                                                                                                                                                         |
 
 ## Hallazgos
 
@@ -85,7 +85,7 @@ crisis no presentan toda la evidencia esperada.**
 - **Esperado:** guardar el resultado de la estrategia y poder comparar
   ejecuciones/versiones.
 - **Observado:** error IPC: `la estrategia 5 no tiene una implementación
-  ejecutable registrada`; no aparece informe ni historial.
+ejecutable registrada`; no aparece informe ni historial.
 - **Evidencia:** `docs/qa/capturas/fase-2-backtest-estrategia-propia-error.png`.
 - **Impacto:** impide el flujo principal de backtest/comparación para las dos
   estrategias propias solicitadas. Requiere atención del rol responsable del

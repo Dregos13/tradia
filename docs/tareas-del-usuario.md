@@ -25,15 +25,15 @@ este orden: las primeras no tienen riesgo y las últimas mueven dinero real.
 
 ## Resumen de comandos
 
-| Comando                                               | Sin argumentos                       | Para qué                                        |
-| ----------------------------------------------------- | ------------------------------------ | ----------------------------------------------- |
-| `npm run eval:news-llm -- --provider local`           | Evalúa con el analizador local       | Comprobar el conjunto etiquetado sin coste      |
-| `npm run eval:news-llm -- --provider suscripcion`     | —                                    | Evaluar con la CLI de Claude Code               |
-| `npm run eval:news-llm -- --provider api`             | —                                    | Evaluar con la API de Anthropic (de pago)       |
-| `npm run qa:providers`                                | Muestra el uso y sale sin consultar  | Probar las claves de Tiingo y FRED              |
-| `npm run qa:alpaca-paper`                             | Muestra el uso y sale sin consultar  | Probar el adaptador contra la cuenta paper      |
-| `npm run qa:alpaca-live-smoke`                        | Muestra el uso y sale sin enviar     | Prueba de humo con dinero real (1 USD)          |
-| `npm run dist` / `dist:mac` / `dist:win` / `dist:linux` | Empaqueta en `release/`            | Instaladores para probar la app empaquetada     |
+| Comando                                                 | Sin argumentos                      | Para qué                                    |
+| ------------------------------------------------------- | ----------------------------------- | ------------------------------------------- |
+| `npm run eval:news-llm -- --provider local`             | Evalúa con el analizador local      | Comprobar el conjunto etiquetado sin coste  |
+| `npm run eval:news-llm -- --provider suscripcion`       | —                                   | Evaluar con la CLI de Claude Code           |
+| `npm run eval:news-llm -- --provider api`               | —                                   | Evaluar con la API de Anthropic (de pago)   |
+| `npm run qa:providers`                                  | Muestra el uso y sale sin consultar | Probar las claves de Tiingo y FRED          |
+| `npm run qa:alpaca-paper`                               | Muestra el uso y sale sin consultar | Probar el adaptador contra la cuenta paper  |
+| `npm run qa:alpaca-live-smoke`                          | Muestra el uso y sale sin enviar    | Prueba de humo con dinero real (1 USD)      |
+| `npm run dist` / `dist:mac` / `dist:win` / `dist:linux` | Empaqueta en `release/`             | Instaladores para probar la app empaquetada |
 
 ## 1. Análisis de noticias con tu suscripción de Claude
 

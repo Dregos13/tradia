@@ -44,11 +44,7 @@ import type { JournalRecordInput } from '../../../shared/journal';
 import type { StrategyStatus } from '../../../shared/strategy';
 import type { Candle } from '../../../shared/indicators';
 import { createRegimeClassifier, REGIME_MIN_BARS } from './classifier';
-import {
-  REGIME_LABEL_TEXT,
-  resolveStrategyRegime,
-  staleRegimeResolution,
-} from './enablement';
+import { REGIME_LABEL_TEXT, resolveStrategyRegime, staleRegimeResolution } from './enablement';
 import type { RegimesRepository, RegimeRowLabels } from './repository';
 
 /** Vela mínima que necesita el clasificador (fecha + OHLC). */
@@ -335,8 +331,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
       // desactiva estrategias ('desactualizada'), salvo 'degradada', que
       // manda por el drift aunque los datos sean viejos.
       const expected = deps.expectedSessionDate?.(now()) ?? null;
-      const stale =
-        market !== null && expected !== null && market.sessionDate < expected;
+      const stale = market !== null && expected !== null && market.sessionDate < expected;
       const current =
         market === null || stale
           ? null

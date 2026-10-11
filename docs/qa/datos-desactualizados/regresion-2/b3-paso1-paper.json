@@ -45,12 +45,7 @@
         "step": 0.5
       }
     },
-    "markets": [
-      "SPY",
-      "QQQ",
-      "DIA",
-      "IWM"
-    ],
+    "markets": ["SPY", "QQQ", "DIA", "IWM"],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -70,9 +65,7 @@
       "trades": 64
     },
     "regime": "Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados.",
-    "worksIn": [
-      "tendencia"
-    ],
+    "worksIn": ["tendencia"],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,
@@ -144,10 +137,7 @@
         "step": 0.5
       }
     },
-    "markets": [
-      "SPY",
-      "QQQ"
-    ],
+    "markets": ["SPY", "QQQ"],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -167,12 +157,8 @@
       "trades": 45
     },
     "regime": "Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo.",
-    "worksIn": [
-      "lateral"
-    ],
-    "failsIn": [
-      "tendencia"
-    ],
+    "worksIn": ["lateral"],
+    "failsIn": ["tendencia"],
     "assumedCosts": {
       "commissionPct": 0.05,
       "commissionMin": 1,
@@ -231,11 +217,7 @@
         "step": 0.5
       }
     },
-    "markets": [
-      "SPY",
-      "QQQ",
-      "TLT"
-    ],
+    "markets": ["SPY", "QQQ", "TLT"],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -255,9 +237,7 @@
       "trades": 53
     },
     "regime": "Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales.",
-    "worksIn": [
-      "tendencia"
-    ],
+    "worksIn": ["tendencia"],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,
@@ -299,18 +279,7 @@
         "step": 1
       }
     },
-    "markets": [
-      "SPY",
-      "QQQ",
-      "DIA",
-      "IWM",
-      "VTI",
-      "XLF",
-      "XLK",
-      "XLE",
-      "XLV",
-      "TLT"
-    ],
+    "markets": ["SPY", "QQQ", "DIA", "IWM", "VTI", "XLF", "XLK", "XLE", "XLV", "TLT"],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -330,9 +299,7 @@
       "trades": 25
     },
     "regime": "Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas.",
-    "worksIn": [
-      "tendencia"
-    ],
+    "worksIn": ["tendencia"],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,

@@ -56,7 +56,10 @@ const joinLabels = (labels: readonly RegimeLabel[]): string =>
  * etiqueta pero su sesión es anterior a la última esperada, así que no
  * habilita ni desactiva hasta que los datos se pongan al día.
  */
-export function staleRegimeResolution(sessionDate: string, expected: string): StrategyRegimeResolution {
+export function staleRegimeResolution(
+  sessionDate: string,
+  expected: string,
+): StrategyRegimeResolution {
   return {
     regimeState: 'desactualizada',
     reason:

@@ -233,9 +233,7 @@
         "name": "Cruce de medias",
         "version": 1,
         "status": "paper",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "desactualizada",
         "reason": "El régimen del mercado está desactualizado (último cierre 2026-09-18; se esperaba la sesión del 2026-10-09): no habilita ni desactiva."
@@ -245,12 +243,8 @@
         "name": "Reversión RSI/Bollinger",
         "version": 1,
         "status": "paper",
-        "worksIn": [
-          "lateral"
-        ],
-        "failsIn": [
-          "tendencia"
-        ],
+        "worksIn": ["lateral"],
+        "failsIn": ["tendencia"],
         "regimeState": "desactualizada",
         "reason": "El régimen del mercado está desactualizado (último cierre 2026-09-18; se esperaba la sesión del 2026-10-09): no habilita ni desactiva."
       },
@@ -259,9 +253,7 @@
         "name": "Ruptura de rangos",
         "version": 1,
         "status": "paper",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "desactualizada",
         "reason": "El régimen del mercado está desactualizado (último cierre 2026-09-18; se esperaba la sesión del 2026-10-09): no habilita ni desactiva."
@@ -271,9 +263,7 @@
         "name": "Momentum entre activos",
         "version": 1,
         "status": "paper",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "desactualizada",
         "reason": "El régimen del mercado está desactualizado (último cierre 2026-09-18; se esperaba la sesión del 2026-10-09): no habilita ni desactiva."

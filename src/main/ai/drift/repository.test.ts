@@ -102,9 +102,7 @@ describe('drift_checks', () => {
 
 describe('retrain_proposals', () => {
   it('crea la propuesta pendiente y calcula la próxima fecha permitida', () => {
-    const cardId = createPredictionsRepository(db).registerModelCard(
-      parseModelCard(cardJson()),
-    ).id;
+    const cardId = createPredictionsRepository(db).registerModelCard(parseModelCard(cardJson())).id;
     const strategyId = createStrategiesRepository(db).create({
       name: 'Cruce de medias',
       hypothesis: 'h',

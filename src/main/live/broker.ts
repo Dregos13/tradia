@@ -316,8 +316,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       isOnline: deps.isOnline,
       checkOrderAllowed: (request, context) =>
         liveOrderBlockReason(orderSnapshot(), request, context),
-      orderWirePrice: (request, context) =>
-        liveOrderWirePrice(orderSnapshot(), request, context),
+      orderWirePrice: (request, context) => liveOrderWirePrice(orderSnapshot(), request, context),
       recordJournal: deps.recordJournal,
       onOrderUpdated: deps.emitOrderUpdated,
       sleep: deps.sleep,

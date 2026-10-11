@@ -166,11 +166,12 @@ resultado `error` en el panel y **no** detienen a las demás.
 ## Posiciones simuladas (`signals/paper.ts`)
 
 Cada señal persistida con decisión **aprobada** o **reducida** y tamaño
+
 > 0 abre una posición en la cartera simulada (`risk_portfolio_positions`,
-fase 3 + columnas de la migración 009). La apertura copia la entrada, el
-stop, el objetivo y el tamaño de la decisión de la pasarela y enlaza la
-posición con la señal (`senal_id`) y con la vela que la emitió
-(`vela_apertura`). **Nunca se envía una orden a un broker.**
+> fase 3 + columnas de la migración 009). La apertura copia la entrada, el
+> stop, el objetivo y el tamaño de la decisión de la pasarela y enlaza la
+> posición con la señal (`senal_id`) y con la vela que la emitió
+> (`vela_apertura`). **Nunca se envía una orden a un broker.**
 
 - **Seguimiento**: cada lote guardado (`onBarsStored`) evalúa las
   posiciones abiertas del activo contra la vela recién llegada, siempre

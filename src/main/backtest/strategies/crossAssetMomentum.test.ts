@@ -29,10 +29,7 @@ function momentumBars(): Record<string, EngineBar[]> {
     closes['CCC']!.push(i < 30 ? 100 : 100 * Math.pow(1.08, i - 30));
   }
   return Object.fromEntries(
-    Object.entries(closes).map(([ticker, series]) => [
-      ticker,
-      seriesFromCloses(DATES, series),
-    ]),
+    Object.entries(closes).map(([ticker, series]) => [ticker, seriesFromCloses(DATES, series)]),
   );
 }
 
@@ -121,9 +118,9 @@ describe('momentum entre activos (rotación mensual al top N)', () => {
     // Sanity: las entradas de febrero son anteriores al corte…
     expect(original.trades.filter((t) => t.entryDate <= '2024-02-10')).toHaveLength(2);
     // …y la corrupción posterior sí cambia el tramo final de la curva.
-    expect(
-      altered.equityCurve.filter((p) => p.date > '2024-02-10'),
-    ).not.toEqual(original.equityCurve.filter((p) => p.date > '2024-02-10'));
+    expect(altered.equityCurve.filter((p) => p.date > '2024-02-10')).not.toEqual(
+      original.equityCurve.filter((p) => p.date > '2024-02-10'),
+    );
   });
 
   it('los parámetros de la ficha semilla son los valores por defecto', () => {

@@ -132,18 +132,14 @@ describe('registerDrift', () => {
   });
 
   it('el gancho postmercado de la rutina ejecuta la revisión diaria', () => {
-    const cardId = createPredictionsRepository(db).registerModelCard(
-      parseModelCard(cardJson()),
-    ).id;
+    const cardId = createPredictionsRepository(db).registerModelCard(parseModelCard(cardJson())).id;
     fichas = [seedFicha()];
     registerDrift(makeCtx());
     expect(postMarketListener).not.toBeNull();
 
     postMarketListener!('2026-10-10');
     const rows = db
-      .prepare(
-        "SELECT tipo FROM drift_checks WHERE ambito IN ('modelo','estrategia') ORDER BY id",
-      )
+      .prepare("SELECT tipo FROM drift_checks WHERE ambito IN ('modelo','estrategia') ORDER BY id")
       .all() as { tipo: string }[];
     // 'datos' no se crea: la ficha del fixture no tiene referencia; sí
     // 'resultados' del modelo y 'rendimiento' de la estrategia activa.
@@ -176,11 +172,14 @@ describe('registerDrift', () => {
     electron.isPackaged = false;
     vi.stubEnv('TRADIA_E2E', '1');
     registerDrift(makeCtx());
-    const view = electron.handlers.get(IPC_CHANNELS.ai.simulateDrift)!({}, {
-      kind: 'rendimiento',
-      subjectId: fichas[0]!.id,
-      streak: 2,
-    }) as { subjects: { state: string; subject: string }[]; proposals: unknown[] };
+    const view = electron.handlers.get(IPC_CHANNELS.ai.simulateDrift)!(
+      {},
+      {
+        kind: 'rendimiento',
+        subjectId: fichas[0]!.id,
+        streak: 2,
+      },
+    ) as { subjects: { state: string; subject: string }[]; proposals: unknown[] };
     expect(fichas[0]!.status).toBe('degradada');
     expect(view.subjects.find((s) => s.subject === 'estrategia')!.state).toBe('degradada');
     expect(view.proposals).toHaveLength(1);

@@ -33,11 +33,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { accessSync, constants as fsConstants, readdirSync, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
-import {
-  buildUserContent,
-  parseNewsAnalysisOutput,
-  SYSTEM_PROMPT,
-} from './anthropic';
+import { buildUserContent, parseNewsAnalysisOutput, SYSTEM_PROMPT } from './anthropic';
 import {
   NewsLlmError,
   truncateExternal,
@@ -133,15 +129,17 @@ export interface ClaudeCliResolveDeps {
   listDir?: (path: string) => string[];
 }
 
-const defaultIsExecutableFile = (platform: NodeJS.Platform) => (path: string): boolean => {
-  try {
-    if (!statSync(path).isFile()) return false;
-    if (platform !== 'win32') accessSync(path, fsConstants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-};
+const defaultIsExecutableFile =
+  (platform: NodeJS.Platform) =>
+  (path: string): boolean => {
+    try {
+      if (!statSync(path).isFile()) return false;
+      if (platform !== 'win32') accessSync(path, fsConstants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
 const defaultListDir = (path: string): string[] => {
   try {
@@ -337,11 +335,7 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
       };
       const timer = setTimeout(() => {
         kill();
-        finish(() =>
-          reject(
-            new NewsLlmError('timeout', `la CLI no respondió en ${timeoutMs} ms`),
-          ),
-        );
+        finish(() => reject(new NewsLlmError('timeout', `la CLI no respondió en ${timeoutMs} ms`)));
       }, timeoutMs);
 
       child.on('error', (error) => {
@@ -358,9 +352,7 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
         stdout += chunk;
         if (stdout.length > CLAUDE_CLI_STDOUT_MAX_BYTES) {
           kill();
-          finish(() =>
-            reject(new NewsLlmError('bad-data', 'la salida de la CLI supera el tope')),
-          );
+          finish(() => reject(new NewsLlmError('bad-data', 'la salida de la CLI supera el tope')));
         }
       });
       child.stderr?.on('data', (chunk: Buffer | string) => {
@@ -426,10 +418,7 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
     }
     const subtype = obj['subtype'];
     if (typeof subtype === 'string' && subtype !== 'success') {
-      throw new NewsLlmError(
-        'server',
-        `la CLI terminó con «${truncateExternal(subtype, 60)}»`,
-      );
+      throw new NewsLlmError('server', `la CLI terminó con «${truncateExternal(subtype, 60)}»`);
     }
     if (typeof obj['result'] === 'string') return obj['result'];
     return stdout;

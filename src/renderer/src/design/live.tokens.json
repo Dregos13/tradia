@@ -9,33 +9,183 @@
   },
   "color": {
     "live": {
-      "banner": { "light": "#861F31", "lightText": "#FFFFFF", "dark": "#F2A7B2", "darkText": "#2B0710", "label": "DINERO REAL", "icon": "shield-alert", "contrastLight": "9.32:1", "contrastDark": "9.60:1" },
+      "banner": {
+        "light": "#861F31",
+        "lightText": "#FFFFFF",
+        "dark": "#F2A7B2",
+        "darkText": "#2B0710",
+        "label": "DINERO REAL",
+        "icon": "shield-alert",
+        "contrastLight": "9.32:1",
+        "contrastDark": "9.60:1"
+      },
       "bannerHover": { "light": "#6E1727", "dark": "#FFC1C9", "name": "Acción sobre franja" },
       "surface": { "light": "#FBE4E7", "dark": "#4B1C26", "name": "Superficie de dinero real" },
-      "text": { "light": "#8B1E2D", "dark": "#FFB2BD", "name": "Texto de dinero real", "contrastLightOnSurface": "7.48:1", "contrastDarkOnSurface": "8.27:1" }
+      "text": {
+        "light": "#8B1E2D",
+        "dark": "#FFB2BD",
+        "name": "Texto de dinero real",
+        "contrastLightOnSurface": "7.48:1",
+        "contrastDarkOnSurface": "8.27:1"
+      }
     },
     "requirement": {
-      "complete": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Cumplido", "icon": "circle-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "pending": { "light": "#8B1E2D", "lightSurface": "#FBE4E7", "dark": "#FFB2BD", "darkSurface": "#4B1C26", "label": "Pendiente", "icon": "circle-x", "contrastLight": "7.48:1", "contrastDark": "8.27:1" },
-      "review": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Revisar", "icon": "clock-3", "contrastLight": "5.68:1", "contrastDark": "8.12:1" },
-      "locked": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Verificación automática", "icon": "lock", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "complete": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Cumplido",
+        "icon": "circle-check",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "pending": {
+        "light": "#8B1E2D",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FFB2BD",
+        "darkSurface": "#4B1C26",
+        "label": "Pendiente",
+        "icon": "circle-x",
+        "contrastLight": "7.48:1",
+        "contrastDark": "8.27:1"
+      },
+      "review": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "label": "Revisar",
+        "icon": "clock-3",
+        "contrastLight": "5.68:1",
+        "contrastDark": "8.12:1"
+      },
+      "locked": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Verificación automática",
+        "icon": "lock",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "liveMode": {
-      "blocked": { "light": "#8B1E2D", "lightSurface": "#FBE4E7", "dark": "#FFB2BD", "darkSurface": "#4B1C26", "label": "Dinero real bloqueado", "icon": "lock-keyhole", "contrastLight": "7.48:1", "contrastDark": "8.27:1" },
-      "ready": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Listo para confirmar", "icon": "shield-check", "contrastLight": "5.68:1", "contrastDark": "8.12:1" },
-      "active": { "light": "#861F31", "lightSurface": "#FBE4E7", "dark": "#F2A7B2", "darkSurface": "#4B1C26", "label": "Dinero real activo", "icon": "shield-alert", "contrastLight": "7.70:1", "contrastDark": "7.33:1" },
-      "suspended": { "light": "#8B1E2D", "lightSurface": "#FBE4E7", "dark": "#FFB2BD", "darkSurface": "#4B1C26", "label": "Dinero real suspendido", "icon": "octagon-pause", "contrastLight": "7.48:1", "contrastDark": "8.27:1" }
+      "blocked": {
+        "light": "#8B1E2D",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FFB2BD",
+        "darkSurface": "#4B1C26",
+        "label": "Dinero real bloqueado",
+        "icon": "lock-keyhole",
+        "contrastLight": "7.48:1",
+        "contrastDark": "8.27:1"
+      },
+      "ready": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "label": "Listo para confirmar",
+        "icon": "shield-check",
+        "contrastLight": "5.68:1",
+        "contrastDark": "8.12:1"
+      },
+      "active": {
+        "light": "#861F31",
+        "lightSurface": "#FBE4E7",
+        "dark": "#F2A7B2",
+        "darkSurface": "#4B1C26",
+        "label": "Dinero real activo",
+        "icon": "shield-alert",
+        "contrastLight": "7.70:1",
+        "contrastDark": "7.33:1"
+      },
+      "suspended": {
+        "light": "#8B1E2D",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FFB2BD",
+        "darkSurface": "#4B1C26",
+        "label": "Dinero real suspendido",
+        "icon": "octagon-pause",
+        "contrastLight": "7.48:1",
+        "contrastDark": "8.27:1"
+      }
     },
     "smoke": {
-      "notRun": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "No ejecutada", "icon": "circle-dashed", "contrastLight": "5.91:1", "contrastDark": "7.25:1" },
-      "running": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "En curso", "icon": "loader", "contrastLight": "6.47:1", "contrastDark": "5.62:1" },
-      "reconciled": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Cerrada y conciliada", "icon": "badge-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "failed": { "light": "#8B1E2D", "lightSurface": "#FBE4E7", "dark": "#FFB2BD", "darkSurface": "#4B1C26", "label": "Fallida", "icon": "triangle-alert", "contrastLight": "7.48:1", "contrastDark": "8.27:1" }
+      "notRun": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "No ejecutada",
+        "icon": "circle-dashed",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      },
+      "running": {
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "label": "En curso",
+        "icon": "loader",
+        "contrastLight": "6.47:1",
+        "contrastDark": "5.62:1"
+      },
+      "reconciled": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Cerrada y conciliada",
+        "icon": "badge-check",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "failed": {
+        "light": "#8B1E2D",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FFB2BD",
+        "darkSurface": "#4B1C26",
+        "label": "Fallida",
+        "icon": "triangle-alert",
+        "contrastLight": "7.48:1",
+        "contrastDark": "8.27:1"
+      }
     },
     "scaling": {
-      "locked": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Escalado bloqueado", "icon": "lock", "contrastLight": "5.91:1", "contrastDark": "7.25:1" },
-      "evidence": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Evidencia en curso", "icon": "chart-no-axes-combined", "contrastLight": "6.47:1", "contrastDark": "5.62:1" },
-      "eligible": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Elegible para evaluación en fase 8", "icon": "clipboard-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1" }
+      "locked": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Escalado bloqueado",
+        "icon": "lock",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      },
+      "evidence": {
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "label": "Evidencia en curso",
+        "icon": "chart-no-axes-combined",
+        "contrastLight": "6.47:1",
+        "contrastDark": "5.62:1"
+      },
+      "eligible": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Elegible para evaluación en fase 8",
+        "icon": "clipboard-check",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      }
     },
     "overlay": {
       "light": "rgba(23, 35, 58, 0.62)",
@@ -45,9 +195,15 @@
   },
   "typography": {
     "family": {
-      "interface": { "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", "name": "Interfaz" },
+      "interface": {
+        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz"
+      },
       "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
-      "numeric": { "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace", "name": "Datos" }
+      "numeric": {
+        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos"
+      }
     },
     "numeric": { "fontVariantNumeric": "tabular-nums", "slashedZero": true },
     "size": {
@@ -61,7 +217,19 @@
     "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
     "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
   },
-  "spacing": { "0": "0", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px", "16": "64px" },
+  "spacing": {
+    "0": "0",
+    "1": "4px",
+    "2": "8px",
+    "3": "12px",
+    "4": "16px",
+    "5": "20px",
+    "6": "24px",
+    "8": "32px",
+    "10": "40px",
+    "12": "48px",
+    "16": "64px"
+  },
   "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
   "shadow": {
     "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
@@ -78,5 +246,11 @@
     "dialogMax": "620px",
     "smokeTimelineRail": "2px"
   },
-  "motion": { "fast": "120ms", "normal": "200ms", "slow": "320ms", "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)", "reduced": "0ms" }
+  "motion": {
+    "fast": "120ms",
+    "normal": "200ms",
+    "slow": "320ms",
+    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "reduced": "0ms"
+  }
 }

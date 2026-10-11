@@ -134,10 +134,7 @@ export interface LiveSmokeDeps {
    */
   referencePrice(
     ticker: string,
-  ):
-    | { price: number; asOf: string }
-    | null
-    | Promise<{ price: number; asOf: string } | null>;
+  ): { price: number; asOf: string } | null | Promise<{ price: number; asOf: string } | null>;
   /**
    * Reloj de mercado para juzgar la frescura de la referencia (el reloj
    * anclado con el que se ingieren las velas); por defecto `now`.

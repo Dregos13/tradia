@@ -109,10 +109,7 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
       disclaimerAcceptedAt: store.getValue(KEYS.disclaimerAcceptedAt) || null,
       brokerExecutionEnabled: store.getValue(KEYS.brokerExecutionEnabled) !== 'false',
       deviationMarginPp: getNumber(KEYS.deviationMarginPp, DEVIATION_MARGIN_PP_DEFAULT),
-      deviationSlippageBps: getNumber(
-        KEYS.deviationSlippageBps,
-        DEVIATION_SLIPPAGE_BPS_DEFAULT,
-      ),
+      deviationSlippageBps: getNumber(KEYS.deviationSlippageBps, DEVIATION_SLIPPAGE_BPS_DEFAULT),
       onboardingTourVersion: store.getValue(KEYS.onboardingTourVersion) || null,
       onboardingTourCompletedAt: store.getValue(KEYS.onboardingTourCompletedAt) || null,
     }),

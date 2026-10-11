@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const projectRoot = resolve('.');
 
@@ -29,6 +30,7 @@ async function acceptRisk(page: Page) {
   await page.getByLabel('He leído y acepto').check();
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
+  await skipGuidedTour(page);
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 }
 

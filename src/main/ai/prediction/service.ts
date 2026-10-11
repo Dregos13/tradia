@@ -402,8 +402,7 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
     // de «degradada por drift» que escribe ai/drift se ve al instante en
     // `ai:model-card` y en la aptitud para señales.
     modelCard: () => {
-      const fresh =
-        card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
+      const fresh = card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
       return fresh ?? deps.repo.latestModelCard();
     },
 
@@ -412,8 +411,7 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
     latestPrediction: (ticker) => deps.repo.latestPrediction(ticker),
 
     eligibleModel: () => {
-      const fresh =
-        card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
+      const fresh = card === null ? null : (deps.repo.modelCard(card.version, card.hash) ?? card);
       return model !== null && fresh !== null && fresh.eligible
         ? { version: model.version, hash: model.modelHash, horizonDays: model.horizonDays }
         : null;

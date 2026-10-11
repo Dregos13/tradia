@@ -27,41 +27,41 @@ Se ha atacado desde fuera, con los servicios reales cableados y sin simular la l
 
 ## Garantía → prueba que intenta violarla
 
-| Garantía | Prueba (archivo:línea) | Resultado |
-| --- | --- | --- |
-| Un titular sin verificar no se analiza aunque se falsifique `confirmed` en el evento | `ai.audit.test.ts:172` | Se cumple |
-| La inyección en un titular no crea señales ni emite `signals:new` | `ai.audit.test.ts:172` | Se cumple |
-| El titular no rompe la cerca `<titular>` del prompt | `ai.audit.test.ts:272` | Se cumple |
-| Con activos ligados, el LLM no añade otro ticker | `ai.audit.test.ts:291` | Se cumple |
-| Sin activos ligados, el LLM no atribuye sentimiento a un ticker no mencionado | `ai.audit.test.ts:308` | **H4 · falla** |
-| Una noticia desconfirmada deja de influir | `ai.audit.test.ts:329` | **H5 · falla** |
-| Una predicción del 99 % con noticias eufóricas no crea señal sin votos de estrategias | `ai.audit.test.ts:480` | Se cumple |
-| La IA no resucita una estrategia desactivada por régimen | `ai.audit.test.ts:487` | Se cumple |
-| Toda señal con IA pasa por la pasarela de riesgo y conserva su veto | `ai.audit.test.ts:494` | Se cumple |
-| Racha de 1 revisión (gancho E2E) no degrada; drift de 19 sesiones tampoco; 20 sí | `ai.audit.test.ts:535` | Se cumple |
-| Racha aislada en la revisión mensual **real** no degrada | `ai.audit.test.ts:618` | **H3 · falla** |
-| Reentrenamiento: no se pospone al pasado, no se resuelve dos veces, aprobar no reentrena en la app | `ai.audit.test.ts:574` | Se cumple |
-| `ai:simulate-regime` y `ai:simulate-drift` no existen empaquetada o sin `TRADIA_E2E` | `ai.audit.test.ts:681` | Se cumple |
-| El clasificador de régimen es causal (velas futuras alteradas ×3 no cambian el pasado) | `ai.audit.test.ts:764` | Se cumple |
-| El backtest con y sin filtro no tiene look-ahead | `ai.audit.test.ts:774` | Se cumple |
-| El filtro solo quita entradas sobre los mismos datos | `ai.audit.test.ts:790` | Se cumple |
-| `live:activate` sin la lista se rechaza y enumera cada requisito pendiente | `live.audit.test.ts:233` | Se cumple |
-| `live:declare` no marca requisitos automáticos ni acepta campos extra | `live.audit.test.ts:233` | Se cumple |
-| `live:set-limits` por encima del techo se rechaza en el borde | `live.audit.test.ts:233` | Se cumple |
-| Cargas útiles manipuladas (`NaN`, `Infinity`, cadenas, negativos, `confirmed: true`, campos extra, frase vacía o larga) | `live.audit.test.ts:279` | Se cumple |
-| Frase literal: sufijos, minúsculas, espacio de ancho cero o frase de otros límites se rechazan | `live.audit.test.ts:312` | Se cumple |
-| Retirar una declaración con el modo activo lo suspende, y volver a declararla no lo reactiva | `live.audit.test.ts:350` | Se cumple |
-| Evidencia manipulada en `settings` fuera de E2E no cumple la lista | `live.audit.test.ts:363` | **H1 · falla** |
-| Sin la lista no se conecta ni se guardan claves; las claves paper (`PK…`) se rechazan | `live.audit.test.ts:415` | Se cumple |
-| Orden por encima del techo por orden no llega al broker | `live.audit.test.ts:436` | Se cumple |
-| Segunda posición que excede el capital escrito se bloquea | `live.audit.test.ts:448` | Se cumple |
-| Máximo de posiciones abiertas respetado | `live.audit.test.ts:470` | Se cumple |
-| Señal vetada o de tamaño 0 nunca se envía | `live.audit.test.ts:483` | Se cumple |
-| Parada, desconexión o cambio de límites suspenden y bloquean | `live.audit.test.ts:490` | Se cumple |
-| Requisito vencido sin reevaluación previa: la orden no pasa | `live.audit.test.ts:518` | Se cumple (lo para el adaptador) |
-| Orden de mercado ejecutada por encima del techo por orden | `live.audit.test.ts:535` | **H2 · falla** |
-| Prueba de humo sin `confirm: true` o sin modo activo no se lanza | `live.audit.test.ts:560` | Se cumple |
-| `live:seed-progress` y `live:use-simulated-broker` no existen empaquetada o sin `TRADIA_E2E` | `live.audit.test.ts:577` | Se cumple |
+| Garantía                                                                                                                | Prueba (archivo:línea)   | Resultado                        |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------------- |
+| Un titular sin verificar no se analiza aunque se falsifique `confirmed` en el evento                                    | `ai.audit.test.ts:172`   | Se cumple                        |
+| La inyección en un titular no crea señales ni emite `signals:new`                                                       | `ai.audit.test.ts:172`   | Se cumple                        |
+| El titular no rompe la cerca `<titular>` del prompt                                                                     | `ai.audit.test.ts:272`   | Se cumple                        |
+| Con activos ligados, el LLM no añade otro ticker                                                                        | `ai.audit.test.ts:291`   | Se cumple                        |
+| Sin activos ligados, el LLM no atribuye sentimiento a un ticker no mencionado                                           | `ai.audit.test.ts:308`   | **H4 · falla**                   |
+| Una noticia desconfirmada deja de influir                                                                               | `ai.audit.test.ts:329`   | **H5 · falla**                   |
+| Una predicción del 99 % con noticias eufóricas no crea señal sin votos de estrategias                                   | `ai.audit.test.ts:480`   | Se cumple                        |
+| La IA no resucita una estrategia desactivada por régimen                                                                | `ai.audit.test.ts:487`   | Se cumple                        |
+| Toda señal con IA pasa por la pasarela de riesgo y conserva su veto                                                     | `ai.audit.test.ts:494`   | Se cumple                        |
+| Racha de 1 revisión (gancho E2E) no degrada; drift de 19 sesiones tampoco; 20 sí                                        | `ai.audit.test.ts:535`   | Se cumple                        |
+| Racha aislada en la revisión mensual **real** no degrada                                                                | `ai.audit.test.ts:618`   | **H3 · falla**                   |
+| Reentrenamiento: no se pospone al pasado, no se resuelve dos veces, aprobar no reentrena en la app                      | `ai.audit.test.ts:574`   | Se cumple                        |
+| `ai:simulate-regime` y `ai:simulate-drift` no existen empaquetada o sin `TRADIA_E2E`                                    | `ai.audit.test.ts:681`   | Se cumple                        |
+| El clasificador de régimen es causal (velas futuras alteradas ×3 no cambian el pasado)                                  | `ai.audit.test.ts:764`   | Se cumple                        |
+| El backtest con y sin filtro no tiene look-ahead                                                                        | `ai.audit.test.ts:774`   | Se cumple                        |
+| El filtro solo quita entradas sobre los mismos datos                                                                    | `ai.audit.test.ts:790`   | Se cumple                        |
+| `live:activate` sin la lista se rechaza y enumera cada requisito pendiente                                              | `live.audit.test.ts:233` | Se cumple                        |
+| `live:declare` no marca requisitos automáticos ni acepta campos extra                                                   | `live.audit.test.ts:233` | Se cumple                        |
+| `live:set-limits` por encima del techo se rechaza en el borde                                                           | `live.audit.test.ts:233` | Se cumple                        |
+| Cargas útiles manipuladas (`NaN`, `Infinity`, cadenas, negativos, `confirmed: true`, campos extra, frase vacía o larga) | `live.audit.test.ts:279` | Se cumple                        |
+| Frase literal: sufijos, minúsculas, espacio de ancho cero o frase de otros límites se rechazan                          | `live.audit.test.ts:312` | Se cumple                        |
+| Retirar una declaración con el modo activo lo suspende, y volver a declararla no lo reactiva                            | `live.audit.test.ts:350` | Se cumple                        |
+| Evidencia manipulada en `settings` fuera de E2E no cumple la lista                                                      | `live.audit.test.ts:363` | **H1 · falla**                   |
+| Sin la lista no se conecta ni se guardan claves; las claves paper (`PK…`) se rechazan                                   | `live.audit.test.ts:415` | Se cumple                        |
+| Orden por encima del techo por orden no llega al broker                                                                 | `live.audit.test.ts:436` | Se cumple                        |
+| Segunda posición que excede el capital escrito se bloquea                                                               | `live.audit.test.ts:448` | Se cumple                        |
+| Máximo de posiciones abiertas respetado                                                                                 | `live.audit.test.ts:470` | Se cumple                        |
+| Señal vetada o de tamaño 0 nunca se envía                                                                               | `live.audit.test.ts:483` | Se cumple                        |
+| Parada, desconexión o cambio de límites suspenden y bloquean                                                            | `live.audit.test.ts:490` | Se cumple                        |
+| Requisito vencido sin reevaluación previa: la orden no pasa                                                             | `live.audit.test.ts:518` | Se cumple (lo para el adaptador) |
+| Orden de mercado ejecutada por encima del techo por orden                                                               | `live.audit.test.ts:535` | **H2 · falla**                   |
+| Prueba de humo sin `confirm: true` o sin modo activo no se lanza                                                        | `live.audit.test.ts:560` | Se cumple                        |
+| `live:seed-progress` y `live:use-simulated-broker` no existen empaquetada o sin `TRADIA_E2E`                            | `live.audit.test.ts:577` | Se cumple                        |
 
 ## Hallazgos
 

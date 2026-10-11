@@ -325,38 +325,35 @@ describe('resolución de la ruta de la CLI', () => {
     expect(viaPath).toMatchObject({ path: cliPath, source: 'path' });
   });
 
-  it.skipIf(ON_WINDOWS)(
-    'encuentra `claude` en ubicaciones conocidas (~/.local/bin y nvm)',
-    () => {
-      // Sin PATH pero con instalación nativa en ~/.local/bin.
-      mkdirSync(join(home, '.local/bin'), { recursive: true });
-      copyFileSync(FIXTURE, join(home, '.local/bin/claude'));
-      chmodSync(join(home, '.local/bin/claude'), 0o755);
-      const viaKnown = resolveClaudeCli({
-        env: { HOME: home, PATH: join(root, 'vacio'), TMPDIR: root },
-        isExecutableFile: sandboxedIsExecutable,
-        listDir: readdirSyncSandbox,
-      });
-      expect(viaKnown).toMatchObject({
-        path: join(home, '.local/bin/claude'),
-        source: 'known',
-      });
+  it.skipIf(ON_WINDOWS)('encuentra `claude` en ubicaciones conocidas (~/.local/bin y nvm)', () => {
+    // Sin PATH pero con instalación nativa en ~/.local/bin.
+    mkdirSync(join(home, '.local/bin'), { recursive: true });
+    copyFileSync(FIXTURE, join(home, '.local/bin/claude'));
+    chmodSync(join(home, '.local/bin/claude'), 0o755);
+    const viaKnown = resolveClaudeCli({
+      env: { HOME: home, PATH: join(root, 'vacio'), TMPDIR: root },
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: readdirSyncSandbox,
+    });
+    expect(viaKnown).toMatchObject({
+      path: join(home, '.local/bin/claude'),
+      source: 'known',
+    });
 
-      // nvm en OTRA home (sin ~/.local/bin): elige la versión más reciente.
-      const nvmHome = join(root, 'nvmhome');
-      for (const version of ['v18.0.0', 'v20.0.0']) {
-        const dir = join(nvmHome, '.nvm/versions/node', version, 'bin');
-        mkdirSync(dir, { recursive: true });
-        const target = join(dir, 'claude');
-        copyFileSync(FIXTURE, target);
-        chmodSync(target, 0o755);
-      }
-      const viaNvm = resolveClaudeCli({
-        env: { HOME: nvmHome, PATH: join(root, 'vacio'), TMPDIR: root },
-        isExecutableFile: sandboxedIsExecutable,
-        listDir: readdirSyncSandbox,
-      });
-      expect(viaNvm.path).toBe(join(nvmHome, '.nvm/versions/node/v20.0.0/bin/claude'));
-    },
-  );
+    // nvm en OTRA home (sin ~/.local/bin): elige la versión más reciente.
+    const nvmHome = join(root, 'nvmhome');
+    for (const version of ['v18.0.0', 'v20.0.0']) {
+      const dir = join(nvmHome, '.nvm/versions/node', version, 'bin');
+      mkdirSync(dir, { recursive: true });
+      const target = join(dir, 'claude');
+      copyFileSync(FIXTURE, target);
+      chmodSync(target, 0o755);
+    }
+    const viaNvm = resolveClaudeCli({
+      env: { HOME: nvmHome, PATH: join(root, 'vacio'), TMPDIR: root },
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: readdirSyncSandbox,
+    });
+    expect(viaNvm.path).toBe(join(nvmHome, '.nvm/versions/node/v20.0.0/bin/claude'));
+  });
 });

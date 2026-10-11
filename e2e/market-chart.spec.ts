@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 test('añade un ticker, recibe histórico simulado con indicadores y confirma quitarlo', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-chart-'));
@@ -37,6 +38,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await page.getByRole('link', { name: 'Mercado', exact: true }).click();
     await expect(page.getByText('Tu lista está vacía.')).toBeVisible();
     const tickerInput = page.getByLabel('Ticker', { exact: true });
@@ -170,9 +172,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     const providerBanner = page.getByRole('region', { name: 'Datos del mercado' });
     await expect(providerBanner).toBeVisible();
     await expect(providerBanner).toContainText(/Datos no fiables desde el/);
-    await expect(
-      providerBanner.getByRole('button', { name: 'Actualizar ahora' }),
-    ).toBeVisible();
+    await expect(providerBanner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
     await expect(page.locator('.market-chart-card')).toHaveClass(/data-unreliable/);
     await expect
       .poll(() =>
@@ -191,9 +191,9 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.screenshot({ path: 'test-results/provider-failure-dark.png' });
     await providerBanner.getByRole('button', { name: 'Actualizar ahora' }).click();
-    await expect(
-      page.locator('.provider-banners').getByRole('status').first(),
-    ).toContainText('Actualización solicitada');
+    await expect(page.locator('.provider-banners').getByRole('status').first()).toContainText(
+      'Actualización solicitada',
+    );
     await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
     await expect(providerBanner).toHaveCount(0);
     await expect(page.locator('.market-chart-card')).not.toHaveClass(/data-unreliable/);

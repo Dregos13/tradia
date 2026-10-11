@@ -24,7 +24,12 @@ const analyzerStub = (
   label: 'llm' | 'local' | 'suscripcion' = 'local',
 ): NewsHeadlineAnalyzer & { analyze: ReturnType<typeof vi.fn> } => ({
   analyzer: label,
-  model: label === 'llm' ? 'claude-haiku-4-5-20251001' : label === 'suscripcion' ? 'claude-code-cli' : null,
+  model:
+    label === 'llm'
+      ? 'claude-haiku-4-5-20251001'
+      : label === 'suscripcion'
+        ? 'claude-code-cli'
+        : null,
   analyze: vi.fn(
     impl ??
       (async (input) => ({
@@ -259,11 +264,13 @@ describe('elección de analizador y respaldo local', () => {
 });
 
 describe('proveedor por suscripción (CLI de Claude Code)', () => {
-  const subStub = (overrides: {
-    analyze?: NewsHeadlineAnalyzer['analyze'];
-    available?: boolean;
-    ping?: () => Promise<number>;
-  } = {}) =>
+  const subStub = (
+    overrides: {
+      analyze?: NewsHeadlineAnalyzer['analyze'];
+      available?: boolean;
+      ping?: () => Promise<number>;
+    } = {},
+  ) =>
     Object.assign(analyzerStub(overrides.analyze, 'suscripcion'), {
       available: vi.fn(() => overrides.available ?? true),
       ...(overrides.ping ? { ping: vi.fn(overrides.ping) } : {}),
@@ -512,7 +519,12 @@ describe('filtro de activos del resultado (solo ligados o mencionados)', () => {
     });
     service.enqueueItem({ id, confirmed: true });
     await service.drain();
-    expect(repo.list().map((row) => row.ticker).sort()).toEqual(['AAPL', 'MSFT']);
+    expect(
+      repo
+        .list()
+        .map((row) => row.ticker)
+        .sort(),
+    ).toEqual(['AAPL', 'MSFT']);
   });
 });
 

@@ -54,9 +54,10 @@ describe('fichas semilla de las estrategias clásicas', () => {
         const value = params[param]!;
         expect(value, `${key}.${param} bajo el mínimo`).toBeGreaterThanOrEqual(range.min);
         expect(value, `${key}.${param} sobre el máximo`).toBeLessThanOrEqual(range.max);
-        expect(closeToStep(value, range.min, range.step), `${key}.${param} fuera de la rejilla`).toBe(
-          true,
-        );
+        expect(
+          closeToStep(value, range.min, range.step),
+          `${key}.${param} fuera de la rejilla`,
+        ).toBe(true);
       }
     }
   });

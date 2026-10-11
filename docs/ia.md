@@ -5,12 +5,12 @@ cuatro **informan y ajustan, nunca deciden solas**: ninguna crea una señal
 ni una orden, y todo lo que aportan pasa igualmente por la pasarela única
 de riesgo (`risk:submit-signal`, ver `docs/senales.md`).
 
-| Pieza | Módulo | Canales IPC |
-| --- | --- | --- |
-| Régimen de mercado | `src/main/ai/regime/` | `ai:regime-overview`, `ai:simulate-regime`* |
-| Predicción ONNX | `src/main/ai/prediction/` | `ai:predictions`, `ai:model-card` |
-| Noticias con LLM | `src/main/ai/news/` | `ai:news-analysis`, `ai:get-llm-settings`, `ai:set-llm-settings`, `ai:test-llm` |
-| Salud de modelos | `src/main/ai/drift/` | `ai:health`, `ai:retrain-proposals`, `ai:resolve-retrain`, `ai:simulate-drift`* |
+| Pieza              | Módulo                    | Canales IPC                                                                     |
+| ------------------ | ------------------------- | ------------------------------------------------------------------------------- |
+| Régimen de mercado | `src/main/ai/regime/`     | `ai:regime-overview`, `ai:simulate-regime`*                                     |
+| Predicción ONNX    | `src/main/ai/prediction/` | `ai:predictions`, `ai:model-card`                                               |
+| Noticias con LLM   | `src/main/ai/news/`       | `ai:news-analysis`, `ai:get-llm-settings`, `ai:set-llm-settings`, `ai:test-llm` |
+| Salud de modelos   | `src/main/ai/drift/`      | `ai:health`, `ai:retrain-proposals`, `ai:resolve-retrain`, `ai:simulate-drift`* |
 
 \* Solo con `TRADIA_E2E` y la app sin empaquetar (`isE2eEnabled`); el
 build de producción no los registra.
@@ -185,14 +185,14 @@ bloque `ai` de la señal (régimen, probabilidad, versión/hash y
 
 ## Ganchos E2E del dominio
 
-| Gancho | Qué siembra/fija |
-| --- | --- |
-| `ai:simulate-regime` | Régimen de un activo o del mercado en memoria |
-| `ai:simulate-drift` | Racha sostenida de drift con su degradación |
-| `live:seed-progress` | Evidencia de los requisitos automáticos de la lista |
-| `live:use-simulated-broker` | Adaptador live contra el servidor falso |
-| `broker:seed-weeks` | Semanas de operaciones paper cerradas reales |
-| Analizador de noticias simulado | Automático con `TRADIA_E2E` en `registerNewsAi` |
+| Gancho                          | Qué siembra/fija                                    |
+| ------------------------------- | --------------------------------------------------- |
+| `ai:simulate-regime`            | Régimen de un activo o del mercado en memoria       |
+| `ai:simulate-drift`             | Racha sostenida de drift con su degradación         |
+| `live:seed-progress`            | Evidencia de los requisitos automáticos de la lista |
+| `live:use-simulated-broker`     | Adaptador live contra el servidor falso             |
+| `broker:seed-weeks`             | Semanas de operaciones paper cerradas reales        |
+| Analizador de noticias simulado | Automático con `TRADIA_E2E` en `registerNewsAi`     |
 
 Todos se registran solo cuando `isE2eEnabled(app.isPackaged,
 TRADIA_E2E)` es true —app sin empaquetar y `TRADIA_E2E=1`— y se exponen

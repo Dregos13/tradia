@@ -163,14 +163,12 @@ it('permite reintentar la carga y oculta credenciales en errores', async () => {
 });
 
 it('conserva borradores en un error corregible y los borra si no hay llavero', async () => {
-  const test = vi
-    .spyOn(window.tradia.broker, 'test')
-    .mockResolvedValue({
-      ok: false,
-      account: null,
-      error: 'No se pudo contactar con Alpaca Paper.',
-      latencyMs: null,
-    });
+  const test = vi.spyOn(window.tradia.broker, 'test').mockResolvedValue({
+    ok: false,
+    account: null,
+    error: 'No se pudo contactar con Alpaca Paper.',
+    latencyMs: null,
+  });
   await mount();
   await enterKeys();
   await userEvent.click(screen.getByRole('button', { name: 'Probar conexión' }));

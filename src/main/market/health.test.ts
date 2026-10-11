@@ -653,10 +653,9 @@ describe('resumen de frescura', () => {
   });
 
   it('registra el handler data-status:freshness', () => {
-    registerHealth(
-      { broadcast: vi.fn(), services: { storage: { getDb: () => db } } } as never,
-      { autoStart: false },
-    );
+    registerHealth({ broadcast: vi.fn(), services: { storage: { getDb: () => db } } } as never, {
+      autoStart: false,
+    });
     expect(electron.handlers.has(IPC_CHANNELS.dataStatus.freshness)).toBe(true);
   });
 

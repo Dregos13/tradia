@@ -609,8 +609,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     const items: LiveChecklistItem[] = LIVE_REQUIREMENTS.map((requirement) => {
       const row = deps.store.getChecklistRow(requirement);
       const isDeclaration = DECLARATION_SET.has(requirement);
-      const declared =
-        isDeclaration && row?.declaracion !== null && row?.declaracion !== undefined;
+      const declared = isDeclaration && row?.declaracion !== null && row?.declaracion !== undefined;
       // Una declaración solo cuenta si guarda su texto y su fecha.
       const state: LiveRequirementState = isDeclaration
         ? declared

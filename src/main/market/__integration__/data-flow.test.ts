@@ -286,8 +286,7 @@ describe('datos desactualizados y cálculos', () => {
       markProcessed: (ticker, barDate) => {
         processedMarks.add(`${ticker}|${barDate}`);
       },
-      expectedSessionDate: (nowMs) =>
-        nyseCalendar.lastExpectedSession(nowMs)?.date ?? null,
+      expectedSessionDate: (nowMs) => nyseCalendar.lastExpectedSession(nowMs)?.date ?? null,
       now: () => Date.now(),
     });
 

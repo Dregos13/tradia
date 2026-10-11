@@ -302,9 +302,7 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
           results.push(await refreshSeries(meta.id));
         } catch (error) {
           failures++;
-          logger?.warn(
-            `[macro] refresco de '${meta.id}' falló: ${failureReason(error)}`,
-          );
+          logger?.warn(`[macro] refresco de '${meta.id}' falló: ${failureReason(error)}`);
           results.push({
             seriesId: meta.id,
             stored: 0,

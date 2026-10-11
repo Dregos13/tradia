@@ -1948,9 +1948,7 @@ export function createSimulatedAdapter() {
       freshness: async (): Promise<DataFreshnessSummary> => {
         // Agregado sobre las entradas ticker:*/macro:*/provider:*; el
         // renderer añade 'offline' encima con su propio estado de red.
-        const entries = [...statuses.values()].filter(
-          (entry) => !entry.key.startsWith('modelo:'),
-        );
+        const entries = [...statuses.values()].filter((entry) => !entry.key.startsWith('modelo:'));
         const bad = entries.filter(
           (entry) => entry.state === 'desactualizado' || entry.state === 'no-fiable',
         );
@@ -1963,16 +1961,15 @@ export function createSimulatedAdapter() {
             reason: entry.reason,
           }))
           .sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
-        const state: DataFreshnessState =
-          items.some((item) => item.state === 'no-fiable')
-            ? 'unreliable'
-            : items.length > 0
-              ? 'stale'
-              : entries.some((entry) => entry.state === 'actualizando')
-                ? 'catching-up'
-                : entries.every((entry) => entry.lastOkAt === null)
-                  ? 'no-data'
-                  : 'current';
+        const state: DataFreshnessState = items.some((item) => item.state === 'no-fiable')
+          ? 'unreliable'
+          : items.length > 0
+            ? 'stale'
+            : entries.some((entry) => entry.state === 'actualizando')
+              ? 'catching-up'
+              : entries.every((entry) => entry.lastOkAt === null)
+                ? 'no-data'
+                : 'current';
         const dates = items
           .map((item) => item.lastDataDate)
           .filter((date): date is string => date !== null)

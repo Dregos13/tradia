@@ -176,10 +176,9 @@ const detailNumber = (detail: DriftCheck['detail'], key: string): number | null 
 const round4 = (value: number): number => Math.round(value * 10_000) / 10_000;
 
 const fmtPct = (value: number): string =>
-  `${value < 0 ? '−' : '+'}${(Math.abs(value)).toFixed(1).replace('.', ',')} %`;
+  `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(1).replace('.', ',')} %`;
 
-const modelName = (card: ModelCard): string =>
-  `Modelo de dirección y volatilidad v${card.version}`;
+const modelName = (card: ModelCard): string => `Modelo de dirección y volatilidad v${card.version}`;
 
 const isCardMarked = (card: ModelCard): boolean =>
   card.ineligibleReason !== null && card.ineligibleReason.startsWith(MODEL_DEGRADED_MARK);
@@ -342,9 +341,7 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
       const index = FEATURE_NAMES.indexOf(ref.name as (typeof FEATURE_NAMES)[number]);
       if (index >= 0) indexByName.set(ref.name, index);
     }
-    const values = new Map<string, number[]>(
-      [...indexByName.keys()].map((name) => [name, []]),
-    );
+    const values = new Map<string, number[]>([...indexByName.keys()].map((name) => [name, []]));
     let rows = 0;
     let newestDataDate: string | null = null;
     for (const ticker of deps.listWatchlistTickers()) {
@@ -445,8 +442,7 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     const previous = deps.repo.latestCheck('modelo', card.id, 'resultados');
     // Sin predicciones nuevas resueltas la ventana móvil no cambia: la
     // racha se congela en lugar de sumar una sesión fantasma.
-    const sameData =
-      previous !== null && previous.detail['resolvedCount'] === resolvedCount;
+    const sameData = previous !== null && previous.detail['resolvedCount'] === resolvedCount;
     if (sameData) detail.sinDatosNuevos = 'si';
     const streak = drifted
       ? sameData
@@ -486,9 +482,7 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
    * revisión mensual y la vista de Salud, que la devuelve en vivo.
    */
   const strategyMetrics = (ficha: StrategySummary, all?: readonly ClosedTrade[]) => {
-    const trades = (all ?? deps.closedTrades()).filter(
-      (trade) => trade.strategyId === ficha.id,
-    );
+    const trades = (all ?? deps.closedTrades()).filter((trade) => trade.strategyId === ficha.id);
     const expectation = deps.expectationFor(ficha.id);
     const realPct = round4(trades.reduce((acc, trade) => acc + trade.returnPct, 0));
     const expectedPct =
@@ -574,11 +568,7 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
       drifted,
       evaluatedAt,
     });
-    if (
-      drifted &&
-      streak >= DEGRADE_MIN_CONSECUTIVE_REVIEWS &&
-      ficha.status !== 'degradada'
-    ) {
+    if (drifted && streak >= DEGRADE_MIN_CONSECUTIVE_REVIEWS && ficha.status !== 'degradada') {
       degradeStrategy(ficha, check, deviationPct, trades.length);
     }
     return check;
@@ -737,7 +727,10 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     };
   };
 
-  const strategyRow = (ficha: StrategySummary, allTrades: readonly ClosedTrade[]): ModelHealthRow => {
+  const strategyRow = (
+    ficha: StrategySummary,
+    allTrades: readonly ClosedTrade[],
+  ): ModelHealthRow => {
     const last = deps.repo.latestCheck('estrategia', ficha.id, 'rendimiento');
     // Operaciones, desviación y racha van en vivo (la revisión mensual
     // solo gobierna la persistencia): la desviación es número siempre
@@ -919,9 +912,7 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
       const fichas = deps.listStrategies();
       const ficha =
         fichas.find((f) => f.id === request.subjectId) ??
-        fichas.find((f) =>
-          (EVALUABLE_STRATEGY_STATUSES as readonly string[]).includes(f.status),
-        ) ??
+        fichas.find((f) => (EVALUABLE_STRATEGY_STATUSES as readonly string[]).includes(f.status)) ??
         fichas[0];
       if (ficha === undefined) {
         throw new DriftServiceError('not-found', 'no hay estrategias para simular');
@@ -999,7 +990,11 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
           reason:
             `Propuesta de reentrenamiento ${resolved.quarter} aprobada: ` +
             'el pipeline ml/ corre fuera de la app.',
-          dataUsed: { componente: 'ai/drift', propuestaId: resolved.id, trimestre: resolved.quarter },
+          dataUsed: {
+            componente: 'ai/drift',
+            propuestaId: resolved.id,
+            trimestre: resolved.quarter,
+          },
         });
       } else {
         const note = resolved.note?.replace(/[\s.]+$/, '');

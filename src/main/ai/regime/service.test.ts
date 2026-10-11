@@ -354,8 +354,7 @@ describe('guarda de frescura (datos desactualizados)', () => {
         .slice(0, 10),
     );
   let expectedSession: string | null;
-  const freshnessService = () =>
-    makeService({ expectedSessionDate: () => expectedSession });
+  const freshnessService = () => makeService({ expectedSessionDate: () => expectedSession });
 
   beforeEach(() => {
     expectedSession = null;

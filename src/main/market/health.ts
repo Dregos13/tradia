@@ -678,9 +678,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   /** true si la entrada sigue en 'actualizando' dentro del margen. */
   const isInFlight = (key: string): boolean => {
     const entry = repo.getDataStatus(key);
-    return (
-      entry?.state === 'actualizando' && now() - Date.parse(entry.updatedAt) < staleGraceMs
-    );
+    return entry?.state === 'actualizando' && now() - Date.parse(entry.updatedAt) < staleGraceMs;
   };
 
   /**

@@ -9,16 +9,80 @@
   },
   "color": {
     "signal": {
-      "approved": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "name": "Señal aprobada", "symbol": "✓", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "vetoed": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "name": "Señal vetada", "symbol": "×", "contrastLight": "6.22:1", "contrastDark": "6.39:1" },
-      "conflict": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "name": "Contradicción", "symbol": "↔", "contrastLight": "6.32:1", "contrastDark": "8.61:1" },
-      "informative": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "name": "Informativa", "symbol": "i", "contrastLight": "7.14:1", "contrastDark": "6.82:1" }
+      "approved": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "name": "Señal aprobada",
+        "symbol": "✓",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "vetoed": {
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "name": "Señal vetada",
+        "symbol": "×",
+        "contrastLight": "6.22:1",
+        "contrastDark": "6.39:1"
+      },
+      "conflict": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "name": "Contradicción",
+        "symbol": "↔",
+        "contrastLight": "6.32:1",
+        "contrastDark": "8.61:1"
+      },
+      "informative": {
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "name": "Informativa",
+        "symbol": "i",
+        "contrastLight": "7.14:1",
+        "contrastDark": "6.82:1"
+      }
     },
     "strategy": {
-      "active": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "name": "Activa", "symbol": "●" },
-      "paper": { "light": "#5B3B91", "lightSurface": "#EEE6FA", "dark": "#D0B4FF", "darkSurface": "#35244F", "name": "Paper", "symbol": "◇" },
-      "degraded": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "name": "Degradada", "symbol": "△" },
-      "paused": { "light": "#566174", "lightSurface": "#ECE9E1", "dark": "#B8C1CE", "darkSurface": "#1D293B", "name": "En pausa", "symbol": "Ⅱ" }
+      "active": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "name": "Activa",
+        "symbol": "●"
+      },
+      "paper": {
+        "light": "#5B3B91",
+        "lightSurface": "#EEE6FA",
+        "dark": "#D0B4FF",
+        "darkSurface": "#35244F",
+        "name": "Paper",
+        "symbol": "◇"
+      },
+      "degraded": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "name": "Degradada",
+        "symbol": "△"
+      },
+      "paused": {
+        "light": "#566174",
+        "lightSurface": "#ECE9E1",
+        "dark": "#B8C1CE",
+        "darkSurface": "#1D293B",
+        "name": "En pausa",
+        "symbol": "Ⅱ"
+      }
     },
     "chart": {
       "positive": { "light": "#126B4B", "dark": "#65D6A4", "name": "Positivo" },
@@ -35,9 +99,15 @@
   },
   "typography": {
     "family": {
-      "interface": { "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", "name": "Interfaz" },
+      "interface": {
+        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz"
+      },
       "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
-      "numeric": { "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace", "name": "Datos" }
+      "numeric": {
+        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos"
+      }
     },
     "size": {
       "xs": { "value": "12px", "lineHeight": "16px", "name": "Metadato" },
@@ -50,12 +120,27 @@
     "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
     "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
   },
-  "spacing": { "0": "0", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px", "16": "64px" },
+  "spacing": {
+    "0": "0",
+    "1": "4px",
+    "2": "8px",
+    "3": "12px",
+    "4": "16px",
+    "5": "20px",
+    "6": "24px",
+    "8": "32px",
+    "10": "40px",
+    "12": "48px",
+    "16": "64px"
+  },
   "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
   "shadow": {
     "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
     "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" },
-    "scrollEdge": { "value": "inset -12px 0 12px -14px rgba(23, 35, 58, 0.32)", "name": "Continuidad horizontal" }
+    "scrollEdge": {
+      "value": "inset -12px 0 12px -14px rgba(23, 35, 58, 0.32)",
+      "name": "Continuidad horizontal"
+    }
   },
   "size": {
     "controlMin": "44px",
@@ -81,5 +166,11 @@
       "strategies": "span 4"
     }
   },
-  "motion": { "fast": "120ms", "normal": "200ms", "slow": "320ms", "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)", "reduced": "0ms" }
+  "motion": {
+    "fast": "120ms",
+    "normal": "200ms",
+    "slow": "320ms",
+    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "reduced": "0ms"
+  }
 }

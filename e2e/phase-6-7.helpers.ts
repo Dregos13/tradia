@@ -10,6 +10,7 @@ import {
   type Locator,
   type Page,
 } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 /**
  * Utilidades comunes de los E2E de la fase 6-7 (IA predictiva y dinero
@@ -40,9 +41,61 @@ export interface NotificationCall {
   body: string;
 }
 
+export interface LaunchPhaseOptions {
+  route?: LocalRoute;
+  /**
+   * 'skip' (por defecto) acepta el aviso de riesgo y salta el tour del
+   * primer arranque; 'manual' deja la ventana recién abierta para que la
+   * prueba recorra el aviso y el tour como el usuario.
+   */
+  onboarding?: 'skip' | 'manual';
+  /** Variables de entorno extra (p. ej. otro `TRADIA_E2E_MARKET_NOW`). */
+  env?: Record<string, string>;
+}
+
+async function startApp(
+  userData: string,
+  url: (path: string) => string,
+  options: LaunchPhaseOptions,
+): Promise<{ app: ElectronApplication; page: Page }> {
+  let app: ElectronApplication | undefined;
+  try {
+    app = await electron.launch({
+      args: process.platform === 'linux' ? ['.', '--no-sandbox'] : ['.'],
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        TRADIA_E2E: '1',
+        TRADIA_E2E_USER_DATA: userData,
+        TRADIA_CONNECTIVITY_URLS: JSON.stringify([url('/health')]),
+        // Reloj de mercado anclado: la cautela y las sesiones no dependen
+        // del día real en que se ejecute la batería.
+        TRADIA_E2E_MARKET_NOW: PINNED_MARKET_NOW,
+        ...options.env,
+      },
+    });
+    const page = await app.firstWindow();
+    if ((options.onboarding ?? 'skip') === 'skip') {
+      await expect(page.getByRole('heading', { name: 'Antes de empezar' })).toBeVisible({
+        timeout: 30_000,
+      });
+      await page.getByLabel('He leído y acepto').check();
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await skipGuidedTour(page);
+      await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+        timeout: 30_000,
+      });
+    }
+    return { app, page };
+  } catch (error: unknown) {
+    await app?.close().catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function launchPhaseApp(
   prefix: string,
-  options: { route?: LocalRoute } = {},
+  options: LaunchPhaseOptions = {},
 ): Promise<PhaseApp> {
   const userData = mkdtempSync(join(tmpdir(), `${prefix}-`));
   const server = createServer((request, response) => {
@@ -61,37 +114,33 @@ export async function launchPhaseApp(
   const { port } = server.address() as AddressInfo;
   const url = (path: string) => `http://127.0.0.1:${port}${path}`;
 
-  let app: ElectronApplication | undefined;
   try {
-    app = await electron.launch({
-      args: process.platform === 'linux' ? ['.', '--no-sandbox'] : ['.'],
-      cwd: projectRoot,
-      env: {
-        ...process.env,
-        TRADIA_E2E: '1',
-        TRADIA_E2E_USER_DATA: userData,
-        TRADIA_CONNECTIVITY_URLS: JSON.stringify([url('/health')]),
-        // Reloj de mercado anclado: la cautela y las sesiones no dependen
-        // del día real en que se ejecute la batería.
-        TRADIA_E2E_MARKET_NOW: PINNED_MARKET_NOW,
-      },
-    });
-    const page = await app.firstWindow();
-    await expect(page.getByRole('heading', { name: 'Antes de empezar' })).toBeVisible({
-      timeout: 30_000,
-    });
-    await page.getByLabel('He leído y acepto').check();
-    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
-      timeout: 30_000,
-    });
+    const { app, page } = await startApp(userData, url, options);
     return { app, page, userData, server, url };
   } catch (error: unknown) {
-    await app?.close().catch(() => undefined);
     await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
     rmSync(userData, { recursive: true, force: true });
     throw error;
   }
+}
+
+/**
+ * Cierra la app y la vuelve a abrir con el mismo perfil (`userData`) y el
+ * mismo servidor local: el siguiente arranque del mismo usuario. Por
+ * defecto no toca el aviso ni el tour, que ya deberían estar recordados.
+ */
+export async function relaunchPhaseApp(
+  context: PhaseApp,
+  options: Omit<LaunchPhaseOptions, 'route'> = { onboarding: 'manual' },
+): Promise<PhaseApp> {
+  await context.app.close();
+  const { app, page } = await startApp(context.userData, context.url, {
+    onboarding: 'manual',
+    ...options,
+  });
+  context.app = app;
+  context.page = page;
+  return context;
 }
 
 export async function closePhaseApp(context: PhaseApp | undefined): Promise<void> {

@@ -8,6 +8,7 @@ import type { AddressInfo } from 'node:net';
 
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const projectRoot = resolve('.');
 const nowRssDate = (): string => new Date().toUTCString();
@@ -154,6 +155,7 @@ async function acceptRisk(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Antes de empezar' })).toBeVisible();
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await skipGuidedTour(page);
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 }
 

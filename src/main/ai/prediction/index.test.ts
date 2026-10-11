@@ -124,7 +124,10 @@ describe('registerPrediction', () => {
   it('registra ai:predictions y ai:model-card, carga el bundle real y predice sobre velas guardadas', async () => {
     seedBars('AAPL', 70);
     watchlist = [{ ticker: 'AAPL' }];
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
+    const registered = registerPrediction(makeCtx(), {
+      modelsDir: MODELS_DIR,
+      ...PREDICTION_CLOCK,
+    });
     await registered.service.ready();
 
     expect(electron.handlers.has(IPC_CHANNELS.ai.predictions)).toBe(true);
@@ -164,7 +167,10 @@ describe('registerPrediction', () => {
   it('un lote guardado dispara la predicción a través de onBarsStored', async () => {
     seedBars('AAPL', 55);
     watchlist = [{ ticker: 'AAPL' }];
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
+    const registered = registerPrediction(makeCtx(), {
+      modelsDir: MODELS_DIR,
+      ...PREDICTION_CLOCK,
+    });
     await registered.service.ready();
     expect(barsStoredListener).not.toBeNull();
     const before = (invoke(IPC_CHANNELS.ai.predictions, { ticker: 'AAPL' }) as Prediction[]).length;
@@ -213,7 +219,10 @@ describe('registerPrediction', () => {
   });
 
   it('valida la entrada de ai:predictions', async () => {
-    const registered = registerPrediction(makeCtx(), { modelsDir: MODELS_DIR, ...PREDICTION_CLOCK });
+    const registered = registerPrediction(makeCtx(), {
+      modelsDir: MODELS_DIR,
+      ...PREDICTION_CLOCK,
+    });
     await registered.service.ready();
     expect(() => invoke(IPC_CHANNELS.ai.predictions, { limit: 0 })).toThrow(IpcValidationError);
     expect(() => invoke(IPC_CHANNELS.ai.predictions, { fuera: 1 })).toThrow(IpcValidationError);

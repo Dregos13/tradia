@@ -126,8 +126,7 @@ export interface NewsAiServiceDeps {
    * lo comprueba de verdad («CLI no encontrada» / «sesión no iniciada»).
    */
   subscriptionAnalyzer?:
-    | (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean })
-    | null;
+    (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean }) | null;
   /** Analizador determinista del modo E2E. */
   simulatedAnalyzer?: NewsHeadlineAnalyzer | null;
   /** true con TRADIA_E2E: siempre el simulado, sin claves ni cuotas. */

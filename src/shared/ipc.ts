@@ -3232,9 +3232,7 @@ export function isDataProviderId(value: unknown): value is DataProviderId {
 }
 
 export function isProviderTestStatus(value: unknown): value is ProviderTestStatus {
-  return (
-    typeof value === 'string' && (PROVIDER_TEST_STATUSES as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (PROVIDER_TEST_STATUSES as readonly string[]).includes(value);
 }
 
 /** Petición de `providers:test-connection`: solo el proveedor, nunca la clave. */

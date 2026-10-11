@@ -22,11 +22,7 @@ import type { FeatureReferenceBin } from '../../../shared/ai';
 export const PSI_EPSILON = 1e-4;
 
 /** Proporción de `values` que cae en el bin `[from, to)` (to null/∞ incluido en el último). */
-function binProportion(
-  values: readonly number[],
-  from: number | null,
-  to: number | null,
-): number {
+function binProportion(values: readonly number[], from: number | null, to: number | null): number {
   if (values.length === 0) return 0;
   let count = 0;
   for (const value of values) {

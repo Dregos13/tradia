@@ -17,11 +17,7 @@ import {
   registerBroker,
   type BrokerService,
 } from './index';
-import {
-  createBrokerRepository,
-  type BrokerRepository,
-  type NewBrokerOrder,
-} from './repository';
+import { createBrokerRepository, type BrokerRepository, type NewBrokerOrder } from './repository';
 
 // electron solo aporta app/ipcMain: mismo patrón que las demás pruebas
 // de servicios de main (settings-ipc.test.ts, routine/index.test.ts).
@@ -635,12 +631,18 @@ describe('registerBroker · orders:list une paper y reales', () => {
     paperOrder('paper-1');
     seedLiveOrder('tradia-humo-1-compra');
     paperOrder('paper-2');
-    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`)
-      .run('2026-10-08T20:00:00.000Z', 'paper-1');
-    db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`)
-      .run('2026-10-08T20:05:00.000Z', 'tradia-humo-1-compra');
-    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`)
-      .run('2026-10-08T20:10:00.000Z', 'paper-2');
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:00:00.000Z',
+      'paper-1',
+    );
+    db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:05:00.000Z',
+      'tradia-humo-1-compra',
+    );
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:10:00.000Z',
+      'paper-2',
+    );
 
     const all = (await handle(IPC_CHANNELS.orders.list)(null, undefined)) as BrokerOrder[];
     expect(all.map((o) => [o.clientOrderId, o.mode])).toEqual([

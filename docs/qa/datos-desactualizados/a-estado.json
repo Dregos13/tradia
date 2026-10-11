@@ -26,9 +26,7 @@
         "name": "Cruce de medias",
         "version": 1,
         "status": "investigacion",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "habilitada",
         "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
@@ -38,12 +36,8 @@
         "name": "Reversión RSI/Bollinger",
         "version": 1,
         "status": "investigacion",
-        "worksIn": [
-          "lateral"
-        ],
-        "failsIn": [
-          "tendencia"
-        ],
+        "worksIn": ["lateral"],
+        "failsIn": ["tendencia"],
         "regimeState": "habilitada",
         "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
       },
@@ -52,9 +46,7 @@
         "name": "Ruptura de rangos",
         "version": 1,
         "status": "investigacion",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "habilitada",
         "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
@@ -64,9 +56,7 @@
         "name": "Momentum entre activos",
         "version": 1,
         "status": "investigacion",
-        "worksIn": [
-          "tendencia"
-        ],
+        "worksIn": ["tendencia"],
         "failsIn": [],
         "regimeState": "habilitada",
         "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."

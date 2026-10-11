@@ -19,9 +19,7 @@ const insertEntry = (db: Database.Database, modo: string | null): number => {
   const stmt =
     modo === null
       ? db.prepare(`INSERT INTO journal_entries (tipo, motivo) VALUES ('resumen', 'r')`)
-      : db.prepare(
-          `INSERT INTO journal_entries (tipo, modo, motivo) VALUES ('operacion', ?, 'r')`,
-        );
+      : db.prepare(`INSERT INTO journal_entries (tipo, modo, motivo) VALUES ('operacion', ?, 'r')`);
   return Number(stmt.run(...(modo === null ? [] : [modo])).lastInsertRowid);
 };
 
@@ -108,7 +106,7 @@ describe('migración 014 · modo por entrada del diario', () => {
     // La 013 sigue aplicada: 'suscripcion' en el analizador no se toca.
     expect(
       columnNames(db, 'news_analysis').length > 0 &&
-        db.prepare("SELECT COUNT(*) AS n FROM news_analysis").get(),
+        db.prepare('SELECT COUNT(*) AS n FROM news_analysis').get(),
     ).toBeTruthy();
     db.close();
   });

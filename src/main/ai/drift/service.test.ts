@@ -33,11 +33,7 @@ import {
   type PredictionCandle,
 } from '../prediction/features';
 import { createDriftRepository, type DriftRepository } from './repository';
-import {
-  createDriftService,
-  MODEL_DEGRADED_MARK,
-  type DriftService,
-} from './service';
+import { createDriftService, MODEL_DEGRADED_MARK, type DriftService } from './service';
 
 const HASH = 'a'.repeat(64);
 const NOW_MS = Date.parse('2026-10-10T17:30:00.000Z');
@@ -277,9 +273,9 @@ describe('drift de datos (PSI por variable)', () => {
     expect(marked.eligible).toBe(false);
     expect(marked.ineligibleReason).toContain(MODEL_DEGRADED_MARK);
     expect(journal.some((e) => e.type === 'limite' && e.result === 'alcanzado')).toBe(true);
-    expect(
-      notices.some((n) => n.level === 'critica' && n.navigateTo === 'salud-modelos'),
-    ).toBe(true);
+    expect(notices.some((n) => n.level === 'critica' && n.navigateTo === 'salud-modelos')).toBe(
+      true,
+    );
     expect(repo.listProposals()).toHaveLength(1);
     expect(repo.listProposals()[0]).toMatchObject({
       modelCardId: card.id,
@@ -444,7 +440,9 @@ describe('drift de resultados (Brier móvil)', () => {
     expect(repo.latestCheck('modelo', card.id, 'resultados')!.detail.rollingBrier).toBeUndefined();
 
     seedResolvedPredictions(card.id, DRIFT_BRIER_WINDOW, 0.22);
-    const row = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    const row = makeService()
+      .overview()
+      .subjects.find((s) => s.subject === 'modelo')!;
     expect(row.resultsDrift?.resolvedCount).toBe(DRIFT_BRIER_WINDOW);
     expect(row.resultsDrift?.rollingBrier).toBeCloseTo(0.22, 4);
     expect(row.resultsDrift?.delta).toBeCloseTo(0.04, 4);
@@ -453,13 +451,17 @@ describe('drift de resultados (Brier móvil)', () => {
 
   it('sin resueltas el Brier móvil es null con el motivo; con ventana incompleta, la diferencia', () => {
     const card = registerCard();
-    const empty = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    const empty = makeService()
+      .overview()
+      .subjects.find((s) => s.subject === 'modelo')!;
     expect(empty.resultsDrift?.rollingBrier).toBeNull();
     expect(empty.resultsDrift?.delta).toBeNull();
     expect(empty.resultsDrift?.missingReason).toContain('predicciones resueltas');
 
     seedResolvedPredictions(card.id, 10, 0.22);
-    const partial = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    const partial = makeService()
+      .overview()
+      .subjects.find((s) => s.subject === 'modelo')!;
     expect(partial.resultsDrift?.rollingBrier).toBeCloseTo(0.22, 4);
     expect(partial.resultsDrift?.delta).toBeNull();
     expect(partial.resultsDrift?.missingReason).toContain('Ventana incompleta');
@@ -471,7 +473,9 @@ describe('drift de resultados (Brier móvil)', () => {
       card.id,
       `${MODEL_DEGRADED_MARK}: Drift de datos sostenido: PSI > 0.25 en ret_1 durante 20 sesiones.`,
     );
-    const row = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    const row = makeService()
+      .overview()
+      .subjects.find((s) => s.subject === 'modelo')!;
     expect(row.state).toBe('degradada');
     expect(row.reason).toBe(
       'Degradada por drift sostenido: Drift de datos sostenido: PSI > 0.25 en ret_1 ' +
@@ -490,9 +494,7 @@ describe('revisión mensual de estrategias', () => {
     fichas = [seedFicha('Cruce de medias')];
     const strategyId = fichas[0]!.id;
     // 34 operaciones perdiendo de media mucho más que la expectativa.
-    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) =>
-      trade(strategyId, -1, i),
-    );
+    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) => trade(strategyId, -1, i));
     expectations = {
       [strategyId]: {
         perTradeReturnPct: 0.2,
@@ -513,9 +515,7 @@ describe('revisión mensual de estrategias', () => {
 
     nowMs = NEXT_MONTH_MS;
     service.evaluate();
-    expect(statusCalls).toEqual([
-      expect.objectContaining({ id: strategyId, status: 'degradada' }),
-    ]);
+    expect(statusCalls).toEqual([expect.objectContaining({ id: strategyId, status: 'degradada' })]);
     expect(statusCalls[0]!.note).toContain('Degradada por drift sostenido');
     expect(
       journal.some((e) => e.type === 'limite' && e.strategies?.[0]?.strategyId === strategyId),
@@ -596,9 +596,7 @@ describe('revisión mensual de estrategias', () => {
     fichas = [seedFicha('Cruce de medias')];
     const strategyId = fichas[0]!.id;
     // Desviación de −40,8 pp sostenida: en alerta desde la primera revisión.
-    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) =>
-      trade(strategyId, -1, i),
-    );
+    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) => trade(strategyId, -1, i));
     expectations = {
       [strategyId]: {
         perTradeReturnPct: 0.2,
@@ -627,17 +625,13 @@ describe('revisión mensual de estrategias', () => {
     // Un mes real después la revisión sí cuenta y la racha retoma.
     nowMs = Date.parse('2026-11-02T21:00:00.000Z');
     service.evaluate();
-    expect(statusCalls).toEqual([
-      expect.objectContaining({ id: strategyId, status: 'degradada' }),
-    ]);
+    expect(statusCalls).toEqual([expect.objectContaining({ id: strategyId, status: 'degradada' })]);
   });
 
   it('con operaciones nuevas la segunda revisión sí cuenta aunque no haya pasado un mes', () => {
     fichas = [seedFicha('Cruce de medias')];
     const strategyId = fichas[0]!.id;
-    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) =>
-      trade(strategyId, -1, i),
-    );
+    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) => trade(strategyId, -1, i));
     expectations = {
       [strategyId]: {
         perTradeReturnPct: 0.2,
@@ -659,9 +653,7 @@ describe('revisión mensual de estrategias', () => {
     const second = service.evaluate().find((c) => c.kind === 'rendimiento')!;
     expect(second.streak).toBe(2);
     expect(second.detail.sinMesReal).toBeUndefined();
-    expect(statusCalls).toEqual([
-      expect.objectContaining({ id: strategyId, status: 'degradada' }),
-    ]);
+    expect(statusCalls).toEqual([expect.objectContaining({ id: strategyId, status: 'degradada' })]);
   });
 
   it('la desviación llega en vivo aunque la revisión sea vieja; sin backtest, null con motivo', () => {
@@ -679,7 +671,9 @@ describe('revisión mensual de estrategias', () => {
     };
     // Sin ninguna revisión todavía, la vista da los números en vivo
     // (10 × 0,4 − 10 × 0,5 = −1 pp) en lugar de «0 · Sin referencia».
-    const rows = makeService().overview().subjects.filter((s) => s.subject === 'estrategia');
+    const rows = makeService()
+      .overview()
+      .subjects.filter((s) => s.subject === 'estrategia');
     const evaluada = rows.find((s) => s.subjectId === conBacktest.id)!;
     expect(evaluada.strategyEval?.trades).toBe(10);
     expect(evaluada.strategyEval?.deviationPct).toBeCloseTo(-1, 4);
@@ -780,9 +774,7 @@ describe('simulateDrift', () => {
     const row = view.subjects.find((s) => s.subject === 'modelo')!;
     expect(row.state).toBe('degradada');
     expect(view.proposals).toHaveLength(1);
-    expect(repo.latestCheck('modelo', row.subjectId, 'datos')!.streak).toBe(
-      DRIFT_SUSTAIN_SESSIONS,
-    );
+    expect(repo.latestCheck('modelo', row.subjectId, 'datos')!.streak).toBe(DRIFT_SUSTAIN_SESSIONS);
   });
 
   it('datos con persistencia corta solo pone en observación', () => {

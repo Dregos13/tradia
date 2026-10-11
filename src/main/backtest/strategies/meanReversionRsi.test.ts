@@ -16,7 +16,14 @@ import {
 } from './meanReversionRsi';
 import { assertNoLookAhead, NO_COSTS, seriesFromCloses, sessionDates } from './testKit';
 
-const PARAMS = { rsiPeriod: 2, oversold: 10, exitRsi: 70, trendPeriod: 20, atrPeriod: 4, stopAtr: 2 };
+const PARAMS = {
+  rsiPeriod: 2,
+  oversold: 10,
+  exitRsi: 70,
+  trendPeriod: 20,
+  atrPeriod: 4,
+  stopAtr: 2,
+};
 
 /** Primer índice con rsi ≤ oversold y cierre sobre la media de tendencia. */
 function entryIndex(closes: number[]): number {
@@ -48,8 +55,11 @@ describe('reversión a la media RSI(2) con filtro de tendencia', () => {
   // media, y rebote que devuelve el RSI por encima de 70.
   const closes = [
     ...Array.from({ length: 25 }, (_, i) => 100 + 3 * i),
-    163, 154, // desplome
-    163, 172, 181, // rebote
+    163,
+    154, // desplome
+    163,
+    172,
+    181, // rebote
   ] as number[];
   const dates = sessionDates(closes.length, '2024-01-02');
   const bars = seriesFromCloses(dates, closes);

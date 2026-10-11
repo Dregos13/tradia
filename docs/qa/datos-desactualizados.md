@@ -66,17 +66,17 @@ abajo.
 
 ## Resumen de escenarios
 
-| Escenario                                                      | Resultado                                                                                                                                                                                                  | Evidencia principal                                                         |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| A · Perfil vacío sin claves                                    | Falla. Franja roja «FRED · Desactualizado · 6 de 6 series fallaron» sin haber configurado nada. El modelo sale como «Saludable» y «fiable» sin un solo dato. Inicio y Macro se contradicen.                | `a1-inicio-recien-abierta.png`, `a2-salud-de-modelos.png`, `a-estado.json`  |
-| B0 · Siembra (19-sep, reloj atrasado)                          | Sirve para preparar los datos, pero aparece un fallo: guardar la clave de FRED no descarga nada y Macro queda «sin datos» hasta el día siguiente.                                                          | `b0-macro.png`, `b0-estado-sembrado.json`                                   |
-| B1 · 23 días después, proveedor caído                          | Falla. Salta la **parada de emergencia** por «Dato de mercado anómalo». Hay tres franjas con texto técnico y ningún «Datos desactualizados desde 18 sept». IA presenta el régimen del 18-sep como el actual. | `b1-inicio-al-abrir.png`, `b1-ia.png`, `b1-estado.json`                     |
-| B2 · 23 días después, proveedor disponible                     | **Correcto**: al arrancar descarga las 15 sesiones que faltaban y recalcula régimen y predicciones hasta el 9-oct.                                                                                          | `b2-estado-al-abrir.json`, `b2-ia.png`                                      |
-| B3 · Estrategias en paper, proveedor solo hasta el 25-sep      | Falla. No sale ninguna franja. Inicio muestra «Precios · Tiingo 11 oct 2026». Señales, régimen y predicciones se calculan con la vela del 25-sep como si fuera la actual.                                   | `b3-inicio.png`, `b3-ia.png`, `b3-estado.json`                              |
-| C · Sin red al abrir y vuelta a la red                         | Falla. Un corte de red al abrir activa la parada de emergencia. Al volver la red no reintenta Tiingo ni FRED: 0 peticiones en 30 s y la parada sigue activa con «Agentes en pausa · Pausa manual».         | `c1-inicio-sin-red.png`, `c2-inicio-tras-volver-red.png`, `c-resumen.json`  |
-| D1 · Domingo con datos del viernes                             | Precios correctos («fiable»). Falla Macro: el IPC (CPIAUCSL) sale «Desactualizado», aunque agosto es el último dato publicado. El IPC de septiembre se publica a mediados de octubre.                       | `d1-macro.png`, `d1-estado-domingo.json`                                    |
-| D2 · Miércoles tras Columbus Day                               | Falla. DGS2, DGS10 y T10Y2Y salen «Desactualizado» porque el lunes 12 no hubo mercado de bonos.                                                                                                             | `d2-macro.png`, `d2-estado-columbus.json`                                   |
-| D3 · Viernes tras Acción de Gracias                            | **Correcto**: todo «fiable» con las velas del miércoles 25.                                                                                                                                                 | `d3-estado-thanksgiving.json`, `d3-inicio.png`                              |
+| Escenario                                                 | Resultado                                                                                                                                                                                                    | Evidencia principal                                                        |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| A · Perfil vacío sin claves                               | Falla. Franja roja «FRED · Desactualizado · 6 de 6 series fallaron» sin haber configurado nada. El modelo sale como «Saludable» y «fiable» sin un solo dato. Inicio y Macro se contradicen.                  | `a1-inicio-recien-abierta.png`, `a2-salud-de-modelos.png`, `a-estado.json` |
+| B0 · Siembra (19-sep, reloj atrasado)                     | Sirve para preparar los datos, pero aparece un fallo: guardar la clave de FRED no descarga nada y Macro queda «sin datos» hasta el día siguiente.                                                            | `b0-macro.png`, `b0-estado-sembrado.json`                                  |
+| B1 · 23 días después, proveedor caído                     | Falla. Salta la **parada de emergencia** por «Dato de mercado anómalo». Hay tres franjas con texto técnico y ningún «Datos desactualizados desde 18 sept». IA presenta el régimen del 18-sep como el actual. | `b1-inicio-al-abrir.png`, `b1-ia.png`, `b1-estado.json`                    |
+| B2 · 23 días después, proveedor disponible                | **Correcto**: al arrancar descarga las 15 sesiones que faltaban y recalcula régimen y predicciones hasta el 9-oct.                                                                                           | `b2-estado-al-abrir.json`, `b2-ia.png`                                     |
+| B3 · Estrategias en paper, proveedor solo hasta el 25-sep | Falla. No sale ninguna franja. Inicio muestra «Precios · Tiingo 11 oct 2026». Señales, régimen y predicciones se calculan con la vela del 25-sep como si fuera la actual.                                    | `b3-inicio.png`, `b3-ia.png`, `b3-estado.json`                             |
+| C · Sin red al abrir y vuelta a la red                    | Falla. Un corte de red al abrir activa la parada de emergencia. Al volver la red no reintenta Tiingo ni FRED: 0 peticiones en 30 s y la parada sigue activa con «Agentes en pausa · Pausa manual».           | `c1-inicio-sin-red.png`, `c2-inicio-tras-volver-red.png`, `c-resumen.json` |
+| D1 · Domingo con datos del viernes                        | Precios correctos («fiable»). Falla Macro: el IPC (CPIAUCSL) sale «Desactualizado», aunque agosto es el último dato publicado. El IPC de septiembre se publica a mediados de octubre.                        | `d1-macro.png`, `d1-estado-domingo.json`                                   |
+| D2 · Miércoles tras Columbus Day                          | Falla. DGS2, DGS10 y T10Y2Y salen «Desactualizado» porque el lunes 12 no hubo mercado de bonos.                                                                                                              | `d2-macro.png`, `d2-estado-columbus.json`                                  |
+| D3 · Viernes tras Acción de Gracias                       | **Correcto**: todo «fiable» con las velas del miércoles 25.                                                                                                                                                  | `d3-estado-thanksgiving.json`, `d3-inicio.png`                             |
 
 ## Problemas
 
@@ -133,7 +133,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   sus acciones (Reintentar, Comprobar claves, Ver estado).
 - **Observado:** en B1 aparecen tres franjas a la vez (parada, «Tiingo · No fiable», «FRED ·
   Desactualizado») con texto interno (`provider:tiingo:`, `[tiingo] error del servidor (HTTP 503):
-  maintenance`, `TypeError: fetch failed`). La única fecha útil («falta la vela del 2026-09-21 (+14 más)»)
+maintenance`, `TypeError: fetch failed`). La única fecha útil («falta la vela del 2026-09-21 (+14 más)»)
   solo sale en Mercado. En B3 el proveedor responde bien pero sin velas nuevas, así que
   `provider:tiingo` queda «fiable» y **no sale ninguna franja**: `ProviderBanner` solo mira las claves
   `provider:*` y no ve los cuatro `ticker:*` en «desactualizado».
@@ -249,7 +249,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   `src/renderer/src/components/ProviderBanner.tsx` (`retry` siempre llama a `market.refreshNow`).
 - **Estado (Backend):** corregido. Existe `macro:refresh-now` (IPC `macro:refresh-now`,
   `window.tradia.macro.refreshNow`), y guardar la clave de FRED (`secrets:changed` con `provider:
-  'fred'`) lanza la primera descarga igual que volver la red o despertar el equipo. La asignación del
+'fred'`) lanza la primera descarga igual que volver la red o despertar el equipo. La asignación del
   botón «Reintentar» a cada proveedor es de Frontend (`affectedProviders` ya decide market/macro por las
   entradas del resumen).
 - **Estado (Frontend):** corregido. `DataFreshness.affectedProviders` envía la actualización de series/FRED a `macro.refreshNow`, la de tickers/Tiingo a `market.refreshNow` y ambas cuando corresponde. El éxito de «Probar conexión» actualiza solo su proveedor. Pruebas en `ProviderBanner.test.tsx` y `DataProvidersSettings.test.tsx`.
@@ -283,7 +283,7 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
   Tendencia · Volatilidad baja». El texto de Inicio está fijo en el código.
 - **Evidencia:** `d1-inicio.png` / `.txt`, `d1-ia.png` / `.txt`.
 - **Sospechoso:** `src/renderer/src/components/dashboard/MacroBlock.tsx:15` (`Régimen · <strong>Sin
-  clasificar</strong>` fijo).
+clasificar</strong>` fijo).
 - **Estado (Frontend):** corregido. `MacroBlock` consulta `ai.regimeOverview` y se suscribe a `ai.onChanged`: la clasificación de Inicio coincide con IA. La procedencia dice referencia SPY / precios diarios, no FRED. Prueba en `DataFreshness.test.tsx`.
 
 ### P11 · «Precios · Tiingo» muestra la hora de la última consulta, no la fecha del último dato — media · Frontend (con Backend)
@@ -382,10 +382,10 @@ usuario ve estados contradictorios o no puede resolverlo desde la interfaz; **ba
 
 ## Reparto propuesto
 
-| Responsable                    | Problemas                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Responsable                    | Problemas                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | Backend (`be-frescura-datos`)  | P1, P2, P4 (cálculo), P5, P6, P7, P8 (refresco macro y disparo al guardar la clave), P9 (estado sin clave), P12, P13 |
-| Frontend (`fe-datos-conexion`) | P3, P4 (aviso en IA), P8 (franja de FRED), P10, P11, P14, P15                                                  |
+| Frontend (`fe-datos-conexion`) | P3, P4 (aviso en IA), P8 (franja de FRED), P10, P11, P14, P15                                                        |
 
 Para P3, P4 y P11 Backend debe exponer primero un resumen de frescura único. Por ejemplo: «último dato
 verificado», «última sesión esperada», «sesiones que faltan» y «motivo» por ámbito (precios y macro).

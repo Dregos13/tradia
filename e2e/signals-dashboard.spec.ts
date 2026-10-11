@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import type { Signal } from '../src/shared/signals';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const projectRoot = resolve('.');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,6 +28,7 @@ async function launchTradia(userData: string, healthUrl: string): Promise<Electr
 async function acceptRisk(page: Page): Promise<void> {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await skipGuidedTour(page);
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 }
 
@@ -216,9 +218,9 @@ test('Profesional independiente: una vela cerrada en segundo plano actualiza se�
     const calls = await notificationCalls(app);
     // La estrategia emite compras protegidas (aprobadas/reducidas) o vetos:
     // el aviso cubre cualquiera de los dos desenlaces.
-    expect(
-      calls.some((notification) => /Señal (vetada|aprobada)/i.test(notification.title)),
-    ).toBe(true);
+    expect(calls.some((notification) => /Señal (vetada|aprobada)/i.test(notification.title))).toBe(
+      true,
+    );
     expect(calls.some((notification) => /Límites? alcanzados?/i.test(notification.title))).toBe(
       true,
     );

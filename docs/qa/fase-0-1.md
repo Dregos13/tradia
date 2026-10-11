@@ -6,15 +6,15 @@
 
 ## Evidencia ejecutada
 
-| Comprobación | Resultado | Evidencia |
-| --- | --- | --- |
-| `npm test` | Aprobado: 17 archivos, 106 pruebas | Salida local: `Test Files 17 passed (17)`, `Tests 106 passed (106)` |
-| `npm run test:e2e` | Aprobado: 6 pruebas; incluye build, typecheck y arranque de Electron | Salida local: `6 passed (6)`; detalles en `e2e/electron.spec.ts:80-232` |
-| `npm run lint` | Aprobado | Proceso finalizó con código 0 |
-| `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac` | Generó DMG x64 y arm64; el proceso terminó con código 0 | `release/Tradia-0.0.1-x64.dmg` (138 MB), `release/Tradia-0.0.1-arm64.dmg` (134 MB) |
-| Verificación de imágenes | Aprobada para ambas imágenes | `hdiutil verify` informó checksum `VALID` para x64 y arm64 |
-| Empaquetado nativo | Requiere comprobación adicional | electron-builder emitió `Attempting to build a module with a space in the path` al reconstruir `better-sqlite3`, pero continuó y generó los DMG. No se verificó el arranque de las apps empaquetadas. |
-| CI remota / artefactos Windows y Linux | Pendiente | `.github/workflows/ci.yml` define matriz macOS, Windows y Ubuntu; no se ejecutó el workflow remoto en esta sesión. |
+| Comprobación                                         | Resultado                                                            | Evidencia                                                                                                                                                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                           | Aprobado: 17 archivos, 106 pruebas                                   | Salida local: `Test Files 17 passed (17)`, `Tests 106 passed (106)`                                                                                                                                   |
+| `npm run test:e2e`                                   | Aprobado: 6 pruebas; incluye build, typecheck y arranque de Electron | Salida local: `6 passed (6)`; detalles en `e2e/electron.spec.ts:80-232`                                                                                                                               |
+| `npm run lint`                                       | Aprobado                                                             | Proceso finalizó con código 0                                                                                                                                                                         |
+| `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac` | Generó DMG x64 y arm64; el proceso terminó con código 0              | `release/Tradia-0.0.1-x64.dmg` (138 MB), `release/Tradia-0.0.1-arm64.dmg` (134 MB)                                                                                                                    |
+| Verificación de imágenes                             | Aprobada para ambas imágenes                                         | `hdiutil verify` informó checksum `VALID` para x64 y arm64                                                                                                                                            |
+| Empaquetado nativo                                   | Requiere comprobación adicional                                      | electron-builder emitió `Attempting to build a module with a space in the path` al reconstruir `better-sqlite3`, pero continuó y generó los DMG. No se verificó el arranque de las apps empaquetadas. |
+| CI remota / artefactos Windows y Linux               | Pendiente                                                            | `.github/workflows/ci.yml` define matriz macOS, Windows y Ubuntu; no se ejecutó el workflow remoto en esta sesión.                                                                                    |
 
 Las pruebas E2E lanzan la build local con un `userData` temporal por caso. No equivalen a instalar el DMG ni a comprobar los diálogos, permisos y notificaciones del sistema operativo. La simulación de desconexión es determinista y no desconecta físicamente la red.
 
@@ -104,14 +104,14 @@ Artefactos esperados desde CI: AppImage y `.deb`. **Pendiente de CI o ejecución
 
 ## Criterios de aceptación de la misión
 
-| # | Criterio | Veredicto | Evidencia / brecha |
-| --- | --- | --- | --- |
-| 1 | Instalación limpia: aviso bloqueante, persistencia y acceso en Ajustes | **NO APTO (parcialmente verificado)** | E2E aprobado (`e2e/electron.spec.ts:80-95`); falta instalación y repetición desde DMG. |
-| 2 | Bandeja con Abrir/Pausar/Salir, latido, inicio automático al iniciar sesión | **NO APTO (parcialmente verificado)** | E2E verificó ventana oculta, latido y pausa (`:149-182`); faltan menú/icono de bandeja y ciclo real de sesión. |
-| 3 | Estado online/offline, aviso y notificación ante corte, pausa y reanudación | **NO APTO (parcialmente verificado)** | Simulación E2E verificó estado, pausa y reanudación (`:184-201`); faltan Wi-Fi físico y notificación nativa ante pérdida. |
-| 4 | Enviar prueba nativa de info, alerta y crítica según preferencias | **NO APTO (parcialmente verificado)** | E2E verificó llamada de notificación info y bloqueo del nivel alerta desactivado (`:96-147`); falta entrega visible nativa de los tres niveles y prueba de permisos. |
-| 5 | `npm run dev`, `npm test`, migraciones SQLite, CI e instaladores para las plataformas | **NO APTO (parcialmente verificado)** | `npm test` 106/106, E2E 6/6, lint y build pasan; DMG x64/arm64 generado y verificado. Pendientes arranque explícito con `npm run dev`, CI remota y artefactos/ejecución de NSIS, AppImage y deb. |
-| 6 | Decisiones de alcance completas y claves API nunca legibles en configuración/DB | **APTO con evidencia automatizada local** | Cotejo escrito en `docs/alcance.md:193-213`; E2E comprobó que un valor secreto ficticio no aparece en JSON ni en `tradia.db` (`:203-220`). |
+| #   | Criterio                                                                              | Veredicto                                 | Evidencia / brecha                                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Instalación limpia: aviso bloqueante, persistencia y acceso en Ajustes                | **NO APTO (parcialmente verificado)**     | E2E aprobado (`e2e/electron.spec.ts:80-95`); falta instalación y repetición desde DMG.                                                                                                           |
+| 2   | Bandeja con Abrir/Pausar/Salir, latido, inicio automático al iniciar sesión           | **NO APTO (parcialmente verificado)**     | E2E verificó ventana oculta, latido y pausa (`:149-182`); faltan menú/icono de bandeja y ciclo real de sesión.                                                                                   |
+| 3   | Estado online/offline, aviso y notificación ante corte, pausa y reanudación           | **NO APTO (parcialmente verificado)**     | Simulación E2E verificó estado, pausa y reanudación (`:184-201`); faltan Wi-Fi físico y notificación nativa ante pérdida.                                                                        |
+| 4   | Enviar prueba nativa de info, alerta y crítica según preferencias                     | **NO APTO (parcialmente verificado)**     | E2E verificó llamada de notificación info y bloqueo del nivel alerta desactivado (`:96-147`); falta entrega visible nativa de los tres niveles y prueba de permisos.                             |
+| 5   | `npm run dev`, `npm test`, migraciones SQLite, CI e instaladores para las plataformas | **NO APTO (parcialmente verificado)**     | `npm test` 106/106, E2E 6/6, lint y build pasan; DMG x64/arm64 generado y verificado. Pendientes arranque explícito con `npm run dev`, CI remota y artefactos/ejecución de NSIS, AppImage y deb. |
+| 6   | Decisiones de alcance completas y claves API nunca legibles en configuración/DB       | **APTO con evidencia automatizada local** | Cotejo escrito en `docs/alcance.md:193-213`; E2E comprobó que un valor secreto ficticio no aparece en JSON ni en `tradia.db` (`:203-220`).                                                       |
 
 **Conclusión de fase:** **NO APTO para aceptación global** hasta completar las comprobaciones nativas pendientes. No se registran defectos reproducidos: las verificaciones que faltan son limitaciones de cobertura/entorno, no fallos confirmados del producto.
 

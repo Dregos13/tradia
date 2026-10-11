@@ -9,55 +9,290 @@
   },
   "color": {
     "regime": {
-      "trend": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Tendencia", "icon": "trending-up", "contrastLight": "6.47:1", "contrastDark": "5.62:1" },
-      "sideways": { "light": "#5B3B91", "lightSurface": "#EEE6FA", "dark": "#D0B4FF", "darkSurface": "#35244F", "label": "Lateral", "icon": "move-horizontal", "contrastLight": "6.99:1", "contrastDark": "7.68:1" },
-      "highVolatility": { "light": "#875600", "lightSurface": "#FFF0BF", "dark": "#FFD166", "darkSurface": "#45320D", "label": "Volatilidad alta", "icon": "activity", "contrastLight": "5.49:1", "contrastDark": "8.49:1" },
-      "lowVolatility": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Volatilidad baja", "icon": "waves", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "unknown": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin clasificar", "icon": "circle-help", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "trend": {
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "label": "Tendencia",
+        "icon": "trending-up",
+        "contrastLight": "6.47:1",
+        "contrastDark": "5.62:1"
+      },
+      "sideways": {
+        "light": "#5B3B91",
+        "lightSurface": "#EEE6FA",
+        "dark": "#D0B4FF",
+        "darkSurface": "#35244F",
+        "label": "Lateral",
+        "icon": "move-horizontal",
+        "contrastLight": "6.99:1",
+        "contrastDark": "7.68:1"
+      },
+      "highVolatility": {
+        "light": "#875600",
+        "lightSurface": "#FFF0BF",
+        "dark": "#FFD166",
+        "darkSurface": "#45320D",
+        "label": "Volatilidad alta",
+        "icon": "activity",
+        "contrastLight": "5.49:1",
+        "contrastDark": "8.49:1"
+      },
+      "lowVolatility": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Volatilidad baja",
+        "icon": "waves",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "unknown": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Sin clasificar",
+        "icon": "circle-help",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "eligibility": {
-      "enabled": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Activa por régimen", "icon": "circle-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "disabled": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Desactivada por régimen", "icon": "circle-pause", "contrastLight": "5.68:1", "contrastDark": "8.12:1" },
-      "degraded": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Degradada", "icon": "triangle-alert", "contrastLight": "6.22:1", "contrastDark": "6.39:1" }
+      "enabled": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Activa por régimen",
+        "icon": "circle-check",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "disabled": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "label": "Desactivada por régimen",
+        "icon": "circle-pause",
+        "contrastLight": "5.68:1",
+        "contrastDark": "8.12:1"
+      },
+      "degraded": {
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "label": "Degradada",
+        "icon": "triangle-alert",
+        "contrastLight": "6.22:1",
+        "contrastDark": "6.39:1"
+      }
     },
     "probability": {
-      "primary": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Probabilidad estimada", "contrastLight": "6.47:1", "contrastDark": "5.62:1" },
-      "complement": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Probabilidad complementaria", "contrastLight": "5.91:1", "contrastDark": "7.25:1" },
-      "unavailable": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin estimación", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "primary": {
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "label": "Probabilidad estimada",
+        "contrastLight": "6.47:1",
+        "contrastDark": "5.62:1"
+      },
+      "complement": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Probabilidad complementaria",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      },
+      "unavailable": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Sin estimación",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "modelFitness": {
-      "eligible": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Apto para apoyar señales", "icon": "badge-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "synthetic": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Datos sintéticos · no apto", "icon": "flask-conical", "contrastLight": "6.22:1", "contrastDark": "6.39:1" },
-      "unrated": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin evaluar", "icon": "circle-help", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "eligible": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Apto para apoyar señales",
+        "icon": "badge-check",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "synthetic": {
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "label": "Datos sintéticos · no apto",
+        "icon": "flask-conical",
+        "contrastLight": "6.22:1",
+        "contrastDark": "6.39:1"
+      },
+      "unrated": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Sin evaluar",
+        "icon": "circle-help",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "sentiment": {
-      "favorable": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Sentimiento favorable", "icon": "arrow-up-right", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "neutral": { "light": "#475263", "lightSurface": "#EAECEF", "dark": "#B8C1CE", "darkSurface": "#1D293B", "label": "Sentimiento neutral", "icon": "minus", "contrastLight": "6.68:1", "contrastDark": "8.07:1" },
-      "unfavorable": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Sentimiento desfavorable", "icon": "arrow-down-right", "contrastLight": "6.22:1", "contrastDark": "6.39:1" },
-      "mixed": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Sentimiento mixto", "icon": "split", "contrastLight": "5.68:1", "contrastDark": "8.12:1" },
-      "notAnalyzed": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin analizar", "icon": "circle-dashed", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "favorable": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Sentimiento favorable",
+        "icon": "arrow-up-right",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "neutral": {
+        "light": "#475263",
+        "lightSurface": "#EAECEF",
+        "dark": "#B8C1CE",
+        "darkSurface": "#1D293B",
+        "label": "Sentimiento neutral",
+        "icon": "minus",
+        "contrastLight": "6.68:1",
+        "contrastDark": "8.07:1"
+      },
+      "unfavorable": {
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "label": "Sentimiento desfavorable",
+        "icon": "arrow-down-right",
+        "contrastLight": "6.22:1",
+        "contrastDark": "6.39:1"
+      },
+      "mixed": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "label": "Sentimiento mixto",
+        "icon": "split",
+        "contrastLight": "5.68:1",
+        "contrastDark": "8.12:1"
+      },
+      "notAnalyzed": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Sin analizar",
+        "icon": "circle-dashed",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "verification": {
-      "unverified": { "light": "#8E3600", "lightSurface": "#FFF1E5", "dark": "#FFA866", "darkSurface": "#421B02", "label": "Sin verificar · no genera señales", "icon": "shield-alert", "borderStyle": "dashed", "contrastLight": "7.08:1", "contrastDark": "7.95:1" }
+      "unverified": {
+        "light": "#8E3600",
+        "lightSurface": "#FFF1E5",
+        "dark": "#FFA866",
+        "darkSurface": "#421B02",
+        "label": "Sin verificar · no genera señales",
+        "icon": "shield-alert",
+        "borderStyle": "dashed",
+        "contrastLight": "7.08:1",
+        "contrastDark": "7.95:1"
+      }
     },
     "health": {
-      "healthy": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Saludable", "icon": "heart-pulse", "contrastLight": "5.59:1", "contrastDark": "7.19:1" },
-      "watch": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "En observación", "icon": "eye", "contrastLight": "5.68:1", "contrastDark": "8.12:1" },
-      "degraded": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Degradado", "icon": "triangle-alert", "contrastLight": "6.22:1", "contrastDark": "6.39:1" },
-      "unknown": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin datos suficientes", "icon": "circle-help", "contrastLight": "5.91:1", "contrastDark": "7.25:1" }
+      "healthy": {
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "label": "Saludable",
+        "icon": "heart-pulse",
+        "contrastLight": "5.59:1",
+        "contrastDark": "7.19:1"
+      },
+      "watch": {
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "label": "En observación",
+        "icon": "eye",
+        "contrastLight": "5.68:1",
+        "contrastDark": "8.12:1"
+      },
+      "degraded": {
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "label": "Degradado",
+        "icon": "triangle-alert",
+        "contrastLight": "6.22:1",
+        "contrastDark": "6.39:1"
+      },
+      "unknown": {
+        "light": "#4F5868",
+        "lightSurface": "#ECE9E1",
+        "dark": "#C4CBD5",
+        "darkSurface": "#2B384C",
+        "label": "Sin datos suficientes",
+        "icon": "circle-help",
+        "contrastLight": "5.91:1",
+        "contrastDark": "7.25:1"
+      }
     },
     "chart": {
-      "calibrationIdeal": { "light": "#6A7280", "dark": "#B8C1CE", "name": "Calibración ideal", "lineStyle": "dashed" },
-      "calibrationObserved": { "light": "#1746C6", "dark": "#8EACFF", "name": "Frecuencia observada", "lineStyle": "solid" },
-      "reference": { "light": "#5B3B91", "dark": "#D0B4FF", "name": "Modelo de referencia", "lineStyle": "dotted" },
+      "calibrationIdeal": {
+        "light": "#6A7280",
+        "dark": "#B8C1CE",
+        "name": "Calibración ideal",
+        "lineStyle": "dashed"
+      },
+      "calibrationObserved": {
+        "light": "#1746C6",
+        "dark": "#8EACFF",
+        "name": "Frecuencia observada",
+        "lineStyle": "solid"
+      },
+      "reference": {
+        "light": "#5B3B91",
+        "dark": "#D0B4FF",
+        "name": "Modelo de referencia",
+        "lineStyle": "dotted"
+      },
       "grid": { "light": "#DCD8CE", "dark": "#2B384C", "name": "Rejilla" }
     }
   },
   "typography": {
     "family": {
-      "interface": { "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", "name": "Interfaz" },
+      "interface": {
+        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz"
+      },
       "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
-      "numeric": { "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace", "name": "Datos" }
+      "numeric": {
+        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos"
+      }
     },
     "numeric": { "fontVariantNumeric": "tabular-nums", "slashedZero": true },
     "size": {
@@ -71,7 +306,19 @@
     "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
     "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
   },
-  "spacing": { "0": "0", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px", "16": "64px" },
+  "spacing": {
+    "0": "0",
+    "1": "4px",
+    "2": "8px",
+    "3": "12px",
+    "4": "16px",
+    "5": "20px",
+    "6": "24px",
+    "8": "32px",
+    "10": "40px",
+    "12": "48px",
+    "16": "64px"
+  },
   "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
   "shadow": {
     "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
@@ -88,5 +335,11 @@
     "healthTableMin": "980px",
     "dialogMax": "560px"
   },
-  "motion": { "fast": "120ms", "normal": "200ms", "slow": "320ms", "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)", "reduced": "0ms" }
+  "motion": {
+    "fast": "120ms",
+    "normal": "200ms",
+    "slow": "320ms",
+    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "reduced": "0ms"
+  }
 }

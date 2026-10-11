@@ -43,15 +43,15 @@ No se ha modificado código de producto.
 
 ## Hallazgos anteriores: ¿cerrados de verdad?
 
-| Hallazgo | Estado | Prueba que lo demuestra |
-| --- | --- | --- |
-| H1 · `live.evidence` manipulada cumple requisitos fuera de E2E | **Cerrado** | `live.audit.test.ts:370` (como `it`). Nueva: `live.audit.test.ts:612`: una copia con evidencia sembrada, lista cumplida, límites confirmados, modo «activo» y claves live, restaurada en la app empaquetada. El modo deja de estar activo, los 4 requisitos automáticos quedan sin cumplir, reactivar con la frase se rechaza, ninguna orden sale y `restore()` no llama a la red |
-| H2 · orden de mercado por encima del techo por orden | **Cerrado** (compras) | `live.audit.test.ts:539` (como `it`). Nueva: `live.audit.test.ts:683`: con una referencia desfasada de 60 USD y la cotización a 250 USD, la compra sale limitada con tope y no ejecuta por encima. Queda abierto el caso de las **ventas en corto** (ver C4) |
-| H3 · racha aislada degrada en 24 h a caballo de fin de mes | **Cerrado** | `ai.audit.test.ts:950` (como `it`) |
-| H4 · sin activos ligados, el LLM atribuye sentimiento a un ticker no mencionado | **Cerrado** | `ai.audit.test.ts:316` (como `it`). Nueva, por la CLI: `claudeCli.audit.test.ts:268` |
-| H5 · titular desconfirmado sigue influyendo | **Cerrado** | `ai.audit.test.ts:334` y la integración con el motor de señales en `ai.audit.test.ts:405` |
-| P7 · la prueba de humo da por buena una ejecución a −8.278 pb y dimensiona con un precio ajeno | **Cerrado** | `smoke.test.ts:282` (cierre desfasado: no envía), `:551` (slippage absurdo: fallida y suspende), `:585` (nocional por encima del mínimo: fallida). Nueva por IPC: `live.audit.test.ts:719`, con el último cierre de SPY (1.451,93 USD) de hace semanas no llega ninguna orden a `broker_orders_live` |
-| Régimen desconocido «falla abierto» | **Cerrado** | `ai.audit.test.ts:768`: sin régimen, una ficha con «falla en» no vota y una sin «falla en» sí (regla de cierre de `enablement.ts`) |
+| Hallazgo                                                                                       | Estado                | Prueba que lo demuestra                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1 · `live.evidence` manipulada cumple requisitos fuera de E2E                                 | **Cerrado**           | `live.audit.test.ts:370` (como `it`). Nueva: `live.audit.test.ts:612`: una copia con evidencia sembrada, lista cumplida, límites confirmados, modo «activo» y claves live, restaurada en la app empaquetada. El modo deja de estar activo, los 4 requisitos automáticos quedan sin cumplir, reactivar con la frase se rechaza, ninguna orden sale y `restore()` no llama a la red |
+| H2 · orden de mercado por encima del techo por orden                                           | **Cerrado** (compras) | `live.audit.test.ts:539` (como `it`). Nueva: `live.audit.test.ts:683`: con una referencia desfasada de 60 USD y la cotización a 250 USD, la compra sale limitada con tope y no ejecuta por encima. Queda abierto el caso de las **ventas en corto** (ver C4)                                                                                                                      |
+| H3 · racha aislada degrada en 24 h a caballo de fin de mes                                     | **Cerrado**           | `ai.audit.test.ts:950` (como `it`)                                                                                                                                                                                                                                                                                                                                                |
+| H4 · sin activos ligados, el LLM atribuye sentimiento a un ticker no mencionado                | **Cerrado**           | `ai.audit.test.ts:316` (como `it`). Nueva, por la CLI: `claudeCli.audit.test.ts:268`                                                                                                                                                                                                                                                                                              |
+| H5 · titular desconfirmado sigue influyendo                                                    | **Cerrado**           | `ai.audit.test.ts:334` y la integración con el motor de señales en `ai.audit.test.ts:405`                                                                                                                                                                                                                                                                                         |
+| P7 · la prueba de humo da por buena una ejecución a −8.278 pb y dimensiona con un precio ajeno | **Cerrado**           | `smoke.test.ts:282` (cierre desfasado: no envía), `:551` (slippage absurdo: fallida y suspende), `:585` (nocional por encima del mínimo: fallida). Nueva por IPC: `live.audit.test.ts:719`, con el último cierre de SPY (1.451,93 USD) de hace semanas no llega ninguna orden a `broker_orders_live`                                                                              |
+| Régimen desconocido «falla abierto»                                                            | **Cerrado**           | `ai.audit.test.ts:768`: sin régimen, una ficha con «falla en» no vota y una sin «falla en» sí (regla de cierre de `enablement.ts`)                                                                                                                                                                                                                                                |
 
 Encargos de la supervisión para esta auditoría:
 
@@ -61,29 +61,29 @@ Encargos de la supervisión para esta auditoría:
 
 ## Superficies nuevas: garantía → prueba
 
-| Garantía | Prueba | Resultado |
-| --- | --- | --- |
-| El titular nunca llega a los argumentos ni a una shell; solo viaja por stdin, cercado (`</titular>` neutralizado) | `claudeCli.audit.test.ts:207` | Se cumple |
-| Ninguna clave del proceso principal llega al hijo (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_USE_BEDROCK`, AWS, Tiingo, FRED, `NODE_OPTIONS`, `ELECTRON_RUN_AS_NODE`, `TRADIA_E2E`) | `claudeCli.audit.test.ts:237` | Se cumple |
-| Una respuesta manipulada no añade un activo fuera de los candidatos | `claudeCli.audit.test.ts:268` | Se cumple |
-| La CLI corre sin herramientas | `claudeCli.audit.test.ts:284` | **C1 · falla** |
-| stdout por encima de 1 MiB mata el proceso y no descuenta el tope diario | `claudeCli.audit.test.ts:308` | Se cumple |
-| Una CLI colgada se mata al vencer el timeout | `claudeCli.audit.test.ts:324` | Se cumple |
-| Con el tope diario agotado no se lanza ningún proceso | `claudeCli.audit.test.ts:333` | Se cumple |
-| stderr también está acotado | `claudeCli.audit.test.ts:342` | **C2 · falla** |
-| La suscripción funciona en Windows con la CLI de npm | `claudeCli.audit.test.ts:367` | **C3 · falla** |
-| La clave no aparece en resultado, `data_status`, eventos ni registros. Escenarios: 200, 401, 403, 400 de FRED, 429, 500, 404, 200 no JSON y fallo de transporte con la URL, cada uno con la clave en el cuerpo, para Tiingo y FRED | `providers.audit.test.ts:187` (9 escenarios × 2 proveedores) | Se cumple |
-| Una clave de FRED con caracteres que `URLSearchParams` codifica no se cuela | `providers.audit.test.ts:212` | Se cumple |
-| Sin clave no se llama a la red y el estado es «sin-clave» | `providers.audit.test.ts:226` | Se cumple |
-| Un 200 de Tiingo con `detail` que repite la clave | `providers.audit.test.ts:238` | **C7 · falla** |
-| Un fallo de transporte de Tiingo que cita la cabecera `Authorization` | `providers.audit.test.ts:253` | **C8 · falla** |
-| Una vela anterior a la sesión esperada no emite señal, aunque la IA empuje a favor | `ai.audit.test.ts:758` | Se cumple (`stale-data`, nada llega a la pasarela) |
-| Una predicción de hace semanas no ajusta la señal de hoy | `ai.audit.test.ts:784` | **C5 · falla** |
-| Un titular publicado hace semanas y analizado hoy no ajusta la señal | `ai.audit.test.ts:505` | **C6 · falla** |
-| Copia restaurada con dinero real activo | `live.audit.test.ts:612` | Se cumple |
-| Compra con hueco de apertura | `live.audit.test.ts:683` | Se cumple |
-| Entrada en corto con hueco de apertura | `live.audit.test.ts:700` | **C4 · falla** |
-| Humo con referencia de hace semanas | `live.audit.test.ts:719` | Se cumple |
+| Garantía                                                                                                                                                                                                                           | Prueba                                                       | Resultado                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| El titular nunca llega a los argumentos ni a una shell; solo viaja por stdin, cercado (`</titular>` neutralizado)                                                                                                                  | `claudeCli.audit.test.ts:207`                                | Se cumple                                          |
+| Ninguna clave del proceso principal llega al hijo (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_USE_BEDROCK`, AWS, Tiingo, FRED, `NODE_OPTIONS`, `ELECTRON_RUN_AS_NODE`, `TRADIA_E2E`)          | `claudeCli.audit.test.ts:237`                                | Se cumple                                          |
+| Una respuesta manipulada no añade un activo fuera de los candidatos                                                                                                                                                                | `claudeCli.audit.test.ts:268`                                | Se cumple                                          |
+| La CLI corre sin herramientas                                                                                                                                                                                                      | `claudeCli.audit.test.ts:284`                                | **C1 · falla**                                     |
+| stdout por encima de 1 MiB mata el proceso y no descuenta el tope diario                                                                                                                                                           | `claudeCli.audit.test.ts:308`                                | Se cumple                                          |
+| Una CLI colgada se mata al vencer el timeout                                                                                                                                                                                       | `claudeCli.audit.test.ts:324`                                | Se cumple                                          |
+| Con el tope diario agotado no se lanza ningún proceso                                                                                                                                                                              | `claudeCli.audit.test.ts:333`                                | Se cumple                                          |
+| stderr también está acotado                                                                                                                                                                                                        | `claudeCli.audit.test.ts:342`                                | **C2 · falla**                                     |
+| La suscripción funciona en Windows con la CLI de npm                                                                                                                                                                               | `claudeCli.audit.test.ts:367`                                | **C3 · falla**                                     |
+| La clave no aparece en resultado, `data_status`, eventos ni registros. Escenarios: 200, 401, 403, 400 de FRED, 429, 500, 404, 200 no JSON y fallo de transporte con la URL, cada uno con la clave en el cuerpo, para Tiingo y FRED | `providers.audit.test.ts:187` (9 escenarios × 2 proveedores) | Se cumple                                          |
+| Una clave de FRED con caracteres que `URLSearchParams` codifica no se cuela                                                                                                                                                        | `providers.audit.test.ts:212`                                | Se cumple                                          |
+| Sin clave no se llama a la red y el estado es «sin-clave»                                                                                                                                                                          | `providers.audit.test.ts:226`                                | Se cumple                                          |
+| Un 200 de Tiingo con `detail` que repite la clave                                                                                                                                                                                  | `providers.audit.test.ts:238`                                | **C7 · falla**                                     |
+| Un fallo de transporte de Tiingo que cita la cabecera `Authorization`                                                                                                                                                              | `providers.audit.test.ts:253`                                | **C8 · falla**                                     |
+| Una vela anterior a la sesión esperada no emite señal, aunque la IA empuje a favor                                                                                                                                                 | `ai.audit.test.ts:758`                                       | Se cumple (`stale-data`, nada llega a la pasarela) |
+| Una predicción de hace semanas no ajusta la señal de hoy                                                                                                                                                                           | `ai.audit.test.ts:784`                                       | **C5 · falla**                                     |
+| Un titular publicado hace semanas y analizado hoy no ajusta la señal                                                                                                                                                               | `ai.audit.test.ts:505`                                       | **C6 · falla**                                     |
+| Copia restaurada con dinero real activo                                                                                                                                                                                            | `live.audit.test.ts:612`                                     | Se cumple                                          |
+| Compra con hueco de apertura                                                                                                                                                                                                       | `live.audit.test.ts:683`                                     | Se cumple                                          |
+| Entrada en corto con hueco de apertura                                                                                                                                                                                             | `live.audit.test.ts:700`                                     | **C4 · falla**                                     |
+| Humo con referencia de hace semanas                                                                                                                                                                                                | `live.audit.test.ts:719`                                     | Se cumple                                          |
 
 ## Hallazgos nuevos
 
@@ -214,16 +214,16 @@ Encargos de la supervisión para esta auditoría:
 
 ## Reparto
 
-| Hallazgo | Gravedad | Responsable | Archivo |
-| --- | --- | --- | --- |
-| C1 | Alta | Backend | `src/main/ai/news/claudeCli.ts` |
-| C3 | Media | Backend | `src/main/ai/news/claudeCli.ts` |
-| C4 | Media | Backend | `src/main/live/orderGuard.ts`, `src/main/broker/orderManager.ts` |
-| C5 | Media | Backend | `src/main/signals/engine.ts`, `src/main/signals/index.ts` |
-| C2 | Baja | Backend | `src/main/ai/news/claudeCli.ts` |
-| C6 | Baja | Backend | `src/main/signals/engine.ts`, `src/main/ai/news/repository.ts` |
-| C7 | Baja | Backend | `src/main/market/providers/tiingo.ts` |
-| C8 | Baja | Backend | `src/main/market/providers/tiingo.ts`, `src/main/services/secrets.ts` |
+| Hallazgo | Gravedad | Responsable | Archivo                                                               |
+| -------- | -------- | ----------- | --------------------------------------------------------------------- |
+| C1       | Alta     | Backend     | `src/main/ai/news/claudeCli.ts`                                       |
+| C3       | Media    | Backend     | `src/main/ai/news/claudeCli.ts`                                       |
+| C4       | Media    | Backend     | `src/main/live/orderGuard.ts`, `src/main/broker/orderManager.ts`      |
+| C5       | Media    | Backend     | `src/main/signals/engine.ts`, `src/main/signals/index.ts`             |
+| C2       | Baja     | Backend     | `src/main/ai/news/claudeCli.ts`                                       |
+| C6       | Baja     | Backend     | `src/main/signals/engine.ts`, `src/main/ai/news/repository.ts`        |
+| C7       | Baja     | Backend     | `src/main/market/providers/tiingo.ts`                                 |
+| C8       | Baja     | Backend     | `src/main/market/providers/tiingo.ts`, `src/main/services/secrets.ts` |
 
 Ninguno es de Frontend.
 

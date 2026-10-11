@@ -71,15 +71,15 @@ Si el modelo no es apto, aparece: `Solo información. Este modelo no puede influ
 
 ### Estados de «IA»
 
-| Estado | Presentación y texto final | Acciones |
-| --- | --- | --- |
-| Cargando | Cabecera estable, esqueletos con la geometría de las dos tablas y del bloque de probabilidad; `Cargando régimen y estimaciones…`; `aria-busy="true"`. | Ninguna acción que dependa de datos. |
-| Vacío | `Todavía no hay cierres suficientes para clasificar el régimen` + `Se necesitan velas diarias válidas antes de calcular el mercado y los activos.` Predicción: `Aún no hay una versión de modelo cargada.` | `Revisar fuentes de mercado`. |
-| Error parcial | Conserva la última instantánea con `Datos de {hora}`. Junto al bloque afectado: `No se pudo actualizar la predicción de AAPL` + causa segura. | `Reintentar`. |
-| Error total | `No se pudo cargar la página IA` + motivo conocido. No reemplaza navegación ni franja global. | `Reintentar` y `Ver estado de fuentes`. |
-| Sin conexión | Banner `Sin conexión · régimen y predicciones congelados desde {hora}. No se evaluarán señales nuevas.` La instantánea permanece visible. | `Reintentar conexión`; Actualizar deshabilitado. |
-| Sin permisos | `Tradia no puede leer el archivo del modelo` + ruta no sensible o nombre del recurso + `Revisa los permisos del archivo y vuelve a cargarlo.` | `Abrir ubicación del modelo`, si el sistema lo permite. |
-| Éxito de actualización | Sin toast como único resultado: hora actualizada y anuncio vivo `Régimen y predicciones actualizados.` | El foco permanece en `Actualizar`. |
+| Estado                 | Presentación y texto final                                                                                                                                                                                 | Acciones                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Cargando               | Cabecera estable, esqueletos con la geometría de las dos tablas y del bloque de probabilidad; `Cargando régimen y estimaciones…`; `aria-busy="true"`.                                                      | Ninguna acción que dependa de datos.                    |
+| Vacío                  | `Todavía no hay cierres suficientes para clasificar el régimen` + `Se necesitan velas diarias válidas antes de calcular el mercado y los activos.` Predicción: `Aún no hay una versión de modelo cargada.` | `Revisar fuentes de mercado`.                           |
+| Error parcial          | Conserva la última instantánea con `Datos de {hora}`. Junto al bloque afectado: `No se pudo actualizar la predicción de AAPL` + causa segura.                                                              | `Reintentar`.                                           |
+| Error total            | `No se pudo cargar la página IA` + motivo conocido. No reemplaza navegación ni franja global.                                                                                                              | `Reintentar` y `Ver estado de fuentes`.                 |
+| Sin conexión           | Banner `Sin conexión · régimen y predicciones congelados desde {hora}. No se evaluarán señales nuevas.` La instantánea permanece visible.                                                                  | `Reintentar conexión`; Actualizar deshabilitado.        |
+| Sin permisos           | `Tradia no puede leer el archivo del modelo` + ruta no sensible o nombre del recurso + `Revisa los permisos del archivo y vuelve a cargarlo.`                                                              | `Abrir ubicación del modelo`, si el sistema lo permite. |
+| Éxito de actualización | Sin toast como único resultado: hora actualizada y anuncio vivo `Régimen y predicciones actualizados.`                                                                                                     | El foco permanece en `Actualizar`.                      |
 
 ## Ficha del modelo
 
@@ -201,16 +201,16 @@ Cuando el trimestre ya tiene una propuesta: `No se propondrá otro reentrenamien
 
 ### Estados de salud
 
-| Estado | Texto final |
-| --- | --- |
-| Cargando | `Calculando salud con las últimas revisiones…`; esqueletos de resumen y filas. |
-| Vacío inicial | `Aún no hay predicciones resueltas ni operaciones suficientes` + `La salud aparecerá cuando exista una muestra evaluable.` |
-| Vacío de propuestas | `No hay reentrenamientos propuestos` + `Los modelos se mantienen bajo vigilancia.` |
-| Error parcial | Conserva filas válidas; la afectada dice `No evaluado · faltan datos de referencia`. |
-| Error total | `No se pudo calcular la salud de los modelos` + `Reintentar`. |
-| Sin conexión | `Sin conexión · la revisión queda pausada. Últimos resultados de {hora}.` No cambia estados por ausencia de datos. |
-| Sin permisos | `No se puede leer la distribución de referencia` + `El modelo queda en observación hasta recuperar el acceso.` |
-| Éxito | Fecha actualizada y anuncio `Revisión de salud completada. Una estrategia requiere atención.` |
+| Estado              | Texto final                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Cargando            | `Calculando salud con las últimas revisiones…`; esqueletos de resumen y filas.                                             |
+| Vacío inicial       | `Aún no hay predicciones resueltas ni operaciones suficientes` + `La salud aparecerá cuando exista una muestra evaluable.` |
+| Vacío de propuestas | `No hay reentrenamientos propuestos` + `Los modelos se mantienen bajo vigilancia.`                                         |
+| Error parcial       | Conserva filas válidas; la afectada dice `No evaluado · faltan datos de referencia`.                                       |
+| Error total         | `No se pudo calcular la salud de los modelos` + `Reintentar`.                                                              |
+| Sin conexión        | `Sin conexión · la revisión queda pausada. Últimos resultados de {hora}.` No cambia estados por ausencia de datos.         |
+| Sin permisos        | `No se puede leer la distribución de referencia` + `El modelo queda en observación hasta recuperar el acceso.`             |
+| Éxito               | Fecha actualizada y anuncio `Revisión de salud completada. Una estrategia requiere atención.`                              |
 
 ## Pantalla «Dinero real»
 
@@ -278,16 +278,16 @@ Etiqueta de campo: `Escribe exactamente esta frase para confirmar`. La frase se 
 
 ### Estados de «Dinero real»
 
-| Estado | Presentación y recuperación |
-| --- | --- |
-| Cargando | Filas esqueleto, límites bloqueados y `Comprobando requisitos en el proceso principal…`; no mostrar momentáneamente un botón habilitado. |
-| Vacío | `No hay estrategias seleccionadas para dinero real` + `Elige primero qué estrategias podrían operar y vuelve a validar sus fichas.` + `Revisar estrategias`. |
-| Bloqueado | Recuento y lista completa de motivos; acción deshabilitada. |
-| Listo | `Todos los requisitos están vigentes` + límites sin error; acción habilitada, todavía sin modo real. |
-| Error | `No se pudo verificar la lista. Dinero real permanece bloqueado.` + motivo seguro + `Reintentar`. Fallo cerrado, nunca habilitar por caché. |
-| Sin conexión | `Sin conexión · no se puede activar dinero real.` Si ya estaba activo: `DINERO REAL SUSPENDIDO · no se enviarán órdenes nuevas.` |
-| Sin permisos | Para llavero o claves: `Tradia no puede acceder a las claves live. Dinero real permanece bloqueado.` + recuperación. |
-| Éxito | Franja global visible, estado `Dinero real activo` y anuncio asertivo `Dinero real activado con los límites confirmados.` El foco pasa al estado, no a una orden. |
+| Estado       | Presentación y recuperación                                                                                                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cargando     | Filas esqueleto, límites bloqueados y `Comprobando requisitos en el proceso principal…`; no mostrar momentáneamente un botón habilitado.                          |
+| Vacío        | `No hay estrategias seleccionadas para dinero real` + `Elige primero qué estrategias podrían operar y vuelve a validar sus fichas.` + `Revisar estrategias`.      |
+| Bloqueado    | Recuento y lista completa de motivos; acción deshabilitada.                                                                                                       |
+| Listo        | `Todos los requisitos están vigentes` + límites sin error; acción habilitada, todavía sin modo real.                                                              |
+| Error        | `No se pudo verificar la lista. Dinero real permanece bloqueado.` + motivo seguro + `Reintentar`. Fallo cerrado, nunca habilitar por caché.                       |
+| Sin conexión | `Sin conexión · no se puede activar dinero real.` Si ya estaba activo: `DINERO REAL SUSPENDIDO · no se enviarán órdenes nuevas.`                                  |
+| Sin permisos | Para llavero o claves: `Tradia no puede acceder a las claves live. Dinero real permanece bloqueado.` + recuperación.                                              |
+| Éxito        | Franja global visible, estado `Dinero real activo` y anuncio asertivo `Dinero real activado con los límites confirmados.` El foco pasa al estado, no a una orden. |
 
 ## Franja global «DINERO REAL»
 
@@ -361,23 +361,23 @@ Los contrastes declarados en los tokens se comprueban entre texto y su superfici
 
 ## Matriz de implementación
 
-| Componente | Estados obligatorios | Texto o regla clave |
-| --- | --- | --- |
-| `RegimeSummary` | cargando, conocido, sin clasificar, obsoleto, error | dos ejes, método y fecha |
-| `RegimeAssetTable` | cargando, vacío, error parcial, congelado | dirección + volatilidad escritas |
-| `StrategyRegimeStatus` | activa, desactivada, degradada, desactualizada | motivo humano, sin bypass |
-| `ProbabilityPanel` | cargando, disponible, no apto, sin modelo, error | porcentaje + horizonte + versión; nunca certeza |
-| `ModelCard` | completa, sintética, no apta, incompleta, error, sin permisos | Brier vs referencia, periodos y calibración |
-| `RegimeBacktestComparison` | cargando, comparable, no comparable, vacío, error | mismos datos, periodo y costes |
-| `NewsAnalysis` | local, LLM, sin analizar, sin verificar, cargando, error | `Sin verificar · no genera señales` |
-| `LlmSettings` | apagado, comprobando, activo, límite, error, sin llavero | coste, tope y clave cifrada |
-| `ModelHealthTable` | saludable, observación, degradado, insuficiente, error | drift sostenido; mala racha aislada no basta |
-| `RetrainProposal` | disponible, pospuesta, ya propuesta este trimestre | nunca automático |
-| `LiveChecklist` | cargando, bloqueado, listo, error, sin conexión | automático bloqueado; manual declarado y fechado |
-| `LiveLimits` | limpio, validación, guardando, pendiente de frase, confirmado | valores iguales o menores que techos |
-| `LiveActivation` | deshabilitado con motivos, diálogo, comprobación concurrente, éxito | frase exacta y segunda validación en proceso principal |
-| `LiveBanner` | activo, suspendido por red, parada o requisito | siempre global, icono + `DINERO REAL` |
-| `LiveSmokeTest` | no ejecutada, en curso, conciliada, fallo con/sin posición | 1 USD, precios, slippage y Diario |
-| `ScalingStatus` | bloqueado, evidencia en curso, elegible para evaluación | sin acción para elevar techos |
+| Componente                 | Estados obligatorios                                                | Texto o regla clave                                    |
+| -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| `RegimeSummary`            | cargando, conocido, sin clasificar, obsoleto, error                 | dos ejes, método y fecha                               |
+| `RegimeAssetTable`         | cargando, vacío, error parcial, congelado                           | dirección + volatilidad escritas                       |
+| `StrategyRegimeStatus`     | activa, desactivada, degradada, desactualizada                      | motivo humano, sin bypass                              |
+| `ProbabilityPanel`         | cargando, disponible, no apto, sin modelo, error                    | porcentaje + horizonte + versión; nunca certeza        |
+| `ModelCard`                | completa, sintética, no apta, incompleta, error, sin permisos       | Brier vs referencia, periodos y calibración            |
+| `RegimeBacktestComparison` | cargando, comparable, no comparable, vacío, error                   | mismos datos, periodo y costes                         |
+| `NewsAnalysis`             | local, LLM, sin analizar, sin verificar, cargando, error            | `Sin verificar · no genera señales`                    |
+| `LlmSettings`              | apagado, comprobando, activo, límite, error, sin llavero            | coste, tope y clave cifrada                            |
+| `ModelHealthTable`         | saludable, observación, degradado, insuficiente, error              | drift sostenido; mala racha aislada no basta           |
+| `RetrainProposal`          | disponible, pospuesta, ya propuesta este trimestre                  | nunca automático                                       |
+| `LiveChecklist`            | cargando, bloqueado, listo, error, sin conexión                     | automático bloqueado; manual declarado y fechado       |
+| `LiveLimits`               | limpio, validación, guardando, pendiente de frase, confirmado       | valores iguales o menores que techos                   |
+| `LiveActivation`           | deshabilitado con motivos, diálogo, comprobación concurrente, éxito | frase exacta y segunda validación en proceso principal |
+| `LiveBanner`               | activo, suspendido por red, parada o requisito                      | siempre global, icono + `DINERO REAL`                  |
+| `LiveSmokeTest`            | no ejecutada, en curso, conciliada, fallo con/sin posición          | 1 USD, precios, slippage y Diario                      |
+| `ScalingStatus`            | bloqueado, evidencia en curso, elegible para evaluación             | sin acción para elevar techos                          |
 
 Los mockups de `.orquesta/design/e43b6d0f/` son referencia visual. Este documento gobierna comportamiento, copias, accesibilidad y estados cuando exista cualquier diferencia.

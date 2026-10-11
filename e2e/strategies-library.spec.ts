@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 test('biblioteca, edición versionada y ventana de 700 px', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-strategies-'));
@@ -15,6 +16,7 @@ test('biblioteca, edición versionada y ventana de 700 px', async () => {
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await page.getByRole('link', { name: 'Estrategias', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Biblioteca de estrategias' })).toBeVisible();
     for (const name of [

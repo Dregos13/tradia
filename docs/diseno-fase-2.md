@@ -56,13 +56,13 @@ La navegación añade `Estrategias`. La biblioteca es una lista comparativa, la 
 
 ## Estados de estrategia
 
-| Estado | Token | Señal secundaria | Uso |
-| --- | --- | --- | --- |
-| Investigación | `strategyStatus.research` | matraz | hipótesis aún en validación |
-| Paper | `strategyStatus.paper` | documento con check | validación sin capital real |
-| Activa | `strategyStatus.active` | círculo de reproducción | habilitada por el sistema |
-| Degradada | `strategyStatus.degraded` | tendencia descendente | rendimiento fuera de tolerancia |
-| Retirada | `strategyStatus.retired` | archivo | conservada para auditoría |
+| Estado        | Token                     | Señal secundaria        | Uso                             |
+| ------------- | ------------------------- | ----------------------- | ------------------------------- |
+| Investigación | `strategyStatus.research` | matraz                  | hipótesis aún en validación     |
+| Paper         | `strategyStatus.paper`    | documento con check     | validación sin capital real     |
+| Activa        | `strategyStatus.active`   | círculo de reproducción | habilitada por el sistema       |
+| Degradada     | `strategyStatus.degraded` | tendencia descendente   | rendimiento fuera de tolerancia |
+| Retirada      | `strategyStatus.retired`  | archivo                 | conservada para auditoría       |
 
 El texto completo siempre acompaña al color. `Paper` se presenta como `Paper` en espacios compactos y `Paper trading` en la ficha.
 

@@ -19,14 +19,14 @@ Este documento continúa el **Cuaderno cuantitativo** (ver `docs/diseno-fase-6-7
 
 ### Cuándo aparece
 
-| Situación | Comportamiento |
-|---|---|
-| Perfil vacío, después de aceptar el aviso de riesgo | Arranca solo en el paso 1. |
-| `onboardingTourVersion` distinto de `ONBOARDING_TOUR_VERSION` y sin completar | Arranca solo en el paso guardado o, si no hay ninguno, en el 1. |
-| Tour completado o saltado (`onboardingTourCompletedAt` con fecha y versión vigente) | No vuelve a aparecer solo. |
-| Tour en pausa (Esc o «Cerrar») | No vuelve a abrirse en la misma sesión. En el siguiente arranque se reabre en el paso guardado. También se puede retomar desde Inicio o Ajustes. |
-| Hay un diálogo abierto (`role="dialog"` o `role="alertdialog"`, p. ej. reanudar tras la parada) o el aviso legal está a la vista | Espera a que se cierre. |
-| «Ver el tour de nuevo» en Ajustes | Arranca en el paso 1, aunque esté completado. Al terminar o saltar se actualiza la fecha. |
+| Situación                                                                                                                        | Comportamiento                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Perfil vacío, después de aceptar el aviso de riesgo                                                                              | Arranca solo en el paso 1.                                                                                                                       |
+| `onboardingTourVersion` distinto de `ONBOARDING_TOUR_VERSION` y sin completar                                                    | Arranca solo en el paso guardado o, si no hay ninguno, en el 1.                                                                                  |
+| Tour completado o saltado (`onboardingTourCompletedAt` con fecha y versión vigente)                                              | No vuelve a aparecer solo.                                                                                                                       |
+| Tour en pausa (Esc o «Cerrar»)                                                                                                   | No vuelve a abrirse en la misma sesión. En el siguiente arranque se reabre en el paso guardado. También se puede retomar desde Inicio o Ajustes. |
+| Hay un diálogo abierto (`role="dialog"` o `role="alertdialog"`, p. ej. reanudar tras la parada) o el aviso legal está a la vista | Espera a que se cierre.                                                                                                                          |
+| «Ver el tour de nuevo» en Ajustes                                                                                                | Arranca en el paso 1, aunque esté completado. Al terminar o saltar se actualiza la fecha.                                                        |
 
 Persistencia: `onboardingTourVersion` y `onboardingTourCompletedAt` en AppSettings (contrato). El paso en curso se guarda en `localStorage` con la clave `tradia.tour.step` (número de 1 a 10, sin datos personales). Se borra al completar o saltar.
 
@@ -50,74 +50,84 @@ El elemento resaltado es **inerte** mientras dura el tour: todo lo que hay fuera
 
 El aviso de riesgo (`RiskGate`) se muestra antes y no cuenta como paso. Cada paso navega primero a su ruta (`window.location.hash`), espera al ancla, la desplaza a la vista (`scrollIntoView({ block: 'center' })`) y después mueve el foco al título del globo.
 
-| # | Ruta | Ancla (`data-tour`) | Dónde se pone | Selector de respaldo |
-|---|---|---|---|---|
-| 1 | (la actual) | — (globo centrado) | — | — |
-| 2 | `#inicio` | `inicio-situacion` | Contenedor `.dashboard-grid` de `Dashboard.tsx` | `.dashboard-grid` |
-| 3 | `#mercado` | `mercado-lista` | La lista de seguimiento de `MarketWorkspace.tsx` | `section[aria-label="Datos de mercado"]` |
-| 4 | `#fuentes` | `fuentes-lista` | Sección principal de `news/SourcesPage.tsx` (lista y «Añadir fuente») | `#contenido` |
-| 5 | `#estrategias` | `estrategias-lista` | Lista de estrategias de `StrategiesPage.tsx` | `#contenido` |
-| 6 | `#riesgo` | `parada` | Botón «Parada» de `risk/KillSwitchControl.tsx`, en la cabecera de todas las páginas | `.top` |
-| 7 | `#ordenes` | `ordenes-paper` | Tabla (o estado vacío) de `OrdersPage.tsx` | `#contenido` |
-| 8 | `#ia` | `ia-regimen` | Bloque «Régimen del mercado» de `ai/RegimePanel.tsx` | `section:has(#ai-regime-title)` y, si no, `#contenido` |
-| 9 | `#dinero-real` | `dinero-real-lista` | Sección de la lista de comprobación de `ChecklistPage.tsx` | `#contenido` |
-| 10 | `#ajustes` | `ajustes-proveedores` | Sección «Proveedores de datos» de `DataProvidersSettings.tsx` | `section[aria-label="Proveedores de datos"]` |
+| #   | Ruta           | Ancla (`data-tour`)   | Dónde se pone                                                                       | Selector de respaldo                                   |
+| --- | -------------- | --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 1   | (la actual)    | — (globo centrado)    | —                                                                                   | —                                                      |
+| 2   | `#inicio`      | `inicio-situacion`    | Contenedor `.dashboard-grid` de `Dashboard.tsx`                                     | `.dashboard-grid`                                      |
+| 3   | `#mercado`     | `mercado-lista`       | La lista de seguimiento de `MarketWorkspace.tsx`                                    | `section[aria-label="Datos de mercado"]`               |
+| 4   | `#fuentes`     | `fuentes-lista`       | Sección principal de `news/SourcesPage.tsx` (lista y «Añadir fuente»)               | `#contenido`                                           |
+| 5   | `#estrategias` | `estrategias-lista`   | Lista de estrategias de `StrategiesPage.tsx`                                        | `#contenido`                                           |
+| 6   | `#riesgo`      | `parada`              | Botón «Parada» de `risk/KillSwitchControl.tsx`, en la cabecera de todas las páginas | `.top`                                                 |
+| 7   | `#ordenes`     | `ordenes-paper`       | Tabla (o estado vacío) de `OrdersPage.tsx`                                          | `#contenido`                                           |
+| 8   | `#ia`          | `ia-regimen`          | Bloque «Régimen del mercado» de `ai/RegimePanel.tsx`                                | `section:has(#ai-regime-title)` y, si no, `#contenido` |
+| 9   | `#dinero-real` | `dinero-real-lista`   | Sección de la lista de comprobación de `ChecklistPage.tsx`                          | `#contenido`                                           |
+| 10  | `#ajustes`     | `ajustes-proveedores` | Sección «Proveedores de datos» de `DataProvidersSettings.tsx`                       | `section[aria-label="Proveedores de datos"]`           |
 
 Todas las rutas existen hoy en `App.tsx` (`inicio`, `mercado`, `fuentes`, `noticias`, `estrategias`, `riesgo`, `ordenes`, `ia`, `salud-modelos`, `dinero-real` y `ajustes`).
 
 **Paso 1 · Bienvenida**
+
 - Título: `Te enseñamos Tradia en 2 minutos`
 - Texto: `Tradia vigila el mercado, prueba estrategias con datos del pasado y te avisa con probabilidades, no con corazonadas. Por defecto todo es simulado: no se mueve dinero real. Son 10 pasos y puedes saltarlos cuando quieras.`
 - Botones: `Saltar tour` · `Empezar` (sin «Atrás»).
 
 **Paso 2 · Inicio**
+
 - Título: `Inicio: el estado de un vistazo`
 - Texto: `Aquí ves la situación del mercado, las señales del día, tus posiciones en paper y si los datos están al día. Si algo necesita tu atención, aparece primero aquí.`
 
 **Paso 3 · Mercado y lista de seguimiento**
+
 - Título: `Mercado: tu lista de seguimiento`
 - Texto: `Añade los activos que quieres vigilar. Tradia descarga sus velas diarias de Tiingo y los indicadores macro de FRED. Sin claves de los proveedores no hay datos reales.`
 
 **Paso 4 · Fuentes y Noticias**
+
 - Título: `Fuentes y Noticias`
 - Texto: `Elige de dónde llegan las noticias (RSS, fuentes oficiales y APIs). En Noticias verás cada titular con su fiabilidad. Un titular sin confirmar nunca crea una señal por sí solo.`
 
 **Paso 5 · Estrategias y backtest**
+
 - Título: `Estrategias: probadas con el pasado`
 - Texto: `Cada estrategia tiene su ficha: en qué régimen funciona, en cuál falla y su backtest con datos que no ha visto. Si no supera la validación, no se usa.`
 
 **Paso 6 · Riesgo y parada**
+
 - Título: `Riesgo manda sobre todo lo demás`
 - Texto: `Todas las señales pasan por el motor de riesgo, con sus límites de pérdida y de exposición. Este botón detiene al instante todas las órdenes nuevas. El tour no lo pulsa: solo te enseña dónde está.`
 
 **Paso 7 · Señales y Órdenes en paper**
+
 - Título: `Señales y órdenes en paper`
 - Texto: `Las señales aprobadas por Riesgo se convierten en órdenes simuladas (paper). Aquí ves cada orden, su estado y su conciliación con el broker. Arriba, la cabecera indica siempre el modo: «Señales + paper trading».`
 
 **Paso 8 · IA y Salud de modelos**
+
 - Título: `IA: régimen y probabilidades`
 - Texto: `La IA clasifica el régimen del mercado y estima la probabilidad de subida o bajada, con su ficha y su calibración. En Salud de modelos verás si un modelo se degrada y cuándo toca reentrenarlo. La IA nunca se salta a Riesgo.`
 
 **Paso 9 · Dinero real (bloqueado)**
+
 - Título: `Dinero real: bloqueado hasta que cumplas la lista`
 - Texto: `El modo real está bloqueado. Para activarlo hacen falta meses de validación en paper, la parada probada, alertas activas, claves sin permiso de retirada, un plan de contingencia, revisión legal y fiscal y tus límites confirmados por escrito. No hay atajos.`
 
 **Paso 10 · Ajustes**
+
 - Título: `Ajustes: conecta tus datos`
 - Texto: `Pega aquí tus claves de Tiingo y FRED y pulsa «Probar conexión» en cada una. Verás «Conectado» y la fecha del último dato, o el motivo exacto si falla. Puedes volver a ver este tour desde aquí.`
 - Botones: `Atrás` · `Terminar` (secundario) · `Terminar y añadir claves` (primario). El segundo marca el tour como completado, cierra y pone el foco en el campo «Clave de API de Tiingo».
 
 ### Comportamiento y teclado
 
-| Acción | Botón | Teclado | Efecto |
-|---|---|---|---|
-| Siguiente | `Siguiente` (`Empezar` en el 1) | `Intro` o `Espacio` sobre el botón; `→` con el foco en el globo | Va al paso siguiente y guarda `tradia.tour.step`. |
-| Atrás | `Atrás` (no aparece en el 1) | `←` con el foco en el globo | Va al paso anterior. |
-| Saltar | `Saltar tour` | — | Cierra sin confirmación, guarda la versión y `onboardingTourCompletedAt`, y anuncia: `Tour omitido. Puedes verlo cuando quieras en Ajustes.` |
-| Pausar | X `Cerrar` | `Esc` | Cierra, conserva el paso y anuncia: `Tour en pausa en el paso 4 de 10. Retómalo desde Inicio o Ajustes.` |
-| Retomar | `Retomar el tour (paso 4 de 10)` en «Primeros pasos» y en Ajustes | — | Abre en el paso guardado. |
-| Relanzar | `Ver el tour de nuevo` en Ajustes, sección «Ayuda» | — | Abre en el paso 1. |
-| Terminar | `Terminar` o `Terminar y añadir claves` | — | Guarda la versión y la fecha y borra el paso. |
+| Acción    | Botón                                                             | Teclado                                                         | Efecto                                                                                                                                       |
+| --------- | ----------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Siguiente | `Siguiente` (`Empezar` en el 1)                                   | `Intro` o `Espacio` sobre el botón; `→` con el foco en el globo | Va al paso siguiente y guarda `tradia.tour.step`.                                                                                            |
+| Atrás     | `Atrás` (no aparece en el 1)                                      | `←` con el foco en el globo                                     | Va al paso anterior.                                                                                                                         |
+| Saltar    | `Saltar tour`                                                     | —                                                               | Cierra sin confirmación, guarda la versión y `onboardingTourCompletedAt`, y anuncia: `Tour omitido. Puedes verlo cuando quieras en Ajustes.` |
+| Pausar    | X `Cerrar`                                                        | `Esc`                                                           | Cierra, conserva el paso y anuncia: `Tour en pausa en el paso 4 de 10. Retómalo desde Inicio o Ajustes.`                                     |
+| Retomar   | `Retomar el tour (paso 4 de 10)` en «Primeros pasos» y en Ajustes | —                                                               | Abre en el paso guardado.                                                                                                                    |
+| Relanzar  | `Ver el tour de nuevo` en Ajustes, sección «Ayuda»                | —                                                               | Abre en el paso 1.                                                                                                                           |
+| Terminar  | `Terminar` o `Terminar y añadir claves`                           | —                                                               | Guarda la versión y la fecha y borra el paso.                                                                                                |
 
 - **Foco atrapado** en el globo: `Tab` y `Mayús+Tab` recorren X → `Saltar tour` → `Atrás` → `Siguiente` y vuelven al principio.
 - Al abrir y en cada cambio de paso, el foco va al **título** del globo (`tabIndex=-1`), no al botón. Así el lector de pantalla lee el paso completo y `Intro` no avanza dos pasos por error.
@@ -150,11 +160,11 @@ Va arriba en Inicio, antes de `HomePhaseNotices`, con el ancho del contenido. Es
 - Título (`h2`): `Primeros pasos`. A la derecha, `2 de 3 hechos` (texto, cifras tabulares).
 - Tres filas, cada una con icono y etiqueta de estado (`firstSteps.done` o `pending`), un texto y una acción:
 
-| # | Texto | Hecho cuando | Acción si falta |
-|---|---|---|---|
-| 1 | `Añade tus claves de Tiingo y FRED` · `Sin ellas no hay velas ni datos macro reales.` | `secrets.hasKey('tiingo')` y `hasKey('fred')` | `Añadir claves` → `#ajustes`, foco en el campo de Tiingo (o en FRED si Tiingo ya está) |
-| 2 | `Prueba la conexión` · `Comprueba que cada proveedor responde y hasta qué fecha tiene datos.` | Último resultado `ok` en los dos proveedores (data-status `provider:*` en `fiable`) | `Probar conexión` → `#ajustes`, foco en el primer «Probar conexión» que no esté en `ok` |
-| 3 | `Añade tus fuentes de noticias` · `Elige al menos una fuente para recibir titulares.` | Al menos una fuente activa | `Añadir fuente` → `#fuentes` |
+| #   | Texto                                                                                         | Hecho cuando                                                                        | Acción si falta                                                                         |
+| --- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1   | `Añade tus claves de Tiingo y FRED` · `Sin ellas no hay velas ni datos macro reales.`         | `secrets.hasKey('tiingo')` y `hasKey('fred')`                                       | `Añadir claves` → `#ajustes`, foco en el campo de Tiingo (o en FRED si Tiingo ya está)  |
+| 2   | `Prueba la conexión` · `Comprueba que cada proveedor responde y hasta qué fecha tiene datos.` | Último resultado `ok` en los dos proveedores (data-status `provider:*` en `fiable`) | `Probar conexión` → `#ajustes`, foco en el primer «Probar conexión» que no esté en `ok` |
+| 3   | `Añade tus fuentes de noticias` · `Elige al menos una fuente para recibir titulares.`         | Al menos una fuente activa                                                          | `Añadir fuente` → `#fuentes`                                                            |
 
 - Si el paso 2 falló (`clave-rechazada`, `cuota`, `sin-red` o `error`), la fila usa `firstSteps.attention`, con la etiqueta `Revisar` y el motivo corto: `Tiingo rechazó la clave`.
 - Pie: `Retomar el tour (paso 4 de 10)` si hay un tour en pausa; si no, `Ver el tour`.
@@ -169,16 +179,16 @@ Sustituye al botón deshabilitado y al texto «estará disponible…» de `DataP
 
 Bajo el botón, una línea de resultado con `role="status"` (`aria-live="polite"`) y una etiqueta de estado (icono y texto, nunca solo color).
 
-| Estado (`ProviderTestResult.status`) | Etiqueta | Texto (Tiingo; con FRED, igual cambiando el nombre) | Acción |
-|---|---|---|---|
-| (nunca probado) | `Sin probar` | `Aún no has probado la conexión.` | `Probar conexión` |
-| probando | `Probando` | `Probando la conexión con Tiingo…` (botón: `Probando…`, `aria-disabled`) | — |
-| `ok` | `Conectado` | `Conectado. Último dato disponible: vie 10 oct 2026. Comprobado hoy a las 18:42 (312 ms).` | `Actualizar datos ahora` (`market.refreshNow`) |
-| `sin-clave` | `Sin clave` | `Falta la clave de Tiingo. Pégala arriba y pulsa «Guardar clave de Tiingo».` | `Añadir clave` (foco en el campo) |
-| `clave-rechazada` | `Clave rechazada` | `Tiingo ha rechazado la clave. Comprueba que la has copiado entera o genera una nueva en tu cuenta.` | `Cambiar clave` (foco en el campo) · enlace `Abrir mi cuenta de Tiingo` |
-| `cuota` | `Cuota agotada` | `Has agotado la cuota de peticiones de Tiingo. Se renueva sola; vuelve a probar más tarde.` | `Probar de nuevo` |
-| `sin-red` | `Sin red` | `No hay conexión a internet. Tradia volverá a intentarlo al recuperar la red.` | `Probar de nuevo` |
-| `error` | `Error del proveedor` | `Tiingo no ha respondido como esperábamos: {message}. Vuelve a probar; si se repite, revisa el estado del servicio.` | `Probar de nuevo` |
+| Estado (`ProviderTestResult.status`) | Etiqueta              | Texto (Tiingo; con FRED, igual cambiando el nombre)                                                                  | Acción                                                                  |
+| ------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| (nunca probado)                      | `Sin probar`          | `Aún no has probado la conexión.`                                                                                    | `Probar conexión`                                                       |
+| probando                             | `Probando`            | `Probando la conexión con Tiingo…` (botón: `Probando…`, `aria-disabled`)                                             | —                                                                       |
+| `ok`                                 | `Conectado`           | `Conectado. Último dato disponible: vie 10 oct 2026. Comprobado hoy a las 18:42 (312 ms).`                           | `Actualizar datos ahora` (`market.refreshNow`)                          |
+| `sin-clave`                          | `Sin clave`           | `Falta la clave de Tiingo. Pégala arriba y pulsa «Guardar clave de Tiingo».`                                         | `Añadir clave` (foco en el campo)                                       |
+| `clave-rechazada`                    | `Clave rechazada`     | `Tiingo ha rechazado la clave. Comprueba que la has copiado entera o genera una nueva en tu cuenta.`                 | `Cambiar clave` (foco en el campo) · enlace `Abrir mi cuenta de Tiingo` |
+| `cuota`                              | `Cuota agotada`       | `Has agotado la cuota de peticiones de Tiingo. Se renueva sola; vuelve a probar más tarde.`                          | `Probar de nuevo`                                                       |
+| `sin-red`                            | `Sin red`             | `No hay conexión a internet. Tradia volverá a intentarlo al recuperar la red.`                                       | `Probar de nuevo`                                                       |
+| `error`                              | `Error del proveedor` | `Tiingo no ha respondido como esperábamos: {message}. Vuelve a probar; si se repite, revisa el estado del servicio.` | `Probar de nuevo`                                                       |
 
 - Enlaces de cuenta (externos, con `(abre en el navegador)` solo para lector de pantalla): Tiingo `https://www.tiingo.com/account/api/token` y FRED `https://fredaccount.stlouisfed.org/apikeys`.
 - **Fechas:** `latestDataDate` es una fecha de sesión (día de mercado) y se muestra sin hora: `vie 10 oct 2026`. `checkedAt` se muestra en la zona horaria local del usuario: `hoy a las 18:42`, `ayer a las 09:10` o `8 oct a las 09:10`. «Hoy» se calcula con la fecha local, nunca con UTC.
@@ -203,14 +213,14 @@ Un único componente con dos presentaciones que leen el mismo cálculo:
 
 ### Estados y textos
 
-| Estado | Franja | Chip | Acciones |
-|---|---|---|---|
-| `current` | (no se muestra) | `Al día · cierre del vie 10 oct` | — |
-| `catchingUp` | `Poniéndose al día…` · `Descargando 3 de 7 activos. Régimen, predicciones y señales esperan a terminar.` | `Poniéndose al día…` | — |
-| `stale` | **`Datos desactualizados desde el vie 3 oct 2026`** · `{motivo}` · `Régimen, predicciones y señales están en pausa hasta ponerse al día.` | `Desactualizado desde 3 oct` | `Actualizar ahora` (primario) · `Probar conexión` · `Ver detalles` |
-| `unreliable` | **`Datos no fiables desde el vie 3 oct 2026`** · `{motivo}` · misma línea de pausa | `No fiable desde 3 oct` | igual que `stale` |
-| `offline` | **`Sin conexión: datos del vie 3 oct 2026`** · `Tradia se pondrá al día sola al volver la red.` | `Sin conexión · datos del 3 oct` | `Ver detalles` (sin «Actualizar ahora», que no tendría efecto) |
-| `noData` | **`Aún no hay datos de mercado`** · `Añade tus claves de Tiingo y FRED para empezar.` | `Sin datos` | `Ir a Ajustes` |
+| Estado       | Franja                                                                                                                                    | Chip                             | Acciones                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `current`    | (no se muestra)                                                                                                                           | `Al día · cierre del vie 10 oct` | —                                                                  |
+| `catchingUp` | `Poniéndose al día…` · `Descargando 3 de 7 activos. Régimen, predicciones y señales esperan a terminar.`                                  | `Poniéndose al día…`             | —                                                                  |
+| `stale`      | **`Datos desactualizados desde el vie 3 oct 2026`** · `{motivo}` · `Régimen, predicciones y señales están en pausa hasta ponerse al día.` | `Desactualizado desde 3 oct`     | `Actualizar ahora` (primario) · `Probar conexión` · `Ver detalles` |
+| `unreliable` | **`Datos no fiables desde el vie 3 oct 2026`** · `{motivo}` · misma línea de pausa                                                        | `No fiable desde 3 oct`          | igual que `stale`                                                  |
+| `offline`    | **`Sin conexión: datos del vie 3 oct 2026`** · `Tradia se pondrá al día sola al volver la red.`                                           | `Sin conexión · datos del 3 oct` | `Ver detalles` (sin «Actualizar ahora», que no tendría efecto)     |
+| `noData`     | **`Aún no hay datos de mercado`** · `Añade tus claves de Tiingo y FRED para empezar.`                                                     | `Sin datos`                      | `Ir a Ajustes`                                                     |
 
 - `Actualizar ahora` llama a `market.refreshNow()`. Mientras espera: `Actualizando…` (`aria-disabled`). Respuestas, en una región `role="status"`: aceptada → `Actualización solicitada. Esperando datos verificados.`; rechazos con los textos actuales de `ProviderBanner` (`sin-conexion`, `sin-proveedor`, `sin-activos`, `en-curso`); fallo → `No pudimos iniciar la actualización. Inténtalo de nuevo.`; al ponerse al día, la franja desaparece y se anuncia `Datos al día.`
 - `Probar conexión` lleva a `#ajustes` con el foco en el botón «Probar conexión» del proveedor afectado más antiguo.

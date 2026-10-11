@@ -33,9 +33,10 @@ const insertAnalysis = (db: Database.Database, newsId: number, analyzer: string)
 };
 
 function analysisRows(db: Database.Database): { ticker: string; analizador: string }[] {
-  return db
-    .prepare('SELECT ticker, analizador FROM news_analysis ORDER BY id')
-    .all() as { ticker: string; analizador: string }[];
+  return db.prepare('SELECT ticker, analizador FROM news_analysis ORDER BY id').all() as {
+    ticker: string;
+    analizador: string;
+  }[];
 }
 
 describe('migración 013 · analizador suscripcion en news_analysis', () => {

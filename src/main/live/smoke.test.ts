@@ -573,11 +573,9 @@ describe('live:smoke-test — fallos y suspensión', () => {
       state: 'fallida-posicion-abierta',
       failedStep: 'compra-enviada',
     });
-    expect(
-      journal.some(
-        (j) => j.type === 'error' && j.reason.includes('compra enviada'),
-      ),
-    ).toBe(true);
+    expect(journal.some((j) => j.type === 'error' && j.reason.includes('compra enviada'))).toBe(
+      true,
+    );
     // La posición abierta queda a la vista: no se oculta una compra real.
     expect(positionsFromOrders(liveRepo.listOrders())).toHaveLength(1);
   });

@@ -226,9 +226,7 @@ export function createDriftRepository(db: Database.Database): DriftRepository {
     SELECT id, ambito, sujeto_id, sujeto_nombre, tipo, persistencia, detalle, resultado, evaluado_en
     FROM drift_checks WHERE id = ?
   `);
-  const selectLatestEvaluated = db.prepare(
-    'SELECT MAX(evaluado_en) AS e FROM drift_checks',
-  );
+  const selectLatestEvaluated = db.prepare('SELECT MAX(evaluado_en) AS e FROM drift_checks');
 
   const insertProposalStmt = db.prepare(`
     INSERT OR IGNORE INTO retrain_proposals
@@ -370,8 +368,7 @@ export function createDriftRepository(db: Database.Database): DriftRepository {
       return { proposal: toProposal(row), inserted: result.changes > 0 };
     },
 
-    listProposals: () =>
-      (selectProposals.all() as ProposalRow[]).map(toProposal),
+    listProposals: () => (selectProposals.all() as ProposalRow[]).map(toProposal),
 
     getProposal: getProposalById,
 
@@ -395,12 +392,13 @@ export function createDriftRepository(db: Database.Database): DriftRepository {
     latestModelCard: () => predictions.latestModelCard(),
 
     resolvedBriers: (modelVersion, limit) =>
-      (selectResolvedBriers.all(modelVersion, Math.max(0, limit)) as {
-        brier_realizado: number;
-      }[]).map((row) => row.brier_realizado),
+      (
+        selectResolvedBriers.all(modelVersion, Math.max(0, limit)) as {
+          brier_realizado: number;
+        }[]
+      ).map((row) => row.brier_realizado),
 
-    resolvedCount: (modelVersion) =>
-      (countResolved.get(modelVersion) as { n: number }).n,
+    resolvedCount: (modelVersion) => (countResolved.get(modelVersion) as { n: number }).n,
 
     markModelCardDegraded: (cardId, reason) => {
       if (!Number.isInteger(cardId) || cardId < 1) {

@@ -139,7 +139,8 @@ async function startMock(state: MockState): Promise<{ server: Server; base: stri
     if (tiingo) {
       if (!state.online) return void request.socket.destroy();
       if (state.tiingo === 'down') return void response.writeHead(503).end('maintenance');
-      if (state.tiingo === 'auth') return void response.writeHead(401).end('{"detail":"Invalid token."}');
+      if (state.tiingo === 'auth')
+        return void response.writeHead(401).end('{"detail":"Invalid token."}');
       const rows = tiingoRows(
         decodeURIComponent(tiingo[1]!).toUpperCase(),
         url.searchParams.get('startDate') ?? '2000-01-01',
@@ -155,7 +156,9 @@ async function startMock(state: MockState): Promise<{ server: Server; base: stri
       if (state.fred === 'auth')
         return void response
           .writeHead(400)
-          .end('{"error_code":400,"error_message":"Bad Request.  The value for variable api_key is not registered."}');
+          .end(
+            '{"error_code":400,"error_message":"Bad Request.  The value for variable api_key is not registered."}',
+          );
       const id = url.searchParams.get('series_id') ?? '';
       const observations = fredObservations(
         id,
@@ -277,7 +280,7 @@ async function tour(page: Page, prefix: string): Promise<void> {
 async function dump(page: Page, name: string): Promise<Record<string, unknown>> {
   const data = await page.evaluate(async () => {
     const t = window.tradia;
-    const safe = async <T,>(fn: () => Promise<T>) => {
+    const safe = async <T>(fn: () => Promise<T>) => {
       try {
         return await fn();
       } catch (error) {
@@ -320,7 +323,9 @@ async function dump(page: Page, name: string): Promise<Record<string, unknown>> 
 async function saveKeys(page: Page): Promise<void> {
   await openPage(page, 'Ajustes');
   for (const name of ['Tiingo', 'FRED']) {
-    await page.getByLabel(`Clave de API de ${name}`).fill(`qa-${name.toLowerCase()}-key-0123456789`);
+    await page
+      .getByLabel(`Clave de API de ${name}`)
+      .fill(`qa-${name.toLowerCase()}-key-0123456789`);
     await page.getByRole('button', { name: `Guardar clave de ${name}` }).click();
     await expect(page.getByRole('button', { name: `Guardar clave de ${name}` })).toBeEnabled({
       timeout: 15_000,
@@ -398,9 +403,11 @@ test('A · perfil vacío sin claves (reloj real)', async () => {
     await tour(page, 'a2');
     // Sin claves, Mercado no ofrece la lista: el usuario sigue la llamada a la acción.
     await openPage(page, 'Mercado');
-    await page.getByRole('link', { name: 'Configurar claves' }).or(
-      page.getByRole('button', { name: 'Configurar claves' }),
-    ).first().click();
+    await page
+      .getByRole('link', { name: 'Configurar claves' })
+      .or(page.getByRole('button', { name: 'Configurar claves' }))
+      .first()
+      .click();
     await page.waitForTimeout(1_000);
     await snap(page, 'a3-configurar-claves');
     // Pulsa «Reintentar» en la franja de FRED, que nunca ha configurado.
@@ -435,8 +442,7 @@ test('B0 · siembra: base al día del viernes 18-sep-2026 (reloj atrasado)', asy
     // Margen para régimen, predicciones, señales y macro.
     await expect
       .poll(
-        () =>
-          page.evaluate(async () => (await window.tradia.ai.predictions({ limit: 5 })).length),
+        () => page.evaluate(async () => (await window.tradia.ai.predictions({ limit: 5 })).length),
         { timeout: 120_000 },
       )
       .toBeGreaterThan(0)

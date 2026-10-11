@@ -61,11 +61,7 @@ describe('migración 006 · backtests y estrés', () => {
 
     db.prepare(INSERT_RUN).run('completo');
     // Una versión inexistente queda rechazada por la clave foránea.
-    expect(() =>
-      db
-        .prepare(INSERT_RUN.replace('1, 1,', '1, 9,'))
-        .run('completo'),
-    ).toThrowError();
+    expect(() => db.prepare(INSERT_RUN.replace('1, 1,', '1, 9,')).run('completo')).toThrowError();
     db.close();
   });
 
@@ -91,9 +87,9 @@ describe('migración 006 · backtests y estrés', () => {
     );
     db.prepare(INSERT_RUN.replace('1, 1,', '1, 2,')).run('prueba-final');
     // completo v1 + prueba-final v1 + prueba-final v2 (la v1 repetida se rechazó).
-    expect(
-      (db.prepare('SELECT COUNT(*) AS n FROM backtest_runs').get() as { n: number }).n,
-    ).toBe(3);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM backtest_runs').get() as { n: number }).n).toBe(
+      3,
+    );
     db.close();
   });
 
@@ -143,9 +139,7 @@ describe('migración 006 · backtests y estrés', () => {
 
     db.prepare('DELETE FROM strategies WHERE id = 1').run();
     for (const table of ['backtest_runs', 'stress_results', 'strategy_implementations']) {
-      expect(
-        (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n,
-      ).toBe(0);
+      expect((db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n).toBe(0);
     }
     db.close();
   });

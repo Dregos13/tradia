@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const macroSeries = [
   { id: 'DFF', className: 'dff' },
@@ -37,6 +38,7 @@ async function withApp(run: (app: ElectronApplication, page: Page) => Promise<vo
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await run(app, page);
   } finally {
     await app.close();

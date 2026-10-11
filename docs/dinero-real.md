@@ -15,15 +15,15 @@ tablas de la migración 011 (`live_checklist`, `live_limits`,
 
 ## Los siete requisitos
 
-| Requisito | Origen | Qué lo cumple |
-| --- | --- | --- |
-| `validacion-fuera-muestra` | Automático | Todas las estrategias candidatas (estado `paper` o `activa`) tienen un run `prueba-final` guardado en su versión vigente. |
-| `paper-continuo` | Automático | ≥ 91 días entre la primera y la última orden paper ejecutada, ≥ 30 operaciones cerradas (par entrada/salida) y desviación relativa del resultado frente a la expectativa del backtest dentro de ±30 %. |
-| `parada-probada` | Automático | Una prueba de parada correcta en los últimos 30 días: la acción `live:test-kill-switch` (activa y reanuda la parada real) o cualquier reanudación registrada en `kill_switch_events`. |
-| `alertas-activas` | Automático | Un envío de prueba correcto por Telegram o correo (`delivery:test`, anotado en `delivery.lastTestSuccess`) cuyo canal siga activo y configurado. |
-| `claves-sin-retirada` | Declaración | `live:declare` con el texto fijo y fecha (el usuario no lo escribe a mano). |
-| `plan-contingencia` | Declaración | Igual, con nota o enlace local opcional al plan. |
-| `revision-legal` | Declaración | Igual. |
+| Requisito                  | Origen      | Qué lo cumple                                                                                                                                                                                          |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `validacion-fuera-muestra` | Automático  | Todas las estrategias candidatas (estado `paper` o `activa`) tienen un run `prueba-final` guardado en su versión vigente.                                                                              |
+| `paper-continuo`           | Automático  | ≥ 91 días entre la primera y la última orden paper ejecutada, ≥ 30 operaciones cerradas (par entrada/salida) y desviación relativa del resultado frente a la expectativa del backtest dentro de ±30 %. |
+| `parada-probada`           | Automático  | Una prueba de parada correcta en los últimos 30 días: la acción `live:test-kill-switch` (activa y reanuda la parada real) o cualquier reanudación registrada en `kill_switch_events`.                  |
+| `alertas-activas`          | Automático  | Un envío de prueba correcto por Telegram o correo (`delivery:test`, anotado en `delivery.lastTestSuccess`) cuyo canal siga activo y configurado.                                                       |
+| `claves-sin-retirada`      | Declaración | `live:declare` con el texto fijo y fecha (el usuario no lo escribe a mano).                                                                                                                            |
+| `plan-contingencia`        | Declaración | Igual, con nota o enlace local opcional al plan.                                                                                                                                                       |
+| `revision-legal`           | Declaración | Igual.                                                                                                                                                                                                 |
 
 Los cuatro automáticos se evalúan en el proceso principal en cada
 consulta (`live:checklist`, `live:state`), en cada mutación y en la
@@ -134,7 +134,7 @@ comprueba de punta a punta la cuenta real con dinero de verdad:
    pasa la misma guarda de techos que cualquier señal — un límite por
    orden o de capital por debajo de 1 USD la bloquea — y sale a la red
    **limitada con tope**: `min(techo por orden, capital escrito) /
-   cantidad` acotado por la referencia × (1 +
+cantidad` acotado por la referencia × (1 +
    `LIVE_SMOKE_MAX_SLIPPAGE_BPS`).
 2. **Espera y cordura de la ejecución**: se consulta al broker hasta
    `ejecutada`, un estado terminal o 20 s de espera; si no ejecuta, se
@@ -225,7 +225,7 @@ a pendiente.
   `live.evidence` de settings se ignora aunque llegue escrita desde una
   copia de seguridad.
 - Una compra real de mercado viaja limitada con tope (`referencia ×
-  1,05` como cota extra): si el mercado se aleja más de un 5 % de la
+1,05` como cota extra): si el mercado se aleja más de un 5 % de la
   referencia de la señal la orden queda enviada sin ejecutar — es el
   precio de garantizar el techo, no un fallo. La conciliación la ve
   abierta y el usuario puede cancelarla desde Órdenes.

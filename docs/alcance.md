@@ -136,29 +136,29 @@ marcado como **verificar** antes de integrarse.
 
 ### Proveedores de precios (datos diarios EE. UU.)
 
-| Proveedor | Nivel | Límites orientativos | Nota |
-| --- | --- | --- | --- |
-| Stooq | Gratuito | CSV diario, sin clave; límites no publicados | verificar |
-| Yahoo Finance (no oficial) | Gratuito | Sin garantía ni SLA | solo apoyo/desarrollo; verificar términos |
-| Alpha Vantage | Gratuito / pago | ~25 peticiones/día gratis; desde ~50 $/mes | verificar |
-| Twelve Data | Gratuito / pago | ~800 peticiones/día y 8/min gratis; desde ~29 $/mes | verificar |
-| Tiingo | Gratuito / pago | Límites por símbolo y peticiones/hora; desde ~10 $/mes | verificar |
-| Polygon.io | Gratuito / pago | ~5 req/min con retraso gratis; desde ~29 $/mes | verificar |
-| Finnhub | Gratuito / pago | ~60 req/min gratis; de pago desde ~50 $/mes | verificar |
-| Alpaca | Gratuito con cuenta | Datos de mercado con cuenta (sin operar) | verificar términos de datos |
+| Proveedor                  | Nivel               | Límites orientativos                                   | Nota                                      |
+| -------------------------- | ------------------- | ------------------------------------------------------ | ----------------------------------------- |
+| Stooq                      | Gratuito            | CSV diario, sin clave; límites no publicados           | verificar                                 |
+| Yahoo Finance (no oficial) | Gratuito            | Sin garantía ni SLA                                    | solo apoyo/desarrollo; verificar términos |
+| Alpha Vantage              | Gratuito / pago     | ~25 peticiones/día gratis; desde ~50 $/mes             | verificar                                 |
+| Twelve Data                | Gratuito / pago     | ~800 peticiones/día y 8/min gratis; desde ~29 $/mes    | verificar                                 |
+| Tiingo                     | Gratuito / pago     | Límites por símbolo y peticiones/hora; desde ~10 $/mes | verificar                                 |
+| Polygon.io                 | Gratuito / pago     | ~5 req/min con retraso gratis; desde ~29 $/mes         | verificar                                 |
+| Finnhub                    | Gratuito / pago     | ~60 req/min gratis; de pago desde ~50 $/mes            | verificar                                 |
+| Alpaca                     | Gratuito con cuenta | Datos de mercado con cuenta (sin operar)               | verificar términos de datos               |
 
 ### Proveedores de noticias y macro
 
-| Proveedor | Nivel | Límites orientativos | Nota |
-| --- | --- | --- | --- |
-| Fuentes oficiales (SEC EDGAR, Fed, BLS) | Gratuito | APIs y RSS públicos | máxima fiabilidad; verificar |
-| GDELT | Gratuito | Uso público | verificar condiciones |
-| Finnhub (noticias) | Gratuito / pago | Dentro del límite de llamadas | verificar |
-| Alpha Vantage (noticias con sentimiento) | Gratuito / pago | Dentro del límite diario | verificar |
-| NewsAPI | Gratuito solo desarrollo / pago | ~100 req/día en dev; producción desde ~449 $/mes | caro; verificar |
-| Benzinga | Pago | Según plan | verificar |
-| FRED (macro) | Gratuito | Requiere clave de API | verificar |
-| RSS de prensa (Expansión, Cinco Días, CNBC, etc.) | Gratuito | Solo titulares | verificar términos de cada feed |
+| Proveedor                                         | Nivel                           | Límites orientativos                             | Nota                            |
+| ------------------------------------------------- | ------------------------------- | ------------------------------------------------ | ------------------------------- |
+| Fuentes oficiales (SEC EDGAR, Fed, BLS)           | Gratuito                        | APIs y RSS públicos                              | máxima fiabilidad; verificar    |
+| GDELT                                             | Gratuito                        | Uso público                                      | verificar condiciones           |
+| Finnhub (noticias)                                | Gratuito / pago                 | Dentro del límite de llamadas                    | verificar                       |
+| Alpha Vantage (noticias con sentimiento)          | Gratuito / pago                 | Dentro del límite diario                         | verificar                       |
+| NewsAPI                                           | Gratuito solo desarrollo / pago | ~100 req/día en dev; producción desde ~449 $/mes | caro; verificar                 |
+| Benzinga                                          | Pago                            | Según plan                                       | verificar                       |
+| FRED (macro)                                      | Gratuito                        | Requiere clave de API                            | verificar                       |
+| RSS de prensa (Expansión, Cinco Días, CNBC, etc.) | Gratuito                        | Solo titulares                                   | verificar términos de cada feed |
 
 Regla de calidad (del plan, sección 5.4): una noticia solo de redes
 sociales nunca dispara una operación por sí sola; debe confirmarse con una
@@ -225,12 +225,12 @@ extranjero. Confirmar con un asesor fiscal antes de operar en real.
 
 ## 9. Cotejo con la sección 1 del plan
 
-| Punto de la sección 1 | Decisión |
-| --- | --- |
-| Mercado inicial | Acciones y ETF de EE. UU. (NYSE/Nasdaq); universo acotado de 25 tickers (10 ETF + 15 acciones); un solo mercado líquido (§1) |
-| Horizonte | Swing, días a semanas, con datos diarios como temporalidad de decisión (§2) |
-| Modo de uso | (a) señales informativas + (b) paper trading por defecto; (c) ejecución real bloqueada tras la lista de comprobación y con techos fijos mínimos (§3) |
-| Objetivos medibles | Drawdown máx. 10 %; objetivo 8–15 % anual batiendo SPY; 2–10 operaciones/mes y máx. 5 posiciones; 0,5–1 % por operación; ≥30 operaciones y ≥3 meses de paper con desviación ≤ ±30 % del backtest para pasar a real (§4) |
-| Principio rector | Primero proteger el capital, después buscar rentabilidad; riesgo con veto, no operar ante duda, pausa sin conexión (§5) |
-| Presupuesto de APIs | 0 €/mes en esta fase con techo de 30 €/mes; tabla de proveedores de precios, noticias y macro, todo «verificar» (§6) |
-| Avisos legales | Uso personal: ni asesoramiento ni gestión (CNMV/MiFID II); datos locales y sin telemetría por defecto (RGPD); uso personal sin redistribución (licencias); aviso de riesgo v1.0 fijado (§7) |
+| Punto de la sección 1 | Decisión                                                                                                                                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mercado inicial       | Acciones y ETF de EE. UU. (NYSE/Nasdaq); universo acotado de 25 tickers (10 ETF + 15 acciones); un solo mercado líquido (§1)                                                                                            |
+| Horizonte             | Swing, días a semanas, con datos diarios como temporalidad de decisión (§2)                                                                                                                                             |
+| Modo de uso           | (a) señales informativas + (b) paper trading por defecto; (c) ejecución real bloqueada tras la lista de comprobación y con techos fijos mínimos (§3)                                                                    |
+| Objetivos medibles    | Drawdown máx. 10 %; objetivo 8–15 % anual batiendo SPY; 2–10 operaciones/mes y máx. 5 posiciones; 0,5–1 % por operación; ≥30 operaciones y ≥3 meses de paper con desviación ≤ ±30 % del backtest para pasar a real (§4) |
+| Principio rector      | Primero proteger el capital, después buscar rentabilidad; riesgo con veto, no operar ante duda, pausa sin conexión (§5)                                                                                                 |
+| Presupuesto de APIs   | 0 €/mes en esta fase con techo de 30 €/mes; tabla de proveedores de precios, noticias y macro, todo «verificar» (§6)                                                                                                    |
+| Avisos legales        | Uso personal: ni asesoramiento ni gestión (CNMV/MiFID II); datos locales y sin telemetría por defecto (RGPD); uso personal sin redistribución (licencias); aviso de riesgo v1.0 fijado (§7)                             |

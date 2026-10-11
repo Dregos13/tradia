@@ -32,12 +32,7 @@ const check = (
 /** 25 revisiones 'datos': 5 sin drift y 20 con ret_5 sobre el umbral. */
 const history25 = (): DriftCheck[] =>
   Array.from({ length: 25 }, (_, index) =>
-    check(
-      index + 1,
-      'datos',
-      { [driftPsiKey('ret_5')]: index < 5 ? 0.1 : 0.31 },
-      at(index + 1),
-    ),
+    check(index + 1, 'datos', { [driftPsiKey('ret_5')]: index < 5 ? 0.1 : 0.31 }, at(index + 1)),
   );
 
 describe('aptitud del modelo', () => {
@@ -45,9 +40,9 @@ describe('aptitud del modelo', () => {
     const metrics = { brierOos: 0.18, logLossOos: 0.5, brierBaseline: 0.21 };
     expect(isModelEligible({ dataOrigin: 'real', metrics })).toBe(true);
     expect(isModelEligible({ dataOrigin: 'sintetico', metrics })).toBe(false);
-    expect(
-      isModelEligible({ dataOrigin: 'real', metrics: { ...metrics, brierOos: 0.22 } }),
-    ).toBe(false);
+    expect(isModelEligible({ dataOrigin: 'real', metrics: { ...metrics, brierOos: 0.22 } })).toBe(
+      false,
+    );
   });
 });
 
