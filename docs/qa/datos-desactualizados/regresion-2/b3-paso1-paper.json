@@ -1,0 +1,349 @@
+[
+  {
+    "id": 1,
+    "executable": true,
+    "version": 1,
+    "name": "Cruce de medias",
+    "hypothesis": "Las tendencias de los índices persisten durante meses: la información se incorpora despacio y el posicionamiento colectivo amplifica el movimiento. Una media rápida cruzando a una lenta identifica el cambio de régimen sin intentar predecir techos ni suelos.",
+    "rules": {
+      "entry": "Compra cuando SMA(fastPeriod) del cierre cruza al alza a SMA(slowPeriod); la señal se confirma al cierre y la orden se ejecuta en la apertura de la sesión siguiente.",
+      "exit": "Vende cuando SMA(fastPeriod) cruza a la baja a SMA(slowPeriod), o antes si salta el stop dinámico; ejecución en la apertura siguiente.",
+      "stop": "Stop de protección a stopAtr (3) × ATR(atrPeriod) bajo el cierre de la señal; cada sesión se arrastra al alza hasta cierre − stopAtr × ATR y nunca retrocede.",
+      "target": "Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el cruce contrario o el stop."
+    },
+    "parameters": {
+      "fastPeriod": 50,
+      "slowPeriod": 200,
+      "atrPeriod": 14,
+      "stopAtr": 3,
+      "targetR": 2.5
+    },
+    "parameterRanges": {
+      "fastPeriod": {
+        "min": 20,
+        "max": 100,
+        "step": 10
+      },
+      "slowPeriod": {
+        "min": 100,
+        "max": 300,
+        "step": 25
+      },
+      "atrPeriod": {
+        "min": 7,
+        "max": 28,
+        "step": 7
+      },
+      "stopAtr": {
+        "min": 1.5,
+        "max": 5,
+        "step": 0.5
+      },
+      "targetR": {
+        "min": 2,
+        "max": 6,
+        "step": 0.5
+      }
+    },
+    "markets": [
+      "SPY",
+      "QQQ",
+      "DIA",
+      "IWM"
+    ],
+    "trainingPeriod": {
+      "desde": "2000-01-03",
+      "hasta": "2014-12-31"
+    },
+    "outOfSamplePeriod": {
+      "desde": "2015-01-02",
+      "hasta": "2024-12-31"
+    },
+    "metricsSummary": {
+      "totalReturnPct": 5.505883328630334,
+      "maxDrawdownPct": 6.041637446778596,
+      "sharpe": 0.18981598023371235,
+      "profitFactor": 1.240923535552768,
+      "winRatePct": 37.5,
+      "expectancy": 8.602942700984975,
+      "maxLosingStreak": 5,
+      "trades": 64
+    },
+    "regime": "Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados.",
+    "worksIn": [
+      "tendencia"
+    ],
+    "failsIn": [],
+    "assumedCosts": {
+      "commissionPct": 0.05,
+      "commissionMin": 1,
+      "slippageBps": 5,
+      "spreadBps": 2
+    },
+    "status": "paper",
+    "changeNote": "Semilla de la fase 2: seguimiento de tendencia clásico (SMA 50/200 con stop ATR).",
+    "createdAt": "2026-10-11T10:06:09.677Z",
+    "updatedAt": "2026-10-11T10:06:22.632Z",
+    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+  },
+  {
+    "id": 2,
+    "executable": true,
+    "version": 1,
+    "name": "Reversión RSI/Bollinger",
+    "hypothesis": "En índices con tendencia alcista, las caídas bruscas de una o dos sesiones suelen ser sobre-reacciones que revierten a la media. Un RSI de dos sesiones en niveles extremos detecta esos agotamientos con alta tasa de acierto y exposición breve al mercado.",
+    "rules": {
+      "entry": "Compra cuando RSI(rsiPeriod) ≤ oversold (5) y el cierre sigue por encima de SMA(trendPeriod) — filtro de régimen alcista; la orden se ejecuta en la apertura siguiente.",
+      "exit": "Vende cuando RSI(rsiPeriod) rebota por encima de exitRsi (70), lo que marca la reversión consumada; ejecución en la apertura siguiente.",
+      "stop": "Stop de protección fijo a stopAtr (2,5) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.",
+      "target": "Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el rebote del RSI por encima de exitRsi o el stop."
+    },
+    "parameters": {
+      "rsiPeriod": 2,
+      "oversold": 5,
+      "exitRsi": 70,
+      "trendPeriod": 200,
+      "atrPeriod": 14,
+      "stopAtr": 2.5,
+      "targetR": 2.5
+    },
+    "parameterRanges": {
+      "rsiPeriod": {
+        "min": 2,
+        "max": 7,
+        "step": 1
+      },
+      "oversold": {
+        "min": 1,
+        "max": 20,
+        "step": 2
+      },
+      "exitRsi": {
+        "min": 55,
+        "max": 90,
+        "step": 5
+      },
+      "trendPeriod": {
+        "min": 50,
+        "max": 250,
+        "step": 50
+      },
+      "atrPeriod": {
+        "min": 7,
+        "max": 28,
+        "step": 7
+      },
+      "stopAtr": {
+        "min": 1,
+        "max": 4,
+        "step": 0.5
+      },
+      "targetR": {
+        "min": 2,
+        "max": 6,
+        "step": 0.5
+      }
+    },
+    "markets": [
+      "SPY",
+      "QQQ"
+    ],
+    "trainingPeriod": {
+      "desde": "2000-01-03",
+      "hasta": "2014-12-31"
+    },
+    "outOfSamplePeriod": {
+      "desde": "2015-01-02",
+      "hasta": "2024-12-31"
+    },
+    "metricsSummary": {
+      "totalReturnPct": -22.600656716933155,
+      "maxDrawdownPct": 22.69336569376036,
+      "sharpe": -5.704289228890009,
+      "profitFactor": 0.041427185232827825,
+      "winRatePct": 20,
+      "expectancy": -50.22368159318467,
+      "maxLosingStreak": 15,
+      "trades": 45
+    },
+    "regime": "Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo.",
+    "worksIn": [
+      "lateral"
+    ],
+    "failsIn": [
+      "tendencia"
+    ],
+    "assumedCosts": {
+      "commissionPct": 0.05,
+      "commissionMin": 1,
+      "slippageBps": 5,
+      "spreadBps": 2
+    },
+    "status": "paper",
+    "changeNote": "Semilla de la fase 2: reversión a la media con RSI(2) y filtro de tendencia (variante Connors del sistema RSI/Bollinger).",
+    "createdAt": "2026-10-11T10:06:09.677Z",
+    "updatedAt": "2026-10-11T10:06:22.632Z",
+    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+  },
+  {
+    "id": 3,
+    "executable": true,
+    "version": 1,
+    "name": "Ruptura de rangos",
+    "hypothesis": "Las rupturas de rangos largos marcan el inicio de tendencias: al superar un máximo de meses el posicionamiento se reacomoda y el movimiento continúa. Es el sistema «tortuga»: pocas operaciones, beneficios que corren y pérdidas cortadas por el canal contrario.",
+    "rules": {
+      "entry": "Compra cuando el cierre supera el máximo de las entryPeriod (55) sesiones anteriores — canal superior de Donchian; la orden se ejecuta en la apertura siguiente.",
+      "exit": "Vende cuando el cierre perfora el mínimo de las exitPeriod (20) sesiones anteriores — canal inferior de Donchian; ejecución en la apertura siguiente.",
+      "stop": "Stop de protección fijo a stopAtr (2) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.",
+      "target": "Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el canal contrario (exitPeriod) o el stop."
+    },
+    "parameters": {
+      "entryPeriod": 55,
+      "exitPeriod": 20,
+      "atrPeriod": 20,
+      "stopAtr": 2,
+      "targetR": 2.5
+    },
+    "parameterRanges": {
+      "entryPeriod": {
+        "min": 20,
+        "max": 60,
+        "step": 5
+      },
+      "exitPeriod": {
+        "min": 10,
+        "max": 30,
+        "step": 5
+      },
+      "atrPeriod": {
+        "min": 10,
+        "max": 30,
+        "step": 5
+      },
+      "stopAtr": {
+        "min": 1,
+        "max": 4,
+        "step": 0.5
+      },
+      "targetR": {
+        "min": 2,
+        "max": 6,
+        "step": 0.5
+      }
+    },
+    "markets": [
+      "SPY",
+      "QQQ",
+      "TLT"
+    ],
+    "trainingPeriod": {
+      "desde": "2000-01-03",
+      "hasta": "2014-12-31"
+    },
+    "outOfSamplePeriod": {
+      "desde": "2015-01-02",
+      "hasta": "2024-12-31"
+    },
+    "metricsSummary": {
+      "totalReturnPct": 65.52514447315932,
+      "maxDrawdownPct": 5.326596385612475,
+      "sharpe": 4.0272742116228075,
+      "profitFactor": 3.7047684938148535,
+      "winRatePct": 58.490566037735846,
+      "expectancy": 123.63234806256459,
+      "maxLosingStreak": 3,
+      "trades": 53
+    },
+    "regime": "Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales.",
+    "worksIn": [
+      "tendencia"
+    ],
+    "failsIn": [],
+    "assumedCosts": {
+      "commissionPct": 0.05,
+      "commissionMin": 1,
+      "slippageBps": 5,
+      "spreadBps": 2
+    },
+    "status": "paper",
+    "changeNote": "Semilla de la fase 2: ruptura de rangos con canal de Donchian 55/20 (sistema tortuga).",
+    "createdAt": "2026-10-11T10:06:09.677Z",
+    "updatedAt": "2026-10-11T10:06:22.633Z",
+    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+  },
+  {
+    "id": 4,
+    "executable": true,
+    "version": 1,
+    "name": "Momentum entre activos",
+    "hypothesis": "La prima de momentum relativo persiste a escala mensual entre clases de activos: los ETF que mejor rindieron en los últimos 6–12 meses tienden a seguir haciéndolo el mes siguiente, por inercia de flujos y difusión lenta de la información.",
+    "rules": {
+      "entry": "En la primera sesión de cada mes se ordena el universo por rentabilidad de los últimos lookbackSessions (126) cierres y se compran los topN (3) mejores; la orden se ejecuta en la apertura siguiente.",
+      "exit": "En la misma rotación mensual se vende cualquier posición que haya salido del top topN; ejecución en la apertura siguiente.",
+      "stop": "Sin stop por activo: el riesgo lo limita la diversificación del top N y la propia rotación mensual (lanzar el backtest con maxPositions = topN reparte el capital entre los elegidos).",
+      "target": "Sin objetivo fijo: la posición se mantiene mientras el activo siga clasificado entre los topN."
+    },
+    "parameters": {
+      "lookbackSessions": 126,
+      "topN": 3
+    },
+    "parameterRanges": {
+      "lookbackSessions": {
+        "min": 63,
+        "max": 252,
+        "step": 21
+      },
+      "topN": {
+        "min": 1,
+        "max": 5,
+        "step": 1
+      }
+    },
+    "markets": [
+      "SPY",
+      "QQQ",
+      "DIA",
+      "IWM",
+      "VTI",
+      "XLF",
+      "XLK",
+      "XLE",
+      "XLV",
+      "TLT"
+    ],
+    "trainingPeriod": {
+      "desde": "2000-01-03",
+      "hasta": "2014-12-31"
+    },
+    "outOfSamplePeriod": {
+      "desde": "2015-01-02",
+      "hasta": "2024-12-31"
+    },
+    "metricsSummary": {
+      "totalReturnPct": 34.417401611054935,
+      "maxDrawdownPct": 28.883418671350235,
+      "sharpe": 1.3726920687476771,
+      "profitFactor": 1.6024920452488,
+      "winRatePct": 44,
+      "expectancy": 137.66960644421977,
+      "maxLosingStreak": 7,
+      "trades": 25
+    },
+    "regime": "Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas.",
+    "worksIn": [
+      "tendencia"
+    ],
+    "failsIn": [],
+    "assumedCosts": {
+      "commissionPct": 0.05,
+      "commissionMin": 1,
+      "slippageBps": 5,
+      "spreadBps": 2
+    },
+    "status": "paper",
+    "changeNote": "Semilla de la fase 2: rotación mensual al top 3 por momentum de 6 meses sobre el universo de ETF.",
+    "createdAt": "2026-10-11T10:06:09.677Z",
+    "updatedAt": "2026-10-11T10:06:22.633Z",
+    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+  }
+]

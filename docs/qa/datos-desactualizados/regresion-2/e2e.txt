@@ -1,0 +1,77 @@
+
+> tradia@0.0.1 test:e2e
+> npm run build && playwright test
+
+
+> tradia@0.0.1 build
+> npm run typecheck && electron-vite build
+
+
+> tradia@0.0.1 typecheck
+> tsc --noEmit
+
+vite v7.3.7 building ssr environment for production...
+transforming...
+✓ 179 modules transformed.
+rendering chunks...
+out/main/index.js  1,103.88 kB
+✓ built in 521ms
+vite v7.3.7 building ssr environment for production...
+transforming...
+✓ 10 modules transformed.
+rendering chunks...
+out/preload/index.js  30.12 kB
+✓ built in 27ms
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 212 modules transformed.
+rendering chunks...
+../../out/renderer/index.html                     0.79 kB
+../../out/renderer/assets/index-ApahjlS5.css    100.36 kB
+../../out/renderer/assets/index-ljRGxtJr.js   1,519.54 kB
+✓ built in 937ms
+
+Running 37 tests using 1 worker
+
+(node:15445) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 e2e/ai-regime-prediction.spec.ts:65:7 › Profesional independiente que organiza varios proyectos › fija el régimen, ve qué estrategias quedan desactivadas y lee la ficha calibrada del modelo (2.8s)
+  ✓   2 e2e/ai-regime-prediction.spec.ts:164:7 › Profesional independiente que organiza varios proyectos › la ficha de una estrategia semilla muestra su régimen y compara el backtest con y sin filtro (2.8s)
+  ✓   3 e2e/backtest-report.spec.ts:7:5 › lanzador, informe, prueba final y ancho de 700 px (10.9s)
+  ✓   4 e2e/backup-restore.spec.ts:42:5 › Profesional independiente: restaura en un userData limpio y conserva estrategias (2.6s)
+  ✓   5 e2e/daily-routine.spec.ts:122:5 › Responsable de equipo: adelanta el reloj y recibe los tres resúmenes en diario, escritorio y canales locales (1.6s)
+  ✓   6 e2e/electron.spec.ts:80:7 › Tradia Electron › requiere aceptar el aviso en instalación limpia y lo recuerda al reiniciar (2.4s)
+  ✓   7 e2e/electron.spec.ts:96:7 › Tradia Electron › Ajustes envía notificaciones habilitadas y bloquea las desactivadas (1.5s)
+  ✓   8 e2e/electron.spec.ts:154:7 › Tradia Electron › cerrar la ventana mantiene vivo el latido y la pausa lo detiene (2.8s)
+  ✓   9 e2e/electron.spec.ts:189:7 › Tradia Electron › la simulación sin conexión pausa decisiones y las reanuda al volver (1.4s)
+  ✓  10 e2e/electron.spec.ts:208:7 › Tradia Electron › guarda claves cifradas y no deja el secreto en JSON ni en SQLite (1.4s)
+  ✓  11 e2e/electron.spec.ts:227:7 › Tradia Electron › mantiene webPreferences seguras (1.3s)
+  ✓  12 e2e/journal-export.spec.ts:55:5 › Responsable de equipo: consulta el motivo y exporta el diario a un CSV válido (1.4s)
+  ✓  13 e2e/live-gate.spec.ts:52:7 › Responsable de equipo que revisa entregas › sin la lista completa la activación se rechaza en la interfaz y por IPC directo (2.1s)
+  ✓  14 e2e/live-gate.spec.ts:141:7 › Profesional independiente que organiza varios proyectos › completa la lista, confirma los límites por escrito, activa y pasa la prueba de humo (5.2s)
+  ✓  15 e2e/macro-context.spec.ts:48:5 › el panel macro E2E presenta las series simuladas sin exigir una clave real de FRED (1.4s)
+  ✓  16 e2e/macro-context.spec.ts:65:5 › el panel macro muestra valor, fecha y frescura de los seis indicadores (1.6s)
+  ✓  17 e2e/market-chart.spec.ts:9:5 › añade un ticker, recibe histórico simulado con indicadores y confirma quitarlo (4.1s)
+  ✓  18 e2e/model-health.spec.ts:33:7 › Profesional independiente que organiza varios proyectos › el drift de datos sostenido degrada el modelo, avisa y propone un reentrenamiento (2.0s)
+  ✓  19 e2e/model-health.spec.ts:114:7 › Responsable de equipo que revisa entregas › una estrategia solo se degrada tras dos revisiones mensuales seguidas y sale de la IA (1.9s)
+  ✓  20 e2e/news-phase.spec.ts:247:7 › Noticias, fuentes, calendario y avisos E2E › Profesional independiente: prueba, añade y quita una fuente RSS (3.0s)
+  ✓  21 e2e/news-phase.spec.ts:329:7 › Noticias, fuentes, calendario y avisos E2E › Responsable de equipo: revisa oficiales, calendario y avisos con la ventana oculta (2.8s)
+  ✓  22 e2e/news-sentiment.spec.ts:109:7 › Profesional independiente que organiza varios proyectos › lee el resumen y el sentimiento por activo de los titulares confirmados (20.6s)
+  ✓  23 e2e/news-sentiment.spec.ts:158:7 › Responsable de equipo que revisa entregas › un titular solo de redes queda «Sin verificar», sin análisis y fuera de las señales (18.6s)
+  ✓  24 e2e/paper-trading.spec.ts:173:7 › Profesional independiente que organiza varios proyectos › conecta una cuenta paper desde Ajustes y conserva visible la insignia Solo paper (1.6s)
+  ✓  25 e2e/paper-trading.spec.ts:179:7 › Profesional independiente que organiza varios proyectos › una señal aprobada ejecuta la entrada y muestra precios, slippage y protección OCO (6.3s)
+  ✓  26 e2e/paper-trading.spec.ts:238:7 › Profesional independiente que organiza varios proyectos › permite crear una orden limitada pendiente y cancelarla desde Órdenes (2.4s)
+  ✓  27 e2e/paper-trading.spec.ts:266:7 › Profesional independiente que organiza varios proyectos › un timeout al enviar la señal no duplica la orden (5.9s)
+  ✓  28 e2e/paper-trading.spec.ts:287:7 › Responsable de equipo que revisa entregas › la conciliación muestra la diferencia, la registra en el Diario y notifica (2.2s)
+  ✓  29 e2e/paper-trading.spec.ts:341:7 › Responsable de equipo que revisa entregas › ocho semanas sembradas generan informes semanales y mensuales con alerta (4.4s)
+  ✓  30 e2e/risk-engine.spec.ts:87:7 › Motor de riesgo (fase 3) › la pantalla valida límites en línea y registra cada veto del probador (1.9s)
+  ✓  31 e2e/risk-engine.spec.ts:146:7 › Motor de riesgo (fase 3) › la parada detiene señales al instante y solo reanuda con confirmación (1.8s)
+  ✓  32 e2e/risk-engine.spec.ts:197:7 › Motor de riesgo (fase 3) › cada causa automática activa la parada con su notificación crítica (1.5s)
+  ✓  33 e2e/risk-engine.spec.ts:253:7 › Motor de riesgo (fase 3) › un evento de alto impacto activa el modo cautela y bloquea la señal (2.1s)
+  ✓  34 e2e/signals-dashboard.spec.ts:58:5 › Profesional independiente: una vela cerrada en segundo plano actualiza señales, panel, diario y avisos (5.6s)
+  ✓  35 e2e/strategies-backtest.spec.ts:26:5 › biblioteca, versiones, backtest completo, sobreajuste, prueba final y crisis (27.3s)
+  ✓  36 e2e/strategies-library.spec.ts:7:5 › biblioteca, edición versionada y ventana de 700 px (36.9s)
+  ✓  37 e2e/strategy-stress.spec.ts:7:5 › las cuatro fichas muestran crisis, fuente y capital sin desbordamiento (6.8s)
+
+  37 passed (3.4m)
+EXIT 0

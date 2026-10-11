@@ -1,0 +1,81 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Diario
+Señales + paper trading
+Parada
+Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+
+falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
+Diario
+
+0 entradas · Señales, operaciones simuladas y decisiones auditables.
+
+Exportar CSV · 0 entradas
+Desde
+Hasta
+Tipo
+Todos
+Señal
+Veto
+Contradicción
+Operación simulada
+Resumen
+Error
+Límite
+Activo
+Estrategia
+Todas
+Cruce de medias
+Reversión RSI/Bollinger
+Ruptura de rangos
+Momentum entre activos
+Resultado
+Todos
+Aprobada
+Reducida
+Vetada
+Sin señal
+Ganancia
+Pérdida
+Empate
+Completado
+Con retraso
+Alcanzado
+Error
+Aplicar
+Limpiar filtros
+
+Desplázate para ver todas las columnas.
+
+Diario ordenado por fecha descendente
+Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
+
+El diario todavía está vacío
+
+Anterior
+Página 1 de 1
+Siguiente
+En línea
+Agentes activos
+Última comprobación 12:06:38
+Próximo reintento —
+Último latido Pendiente

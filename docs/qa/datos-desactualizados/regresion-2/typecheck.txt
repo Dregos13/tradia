@@ -1,0 +1,5 @@
+
+> tradia@0.0.1 typecheck
+> tsc --noEmit
+
+EXIT 0
