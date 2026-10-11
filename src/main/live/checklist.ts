@@ -65,13 +65,23 @@ const review = (evidence: string, reasons: string[]): RequirementVerdict => ({
   reasons,
 });
 
-/** 'YYYY-MM-DD' → fecha legible '10 oct 2026' (sin depender del locale). */
+/** 'YYYY-MM-DD' → fecha legible '10 oct 2026' en la zona local del usuario. */
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export const formatLiveDate = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+/** Días civiles entre dos instantes, medidos en la zona local del usuario. */
+const calendarDaysBetween = (fromMs: number, toMs: number): number => {
+  const midnight = (ms: number): number => {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  return Math.round((midnight(toMs) - midnight(fromMs)) / 86_400_000);
 };
 
 const fmtSignedPct = (value: number): string =>
@@ -250,10 +260,13 @@ export function evaluateKillSwitchTest(
     return pending(null, ['La fecha de la última prueba de parada no es legible.']);
   }
   const days = daysBetween(testedMs, nowMs);
+  // El rotulado usa días civiles locales: «hoy» es el día civil del
+  // usuario, no «las últimas 24 h» (la fecha también va en zona local).
+  const daysAgo = Math.max(0, calendarDaysBetween(testedMs, nowMs));
   const evidence =
-    days <= 0
+    daysAgo === 0
       ? `Última prueba hoy (${formatLiveDate(lastTestAt)}).`
-      : `Última prueba hace ${days} día${days === 1 ? '' : 's'} (${formatLiveDate(lastTestAt)}).`;
+      : `Última prueba hace ${daysAgo} día${daysAgo === 1 ? '' : 's'} (${formatLiveDate(lastTestAt)}).`;
   if (days > LIVE_KILL_SWITCH_TEST_MAX_DAYS) {
     return pending(evidence, [
       `La prueba de parada tiene ${days} días (se exige una en los últimos ` +

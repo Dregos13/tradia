@@ -1,0 +1,128 @@
+{
+  "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+  "meta": {
+    "name": "Tradia — Cuaderno cuantitativo · Tour guiado, conexión y frescura de datos",
+    "version": "8.0.0",
+    "extends": ["./base.tokens.json", "./market.tokens.json"],
+    "contrastStandard": "WCAG 2.2 AA",
+    "baseUnit": "4px",
+    "note": "No introduce colores nuevos: cada valor procede de base.tokens.json (color.light/dark y color.state) o de market.tokens.json (color.dataStatus). Los velos son la tinta base con transparencia. Los contrastes están calculados con la fórmula de luminancia relativa de WCAG 2.2."
+  },
+  "color": {
+    "tour": {
+      "scrim": {
+        "light": "rgba(23, 35, 58, 0.55)",
+        "dark": "rgba(4, 9, 17, 0.72)",
+        "name": "Velo del tour",
+        "source": "base.color.light.text / base.color.dark.canvas con alfa",
+        "compositeLight": "#7B818B",
+        "compositeDark": "#070C16"
+      },
+      "spotlightRing": {
+        "light": "#0C60E8",
+        "dark": "#9DB8FF",
+        "name": "Anillo del elemento resaltado",
+        "source": "base.color.*.focus",
+        "width": "3px",
+        "offset": "4px",
+        "contrastLightOnSurface": "5.40:1",
+        "contrastDarkOnSurface": "8.45:1",
+        "contrastDarkOnScrim": "10.00:1"
+      },
+      "spotlightHalo": {
+        "light": "#FFFEFA",
+        "dark": "#151F30",
+        "name": "Halo exterior del anillo",
+        "source": "base.color.*.surface",
+        "width": "2px",
+        "contrastLightOnScrim": "3.89:1",
+        "why": "En claro el anillo de foco sobre el velo solo da 1.39:1; el halo de superficie separa el resaltado del velo con 3.89:1 (no textual, mínimo 3:1)."
+      },
+      "popover": {
+        "light": "#FFFEFA",
+        "dark": "#151F30",
+        "border": { "light": "#8D94A0", "dark": "#718096" },
+        "title": { "light": "#17233A", "dark": "#F4F5F7", "contrastLight": "15.55:1", "contrastDark": "15.15:1" },
+        "body": { "light": "#566174", "dark": "#B8C1CE", "contrastLight": "6.20:1", "contrastDark": "9.10:1" },
+        "name": "Globo del paso",
+        "borderContrastLight": "3.03:1",
+        "borderContrastDark": "4.12:1"
+      },
+      "progressDone": {
+        "light": "#1746C6",
+        "dark": "#7EA2FF",
+        "name": "Segmento de progreso hecho",
+        "source": "base.color.*.accent",
+        "contrastLightOnSurface": "7.63:1",
+        "contrastDarkOnSurface": "6.69:1"
+      },
+      "progressPending": {
+        "light": "#8D94A0",
+        "dark": "#718096",
+        "name": "Segmento de progreso pendiente",
+        "source": "base.color.*.borderStrong",
+        "contrastLightOnSurface": "3.03:1",
+        "contrastDarkOnSurface": "4.12:1",
+        "note": "Decorativo (aria-hidden). El progreso se escribe siempre: «Paso 3 de 10»."
+      },
+      "stepLabel": {
+        "light": "#1746C6",
+        "dark": "#8EACFF",
+        "surfaceLight": "#E5EBFF",
+        "surfaceDark": "#1B3265",
+        "name": "Etiqueta «Paso n de 10»",
+        "contrastLight": "6.47:1",
+        "contrastDark": "5.62:1"
+      }
+    },
+    "firstSteps": {
+      "done": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Hecho", "icon": "circle-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1", "source": "base.color.state.success" },
+      "pending": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Pendiente", "icon": "circle-dashed", "contrastLight": "5.91:1", "contrastDark": "7.25:1", "source": "live.color.requirement.locked" },
+      "attention": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Revisar", "icon": "triangle-alert", "contrastLight": "5.68:1", "contrastDark": "8.12:1", "source": "market.color.dataStatus.stale" }
+    },
+    "connection": {
+      "idle": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin probar", "icon": "plug", "contrastLight": "5.91:1", "contrastDark": "7.25:1" },
+      "testing": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Probando", "icon": "loader", "contrastLight": "6.47:1", "contrastDark": "5.62:1", "source": "market.color.dataStatus.updating" },
+      "ok": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Conectado", "icon": "circle-check", "contrastLight": "5.59:1", "contrastDark": "7.19:1", "source": "market.color.dataStatus.reliable" },
+      "missingKey": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Sin clave", "icon": "key-round", "contrastLight": "5.68:1", "contrastDark": "8.12:1", "source": "market.color.dataStatus.stale" },
+      "rejectedKey": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Clave rechazada", "icon": "key-round-x", "contrastLight": "6.22:1", "contrastDark": "6.39:1", "source": "base.color.state.critical" },
+      "quota": { "light": "#875600", "lightSurface": "#FFF0BF", "dark": "#FFD166", "darkSurface": "#45320D", "label": "Cuota agotada", "icon": "gauge", "contrastLight": "5.49:1", "contrastDark": "8.49:1", "source": "base.color.state.alert" },
+      "offline": { "light": "#A33B18", "lightSurface": "#FCE7DC", "dark": "#FF9B73", "darkSurface": "#4A2419", "label": "Sin red", "icon": "wifi-off", "contrastLight": "5.51:1", "contrastDark": "6.54:1", "source": "base.color.state.offline" },
+      "error": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Error del proveedor", "icon": "circle-alert", "contrastLight": "6.22:1", "contrastDark": "6.39:1", "source": "base.color.state.critical" }
+    },
+    "freshness": {
+      "current": { "light": "#126B4B", "lightSurface": "#DDF3E9", "dark": "#65D6A4", "darkSurface": "#12382C", "label": "Al día", "icon": "check-circle", "contrastLight": "5.59:1", "contrastDark": "7.19:1", "source": "market.color.dataStatus.reliable" },
+      "catchingUp": { "light": "#1746C6", "lightSurface": "#E5EBFF", "dark": "#8EACFF", "darkSurface": "#1B3265", "label": "Poniéndose al día", "icon": "progress-ring", "contrastLight": "6.47:1", "contrastDark": "5.62:1", "source": "market.color.dataStatus.updating" },
+      "stale": { "light": "#765500", "lightSurface": "#F5EAC2", "dark": "#F4CB62", "darkSurface": "#3E3214", "label": "Datos desactualizados", "icon": "clock", "contrastLight": "5.68:1", "contrastDark": "8.12:1", "textOnSurfaceLight": "13.03:1", "textOnSurfaceDark": "11.52:1", "focusOnSurfaceLight": "4.52:1", "focusOnSurfaceDark": "6.42:1", "source": "market.color.dataStatus.stale" },
+      "unreliable": { "light": "#A12232", "lightSurface": "#FBE4E7", "dark": "#FF8D9B", "darkSurface": "#4B1C26", "label": "Datos no fiables", "icon": "diamond-alert", "contrastLight": "6.22:1", "contrastDark": "6.39:1", "textOnSurfaceLight": "12.97:1", "textOnSurfaceDark": "12.89:1", "focusOnSurfaceLight": "4.50:1", "focusOnSurfaceDark": "7.19:1", "source": "market.color.dataStatus.unreliable" },
+      "noData": { "light": "#4F5868", "lightSurface": "#ECE9E1", "dark": "#C4CBD5", "darkSurface": "#2B384C", "label": "Sin datos", "icon": "database", "contrastLight": "5.91:1", "contrastDark": "7.25:1" },
+      "offline": { "light": "#A33B18", "lightSurface": "#FCE7DC", "dark": "#FF9B73", "darkSurface": "#4A2419", "label": "Sin conexión", "icon": "wifi-off", "contrastLight": "5.51:1", "contrastDark": "6.54:1", "source": "base.color.state.offline" }
+    }
+  },
+  "spacing": { "0": "0", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px" },
+  "radius": { "spotlight": "12px", "popover": "16px", "chip": "999px", "card": "16px" },
+  "shadow": {
+    "popover": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante", "source": "base.shadow.floating" }
+  },
+  "size": {
+    "controlMin": "44px",
+    "popoverWidth": "360px",
+    "popoverMaxWidth": "calc(100vw - 40px)",
+    "popoverOffset": "16px",
+    "viewportMargin": "20px",
+    "progressSegment": "20px",
+    "progressSegmentHeight": "4px",
+    "freshnessChipMin": "32px",
+    "bottomSheetBreakpoint": "760px"
+  },
+  "zIndex": { "scrim": 900, "spotlight": 901, "popover": 902, "note": "Por encima de la franja DINERO REAL y de los banners; por debajo de nada. El diálogo de reanudación de la parada nunca coincide con el tour (el tour no arranca si hay un diálogo abierto)." },
+  "motion": {
+    "spotlightMove": "200ms",
+    "popoverEnter": "120ms",
+    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "reduced": "0ms",
+    "scrollBehavior": "smooth",
+    "scrollBehaviorReduced": "auto",
+    "spinnerReduced": "Sin giro: el icono queda fijo y el texto «Probando…» o «Poniéndose al día…» lleva el estado."
+  }
+}

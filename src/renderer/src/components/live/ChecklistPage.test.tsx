@@ -394,6 +394,7 @@ it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmon
     allComplete: false,
     total: 7,
     completedCount: 0,
+    limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
     evaluatedAt: null,
   });
   const initial = adapter.listenerCount();

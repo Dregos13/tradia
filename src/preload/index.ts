@@ -80,6 +80,10 @@ import type {
   PaperPortfolioOverview,
   Prediction,
   PredictionsQuery,
+  ProviderSimulateTestRequest,
+  ProviderSimulateTestResult,
+  ProviderTestRequest,
+  ProviderTestResult,
   ReconcileDiscrepancyEvent,
   ReconcileRun,
   ReconcileStatusResult,
@@ -303,6 +307,10 @@ const api: TradiaApi = {
     cancel: (request: CancelOrderRequest): Promise<BrokerOrder> =>
       ipcRenderer.invoke(IPC_CHANNELS.orders.cancel, request),
   },
+  providers: {
+    testConnection: (request: ProviderTestRequest): Promise<ProviderTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.providers.testConnection, request),
+  },
   reconcile: {
     run: (): Promise<ReconcileRun> => ipcRenderer.invoke(IPC_CHANNELS.reconcile.run),
     status: (): Promise<ReconcileStatusResult> => ipcRenderer.invoke(IPC_CHANNELS.reconcile.status),
@@ -392,6 +400,12 @@ const api: TradiaApi = {
               ipcRenderer.invoke(IPC_CHANNELS.broker.createDiscrepancy, request),
             seedWeeks: (request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult> =>
               ipcRenderer.invoke(IPC_CHANNELS.broker.seedWeeks, request),
+          },
+          providers: {
+            simulateTest: (
+              request: ProviderSimulateTestRequest,
+            ): Promise<ProviderSimulateTestResult> =>
+              ipcRenderer.invoke(IPC_CHANNELS.providers.simulateTest, request),
           },
           ai: {
             simulateRegime: (request: SimulateRegimeRequest): Promise<RegimeSnapshot> =>

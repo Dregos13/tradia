@@ -105,6 +105,11 @@ export interface LiveChecklist {
   total: number;
   /** true solo con los siete requisitos cumplidos. */
   allComplete: boolean;
+  /**
+   * Límites guardados en `live_limits`, confirmados o no: la pantalla
+   * recupera el borrador al volver (limits null si nunca se guardaron).
+   */
+  limits: LiveLimitsState;
   /** Instante de la última evaluación en el proceso principal (ISO 8601). */
   evaluatedAt: string | null;
 }
@@ -309,7 +314,11 @@ export interface LiveSmokeTestResult {
   steps: { step: LiveSmokeStep; at: string | null }[];
   ticker: string;
   notionalUsd: number;
-  /** Precio pedido de la compra; null porque la orden es de mercado. */
+  /**
+   * Precio limit con el que salió la compra (la prueba envía una
+   * limitada con tope sobre la referencia y los techos, nunca una
+   * orden de mercado a ciegas); null si no llegó a enviarse.
+   */
   requestedPrice: number | null;
   buyExecutedPrice: number | null;
   sellExecutedPrice: number | null;

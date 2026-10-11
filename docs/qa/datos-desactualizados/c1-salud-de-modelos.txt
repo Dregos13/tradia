@@ -1,0 +1,74 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Salud de modelos
+Señales + paper trading
+Parada activa
+Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
+provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
+
+Sin conexión. Ver estado
+
+Ver en Riesgo
+Reanudar
+Sin conexión: las decisiones están en pausa. Reintentando en 8 s.
+Comprobar ahora
+Tiingo · No fiable
+
+[tiingo] fallo de transporte: TypeError: fetch failed
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+Salud de modelos
+
+Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
+
+Revisar ahora
+
+Una racha mala aislada no degrada una estrategia. La degradación requiere evidencia sostenida y una muestra suficiente.
+
+Sin conexión · la revisión queda pausada. Últimos resultados no disponibles.
+
+Reintentar conexión
+Revisión de modelos y estrategias
+
+Aún no hay predicciones resueltas ni operaciones suficientes
+
+La salud aparecerá cuando exista una muestra evaluable.
+
+Propuestas de reentrenamiento
+
+Como máximo una propuesta por trimestre natural.
+
+No hay reentrenamientos propuestos
+
+Los modelos se mantienen bajo vigilancia.
+
+Sin conexión
+Agentes en pausa
+· Sin conexión
+Última comprobación 02:11:44
+Próximo reintento 02:11:53
+Último latido Pendiente

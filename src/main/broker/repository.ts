@@ -23,6 +23,7 @@ import {
   BROKER_ORDERS_MAX_LIMIT,
   type BrokerOrder,
   type BrokerOrderLeg,
+  type BrokerOrderMode,
   type BrokerOrdersQuery,
   type BrokerOrderSide,
   type BrokerOrderStatus,
@@ -213,7 +214,7 @@ export interface DeviationAlertsQuery {
 // Mapeadores
 // ---------------------------------------------------------------------------
 
-function toBrokerOrder(row: BrokerOrderRow): BrokerOrder {
+function toBrokerOrder(row: BrokerOrderRow, mode: BrokerOrderMode): BrokerOrder {
   return {
     id: row.id,
     clientOrderId: row.client_order_id,
@@ -224,6 +225,7 @@ function toBrokerOrder(row: BrokerOrderRow): BrokerOrder {
     ticker: row.ticker,
     type: row.tipo,
     side: row.lado,
+    mode,
     quantity: row.cantidad,
     filledQuantity: row.cantidad_ejecutada,
     limitPrice: row.precio_limite,
@@ -380,6 +382,9 @@ export function createBrokerRepository(
     // La lista blanca evita interpolar un nombre arbitrario en el SQL.
     throw new Error(`tabla de órdenes desconocida: ${String(ordersTable)}`);
   }
+  /** Modo de las órdenes de esta tabla: fijo desde la migración 012. */
+  const orderMode: BrokerOrderMode = ordersTable === 'broker_orders_live' ? 'live' : 'paper';
+  const toOrder = (row: BrokerOrderRow): BrokerOrder => toBrokerOrder(row, orderMode);
   const insertOrderStmt = db.prepare(
     `INSERT INTO ${ordersTable} (
        client_order_id, broker_order_id, senal_id, estrategia_id, pata, ticker,
@@ -456,19 +461,19 @@ export function createBrokerRepository(
       if (row === null) {
         const existing = getOrderRowByClientId(input.clientOrderId);
         if (existing === null) throw new Error('broker_orders: inserción fallida sin fila previa');
-        return { order: toBrokerOrder(existing), inserted: false };
+        return { order: toOrder(existing), inserted: false };
       }
-      return { order: toBrokerOrder(row), inserted: true };
+      return { order: toOrder(row), inserted: true };
     },
 
     getOrder: (id) => {
       const row = Number.isInteger(id) && id > 0 ? getOrderRowById(id) : null;
-      return row === null ? null : toBrokerOrder(row);
+      return row === null ? null : toOrder(row);
     },
 
     getOrderByClientId: (clientOrderId) => {
       const row = getOrderRowByClientId(clientOrderId);
-      return row === null ? null : toBrokerOrder(row);
+      return row === null ? null : toOrder(row);
     },
 
     updateOrder: (id, patch, updatedAt) => {
@@ -492,10 +497,14 @@ export function createBrokerRepository(
       db.prepare(`UPDATE ${ordersTable} SET ${fields.join(', ')} WHERE id = ?`).run(...params);
       const row = getOrderRowById(id);
       if (row === null) throw new Error(`${ordersTable}: la orden ${id} no existe`);
-      return toBrokerOrder(row);
+      return toOrder(row);
     },
 
     listOrders: (query = {}) => {
+      // El modo de las filas de esta tabla es fijo: un filtro por el otro
+      // modo no puede devolver nada (la unión de las dos tablas la hace el
+      // servicio de `orders:list`).
+      if (query.mode !== undefined && query.mode !== orderMode) return [];
       const clauses: string[] = [];
       const params: unknown[] = [];
       if (query.status !== undefined) {
@@ -519,7 +528,7 @@ export function createBrokerRepository(
            ORDER BY creado_en DESC, id DESC LIMIT ? OFFSET ?`,
         )
         .all(...params, limit, offset) as BrokerOrderRow[];
-      return rows.map(toBrokerOrder);
+      return rows.map(toOrder);
     },
 
     startReconcileRun: (trigger, startedAt) => {

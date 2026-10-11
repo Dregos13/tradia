@@ -4,7 +4,9 @@ import {
   allIpcChannels,
   ALERT_LEAD_MINUTES,
   BACKUP_FILE_PATTERN,
+  BROKER_ORDER_MODES,
   CALENDAR_EVENT_KINDS,
+  DATA_PROVIDER_IDS,
   DELIVERY_EVENT_KINDS,
   IMPACT_LEVELS,
   INITIAL_UNIVERSE_TICKERS,
@@ -16,6 +18,7 @@ import {
   isBrokerConnectRequest,
   isBrokerDiscrepancyRequest,
   isBrokerFailNextRequest,
+  isBrokerOrderMode,
   isBrokerOrdersQuery,
   isBrokerSeedWeeksRequest,
   isBrokerTestRequest,
@@ -63,8 +66,12 @@ import {
   isLiveSimulatedBrokerRequest,
   isLiveSmokeTestRequest,
   isNewsAnalysisQuery,
+  isNewsAnalyzer,
   isNewsLlmSettingsInput,
   isPredictionsQuery,
+  isProviderSimulateTestRequest,
+  isProviderTestRequest,
+  isProviderTestStatus,
   isRegimeComparisonRequest,
   isRegimeLabelList,
   isRetrainResolveRequest,
@@ -97,9 +104,11 @@ import {
   isUpdateStrategyRequest,
   JOURNAL_ENTRY_TYPES,
   JOURNAL_LIST_MAX_LIMIT,
+  NEWS_ANALYZERS,
   NEWS_LIST_MAX_LIMIT,
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
+  ONBOARDING_TOUR_VERSION,
   RELIABILITY_LEVELS,
   RISK_DEFAULTS,
   RISK_VETOES_MAX_LIMIT,
@@ -108,6 +117,7 @@ import {
   SOURCE_KINDS,
   WATCHLIST_MAX_ITEMS,
 } from './ipc';
+import type { ProviderTestResult } from './ipc';
 
 describe('contrato IPC', () => {
   it('los nombres de canal son únicos', () => {
@@ -122,7 +132,7 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, reconcile, deviation, logs, ai y live', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, providers, reconcile, deviation, logs, ai y live', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'ai',
@@ -143,6 +153,7 @@ describe('contrato IPC', () => {
       'news',
       'notifications',
       'orders',
+      'providers',
       'reconcile',
       'risk',
       'routine',
@@ -1539,5 +1550,101 @@ describe('ganchos E2E', () => {
     expect(isE2eEnabled(false, '0')).toBe(false);
     expect(isE2eEnabled(false, 'true')).toBe(false);
     expect(isE2eEnabled(false, undefined)).toBe(false);
+  });
+});
+
+describe('contrato de la continuación (modo por orden, proveedores, tour, LLM)', () => {
+  it('registra los canales de proveedores (prueba de conexión y gancho E2E)', () => {
+    expect(IPC_CHANNELS.providers.testConnection).toBe('providers:test-connection');
+    expect(IPC_CHANNELS.providers.simulateTest).toBe('providers:simulate-test');
+    expect(allIpcChannels()).toContain('providers:test-connection');
+    expect(allIpcChannels()).toContain('providers:simulate-test');
+  });
+
+  it('ProviderTestResult no tiene ningún campo de clave ni secreto', () => {
+    const result: ProviderTestResult = {
+      provider: 'tiingo',
+      status: 'ok',
+      message: 'Conectado · último dato 2026-10-09',
+      latestDataDate: '2026-10-09',
+      checkedAt: '2026-10-10T12:00:00.000Z',
+      latencyMs: 120,
+    };
+    expect(Object.keys(result).sort()).toEqual([
+      'checkedAt',
+      'latencyMs',
+      'latestDataDate',
+      'message',
+      'provider',
+      'status',
+    ]);
+    // Ningún campo puede transportar la clave ni fragmentos de ella.
+    for (const key of Object.keys(result)) {
+      expect(key).not.toMatch(/key|secret|token|clave/i);
+    }
+  });
+
+  it('solo Tiingo y FRED son proveedores de datos del contrato', () => {
+    expect(DATA_PROVIDER_IDS).toEqual(['tiingo', 'fred']);
+    expect(isProviderTestRequest({ provider: 'tiingo' })).toBe(true);
+    expect(isProviderTestRequest({ provider: 'fred' })).toBe(true);
+    expect(isProviderTestRequest({ provider: 'alpaca' })).toBe(false);
+    expect(isProviderTestRequest({ provider: 'tiingo', apiKey: 'x' })).toBe(false);
+    expect(isProviderTestRequest({})).toBe(false);
+    expect(isProviderTestRequest(null)).toBe(false);
+    expect(isProviderTestRequest('tiingo')).toBe(false);
+  });
+
+  it('los estados de la prueba son los del contrato y el gancho los valida', () => {
+    expect(isProviderTestStatus('ok')).toBe(true);
+    expect(isProviderTestStatus('sin-clave')).toBe(true);
+    expect(isProviderTestStatus('clave-rechazada')).toBe(true);
+    expect(isProviderTestStatus('cuota')).toBe(true);
+    expect(isProviderTestStatus('sin-red')).toBe(true);
+    expect(isProviderTestStatus('error')).toBe(true);
+    expect(isProviderTestStatus('otro')).toBe(false);
+    expect(isProviderSimulateTestRequest({ provider: 'fred', status: 'cuota' })).toBe(true);
+    expect(isProviderSimulateTestRequest({ provider: 'fred', status: 'otro' })).toBe(false);
+    expect(isProviderSimulateTestRequest({ status: 'ok' })).toBe(false);
+    expect(isProviderSimulateTestRequest(null)).toBe(false);
+  });
+
+  it('BrokerOrder.mode distingue paper y live, y orders:list lo filtra', () => {
+    expect(BROKER_ORDER_MODES).toEqual(['paper', 'live']);
+    expect(isBrokerOrderMode('paper')).toBe(true);
+    expect(isBrokerOrderMode('live')).toBe(true);
+    expect(isBrokerOrderMode('demo')).toBe(false);
+    expect(isBrokerOrdersQuery({ mode: 'live' })).toBe(true);
+    expect(isBrokerOrdersQuery({ status: 'ejecutada', mode: 'paper', limit: 10 })).toBe(true);
+    expect(isBrokerOrdersQuery({ mode: 'demo' })).toBe(false);
+    expect(isBrokerOrdersQuery({ mode: 'live', extra: 1 })).toBe(false);
+  });
+
+  it('el tour vive en ajustes: versión escribible, fecha solo de main', () => {
+    expect(typeof ONBOARDING_TOUR_VERSION).toBe('string');
+    expect(ONBOARDING_TOUR_VERSION.length).toBeGreaterThan(0);
+    expect(isSettingsPatch({ onboardingTourVersion: ONBOARDING_TOUR_VERSION })).toBe(true);
+    expect(isSettingsPatch({ onboardingTourVersion: null })).toBe(true);
+    expect(isSettingsPatch({ onboardingTourVersion: 3 })).toBe(false);
+    // La fecha de finalización la fija el proceso principal, no el renderer.
+    expect(isSettingsPatch({ onboardingTourCompletedAt: '2026-10-10T00:00:00Z' })).toBe(false);
+  });
+
+  it('NEWS_ANALYZERS amplía con suscripcion y los ajustes llevan proveedor y cliPath', () => {
+    expect(NEWS_ANALYZERS).toEqual(['llm', 'local', 'suscripcion']);
+    expect(isNewsAnalyzer('suscripcion')).toBe(true);
+    expect(isNewsAnalyzer('api')).toBe(false);
+    expect(isNewsLlmSettingsInput({ provider: 'suscripcion' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ provider: 'local' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ provider: 'otro' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ cliPath: '/usr/local/bin/claude' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ cliPath: null })).toBe(true);
+    expect(isNewsLlmSettingsInput({ cliPath: '' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ cliPath: '  ' })).toBe(false);
+    expect(
+      isNewsLlmSettingsInput({ provider: 'suscripcion', cliPath: '/x/claude', dailyCap: 50 }),
+    ).toBe(true);
+    // Los campos anteriores siguen validando igual (aditivo).
+    expect(isNewsLlmSettingsInput({ enabled: true, monthlyBudgetEur: 5 })).toBe(true);
   });
 });

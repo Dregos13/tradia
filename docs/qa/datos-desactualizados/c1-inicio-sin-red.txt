@@ -1,0 +1,213 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estado del sistema
+Señales + paper trading
+Parada activa
+Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
+provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
+
+Sin conexión. Ver estado
+
+Ver en Riesgo
+Reanudar
+Sin conexión: las decisiones están en pausa. Reintentando en 1 s.
+Comprobar ahora
+Tiingo · No fiable
+
+[tiingo] fallo de transporte: TypeError: fetch failed
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+
+Sin conexión · revisión de salud pausada. Ver última revisión
+
+Situación del mercado
+
+Seguridad, señales y cartera simulada de un vistazo.
+
+Datos congelados · Esperando datos
+
+Conexión y fuentes
+Ver fuentes
+
+Sin conexión
+
+Precios · Tiingo
+
+19 sept 2026, 12:00 CEST
+
+No disponible
+Macro · FRED
+
+Sin actualización
+
+Con retraso
+Noticias · Reserva Federal — comunicados y FOMC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BCE — notas de prensa
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BLS — nóminas no agrícolas e IPC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BEA — comunicados (PIB, PCE…)
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · CNMV — información privilegiada y relevante
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Contexto macro
+Ver macro
+
+Régimen · Sin clasificar · Fuente FRED
+
+VIXCLS
+◌ Actualizando
+Volatilidad VIX
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato diario
+Sin fecha de observación
+
+descargando observaciones del 2021-10-07 al 2026-10-11 en 'fred'
+
+DGS10
+◷ Desactualizado
+Treasury · 10 años
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato diario
+Sin fecha de observación
+
+falta la observación esperada; último dato: sin datos
+
+CPIAUCSL
+◷ Desactualizado
+IPC de EE. UU. · interanual
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato mensual
+Sin fecha de observación
+
+falta la observación esperada; último dato: sin datos
+
+Señales vivas
+Ver en Diario
+
+No se admiten nuevas señales.
+
+Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 11 oct 2026, 02:11 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Reversión RSI/Bollinger
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Ruptura de rangos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Momentum entre activos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
+Sin conexión
+Agentes en pausa
+· Sin conexión
+Última comprobación 02:11:38
+Próximo reintento 02:11:40
+Último latido Pendiente

@@ -1,0 +1,17 @@
+{
+  "portfolio": {
+    "equity": 100000,
+    "currency": "USD",
+    "positions": [],
+    "drawdownPct": 0,
+    "drawdownLimitPct": 10,
+    "dailyLossPct": 0,
+    "dailyLossLimitPct": 2,
+    "exposureByAsset": [],
+    "exposureBySector": [],
+    "openPositions": 0,
+    "maxOpenPositions": 5,
+    "updatedAt": "2026-10-11T00:16:22.101Z"
+  },
+  "vetoes": []
+}

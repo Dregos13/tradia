@@ -55,7 +55,7 @@ import { positionsFromOrders } from '../broker/reconcile';
 import { createReconcileService, type ReconcileService } from '../broker/reconcileService';
 import type { BrokerRepository } from '../broker/repository';
 import { isBrokerError, type BrokerAdapter } from '../broker/types';
-import { liveOrderBlockReason } from './orderGuard';
+import { liveOrderBlockReason, liveOrderWirePrice } from './orderGuard';
 import { createLiveSmokeTest, type LiveSmokeTestService } from './smoke';
 import type { LiveService, LiveStore } from './service';
 
@@ -135,10 +135,19 @@ export interface LiveBrokerServiceDeps {
   /** Emite `live:changed` hacia las ventanas. */
   broadcast?(channel: string, payload: unknown): void;
   /**
-   * Precio de referencia del ticker para la prueba de humo (último
-   * cierre ingerido); null si no hay datos. Sin él la prueba no se lanza.
+   * Último cierre del ticker con la fecha de su vela, para la prueba de
+   * humo; null si no hay datos. Sin una referencia reciente la prueba
+   * no se lanza.
    */
-  referencePrice?(ticker: string): number | null | Promise<number | null>;
+  referencePrice?(
+    ticker: string,
+  ): { price: number; asOf: string } | null | Promise<{ price: number; asOf: string } | null>;
+  /**
+   * Reloj de mercado para juzgar la frescura de la referencia de la
+   * prueba de humo (el reloj anclado con el que se ingieren las velas);
+   * por defecto `now`.
+   */
+  marketNow?(): number;
   /** `delivery.sendEvent`: aviso de descuadres de la conciliación live. */
   sendEvent?(kind: DeliveryEventKind, message: DeliveryMessage): void;
   /** Emite `reconcile:discrepancy` tras una conciliación live. */
@@ -306,6 +315,8 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       isOnline: deps.isOnline,
       checkOrderAllowed: (request, context) =>
         liveOrderBlockReason(orderSnapshot(), request, context),
+      orderWirePrice: (request, context) =>
+        liveOrderWirePrice(orderSnapshot(), request, context),
       recordJournal: deps.recordJournal,
       onOrderUpdated: deps.emitOrderUpdated,
       sleep: deps.sleep,
@@ -404,6 +415,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     checkOrderAllowed: (request, context) =>
       liveOrderBlockReason(orderSnapshot(), request, context),
     referencePrice: deps.referencePrice ?? (() => null),
+    marketNow: deps.marketNow ?? now,
     reconcileNow: () => reconcile.runNow('manual'),
     openDiscrepancyCount: () => reconcile.status().openDiscrepancies.length,
     suspend: (detail) => deps.live.suspend('requisito-vencido', detail),

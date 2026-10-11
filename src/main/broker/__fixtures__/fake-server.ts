@@ -25,6 +25,11 @@ export interface AlpacaFakeServerOptions {
   now?: () => number;
   /** Precio de referencia por ticker para ejecutar las de mercado. */
   prices?: Record<string, number>;
+  /**
+   * Precio de referencia consultado en cada ejecución (p. ej. el último
+   * cierre ingerido); tiene prioridad sobre `prices`.
+   */
+  priceFor?: (ticker: string) => number | undefined;
   /** Respuesta de `GET /v2/account`; por defecto el fixture grabado. */
   account?: JsonObject;
   /** Respuesta de `GET /v2/positions`; por defecto el fixture grabado. */
@@ -69,7 +74,8 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
   let seq = 0;
 
   const isoNow = (): string => new Date(now()).toISOString();
-  const refPrice = (ticker: string): number => options.prices?.[ticker] ?? DEFAULT_PRICE;
+  const refPrice = (ticker: string): number =>
+    options.priceFor?.(ticker) ?? options.prices?.[ticker] ?? DEFAULT_PRICE;
   const nextId = (): string => `fake-order-${++seq}`;
 
   const fill = (order: JsonObject, price: number): void => {
@@ -156,6 +162,15 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
       ];
     } else if (order['type'] === 'market') {
       fill(order, refPrice(symbol));
+    } else if (order['type'] === 'limit' && orderClass === 'simple') {
+      // Una limitada cruzable ejecuta enseguida al precio de referencia:
+      // compra con límite >= mercado, venta con límite <= mercado.
+      const limit = Number(order['limit_price']);
+      const ref = refPrice(symbol);
+      const marketable =
+        Number.isFinite(limit) &&
+        ((order['side'] === 'buy' && limit >= ref) || (order['side'] === 'sell' && limit <= ref));
+      if (marketable) fill(order, ref);
     }
 
     orders.set(order['id'] as string, order);

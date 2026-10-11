@@ -63,6 +63,7 @@ import {
   evaluateFinalTest,
   evaluateKillSwitchTest,
   evaluatePaperProgress,
+  formatLiveDate,
   pendingRequirementsOf,
   paperStatsFromOrders,
   type AlertTestEvidence,
@@ -418,6 +419,15 @@ export interface LiveKillSwitchLike {
 export interface LiveServiceDeps {
   store: LiveStore;
   evidence: LiveEvidenceStore;
+  /**
+   * true solo cuando los ganchos E2E existen (TRADIA_E2E y app sin
+   * empaquetar): la evidencia de `settings['live.evidence']` es un
+   * simulacro de esos ganchos y solo cuenta entonces. En la app real se
+   * ignora siempre — una copia restaurada o una edición a mano de la
+   * base no pueden cumplir los requisitos automáticos (H1). Por
+   * defecto no cuenta.
+   */
+  allowSeededEvidence?(): boolean;
   /** Órdenes paper ejecutadas (broker.listOrders paginado). */
   listExecutedOrders?(): BrokerOrder[];
   /** Expectativa del último backtest de la estrategia (broker/deviation). */
@@ -520,7 +530,10 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
   }
 
   const evaluateAutomatic = (): Map<LiveRequirement, RequirementVerdict> => {
-    const evidence = deps.evidence.get();
+    // La evidencia sembrada solo existe en E2E: fuera de él los
+    // requisitos automáticos se miden con datos reales y nada más.
+    const evidence: LiveEvidenceRecord =
+      deps.allowSeededEvidence?.() === true ? deps.evidence.get() : {};
     const verdicts = new Map<LiveRequirement, RequirementVerdict>();
 
     // 1. Validación fuera de muestra: prueba final de cada candidata.
@@ -596,18 +609,27 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     const items: LiveChecklistItem[] = LIVE_REQUIREMENTS.map((requirement) => {
       const row = deps.store.getChecklistRow(requirement);
       const isDeclaration = DECLARATION_SET.has(requirement);
+      const declared =
+        isDeclaration && row?.declaracion !== null && row?.declaracion !== undefined;
       // Una declaración solo cuenta si guarda su texto y su fecha.
       const state: LiveRequirementState = isDeclaration
-        ? row?.declaracion !== null && row?.declaracion !== undefined
+        ? declared
           ? (row?.estado ?? 'pendiente')
           : 'pendiente'
         : (row?.estado ?? 'pendiente');
+      // La evidencia de una declaración cumplida es su propio texto con
+      // la fecha local de la suscripción (la pantalla la muestra tal cual).
+      const evidence =
+        declared === true
+          ? `«${row!.declaracion}» — suscrita el ` +
+            `${formatLiveDate(row!.marcado_en ?? evaluatedAt)}.`
+          : (row?.evidencia ?? null);
       return {
         requirement,
         kind: AUTOMATIC_SET.has(requirement) ? 'automatica' : 'declaracion',
         title: LIVE_REQUIREMENT_TITLES[requirement],
         state,
-        evidence: row?.evidencia ?? null,
+        evidence,
         declaration: row?.declaracion ?? null,
         declarationDetail: row?.detalle_declaracion ?? null,
         markedAt: row?.marcado_en ?? null,
@@ -628,11 +650,25 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       }
     }
 
+    // Los límites guardados viajan con la lista aunque no estén
+    // confirmados: la pantalla recupera el borrador al volver a ella.
+    const savedLimits = limitsRow();
+    const limits: LiveLimitsState =
+      savedLimits === null
+        ? { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null }
+        : {
+            limits: limitsOf(savedLimits),
+            confirmationPhrase: liveConfirmationPhrase(limitsOf(savedLimits)!),
+            confirmed: savedLimits.confirmados === 1,
+            savedAt: savedLimits.guardados_en,
+          };
+
     const checklist: LiveChecklist = {
       items,
       completedCount: items.filter((item) => item.state === 'cumplido').length,
       total: items.length,
       allComplete: pending.length === 0,
+      limits,
       evaluatedAt,
     };
 

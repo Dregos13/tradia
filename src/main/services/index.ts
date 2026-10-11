@@ -20,6 +20,7 @@ import {
   type MarketIngestionService,
 } from '../market/ingestion';
 import { registerHealth, type DataHealthService } from '../market/health';
+import { registerProviders, type ProvidersService } from '../providers';
 import { registerStrategies } from '../strategies/service';
 import type { StrategiesRepository } from '../strategies/repository';
 import { registerBacktest, type BacktestService } from '../backtest/service';
@@ -48,6 +49,8 @@ export interface MainServices {
   connectivity: ConnectivityService;
   /** Vigilancia de datos caducados/no fiables: data-status:get y avisos. */
   health: DataHealthService;
+  /** Prueba de conexión de proveedores (Tiingo/FRED): providers:test-*. */
+  providers: ProvidersService;
   /** Parada de emergencia (fase 3): veto total, disparadores automáticos. */
   killSwitch: KillSwitchService;
   /** Pasarela única del motor de riesgo (fase 3): límites, vetos y cautela. */
@@ -122,6 +125,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   // si no, parte del tiempo real.
   const marketClock = createMarketClock(e2eMarketClockBase(app.isPackaged));
   services.health = registerHealth(ctx, { clock: marketClock });
+  // Prueba de conexión de los proveedores de datos (Ajustes): stub del
+  // contrato hasta que llegue la implementación real.
+  services.providers = registerProviders(ctx);
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial
   // de kill_switch_events); envuelve ctx.broadcast antes de macro/market.
@@ -193,7 +199,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   // órdenes paper, la última expectativa de backtest, la parada, las
   // claves live, el Diario y los canales de alerta; y su broker real
   // envuelve de nuevo ctx.broadcast para ejecutar las señales cuando el
-  // modo esté 'activo' con la cuenta conectada.
-  services.live = registerLive(ctx);
+  // modo esté 'activo' con la cuenta conectada. Comparte el reloj de
+  // mercado: la prueba de humo juzga la frescura de la referencia con el
+  // mismo instante con el que se ingieren las velas.
+  services.live = registerLive(ctx, { marketNow: marketClock.now });
   return services as MainServices;
 }

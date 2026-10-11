@@ -1,0 +1,63 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estrategias
+Señales + paper trading
+Parada
+Biblioteca de estrategias
+
+Hipótesis versionadas, reglas reproducibles y evidencia.
+
+Nueva estrategia
+Estado
+Todos los estados
+Investigación
+Paper
+Activa
+Degradada
+Retirada
+Ordenar por
+Actividad reciente
+Nombre
+Estado
+Rentabilidad
+Estrategias y métricas del último backtest
+Estrategia	Versión	Estado	Rentabilidad	Drawdown	Sharpe	Operaciones	Actualización
+Reversión RSI/Bollinger
+Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo. · SPY, QQQ
+	v1	● Paper	-22,6%	22,69%	-5,7	45	11/10/2026
+Procedencia no disponible
+
+Ruptura de rangos
+Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales. · SPY, QQQ, TLT
+	v1	● Paper	65,53%	5,33%	4,03	53	11/10/2026
+Procedencia no disponible
+
+Momentum entre activos
+Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas. · SPY, QQQ, DIA, IWM, VTI, XLF, XLK, XLE, XLV, TLT
+	v1	● Paper	34,42%	28,88%	1,37	25	11/10/2026
+Procedencia no disponible
+
+Cruce de medias
+Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados. · SPY, QQQ, DIA, IWM
+	v1	● Paper	5,51%	6,04%	0,19	64	11/10/2026
+Procedencia no disponible
+En línea
+Agentes activos
+Última comprobación 02:16:10
+Próximo reintento —
+Último latido Pendiente

@@ -82,6 +82,16 @@ export const BROKER_TIME_IN_FORCE = ['day', 'gtc'] as const;
 export type BrokerTimeInForce = (typeof BROKER_TIME_IN_FORCE)[number];
 
 /**
+ * Cuenta en que se envió una orden: 'paper' es la cuenta simulada
+ * (`broker_orders`) y 'live' la cuenta real mínima (`broker_orders_live`,
+ * modo real de la fase 7). Lo persiste el proceso principal: nunca se
+ * deduce del modo vigente de la app —una orden paper sigue siendo paper
+ * con el modo real activo—.
+ */
+export const BROKER_ORDER_MODES = ['paper', 'live'] as const;
+export type BrokerOrderMode = (typeof BROKER_ORDER_MODES)[number];
+
+/**
  * Registro de ejecución de una orden: la hora y el precio pedidos frente a
  * la hora y el precio ejecutados, y el slippage resultante en puntos
  * básicos (10 000 pb = 100 %).
@@ -128,6 +138,13 @@ export interface BrokerOrder {
   ticker: string;
   type: BrokerOrderType;
   side: BrokerOrderSide;
+  /**
+   * Cuenta origen de la orden ('paper' | 'live'), fija desde su creación.
+   * Puede faltar en órdenes registradas antes de este campo: entonces la
+   * interfaz muestra «Modo no disponible» y nunca lo deduce del modo
+   * vigente de la app.
+   */
+  mode?: BrokerOrderMode;
   /** Cantidad pedida en unidades. */
   quantity: number;
   /** Cantidad ejecutada (igual a `quantity` en 'ejecutada'). */
@@ -475,6 +492,8 @@ export interface BrokerOrdersQuery {
   /** Filtra por la estrategia que originó la señal. */
   strategyId?: number;
   ticker?: string;
+  /** Filtra por la cuenta origen ('paper' | 'live'); sin él llegan ambas. */
+  mode?: BrokerOrderMode;
   limit?: number;
   offset?: number;
 }

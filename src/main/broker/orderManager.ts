@@ -152,6 +152,18 @@ export interface OrderManagerDeps {
     request: BrokerOrderRequest,
     context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
   ): string | null;
+  /**
+   * Precio limit con el que una orden de mercado debe salir a la red
+   * para no poder superar el techo por orden (los techos del modo real,
+   * fase 7). Null → sale tal cual. Se consulta tras la puerta: una
+   * compra que no cabe con margen de hueco queda bloqueada; la que cabe
+   * viaja limitada con tope, así ni un hueco de apertura la ejecuta por
+   * encima del límite escrito.
+   */
+  orderWirePrice?(
+    request: BrokerOrderRequest,
+    context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
+  ): number | null;
   /** Entrada del diario automático (`services.journal.record`). */
   recordJournal?(input: JournalRecordInput): void;
   /** Aviso por cada cambio persistido de una orden (`broker:order-updated`). */
@@ -554,7 +566,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       return { outcome: 'bloqueada', entry: null, exit: null };
     }
 
-    const request: BrokerOrderRequest = {
+    let request: BrokerOrderRequest = {
       clientOrderId,
       ticker: signal.ticker,
       type: 'market',
@@ -562,6 +574,17 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       quantity: decision.size,
       timeInForce: 'day',
     };
+    // Una orden real de mercado sale limitada con tope (el precio lo da
+    // la guarda de techos): nunca puede ejecutarse por encima del límite
+    // por orden. En paper la puerta no existe y sale de mercado tal cual.
+    const wirePrice =
+      deps.orderWirePrice?.(request, { leg: 'entrada', requestedPrice: signal.entry }) ?? null;
+    if (wirePrice !== null) {
+      request = { ...request, type: 'limit', limitPrice: wirePrice };
+      logger.info?.(
+        `[ordenes] ${clientOrderId}: sale limitada con tope a ${wirePrice} (referencia ${signal.entry ?? 'sin precio'})`,
+      );
+    }
     const capped = orderCapReason(request, 'entrada', signal.entry);
     if (capped !== null) {
       logger.warn?.(`[ordenes] señal ${signal.id} no ejecutada: ${capped}`);
@@ -584,9 +607,10 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
         strategyId: signal.strategies[0]?.strategyId ?? null,
         leg: 'entrada',
         ticker: signal.ticker,
-        type: 'market',
+        type: request.type,
         side: request.side,
         quantity: decision.size,
+        limitPrice: request.limitPrice ?? null,
         requestedPrice: signal.entry,
         requestedAt: isoNow(),
         status: 'pendiente',

@@ -93,6 +93,7 @@ import type {
 import {
   BROKER_E2E_DISCREPANCIES,
   BROKER_E2E_FAILURES,
+  BROKER_ORDER_MODES,
   BROKER_ORDERS_MAX_LIMIT,
   BROKER_ORDER_SIDES,
   BROKER_ORDER_STATUSES,
@@ -110,6 +111,7 @@ import type {
   BrokerFailNextRequest,
   BrokerFailNextResult,
   BrokerOrder,
+  BrokerOrderMode,
   BrokerOrdersQuery,
   BrokerOrderStatus,
   BrokerSeedWeeksRequest,
@@ -163,6 +165,7 @@ import type {
 import {
   DRIFT_CHECK_KINDS,
   NEWS_ANALYSIS_MAX_LIMIT,
+  NEWS_ANALYZERS,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
   PREDICTIONS_MAX_LIMIT,
@@ -179,6 +182,7 @@ import type {
   ModelHealthOverview,
   NewsAnalysis,
   NewsAnalysisQuery,
+  NewsAnalyzer,
   NewsLlmSettings,
   NewsLlmSettingsInput,
   NewsLlmTestResult,
@@ -505,7 +509,10 @@ export const IPC_CHANNELS = {
     orderUpdated: 'broker:order-updated',
   },
   orders: {
-    /** Órdenes paper registradas, más recientes primero (BrokerOrdersQuery). */
+    /**
+     * Órdenes registradas, más recientes primero (BrokerOrdersQuery);
+     * `mode` filtra por la cuenta origen ('paper' | 'live').
+     */
     list: 'orders:list',
     /**
      * Crea una orden limitada manual (`{ticker, side, quantity,
@@ -515,6 +522,19 @@ export const IPC_CHANNELS = {
     create: 'orders:create',
     /** Cancela una orden abierta por su id local (`{id}`). */
     cancel: 'orders:cancel',
+  },
+  providers: {
+    /**
+     * «Probar conexión» de un proveedor de datos (Tiingo, FRED): una
+     * petición mínima real con la clave guardada. Devuelve el estado y la
+     * fecha del último dato, nunca la clave (`ProviderTestResult`).
+     */
+    testConnection: 'providers:test-connection',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fuerza el estado que
+     * devolverá la próxima prueba de conexión del proveedor.
+     */
+    simulateTest: 'providers:simulate-test',
   },
   reconcile: {
     /** «Conciliar ahora»: ejecuta la conciliación con el broker. */
@@ -680,6 +700,15 @@ export interface NotificationPrefs {
 // Dominio: ajustes
 // ---------------------------------------------------------------------------
 
+/**
+ * Versión del tour guiado de incorporación que ofrece la app. Se guarda
+ * en `AppSettings.onboardingTourVersion` cuando el usuario termina o
+ * descarta el recorrido: si en el futuro cambia esta constante, el tour
+ * vuelve a ofrecerse aunque ya se hubiera completado. Nunca sustituye ni
+ * salta el aviso de riesgo, que va antes.
+ */
+export const ONBOARDING_TOUR_VERSION = '1';
+
 export interface AppSettings {
   /** Iniciar Tradia con el sistema operativo. */
   autostart: boolean;
@@ -693,6 +722,14 @@ export interface AppSettings {
   deviationMarginPp: number;
   /** Slippage medio máximo admitido en el informe (puntos básicos). */
   deviationSlippageBps: number;
+  /**
+   * Versión del tour de incorporación ya vista o descartada; null si el
+   * tour aún debe ofrecerse. Distinta de ONBOARDING_TOUR_VERSION también
+   * vuelve a ofrecerlo.
+   */
+  onboardingTourVersion: string | null;
+  /** Fecha ISO 8601 generada por main; el renderer no puede escribirla. */
+  onboardingTourCompletedAt: string | null;
 }
 
 /** Solo estas claves son escribibles desde el renderer. */
@@ -704,6 +741,11 @@ export interface SettingsPatch {
   deviationMarginPp?: number;
   /** Debe quedar dentro de DEVIATION_SLIPPAGE_BPS_BOUNDS. */
   deviationSlippageBps?: number;
+  /**
+   * Marca el tour como visto (escribe la versión vigente) o lo reinicia
+   * con null para volver a ofrecerlo desde Ajustes.
+   */
+  onboardingTourVersion?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -887,6 +929,82 @@ export interface MacroSeriesSnapshot {
   observations: MacroObservation[];
   /** Salud del dato de esta serie, o null si aún no se ha evaluado. */
   status: DataStatusEntry | null;
+}
+
+// ---------------------------------------------------------------------------
+// Dominio: proveedores de datos (prueba de conexión en Ajustes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Proveedores de datos con clave propia en `secrets` y «Probar conexión»
+ * en Ajustes: Tiingo (velas diarias) y FRED (series macro).
+ */
+export const DATA_PROVIDER_IDS = ['tiingo', 'fred'] as const;
+export type DataProviderId = (typeof DATA_PROVIDER_IDS)[number];
+
+/**
+ * Estados de `providers:test-connection`: 'ok' devuelve la fecha del
+ * último dato disponible; el resto explica el motivo exacto del fallo —
+ * 'sin-clave' (no hay clave guardada), 'clave-rechazada' (401/403 del
+ * proveedor), 'cuota' (límite de peticiones agotado), 'sin-red' (no hay
+ * conexión) y 'error' (cualquier otro fallo, con el motivo en `message`).
+ */
+export const PROVIDER_TEST_STATUSES = [
+  'ok',
+  'sin-clave',
+  'clave-rechazada',
+  'cuota',
+  'sin-red',
+  'error',
+] as const;
+export type ProviderTestStatus = (typeof PROVIDER_TEST_STATUSES)[number];
+
+/** Petición de `providers:test-connection`. */
+export interface ProviderTestRequest {
+  provider: DataProviderId;
+}
+
+/**
+ * Resultado de `providers:test-connection`. Nunca incluye la clave ni
+ * fragmentos de ella: solo el estado, un mensaje legible en español y la
+ * fecha del último dato disponible del proveedor.
+ */
+export interface ProviderTestResult {
+  provider: DataProviderId;
+  status: ProviderTestStatus;
+  /**
+   * Mensaje legible en español: 'Conectado · último dato 2026-10-09' en
+   * 'ok' o el motivo exacto del fallo en el resto ('Sin clave guardada.',
+   * 'El proveedor rechazó la clave.', 'Cuota agotada por hoy.', 'Sin
+   * conexión a internet.', …). Nunca contiene la clave.
+   */
+  message: string;
+  /**
+   * Último dato disponible del proveedor ('YYYY-MM-DD': la vela más
+   * reciente en Tiingo, la observación más reciente en FRED); null si no
+   * se pudo leer (sin clave, sin red…).
+   */
+  latestDataDate: string | null;
+  /** Instante de la comprobación (ISO 8601). */
+  checkedAt: string;
+  /** Latencia de la llamada al proveedor en ms; null si no llegó a la red. */
+  latencyMs: number | null;
+}
+
+/**
+ * Petición del gancho E2E `providers:simulate-test`: fuerza el estado de
+ * la próxima prueba de conexión del proveedor.
+ */
+export interface ProviderSimulateTestRequest {
+  provider: DataProviderId;
+  status: ProviderTestStatus;
+}
+
+/** Respuesta del gancho `providers:simulate-test`. */
+export interface ProviderSimulateTestResult {
+  provider: DataProviderId;
+  /** Estado que quedó armado para la próxima prueba. */
+  armed: ProviderTestStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -1438,6 +1556,14 @@ export interface TradiaApi {
      */
     cancel(request: CancelOrderRequest): Promise<BrokerOrder>;
   };
+  providers: {
+    /**
+     * «Probar conexión» del proveedor de datos: una petición mínima real
+     * con la clave guardada en secrets. Devuelve el estado y la fecha del
+     * último dato; nunca la clave.
+     */
+    testConnection(request: ProviderTestRequest): Promise<ProviderTestResult>;
+  };
   reconcile: {
     /** Ejecuta la conciliación app ↔ broker y devuelve su resultado. */
     run(): Promise<ReconcileRun>;
@@ -1565,6 +1691,11 @@ export interface TradiaApi {
       /** Siembra semanas de operaciones paper cerradas. */
       seedWeeks(request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult>;
     };
+    /** Ganchos de los proveedores de datos. */
+    providers: {
+      /** Fuerza el estado de la próxima prueba de conexión del proveedor. */
+      simulateTest(request: ProviderSimulateTestRequest): Promise<ProviderSimulateTestResult>;
+    };
     /** Ganchos de la IA predictiva (fase 6). */
     ai: {
       /** Fija el régimen de un activo o del mercado (datos falsos en memoria). */
@@ -1659,6 +1790,7 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
     'brokerExecutionEnabled',
     'deviationMarginPp',
     'deviationSlippageBps',
+    'onboardingTourVersion',
   ];
   if (keys.some((k) => !allowed.includes(k))) return false;
   if ('autostart' in v && typeof v.autostart !== 'boolean') return false;
@@ -1666,6 +1798,13 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
     'disclaimerAcceptedVersion' in v &&
     v.disclaimerAcceptedVersion !== null &&
     typeof v.disclaimerAcceptedVersion !== 'string'
+  ) {
+    return false;
+  }
+  if (
+    'onboardingTourVersion' in v &&
+    v.onboardingTourVersion !== null &&
+    (typeof v.onboardingTourVersion !== 'string' || v.onboardingTourVersion.length > 64)
   ) {
     return false;
   }
@@ -2834,6 +2973,11 @@ export function isBrokerOrderStatus(value: unknown): value is BrokerOrderStatus 
   return typeof value === 'string' && (BROKER_ORDER_STATUSES as readonly string[]).includes(value);
 }
 
+/** Cuenta origen de una orden ('paper' | 'live'). */
+export function isBrokerOrderMode(value: unknown): value is BrokerOrderMode {
+  return typeof value === 'string' && (BROKER_ORDER_MODES as readonly string[]).includes(value);
+}
+
 /** Id entero positivo de una orden local (`broker_orders.id`). */
 export function isBrokerOrderId(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
@@ -2843,11 +2987,12 @@ export function isBrokerOrdersQuery(value: unknown): value is BrokerOrdersQuery 
   if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['status', 'strategyId', 'ticker', 'limit', 'offset'];
+  const allowed = ['status', 'strategyId', 'ticker', 'mode', 'limit', 'offset'];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if ('status' in v && !isBrokerOrderStatus(v.status)) return false;
   if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
   if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('mode' in v && !isBrokerOrderMode(v.mode)) return false;
   if (
     'limit' in v &&
     (typeof v.limit !== 'number' ||
@@ -2940,6 +3085,38 @@ export function isBrokerSeedWeeksRequest(
     !('weeks' in v) ||
     (typeof v.weeks === 'number' && Number.isInteger(v.weeks) && v.weeks >= 1 && v.weeks <= 52)
   );
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: proveedores de datos
+// ---------------------------------------------------------------------------
+
+export function isDataProviderId(value: unknown): value is DataProviderId {
+  return typeof value === 'string' && (DATA_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+export function isProviderTestStatus(value: unknown): value is ProviderTestStatus {
+  return (
+    typeof value === 'string' && (PROVIDER_TEST_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+/** Petición de `providers:test-connection`: solo el proveedor, nunca la clave. */
+export function isProviderTestRequest(value: unknown): value is ProviderTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'provider')) return false;
+  return isDataProviderId(v.provider);
+}
+
+/** Petición del gancho E2E `providers:simulate-test`. */
+export function isProviderSimulateTestRequest(
+  value: unknown,
+): value is ProviderSimulateTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'provider' && k !== 'status')) return false;
+  return isDataProviderId(v.provider) && isProviderTestStatus(v.status);
 }
 
 // ---------------------------------------------------------------------------
@@ -3077,16 +3254,28 @@ export function isNewsAnalysisQuery(value: unknown): value is NewsAnalysisQuery 
   return true;
 }
 
+/** Analizador de titulares registrado ('llm' | 'local' | 'suscripcion'). */
+export function isNewsAnalyzer(value: unknown): value is NewsAnalyzer {
+  return typeof value === 'string' && (NEWS_ANALYZERS as readonly string[]).includes(value);
+}
+
 /** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
 export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettingsInput {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   const keys = Object.keys(v);
   if (keys.length === 0) return false;
-  if (keys.some((k) => k !== 'enabled' && k !== 'dailyCap' && k !== 'monthlyBudgetEur')) {
+  const allowed = ['enabled', 'provider', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
+  if (keys.some((k) => !allowed.includes(k))) return false;
+  if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
+  if ('provider' in v && !isNewsAnalyzer(v.provider)) return false;
+  if (
+    'cliPath' in v &&
+    v.cliPath !== null &&
+    (typeof v.cliPath !== 'string' || v.cliPath.trim().length === 0 || v.cliPath.length > 1_024)
+  ) {
     return false;
   }
-  if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
   if (
     'dailyCap' in v &&
     (!Number.isInteger(v.dailyCap) ||

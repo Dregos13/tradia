@@ -1,0 +1,130 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+IA
+Señales + paper trading
+Parada
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+IA
+
+Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
+
+Actualizar
+
+Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el motor de riesgo.
+
+Régimen del mercado
+
+Todavía no hay cierres suficientes para clasificar el régimen
+
+Se necesitan velas diarias válidas antes de calcular el mercado y los activos.
+
+El régimen se recalcula al cierre; no predice por sí solo.
+
+Régimen por activo
+
+Aún no hay regímenes calculados para los activos.
+
+Estrategias según el régimen
+
+Desplázate horizontalmente para ver todas las columnas.
+
+Decisión por régimen de cada estrategia
+Estrategia	Estado por régimen	Funciona en	Falla en	Motivo
+Cruce de medias
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Todavía no hay régimen calculado del mercado: faltan cierres.
+Reversión RSI/Bollinger
+v1 · investigacion
+Ver ficha	Activa por régimen	Lateral	Tendencia	Todavía no hay régimen calculado del mercado: faltan cierres.
+Ruptura de rangos
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Todavía no hay régimen calculado del mercado: faltan cierres.
+Momentum entre activos
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Todavía no hay régimen calculado del mercado: faltan cierres.
+Predicción por activo
+
+No crea señales por sí solo · Riesgo conserva el veto.
+
+Aún no hay estimaciones por activo.
+
+Ficha del modelo · dirección y volatilidad
+Datos sintéticos · no apto
+Versión
+v0.1.0
+SHA-256 del archivo
+0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6
+Copiar hash
+Horizonte
+5 sesiones
+Origen
+Datos sintéticos
+Entrenamiento
+11 mar 2022 – 19 ene 2024 · 60 %
+Calibración
+29 ene 2024 – 27 sept 2024 · 20 %
+Prueba final intacta
+7 oct 2024 – 6 jun 2025 · 20 %
+Entrenado
+10 oct 2026, 22:40 CEST
+Registrado
+11 oct 2026, 02:09 CEST
+Evaluación fuera de muestra
+
+En Brier, menos es mejor. 0 indica probabilidades perfectas; la comparación solo usa la prueba final fuera de muestra.
+
+Brier del modelo
+0,197
+Brier de referencia
+0,25
+Diferencia
+-0,053
+
+Mejor que la referencia
+
+La mejora no elimina el bloqueo: el origen es sintético. Solo información. Este modelo no puede influir en señales porque usa datos sintéticos.
+
+Calibración fuera de muestra
+
+Cuanto más cerca esté la línea del modelo de la diagonal, mejor corresponden sus porcentajes con lo observado.
+
+0 %
+0 %
+50 %
+50 %
+100 %
+100 %
+Probabilidad estimada
+Frecuencia observada
+
+Calibración ideal · línea discontinua
+Modelo · línea sólida
+
+Ver datos del gráfico
+Revisar fuentes de mercado
+En línea
+Agentes activos
+Última comprobación 02:09:44
+Próximo reintento —
+Último latido Pendiente

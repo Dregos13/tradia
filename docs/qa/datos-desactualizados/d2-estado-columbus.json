@@ -1,0 +1,853 @@
+{
+  "now": "2026-10-11T00:13:36.412Z",
+  "connectivity": {
+    "status": "online",
+    "lastCheckedAt": "2026-10-14T13:00:30.383Z",
+    "nextRetryAt": null,
+    "attempt": 0
+  },
+  "dataStatus": [
+    {
+      "key": "macro:CPIAUCSL",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.362Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.362Z"
+    },
+    {
+      "key": "macro:DFF",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.303Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.303Z"
+    },
+    {
+      "key": "macro:DGS10",
+      "state": "desactualizado",
+      "lastOkAt": "2026-10-14T13:00:00.511Z",
+      "consecutiveFailures": 0,
+      "reason": "falta la observación esperada; último dato: 2026-10-09",
+      "updatedAt": "2026-10-14T13:00:00.513Z"
+    },
+    {
+      "key": "macro:DGS2",
+      "state": "desactualizado",
+      "lastOkAt": "2026-10-14T13:00:00.448Z",
+      "consecutiveFailures": 0,
+      "reason": "falta la observación esperada; último dato: 2026-10-09",
+      "updatedAt": "2026-10-14T13:00:00.451Z"
+    },
+    {
+      "key": "macro:T10Y2Y",
+      "state": "desactualizado",
+      "lastOkAt": "2026-10-14T13:00:00.583Z",
+      "consecutiveFailures": 0,
+      "reason": "falta la observación esperada; último dato: 2026-10-09",
+      "updatedAt": "2026-10-14T13:00:00.585Z"
+    },
+    {
+      "key": "macro:VIXCLS",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.609Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.609Z"
+    },
+    {
+      "key": "modelo:0.1.0",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.657Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.657Z"
+    },
+    {
+      "key": "provider:fred",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.611Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.611Z"
+    },
+    {
+      "key": "provider:tiingo",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.556Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.556Z"
+    },
+    {
+      "key": "ticker:AAPL",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.484Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.484Z"
+    },
+    {
+      "key": "ticker:MSFT",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.548Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.548Z"
+    },
+    {
+      "key": "ticker:QQQ",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.397Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.397Z"
+    },
+    {
+      "key": "ticker:SPY",
+      "state": "fiable",
+      "lastOkAt": "2026-10-14T13:00:00.342Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-14T13:00:00.342Z"
+    }
+  ],
+  "lastBars": {
+    "SPY": {
+      "source": "tiingo",
+      "count": 1272,
+      "last": "2026-10-13"
+    },
+    "QQQ": {
+      "source": "tiingo",
+      "count": 1272,
+      "last": "2026-10-13"
+    },
+    "AAPL": {
+      "source": "tiingo",
+      "count": 1272,
+      "last": "2026-10-13"
+    },
+    "MSFT": {
+      "source": "tiingo",
+      "count": 1272,
+      "last": "2026-10-13"
+    }
+  },
+  "regime": {
+    "market": {
+      "scope": "mercado",
+      "ticker": "SPY",
+      "sessionDate": "2026-10-13",
+      "direction": "tendencia",
+      "volatility": "volatilidad-baja",
+      "metrics": {
+        "adx": 34.13667778294484,
+        "smaSlope": 0.8889940000001388,
+        "realizedVolatility": 0.002975857474277402,
+        "volatilityMedian": 0.00659196024656462
+      },
+      "previousChange": {
+        "direction": "lateral",
+        "sessionDate": "2026-09-28"
+      },
+      "computedAt": "2026-10-14T13:00:00.347Z"
+    },
+    "assets": [
+      {
+        "scope": "activo",
+        "ticker": "SPY",
+        "sessionDate": "2026-10-13",
+        "direction": "tendencia",
+        "volatility": "volatilidad-baja",
+        "metrics": {
+          "adx": 34.13667778294484,
+          "smaSlope": 0.8889940000001388,
+          "realizedVolatility": 0.002975857474277402,
+          "volatilityMedian": 0.00659196024656462
+        },
+        "previousChange": {
+          "direction": "lateral",
+          "sessionDate": "2026-09-28"
+        },
+        "computedAt": "2026-10-14T13:00:00.345Z"
+      },
+      {
+        "scope": "activo",
+        "ticker": "QQQ",
+        "sessionDate": "2026-10-13",
+        "direction": "tendencia",
+        "volatility": "volatilidad-baja",
+        "metrics": {
+          "adx": 28.399080373330783,
+          "smaSlope": 3.2694458399998894,
+          "realizedVolatility": 0.006499159888321037,
+          "volatilityMedian": 0.0066128246881467494
+        },
+        "previousChange": {
+          "direction": "lateral",
+          "sessionDate": "2026-02-18"
+        },
+        "computedAt": "2026-10-14T13:00:00.400Z"
+      },
+      {
+        "scope": "activo",
+        "ticker": "AAPL",
+        "sessionDate": "2026-10-13",
+        "direction": "tendencia",
+        "volatility": "volatilidad-baja",
+        "metrics": {
+          "adx": 79.63091745124174,
+          "smaSlope": 2.3861442400000215,
+          "realizedVolatility": 0.005119898321670767,
+          "volatilityMedian": 0.00635283695961769
+        },
+        "previousChange": {
+          "direction": "lateral",
+          "sessionDate": "2026-08-04"
+        },
+        "computedAt": "2026-10-14T13:00:00.486Z"
+      },
+      {
+        "scope": "activo",
+        "ticker": "MSFT",
+        "sessionDate": "2026-10-13",
+        "direction": "tendencia",
+        "volatility": "volatilidad-baja",
+        "metrics": {
+          "adx": 50.29443883766645,
+          "smaSlope": 12.054286139999931,
+          "realizedVolatility": 0.005881092235550099,
+          "volatilityMedian": 0.007024395688370695
+        },
+        "previousChange": {
+          "direction": "lateral",
+          "sessionDate": "2026-01-28"
+        },
+        "computedAt": "2026-10-14T13:00:00.554Z"
+      }
+    ],
+    "strategies": [
+      {
+        "strategyId": 1,
+        "name": "Cruce de medias",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": [
+          "tendencia"
+        ],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo."
+      },
+      {
+        "strategyId": 2,
+        "name": "Reversión RSI/Bollinger",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": [
+          "lateral"
+        ],
+        "failsIn": [
+          "tendencia"
+        ],
+        "regimeState": "desactivada",
+        "reason": "El mercado está en Tendencia · Volatilidad baja y la estrategia declara que falla en Tendencia."
+      },
+      {
+        "strategyId": 3,
+        "name": "Ruptura de rangos",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": [
+          "tendencia"
+        ],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo."
+      },
+      {
+        "strategyId": 4,
+        "name": "Momentum entre activos",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": [
+          "tendencia"
+        ],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo."
+      }
+    ],
+    "computedAt": "2026-10-14T13:00:00.554Z"
+  },
+  "predictions": [
+    {
+      "id": 4892,
+      "ticker": "MSFT",
+      "sessionDate": "2026-10-13",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.010822650976479053,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.674Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4875,
+      "ticker": "AAPL",
+      "sessionDate": "2026-10-13",
+      "horizonDays": 5,
+      "probUp": 0.4230769230769231,
+      "probDown": 0.5769230769230769,
+      "expectedVolatility": 0.008965899236500263,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.643Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4858,
+      "ticker": "QQQ",
+      "sessionDate": "2026-10-13",
+      "horizonDays": 5,
+      "probUp": 0.9047619047619048,
+      "probDown": 0.09523809523809523,
+      "expectedVolatility": 0.010556812398135662,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.639Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4841,
+      "ticker": "SPY",
+      "sessionDate": "2026-10-13",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.010921184904873371,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.620Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4891,
+      "ticker": "MSFT",
+      "sessionDate": "2026-10-12",
+      "horizonDays": 5,
+      "probUp": 0.4230769230769231,
+      "probDown": 0.5769230769230769,
+      "expectedVolatility": 0.012156599201261997,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.674Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4874,
+      "ticker": "AAPL",
+      "sessionDate": "2026-10-12",
+      "horizonDays": 5,
+      "probUp": 0.4230769230769231,
+      "probDown": 0.5769230769230769,
+      "expectedVolatility": 0.009169528260827065,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.643Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4857,
+      "ticker": "QQQ",
+      "sessionDate": "2026-10-12",
+      "horizonDays": 5,
+      "probUp": 0.7368421052631579,
+      "probDown": 0.26315789473684215,
+      "expectedVolatility": 0.010824705474078655,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.639Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4840,
+      "ticker": "SPY",
+      "sessionDate": "2026-10-12",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.01046452671289444,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.620Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4890,
+      "ticker": "MSFT",
+      "sessionDate": "2026-10-09",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.011298542842268944,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.674Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4873,
+      "ticker": "AAPL",
+      "sessionDate": "2026-10-09",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.008945398032665253,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.643Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4856,
+      "ticker": "QQQ",
+      "sessionDate": "2026-10-09",
+      "horizonDays": 5,
+      "probUp": 0.4230769230769231,
+      "probDown": 0.5769230769230769,
+      "expectedVolatility": 0.010112233459949493,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.639Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4839,
+      "ticker": "SPY",
+      "sessionDate": "2026-10-09",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.009741047397255898,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.620Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4889,
+      "ticker": "MSFT",
+      "sessionDate": "2026-10-08",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.011216453276574612,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.674Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4872,
+      "ticker": "AAPL",
+      "sessionDate": "2026-10-08",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.010093319229781628,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.643Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4855,
+      "ticker": "QQQ",
+      "sessionDate": "2026-10-08",
+      "horizonDays": 5,
+      "probUp": 0.2706633394449296,
+      "probDown": 0.7293366605550704,
+      "expectedVolatility": 0.010933399200439453,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.639Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4838,
+      "ticker": "SPY",
+      "sessionDate": "2026-10-08",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.009338369593024254,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.620Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4888,
+      "ticker": "MSFT",
+      "sessionDate": "2026-10-07",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.010618519969284534,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.674Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4871,
+      "ticker": "AAPL",
+      "sessionDate": "2026-10-07",
+      "horizonDays": 5,
+      "probUp": 0.391304347826087,
+      "probDown": 0.6086956521739131,
+      "expectedVolatility": 0.010009117424488068,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.643Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4854,
+      "ticker": "QQQ",
+      "sessionDate": "2026-10-07",
+      "horizonDays": 5,
+      "probUp": 0.2727272727272727,
+      "probDown": 0.7272727272727273,
+      "expectedVolatility": 0.009728229604661465,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.639Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    },
+    {
+      "id": 4837,
+      "ticker": "SPY",
+      "sessionDate": "2026-10-07",
+      "horizonDays": 5,
+      "probUp": 0.5128205128205129,
+      "probDown": 0.4871794871794871,
+      "expectedVolatility": 0.009910669177770615,
+      "modelVersion": "0.1.0",
+      "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
+      "modelCardId": 1,
+      "createdAt": "2026-10-11T00:13:06.620Z",
+      "resolvedSession": null,
+      "outcomeUp": null,
+      "realizedBrier": null
+    }
+  ],
+  "modelCard": {
+    "version": "0.1.0"
+  },
+  "health": {
+    "subjects": [
+      {
+        "subject": "modelo",
+        "subjectId": 1,
+        "name": "Modelo de dirección y volatilidad v0.1.0",
+        "state": "observacion",
+        "dataDrift": {
+          "drifted": true,
+          "sessions": 2,
+          "features": [
+            {
+              "name": "ret_1",
+              "psi": 1.531,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "ret_5",
+              "psi": 0.6011,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "ret_10",
+              "psi": 1.5129,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "ret_21",
+              "psi": 2.165,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "sma_ratio_10",
+              "psi": 0.9849,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "sma_ratio_20",
+              "psi": 1.9139,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "sma_ratio_50",
+              "psi": 3.7437,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "ema_ratio_12_26",
+              "psi": 4.8491,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "rsi_14",
+              "psi": 2.6325,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "atr_14_pct",
+              "psi": 3.727,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "vol_5",
+              "psi": 5.3947,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "vol_20",
+              "psi": 6.5221,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "range_pct",
+              "psi": 3.5979,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "close_pos",
+              "psi": 4.759,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "gap_pct",
+              "psi": 8.2805,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            },
+            {
+              "name": "vol_rel_20",
+              "psi": 0.5975,
+              "overThreshold": true,
+              "overThresholdSince": "2026-09-19T10:00:13.912Z"
+            }
+          ],
+          "driftedFeatures": 16,
+          "driftSince": "2026-09-19T10:00:13.912Z"
+        },
+        "resultsDrift": {
+          "drifted": true,
+          "resolvedCount": 60,
+          "rollingBrier": 0.4102,
+          "cardBrier": 0.1966856234489903,
+          "delta": 0.2135,
+          "driftSince": "2026-10-14T13:00:00.189Z"
+        },
+        "strategyEval": null,
+        "reason": "Drift de datos en vigilancia: 2 de 20 sesiones.",
+        "lastReviewedAt": "2026-10-14T13:00:00.189Z"
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 1,
+        "name": "Cruce de medias · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 5
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 2,
+        "name": "Reversión RSI/Bollinger · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 15
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 3,
+        "name": "Ruptura de rangos · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 3
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 4,
+        "name": "Momentum entre activos · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 7
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      }
+    ],
+    "counts": {
+      "saludable": 0,
+      "observacion": 1,
+      "degradada": 0,
+      "insuficiente": 4
+    },
+    "proposals": [],
+    "evaluatedAt": "2026-10-14T13:00:00.189Z"
+  },
+  "signals": [],
+  "signalStrategies": [
+    {
+      "strategyId": 1,
+      "name": "Cruce de medias",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 2,
+      "name": "Reversión RSI/Bollinger",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 3,
+      "name": "Ruptura de rangos",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 4,
+      "name": "Momentum entre activos",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    }
+  ]
+}

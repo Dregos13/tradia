@@ -281,28 +281,44 @@ describe('ajustes del LLM y probar conexión', () => {
     expect(settings.dailyCap).toBe(200);
   });
 
-  it('testLlm: sin llavero, sin clave, con éxito y con error saneado', async () => {
+  it('testLlm prueba el proveedor elegido: local, suscripción y API', async () => {
+    // 'local' no tiene nada que conectar: la prueba siempre sale bien.
+    const { service: local } = setup({});
+    expect(await local.testLlm()).toEqual({ ok: true, error: null, latencyMs: null });
+
+    // 'suscripcion' sin la CLI instalada (cliAvailable false) da el motivo.
+    const { service: suscripcion, store: susStore } = setup({});
+    susStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    const susResult = await suscripcion.testLlm();
+    expect(susResult.ok).toBe(false);
+    expect(susResult.error).toContain('CLI no encontrada');
+
+    const noSecretsStore = memoryStore();
+    noSecretsStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
     const noSecrets = createNewsAiService({
       repo: createNewsAnalysisRepository(openDatabase(':memory:')),
       localAnalyzer: analyzerStub(),
       secrets: null,
-      store: memoryStore(),
+      store: noSecretsStore,
     });
     expect((await noSecrets.testLlm()).ok).toBe(false);
 
-    const { service: noKey } = setup({ hasKey: false });
+    const { service: noKey, store: noKeyStore } = setup({ hasKey: false });
+    // Proveedor 'llm' (API) sin clave guardada: la prueba falla con motivo.
+    noKeyStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
     const result = await noKey.testLlm();
     expect(result.ok).toBe(false);
     expect(result.error).toContain('No hay una clave');
 
-    const { service: ok } = setup({
+    const { service: ok, store: okStore } = setup({
       hasKey: true,
       llm: Object.assign(analyzerStub(undefined, 'llm'), { ping: async () => 42 }),
     });
+    okStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
     const success = await ok.testLlm();
     expect(success).toEqual({ ok: true, error: null, latencyMs: 42 });
 
-    const { service: failing } = setup({
+    const { service: failing, store: failingStore } = setup({
       hasKey: true,
       llm: Object.assign(analyzerStub(undefined, 'llm'), {
         ping: async (): Promise<number> => {
@@ -310,10 +326,91 @@ describe('ajustes del LLM y probar conexión', () => {
         },
       }),
     });
+    failingStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
     const failure = await failing.testLlm();
     expect(failure.ok).toBe(false);
     expect(failure.error).toContain('401');
     expect(failure.error).not.toContain('sk-ant');
+  });
+});
+
+describe('filtro de activos del resultado (solo ligados o mencionados)', () => {
+  it('sin activos ligados descarta el ticker que el titular no menciona', async () => {
+    const local = analyzerStub(async () => ({
+      assets: [
+        { ticker: 'MSFT', summary: 'Microsoft cae.', sentiment: 'negativo' as const },
+        { ticker: 'AAPL', summary: 'El analizador lo inventa.', sentiment: 'positivo' as const },
+      ],
+    }));
+    const { db, repo, service } = setup({ local });
+    const id = insertItem(db, {
+      title: 'Microsoft drops after cloud growth misses estimates',
+      confirmed: true,
+      assets: [],
+    });
+    service.enqueueItem({ id, confirmed: true });
+    await service.drain();
+    expect(repo.list().map((row) => row.ticker)).toEqual(['MSFT']);
+  });
+
+  it('sin activos ligados acepta un cashtag que el titular sí menciona', async () => {
+    const local = analyzerStub(async () => ({
+      assets: [
+        { ticker: 'NVDA', summary: 'Nvidia sube.', sentiment: 'positivo' as const },
+        { ticker: 'AAPL', summary: 'No aparece.', sentiment: 'positivo' as const },
+      ],
+    }));
+    const { db, repo, service } = setup({ local });
+    const id = insertItem(db, {
+      title: '$NVDA soars on earnings beat',
+      confirmed: true,
+      assets: [],
+    });
+    service.enqueueItem({ id, confirmed: true });
+    await service.drain();
+    expect(repo.list().map((row) => row.ticker)).toEqual(['NVDA']);
+  });
+
+  it('con activos ligados también vale un ticker que el texto menciona aunque el lector no lo ligase', async () => {
+    const local = analyzerStub(async () => ({
+      assets: [
+        { ticker: 'MSFT', summary: 'Ligado.', sentiment: 'negativo' as const },
+        { ticker: 'AAPL', summary: 'Mencionado sin ligar.', sentiment: 'positivo' as const },
+        { ticker: 'NVDA', summary: 'Ni ligado ni mencionado.', sentiment: 'positivo' as const },
+      ],
+    }));
+    const { db, repo, service } = setup({ local });
+    const id = insertItem(db, {
+      title: 'Microsoft drops while Apple rises',
+      confirmed: true,
+      assets: ['MSFT'],
+    });
+    service.enqueueItem({ id, confirmed: true });
+    await service.drain();
+    expect(repo.list().map((row) => row.ticker).sort()).toEqual(['AAPL', 'MSFT']);
+  });
+});
+
+describe('titulares desconfirmados en el listado', () => {
+  it('una desconfirmación posterior al análisis retira sus filas del listado', async () => {
+    const local = analyzerStub();
+    const { db, repo, service } = setup({ local });
+    const id = insertItem(db, {
+      title: 'Apple beats estimates',
+      confirmed: true,
+      assets: ['AAPL'],
+    });
+    service.enqueueItem({ id, confirmed: true });
+    await service.drain();
+    expect(repo.list({ ticker: 'AAPL' })).toHaveLength(1);
+
+    db.prepare('UPDATE news_items SET confirmada = 0 WHERE id = ?').run(id);
+    expect(repo.list({ ticker: 'AAPL' })).toEqual([]);
+    expect(repo.list({ newsItemId: id })).toEqual([]);
+
+    // Vuelve a estar confirmada: el análisis reaparece sin reanalizar.
+    db.prepare('UPDATE news_items SET confirmada = 1 WHERE id = ?').run(id);
+    expect(repo.list({ ticker: 'AAPL' })).toHaveLength(1);
   });
 });
 

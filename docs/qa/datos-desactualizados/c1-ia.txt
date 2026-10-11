@@ -1,0 +1,91 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+IA
+Señales + paper trading
+Parada activa
+Parada activa: Dato de mercado anómalo · 02:11:38 CEST · Activada por Sistema
+provider:tiingo: [tiingo] fallo de transporte: TypeError: fetch failed
+
+Sin conexión. Ver estado
+
+Ver en Riesgo
+Reanudar
+Sin conexión: las decisiones están en pausa. Reintentando en 9 s.
+Comprobar ahora
+Tiingo · No fiable
+
+[tiingo] fallo de transporte: TypeError: fetch failed
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+IA
+
+Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
+
+Actualizar
+
+Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el motor de riesgo.
+
+Sin conexión · régimen y predicciones congelados sin una instantánea disponible. No se evaluarán señales nuevas.
+
+Ficha local · no se pudo comprobar si existe una versión posterior.
+
+Reintentar conexión
+Régimen del mercado
+
+Todavía no hay cierres suficientes para clasificar el régimen
+
+Se necesitan velas diarias válidas antes de calcular el mercado y los activos.
+
+El régimen se recalcula al cierre; no predice por sí solo.
+
+Régimen por activo
+
+Aún no hay regímenes calculados para los activos.
+
+Estrategias según el régimen
+
+Aún no hay estrategias evaluadas por régimen.
+
+Predicción por activo
+
+No crea señales por sí solo · Riesgo conserva el veto.
+
+Aún no hay estimaciones por activo.
+
+Ficha del modelo · dirección y volatilidad
+
+Aún no hay una versión de modelo cargada.
+
+No hay una ficha asociada a esta versión. El modelo no puede apoyar señales sin periodos, métricas y calibración guardados.
+
+Revisar fuentes de mercado
+Sin conexión
+Agentes en pausa
+· Sin conexión
+Última comprobación 02:11:44
+Próximo reintento 02:11:53
+Último latido Pendiente

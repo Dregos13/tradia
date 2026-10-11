@@ -19,6 +19,13 @@
  * - Una orden de mercado sin precio de referencia no puede estimar su
  *   nocional: se bloquea (mejor no enviar que enviar a ciegas con dinero
  *   real).
+ * - Una compra de mercado no puede garantizar el techo por orden: el
+ *   precio ejecutado puede superar la referencia de la señal (hueco de
+ *   apertura). Sale a la red convertida en limitada con tope
+ *   (`liveOrderWirePrice`): min(techo por orden, capital libre) /
+ *   cantidad, acotado además por la referencia con un margen de hueco.
+ *   Una venta de entrada no admite precio tope —su notional sube con el
+ *   precio—: se bloquea con un margen sobre la referencia.
  */
 import type { BrokerOrderLeg } from '../../shared/broker';
 import type { LiveLimits, LiveModeState } from '../../shared/live';
@@ -66,6 +73,12 @@ const MODE_LABELS: Record<LiveModeState, string> = {
   suspendido: 'suspendido',
 };
 
+/**
+ * Margen de hueco sobre la referencia: el tope de una compra de mercado
+ * convertida y el colchón que exige una venta de entrada. 5 %.
+ */
+export const LIVE_ORDER_PRICE_MARGIN = 0.05;
+
 // ---------------------------------------------------------------------------
 // Evaluación
 // ---------------------------------------------------------------------------
@@ -85,12 +98,45 @@ export function estimateOrderNotionalUsd(
 }
 
 /**
+ * Precio limit máximo con el que una compra de mercado real sale a la
+ * red sin poder superar los techos: min(límite por orden, capital libre)
+ * / cantidad, acotado además por la referencia con `LIVE_ORDER_PRICE_MARGIN`
+ * de margen de hueco (así un dato desfasado no deja colar un fill absurdo).
+ * Redondeado a la baja en centavos para que cantidad × precio jamás se
+ * pase del techo. Null cuando la orden no es una compra de mercado o no
+ * hay tope computable (la guarda la bloquea entonces).
+ */
+export function liveOrderWirePrice(
+  snapshot: LiveOrderSnapshot,
+  request: Pick<BrokerOrderRequest, 'type' | 'side' | 'quantity'>,
+  context: LiveOrderContext,
+): number | null {
+  if (context.leg === 'salida') return null;
+  if (request.type !== 'market' || request.side !== 'buy') return null;
+  const limits = snapshot.limits;
+  if (snapshot.mode !== 'activo' || limits === null) return null;
+  const freeUsd = Math.max(0, limits.capitalUsd - snapshot.capitalInUseUsd);
+  const capUsd = Math.min(limits.orderUsd, freeUsd);
+  const marginBound =
+    context.requestedPrice !== null && context.requestedPrice > 0
+      ? context.requestedPrice * (1 + LIVE_ORDER_PRICE_MARGIN)
+      : Number.POSITIVE_INFINITY;
+  const bound = Math.min(capUsd / request.quantity, marginBound);
+  if (!Number.isFinite(bound) || bound <= 0) return null;
+  const price = Math.floor(bound * 100) / 100;
+  return price > 0 ? price : null;
+}
+
+/**
  * Motivo legible por el que la orden no debe salir a la red en la cuenta
  * real, o null si puede enviarse. Las patas 'salida' pasan siempre.
  */
 export function liveOrderBlockReason(
   snapshot: LiveOrderSnapshot,
-  request: Pick<BrokerOrderRequest, 'ticker' | 'side' | 'quantity' | 'limitPrice' | 'stopPrice'>,
+  request: Pick<
+    BrokerOrderRequest,
+    'ticker' | 'type' | 'side' | 'quantity' | 'limitPrice' | 'stopPrice'
+  >,
   context: LiveOrderContext,
 ): string | null {
   // Una salida (el OCO que protege una posición abierta) nunca se frena
@@ -116,6 +162,17 @@ export function liveOrderBlockReason(
     );
   }
 
+  // Una venta de entrada no admite precio tope —su notional crece con el
+  // precio de ejecución—: se exige un margen de hueco sobre la referencia
+  // por debajo del límite por orden.
+  if (request.side === 'sell' && notional * (1 + LIVE_ORDER_PRICE_MARGIN) > limits.orderUsd) {
+    return (
+      `el importe estimado de ${fmtUsd(notional)} con margen de hueco ` +
+      `(${fmtUsd(notional * (1 + LIVE_ORDER_PRICE_MARGIN))}) supera el límite ` +
+      `por orden de ${fmtUsd(limits.orderUsd)}`
+    );
+  }
+
   const ticker = request.ticker.trim().toUpperCase();
   const opensNewPosition = !snapshot.openTickers.includes(ticker);
   if (opensNewPosition && snapshot.openTickers.length >= limits.openPositions) {
@@ -137,6 +194,16 @@ export function liveOrderBlockReason(
       `la pérdida realizada de hoy (${fmtUsd(snapshot.realizedLossTodayUsd)}) ya alcanza ` +
       `el límite diario de ${fmtUsd(limits.dailyLossUsd)}`
     );
+  }
+
+  // Una compra de mercado sale limitada con tope (`liveOrderWirePrice`);
+  // sin un tope computable la orden no sale a ciegas.
+  if (
+    request.type === 'market' &&
+    request.side === 'buy' &&
+    liveOrderWirePrice(snapshot, request, context) === null
+  ) {
+    return 'no se pudo acotar el precio máximo de la compra dentro de los techos';
   }
 
   return null;

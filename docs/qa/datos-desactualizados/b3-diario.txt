@@ -1,0 +1,77 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Diario
+Señales + paper trading
+Parada
+Diario
+
+6 entradas · Señales, operaciones simuladas y decisiones auditables.
+
+Exportar CSV · 6 entradas
+Desde
+Hasta
+Tipo
+Todos
+Señal
+Veto
+Contradicción
+Operación simulada
+Resumen
+Error
+Límite
+Activo
+Estrategia
+Todas
+Cruce de medias
+Reversión RSI/Bollinger
+Ruptura de rangos
+Momentum entre activos
+Resultado
+Todos
+Aprobada
+Reducida
+Vetada
+Sin señal
+Ganancia
+Pérdida
+Empate
+Completado
+Con retraso
+Alcanzado
+Error
+Aplicar
+Limpiar filtros
+
+Desplázate para ver todas las columnas.
+
+Diario ordenado por fecha descendente
+Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
+11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Momentum entre activos · v1	Sin señal	'Momentum entre activos' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Ruptura de rangos · v1	Sin señal	'Ruptura de rangos' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+11 oct 2026, 2:15:55 CEST	Resumen	QQQ	Cruce de medias · v1	Sin señal	'Cruce de medias' v1 no vota en QQQ (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+11 oct 2026, 2:15:55 CEST	Resumen	SPY	Momentum entre activos · v1	Sin señal	'Momentum entre activos' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+11 oct 2026, 2:15:55 CEST	Resumen	SPY	Ruptura de rangos · v1	Sin señal	'Ruptura de rangos' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+11 oct 2026, 2:15:55 CEST	Resumen	SPY	Cruce de medias · v1	Sin señal	'Cruce de medias' v1 no vota en SPY (régimen: desactivada): Solo funciona en Tendencia; el régimen actual es Lateral · Volatilidad alta.	Ver detalle
+Anterior
+Página 1 de 1
+Siguiente
+En línea
+Agentes activos
+Última comprobación 02:16:10
+Próximo reintento —
+Último latido Pendiente

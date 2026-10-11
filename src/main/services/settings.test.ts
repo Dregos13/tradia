@@ -38,6 +38,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(settings.getNotificationPrefs()).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
@@ -54,6 +56,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(Number.isNaN(Date.parse(updated.disclaimerAcceptedAt!))).toBe(false);
     expect(createSettingsService(db).get().disclaimerAcceptedAt).toBe(updated.disclaimerAcceptedAt);
@@ -110,6 +114,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(settings.set({ autostart: true }).autostart).toBe(true);
     expect(settings.get().autostart).toBe(true);

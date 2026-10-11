@@ -17,6 +17,11 @@
  * - Persistencia: una fila por activo en `news_analysis`, solo para los
  *   tickers que aún no tienen análisis (UNIQUE noticia × ticker), con el
  *   método que lo produjo ('llm' + modelo o 'local').
+ * - Filtro de salida (en el servicio: vale con cualquier proveedor): un
+ *   ticker devuelto por el analizador solo se persiste si está entre los
+ *   activos ligados al titular o el propio texto lo menciona
+ *   (`detectAssets` sobre el texto saneado), así una alucinación o
+ *   inyección no atribuye sentimiento a un activo ajeno al titular.
  * - Ajustes del LLM (`ai:get-llm-settings`/`set-llm-settings`): el
  *   interruptor, el tope diario y el presupuesto viven en `settings`; la
  *   clave vive en `secrets` y solo se expone `hasKey`.
@@ -26,6 +31,7 @@
  */
 import {
   IPC_CHANNELS,
+  NEWS_ANALYZERS,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_DAILY_CAP_DEFAULT,
   NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
@@ -33,11 +39,13 @@ import {
   type AiChangedEvent,
   type NewsAnalysis,
   type NewsAnalysisQuery,
+  type NewsAnalyzer,
   type NewsLlmSettings,
   type NewsLlmSettingsInput,
   type NewsLlmTestResult,
 } from '../../../shared/ipc';
 import type { SecretsService } from '../../services/secrets';
+import { detectAssets, stripInstructionSpans } from './local';
 import type { NewsAnalysisRepository } from './repository';
 import { isNewsLlmError, type KeyValueStore, type NewsHeadlineAnalyzer } from './types';
 
@@ -48,12 +56,16 @@ import { isNewsLlmError, type KeyValueStore, type NewsHeadlineAnalyzer } from '.
 /** Claves de `settings` donde viven los ajustes del LLM (sin secretos). */
 export const NEWS_LLM_SETTINGS_KEYS = {
   enabled: 'newsLlm.enabled',
+  provider: 'newsLlm.provider',
+  cliPath: 'newsLlm.cliPath',
   dailyCap: 'newsLlm.dailyCap',
   monthlyBudgetEur: 'newsLlm.monthlyBudgetEur',
 } as const;
 
 interface StoredLlmSettings {
   enabled: boolean;
+  provider: NewsAnalyzer;
+  cliPath: string | null;
   dailyCap: number;
   monthlyBudgetEur: number;
 }
@@ -61,8 +73,22 @@ interface StoredLlmSettings {
 const clampInt = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, Math.trunc(value)));
 
+const isStoredProvider = (value: string | null): value is NewsAnalyzer =>
+  value !== null && (NEWS_ANALYZERS as readonly string[]).includes(value);
+
 const readSettings = (store: KeyValueStore): StoredLlmSettings => {
   const enabled = store.getValue(NEWS_LLM_SETTINGS_KEYS.enabled) === 'true';
+  const storedProvider = store.getValue(NEWS_LLM_SETTINGS_KEYS.provider);
+  // Sin proveedor guardado se deriva del interruptor heredado: quien tenía
+  // el LLM activado sigue con la API ('llm'); el resto arranca en 'local'.
+  // La autodetección de la CLI de Claude Code (provider 'suscripcion' por
+  // defecto cuando exista) la incorpora el analizador por suscripción.
+  const provider: NewsAnalyzer = isStoredProvider(storedProvider)
+    ? storedProvider
+    : enabled
+      ? 'llm'
+      : 'local';
+  const cliPath = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath) || null;
   const rawCap = Number(store.getValue(NEWS_LLM_SETTINGS_KEYS.dailyCap));
   const dailyCap =
     Number.isFinite(rawCap) && rawCap > 0
@@ -73,7 +99,7 @@ const readSettings = (store: KeyValueStore): StoredLlmSettings => {
     Number.isFinite(rawBudget) && rawBudget > 0
       ? Math.min(rawBudget, NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max)
       : 0;
-  return { enabled, dailyCap, monthlyBudgetEur };
+  return { enabled, provider, cliPath, dailyCap, monthlyBudgetEur };
 };
 
 // ---------------------------------------------------------------------------
@@ -202,13 +228,24 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       result = await deps.localAnalyzer.analyze(input);
     }
 
+    // Filtro del resultado, a prueba de proveedor: solo se persiste un
+    // ticker si el lector lo ligó al titular o el propio texto lo menciona
+    // (el mismo detectAssets del clasificador local sobre el texto
+    // saneado). Así ni una alucinación ni una inyección atribuyen
+    // sentimiento a un activo que el titular no nombra.
+    const linked = new Set(item.assets.map((ticker) => ticker.trim().toUpperCase()));
+    const mentioned = new Set(
+      detectAssets(stripInstructionSpans(`${item.title} ${item.summary ?? ''}`)),
+    );
+
     let wrote = false;
     for (const asset of result.assets) {
-      if (analyzed.has(asset.ticker)) continue;
-      if (candidates.length > 0 && !candidates.includes(asset.ticker)) continue;
+      const ticker = asset.ticker.trim().toUpperCase();
+      if (analyzed.has(ticker)) continue;
+      if (!linked.has(ticker) && !mentioned.has(ticker)) continue;
       deps.repo.insertAnalysis({
         newsItemId: id,
-        ticker: asset.ticker,
+        ticker,
         summary: asset.summary,
         sentiment: asset.sentiment,
         analyzer: used.analyzer,
@@ -255,7 +292,12 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     const today = isoNow().slice(0, 10);
     const month = today.slice(0, 7);
     return {
-      enabled: settings.enabled,
+      enabled: settings.provider !== 'local' && settings.enabled,
+      provider: settings.provider,
+      cliPath: settings.cliPath,
+      // La detección real de la CLI de Claude Code llega con el analizador
+      // por suscripción; hasta entonces la opción se muestra no disponible.
+      cliAvailable: false,
       dailyCap: settings.dailyCap,
       monthlyBudgetEur: settings.monthlyBudgetEur,
       hasKey: await hasKey(),
@@ -265,8 +307,33 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   };
 
   const setLlmSettings = async (input: NewsLlmSettingsInput): Promise<NewsLlmSettings> => {
+    // El proveedor y el interruptor van de la mano: 'local' es el LLM
+    // desactivado; elegir 'llm' o 'suscripcion' lo activa salvo que el
+    // propio patch fije `enabled` explícitamente.
+    if (input.provider !== undefined) {
+      store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, input.provider);
+      if (input.enabled === undefined) {
+        store.setValue(
+          NEWS_LLM_SETTINGS_KEYS.enabled,
+          input.provider === 'local' ? 'false' : 'true',
+        );
+      }
+    }
     if (input.enabled !== undefined) {
       store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, input.enabled ? 'true' : 'false');
+      // Activar a mano con proveedor 'local' guardado sube al de la API,
+      // el único LLM operativo hasta el analizador por suscripción.
+      if (input.enabled && input.provider === undefined) {
+        const stored = store.getValue(NEWS_LLM_SETTINGS_KEYS.provider);
+        if (!isStoredProvider(stored) || stored === 'local') {
+          store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
+        }
+      } else if (!input.enabled && input.provider === undefined) {
+        store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'local');
+      }
+    }
+    if (input.cliPath !== undefined) {
+      store.setValue(NEWS_LLM_SETTINGS_KEYS.cliPath, input.cliPath ?? '');
     }
     if (input.dailyCap !== undefined) {
       store.setValue(
@@ -286,6 +353,19 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   };
 
   const testLlm = async (): Promise<NewsLlmTestResult> => {
+    const { provider } = readSettings(store);
+    if (provider === 'local') {
+      return {
+        ok: true,
+        error: null,
+        latencyMs: null,
+      };
+    }
+    if (provider === 'suscripcion') {
+      // La comprobación real de la CLI llega con el analizador por
+      // suscripción; el contrato ya devuelve un motivo legible.
+      return { ok: false, error: 'CLI no encontrada.', latencyMs: null };
+    }
     if (!secrets) {
       return { ok: false, error: 'El llavero del sistema no está disponible.', latencyMs: null };
     }

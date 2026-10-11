@@ -1,0 +1,175 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estado del sistema
+Señales + paper trading
+Parada
+Situación del mercado
+
+Seguridad, señales y cartera simulada de un vistazo.
+
+Actualizado 02:12:35 CEST
+
+Conexión y fuentes
+Ver fuentes
+
+En línea
+
+Precios · Tiingo
+
+11 oct 2026, 02:12 CEST
+
+Disponible
+Macro · FRED
+
+11 oct 2026, 02:12 CEST
+
+Con retraso
+Noticias · Reserva Federal — comunicados y FOMC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BCE — notas de prensa
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BLS — nóminas no agrícolas e IPC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BEA — comunicados (PIB, PCE…)
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · CNMV — información privilegiada y relevante
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Contexto macro
+Ver macro
+
+Régimen · Sin clasificar · Fuente FRED
+
+VIXCLS
+✓ Fiable
+Volatilidad VIX
+2,26 puntos
+
+= 0,00 puntos respecto al dato diario anterior
+
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
+
+Dato diario
+8 oct 2026
+DGS10
+✓ Fiable
+Treasury · 10 años
+3,42 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+CPIAUCSL
+◷ Desactualizado
+IPC de EE. UU. · interanual
+2,44 %
+
+▼ -1,82 pp respecto al dato mensual anterior
+
+Dato mensual
+1 ago 2026
+
+falta la observación esperada; último dato: 2026-08-01
+
+Señales vivas
+Ver en Diario
+
+Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 11 oct 2026, 02:12 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Reversión RSI/Bollinger
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Ruptura de rangos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Momentum entre activos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
+En línea
+Agentes activos
+Última comprobación 02:12:50
+Próximo reintento —
+Último latido Pendiente

@@ -91,6 +91,8 @@ function setup(options: { packaged?: boolean; e2e?: boolean; hasKey?: boolean } 
           brokerExecutionEnabled: true,
           deviationMarginPp: 30,
           deviationSlippageBps: 25,
+          onboardingTourVersion: null,
+          onboardingTourCompletedAt: null,
         }),
         set: (patch) => patch as never,
         getNotificationPrefs: () => ({ info: true, alerta: true, critica: true }),

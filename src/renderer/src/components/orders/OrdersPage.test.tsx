@@ -38,6 +38,7 @@ const order = (
   ticker: id === 1 ? 'AAPL' : 'SPY',
   type: 'limit',
   side: 'buy',
+  mode: 'paper',
   quantity: 10,
   filledQuantity: status === 'ejecutada' ? 10 : 0,
   limitPrice: 100,
@@ -276,7 +277,13 @@ it('bloquea cancelación sin conexión y conserva los datos', async () => {
 });
 
 it('cada orden conserva su modo histórico recibido y nunca se deduce del modo actual', async () => {
-  const sourced = [{ ...order(1), mode: 'live' }, { ...order(2), mode: 'paper' }, order(3)];
+  const sourced: BrokerOrder[] = [
+    { ...order(1), mode: 'live' },
+    { ...order(2), mode: 'paper' },
+    // Una orden registrada antes del campo llega sin modo: la interfaz
+    // la rotula «Modo no disponible» en vez de deducirlo.
+    { ...order(3), mode: undefined },
+  ];
   vi.spyOn(window.tradia.orders, 'list').mockResolvedValue(sourced);
   render(<OrdersPage />);
   await screen.findByText('DINERO REAL');

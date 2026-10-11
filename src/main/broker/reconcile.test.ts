@@ -31,6 +31,7 @@ const makeOrder = (patch: OrderPatch = {}): BrokerOrder => {
     ticker: 'AAPL',
     type: 'market',
     side: 'buy',
+    mode: 'paper',
     quantity: 10,
     filledQuantity: 10,
     limitPrice: null,

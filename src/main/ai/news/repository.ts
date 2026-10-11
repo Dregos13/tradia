@@ -5,6 +5,11 @@
  * Una fila por noticia × activo (`UNIQUE (noticia_id, ticker)`): el
  * servicio solo inserta los activos que aún no tienen análisis, así una
  * reclasificación posterior no repite llamadas al LLM.
+ *
+ * El listado cruza siempre con `news_items`: solo devuelve análisis de
+ * titulares confirmados EN EL MOMENTO de la lectura, así un titular
+ * desconfirmado después de analizarse deja de influir en las señales y
+ * de mostrarse en el feed sin borrar la fila.
  */
 import type Database from 'better-sqlite3';
 
@@ -43,7 +48,11 @@ export interface NewsAnalysisRepository {
   analyzedTickers(newsItemId: number): string[];
   /** Inserta (o sustituye) el análisis de noticia × activo. */
   insertAnalysis(input: NewsAnalysisInsert): void;
-  /** Feed de `ai:news-analysis`, más reciente primero. */
+  /**
+   * Feed de `ai:news-analysis` (y del ajuste de señales), más reciente
+   * primero. Solo titulares confirmados al leer: un análisis cuyo titular
+   * se desconfirma deja de salir sin borrarse.
+   */
   list(query?: NewsAnalysisQuery): NewsAnalysis[];
 }
 
@@ -120,22 +129,26 @@ export function createNewsAnalysisRepository(db: Database.Database): NewsAnalysi
     },
 
     list: (query = {}) => {
-      const conditions: string[] = [];
+      // Cruza con news_items: la confirmación se evalúa al leer, así una
+      // desconfirmación posterior al análisis retira su influencia al
+      // momento (motor de señales y feed leen por aquí).
+      const conditions: string[] = ['ni.confirmada = 1'];
       const params: unknown[] = [];
       if (query.newsItemId !== undefined) {
-        conditions.push('noticia_id = ?');
+        conditions.push('na.noticia_id = ?');
         params.push(query.newsItemId);
       }
       if (query.ticker !== undefined) {
-        conditions.push('ticker = ?');
+        conditions.push('na.ticker = ?');
         params.push(query.ticker.trim().toUpperCase());
       }
-      const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       const limit = query.limit ?? NEWS_ANALYSIS_MAX_LIMIT;
       const rows = db
         .prepare(
-          `SELECT * FROM news_analysis ${where}
-           ORDER BY analizado_en DESC, id DESC LIMIT ?`,
+          `SELECT na.* FROM news_analysis na
+           JOIN news_items ni ON ni.id = na.noticia_id
+           WHERE ${conditions.join(' AND ')}
+           ORDER BY na.analizado_en DESC, na.id DESC LIMIT ?`,
         )
         .all(...params, limit) as AnalysisRow[];
       return rows.map(toNewsAnalysis);

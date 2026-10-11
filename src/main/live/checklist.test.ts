@@ -47,6 +47,7 @@ const paperOrder = (patch: {
     ticker: 'SPY',
     type: 'market',
     side: patch.side ?? 'buy',
+    mode: 'paper',
     quantity: 1,
     filledQuantity: 1,
     limitPrice: null,

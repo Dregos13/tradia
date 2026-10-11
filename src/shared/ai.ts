@@ -274,8 +274,13 @@ export const PREDICTIONS_MAX_LIMIT = 200;
 export const NEWS_SENTIMENTS = ['positivo', 'negativo', 'neutro', 'mixto'] as const;
 export type NewsSentiment = (typeof NEWS_SENTIMENTS)[number];
 
-/** Quién produjo el análisis: el LLM remoto o el clasificador léxico local. */
-export const NEWS_ANALYZERS = ['llm', 'local'] as const;
+/**
+ * Quién produjo el análisis: el LLM remoto ('llm', API de Anthropic), el
+ * clasificador léxico local ('local') o la CLI de Claude Code con la
+ * suscripción del usuario ('suscripcion'). También es la elección del
+ * proveedor en los ajustes del análisis (`NewsLlmSettings.provider`).
+ */
+export const NEWS_ANALYZERS = ['llm', 'local', 'suscripcion'] as const;
 export type NewsAnalyzer = (typeof NEWS_ANALYZERS)[number];
 
 /**
@@ -315,7 +320,7 @@ export const NEWS_ANALYSIS_MAX_LIMIT = 200;
 export const NEWS_LLM_MODEL = 'claude-haiku-4-5-20251001';
 /** Proveedor del almacén `secrets` donde vive la clave de Anthropic. */
 export const NEWS_LLM_SECRET_PROVIDER = 'news-llm-anthropic';
-/** Tope diario de titulares analizados por defecto. */
+/** Tope diario de titulares analizados por defecto (se mide en titulares, no en euros). */
 export const NEWS_LLM_DAILY_CAP_DEFAULT = 200;
 /** Márgenes del tope diario y del presupuesto mensual en euros. */
 export const NEWS_LLM_DAILY_CAP_BOUNDS = { min: 1, max: 2_000 } as const;
@@ -324,25 +329,48 @@ export const NEWS_LLM_MONTHLY_BUDGET_BOUNDS = { min: 0, max: 30 } as const;
 /**
  * Ajustes del análisis LLM (`ai:get-llm-settings`). Nunca incluye la
  * clave: `hasKey` solo dice si hay una guardada cifrada en `secrets`.
+ *
+ * `provider` es el analizador elegido para los titulares confirmados:
+ * 'suscripcion' invoca la CLI de Claude Code con la sesión de la
+ * suscripción del usuario (sin coste de API), 'llm' la API de Anthropic
+ * con su clave y presupuesto y 'local' el clasificador léxico —que
+ * equivale al LLM desactivado (`enabled` false)—. `enabled` se conserva
+ * por compatibilidad y va de la mano de `provider`: vale true salvo con
+ * 'local'. El tope diario se mide en titulares analizados y se aplica a
+ * cualquier proveedor LLM; el presupuesto en euros solo cuenta para 'llm'.
  */
 export interface NewsLlmSettings {
   /** Interruptor «Usar LLM para titulares confirmados» (apagado por defecto). */
   enabled: boolean;
-  /** Máximo de titulares analizados por día con el LLM. */
+  /** Proveedor elegido para los análisis nuevos ('local' = sin LLM). */
+  provider: NewsAnalyzer;
+  /**
+   * Ruta de la CLI de Claude Code configurada en Ajustes; null usa el
+   * `claude` del PATH. Solo relevante con provider 'suscripcion'.
+   */
+  cliPath: string | null;
+  /** La CLI configurada (o la del PATH) está instalada y localizable. */
+  cliAvailable: boolean;
+  /** Máximo de titulares analizados por día con cualquier proveedor LLM. */
   dailyCap: number;
-  /** Tope mensual de gasto en euros (0 = sin gasto autorizado). */
+  /** Tope mensual de gasto en euros; solo aplica al proveedor 'llm' (0 = sin gasto autorizado). */
   monthlyBudgetEur: number;
   /** Hay una clave de Anthropic guardada cifrada. */
   hasKey: boolean;
-  /** Titulares analizados hoy por el LLM. */
+  /** Titulares analizados hoy por un proveedor LLM. */
   usedToday: number;
-  /** Gasto estimado del mes en euros. */
+  /** Gasto estimado del mes en euros (solo 'llm'; 'suscripcion' no factura). */
   spentThisMonthEur: number;
 }
 
 /** Entrada de `ai:set-llm-settings`; cada campo es opcional. */
 export interface NewsLlmSettingsInput {
   enabled?: boolean;
+  /** Proveedor elegido; 'local' equivale a desactivar el LLM. */
+  provider?: NewsAnalyzer;
+  /** Ruta de la CLI de Claude Code; null vuelve a la autodetección (PATH). */
+  cliPath?: string | null;
+  /** Tope diario en titulares analizados. */
   dailyCap?: number;
   monthlyBudgetEur?: number;
 }

@@ -41,6 +41,7 @@ import {
   isNewsAnalysisQuery,
   isNewsLlmSettingsInput,
   isPredictionsQuery,
+  isProviderTestRequest,
   isRegimeComparisonRequest,
   isRetrainResolveRequest,
   isSignalId,
@@ -495,6 +496,8 @@ export function createSimulatedAdapter() {
     brokerExecutionEnabled: true,
     deviationMarginPp: DEVIATION_MARGIN_PP_DEFAULT,
     deviationSlippageBps: DEVIATION_SLIPPAGE_BPS_DEFAULT,
+    onboardingTourVersion: null,
+    onboardingTourCompletedAt: null,
   };
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
   let alertPrefs: AlertPrefs = { leadMinutes: 30 };
@@ -1080,6 +1083,7 @@ export function createSimulatedAdapter() {
     ticker: 'AAPL',
     type: 'market',
     side: 'buy',
+    mode: 'paper',
     quantity: 10,
     filledQuantity: 0,
     limitPrice: null,
@@ -1519,6 +1523,11 @@ export function createSimulatedAdapter() {
 
   let llmSettings: NewsLlmSettings = {
     enabled: false,
+    provider: 'local',
+    cliPath: null,
+    // La simulación presume la CLI de Claude Code instalada, para que la
+    // opción «Suscripción (Claude Code)» se pueda ejercer en la interfaz.
+    cliAvailable: true,
     dailyCap: NEWS_LLM_DAILY_CAP_DEFAULT,
     monthlyBudgetEur: 0,
     hasKey: false,
@@ -1534,7 +1543,14 @@ export function createSimulatedAdapter() {
   const analysesFor = (item: NewsItem): NewsAnalysis[] => {
     if (!item.confirmed) return [];
     const sentiments: NewsSentiment[] = ['positivo', 'negativo', 'neutro', 'mixto'];
-    const viaLlm = llmSettings.enabled && llmSettings.hasKey;
+    // El proveedor configurado manda: 'suscripcion' va por la CLI de la
+    // suscripción, 'llm' por la API con clave y 'local' por el léxico.
+    const provider =
+      llmSettings.provider === 'suscripcion' && llmSettings.cliAvailable
+        ? ('suscripcion' as const)
+        : llmSettings.provider === 'llm' && llmSettings.enabled && llmSettings.hasKey
+          ? ('llm' as const)
+          : ('local' as const);
     return item.assets.map((ticker, index) => {
       const h = hashSeed(`analisis:${item.id}:${ticker}`);
       return {
@@ -1543,8 +1559,13 @@ export function createSimulatedAdapter() {
         ticker,
         summary: `Resumen automático del titular para ${ticker}: impacto moderado según el contexto de la noticia.`,
         sentiment: sentiments[h % sentiments.length]!,
-        analyzer: viaLlm ? ('llm' as const) : ('local' as const),
-        model: viaLlm ? NEWS_LLM_MODEL : null,
+        analyzer: provider,
+        model:
+          provider === 'llm'
+            ? NEWS_LLM_MODEL
+            : provider === 'suscripcion'
+              ? 'claude-code-cli'
+              : null,
         analyzedAt: item.publishedAt,
       };
     });
@@ -1732,6 +1753,7 @@ export function createSimulatedAdapter() {
       completedCount,
       total: items.length,
       allComplete: completedCount === items.length,
+      limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
       evaluatedAt: nowIso(),
     };
   };
@@ -1818,6 +1840,13 @@ export function createSimulatedAdapter() {
           ...(patch.disclaimerAcceptedVersion !== undefined
             ? {
                 disclaimerAcceptedAt: patch.disclaimerAcceptedVersion
+                  ? new Date().toISOString()
+                  : null,
+              }
+            : {}),
+          ...(patch.onboardingTourVersion !== undefined
+            ? {
+                onboardingTourCompletedAt: patch.onboardingTourVersion
                   ? new Date().toISOString()
                   : null,
               }
@@ -2635,6 +2664,7 @@ export function createSimulatedAdapter() {
         if (query?.ticker) {
           rows = rows.filter((o) => o.ticker === query.ticker!.trim().toUpperCase());
         }
+        if (query?.mode) rows = rows.filter((o) => o.mode === query.mode);
         const offset = query?.offset ?? 0;
         return rows.slice(offset, offset + (query?.limit ?? rows.length));
       },
@@ -2680,6 +2710,23 @@ export function createSimulatedAdapter() {
         order.updatedAt = nowIso();
         brokerOrderUpdatedListeners.forEach((listener) => listener({ ...order }));
         return { ...order };
+      },
+    },
+    providers: {
+      // Determinista como el resto del adaptador: sin claves guardadas en
+      // `secrets`, la prueba siempre sale «sin-clave» con su motivo.
+      testConnection: async (request) => {
+        if (!isProviderTestRequest(request)) {
+          throw new Error('Proveedor de datos inválido.');
+        }
+        return {
+          provider: request.provider,
+          status: 'sin-clave' as const,
+          message: 'No hay una clave guardada para este proveedor.',
+          latestDataDate: null,
+          checkedAt: nowIso(),
+          latencyMs: null,
+        };
       },
     },
     reconcile: {
@@ -2776,9 +2823,20 @@ export function createSimulatedAdapter() {
         if (!isNewsLlmSettingsInput(input)) {
           throw new Error('Ajustes del LLM inválidos (revisa los márgenes).');
         }
+        const provider =
+          input.provider ??
+          (input.enabled === undefined
+            ? llmSettings.provider
+            : input.enabled
+              ? llmSettings.provider === 'local'
+                ? ('llm' as const)
+                : llmSettings.provider
+              : ('local' as const));
         llmSettings = {
           ...llmSettings,
-          ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+          provider,
+          enabled: input.enabled ?? provider !== 'local',
+          ...(input.cliPath !== undefined ? { cliPath: input.cliPath } : {}),
           ...(input.dailyCap !== undefined ? { dailyCap: input.dailyCap } : {}),
           ...(input.monthlyBudgetEur !== undefined
             ? { monthlyBudgetEur: input.monthlyBudgetEur }
@@ -2787,10 +2845,19 @@ export function createSimulatedAdapter() {
         emitAiChanged('noticias');
         return { ...llmSettings };
       },
-      testLlm: async (): Promise<NewsLlmTestResult> =>
-        llmSettings.hasKey
+      testLlm: async (): Promise<NewsLlmTestResult> => {
+        if (llmSettings.provider === 'local') {
+          return { ok: true, error: null, latencyMs: null };
+        }
+        if (llmSettings.provider === 'suscripcion') {
+          return llmSettings.cliAvailable
+            ? { ok: true, error: null, latencyMs: 180 }
+            : { ok: false, error: 'CLI no encontrada.', latencyMs: null };
+        }
+        return llmSettings.hasKey
           ? { ok: true, error: null, latencyMs: 120 }
-          : { ok: false, error: 'No hay una clave de Anthropic guardada.', latencyMs: null },
+          : { ok: false, error: 'No hay una clave de Anthropic guardada.', latencyMs: null };
+      },
       health: async () => healthOverview(),
       retrainProposals: async () => [...retrainProposals],
       resolveRetrain: async (request) => {

@@ -1,0 +1,139 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Salud de modelos
+Señales + paper trading
+Parada activa
+Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
+provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
+Ver en Riesgo
+Reanudar
+Tiingo · No fiable
+
+[tiingo] error del servidor (HTTP 503): maintenance
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+Salud de modelos
+
+Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
+
+Revisado 11 oct 2026, 02:10 CEST
+
+Revisar ahora
+
+Una racha mala aislada no degrada una estrategia. La degradación requiere evidencia sostenida y una muestra suficiente.
+
+Saludable
+0
+En observación
+1
+Degradada
+0
+Sin datos suficientes
+4
+
+Revisión de salud completada. 0 sujetos requieren atención.
+
+Revisión de modelos y estrategias
+
+Desplázate horizontalmente para ver todas las columnas.
+
+La persistencia evita degradar por una racha aislada
+Modelo o estrategia	Estado	Drift de datos	Drift de resultados	Persistencia	Última revisión	Acción
+Modelo de dirección y volatilidad v0.1.0
+Modelo
+	En observación
+Drift de datos en vigilancia: 2 de 20 sesiones.
+	16 variables con PSI > 0,25
+desde 19 sept 2026, 12:00 CEST
+	Brier móvil 0,41
+Ficha 0,197 · diferencia 0,214 · umbral +0,02
+60/60 predicciones resueltas
+desde 11 oct 2026, 02:10 CEST
+	
+
+Desde hace 2 sesiones · mínimo 20 en 2 variables
+
+Ventana de 60 predicciones.
+	11 oct 2026, 02:10 CEST	Ver detalle
+Cruce de medias · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Reversión RSI/Bollinger · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Ruptura de rangos · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Momentum entre activos · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Propuestas de reentrenamiento
+
+Como máximo una propuesta por trimestre natural.
+
+No hay reentrenamientos propuestos
+
+Los modelos se mantienen bajo vigilancia.
+
+En línea
+Agentes en pausa
+· Pausa manual
+Última comprobación 02:10:58
+Próximo reintento —
+Último latido Pendiente

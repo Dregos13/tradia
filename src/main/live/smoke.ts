@@ -12,13 +12,23 @@
  * Reglas de negocio:
  * - No se lanza sin el modo real 'activo' (la lista se reevalúa antes),
  *   con la parada inactiva, con conexión, con la cuenta conectada y con
- *   un precio de referencia para dimensionar la fracción. Esos rechazos
- *   lanzan `LiveSmokeError` ANTES de tocar la red; no suspenden el modo.
+ *   un precio de referencia RECIENTE para dimensionar la fracción (su
+ *   cierre debe ser de una sesión cercana a la última esperada, margen
+ *   `LIVE_SMOKE_REFERENCE_MAX_AGE_DAYS` días; un dato desfasado no sirve
+ *   para mover dinero real). Esos rechazos lanzan `LiveSmokeError` ANTES
+ *   de tocar la red; no suspenden el modo.
  * - La compra pasa la guarda de techos (`liveOrderBlockReason`) como una
  *   orden suelta: un límite por orden o de capital por debajo de 1 USD
- *   la bloquea antes del broker y queda en el Diario. La venta de cierre
- *   se evalúa como pata 'salida': una posición real abierta siempre debe
- *   poder cerrarse.
+ *   la bloquea antes del broker y queda en el Diario. Sale a la red como
+ *   limitada con tope —min(techo por orden, referencia ×
+ *   (1 + LIVE_SMOKE_MAX_SLIPPAGE_BPS))—, nunca de mercado a ciegas. La
+ *   venta de cierre se evalúa como pata 'salida': una posición real
+ *   abierta siempre debe poder cerrarse.
+ * - La ejecución reportada se contrasta: si el nocional supera el mínimo
+ *   con margen (`LIVE_SMOKE_NOTIONAL_TOLERANCE`) o el slippage frente a
+ *   la referencia es absurdo (|pb| > `LIVE_SMOKE_MAX_SLIPPAGE_BPS`), la
+ *   prueba falla —referencia y broker no cuadran— en vez de firmar que
+ *   compra y vende de verdad.
  * - Las órdenes de la prueba quedan en `broker_orders_live` con su
  *   precio de referencia (para el slippage), el precio y la hora de
  *   ejecución, sin pata ni señal: cuentan para la conciliación y las
@@ -51,6 +61,7 @@ import {
 import { positionsFromOrders } from '../broker/reconcile';
 import type { BrokerOrderPatch, BrokerRepository } from '../broker/repository';
 import type { BrokerAdapter, BrokerOrderRequest, RemoteOrder } from '../broker/types';
+import { lastExpectedSession } from '../market/calendar';
 import type { LiveStore } from './service';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +81,8 @@ export const LIVE_SMOKE_ERROR_CODES = [
   'sin-cuenta',
   /** Falta el precio de referencia para dimensionar la fracción. */
   'sin-precio',
+  /** La referencia existe pero es de una sesión ya vieja (dato desfasado). */
+  'precio-desfasado',
   /** La guarda de techos bloqueó la compra antes de la red. */
   'orden-bloqueada',
 ] as const;
@@ -102,8 +115,8 @@ export interface LiveSmokeDeps {
   getAdapter(): BrokerAdapter | null;
   /** Repositorio de las órdenes reales (`broker_orders_live`). */
   repository: Pick<BrokerRepository, 'insertOrder' | 'updateOrder' | 'listOrders'>;
-  /** Almacén del modo real (estado y `prueba_humo`). */
-  store: Pick<LiveStore, 'getMode' | 'setSmokeTest'>;
+  /** Almacén del modo real (estado, `prueba_humo` y límites confirmados). */
+  store: Pick<LiveStore, 'getMode' | 'getLimits' | 'setSmokeTest'>;
   /** Reevalúa la lista (suspende el modo si un requisito venció). */
   getChecklist(): Pick<LiveChecklist, 'allComplete'>;
   /**
@@ -114,8 +127,22 @@ export interface LiveSmokeDeps {
     request: BrokerOrderRequest,
     context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
   ): string | null;
-  /** Último precio de referencia del ticker (cierre más reciente). */
-  referencePrice(ticker: string): number | null | Promise<number | null>;
+  /**
+   * Último cierre del ticker con la fecha de su vela; null si no hay
+   * datos. La prueba exige una referencia reciente (sesión cercana a la
+   * última esperada) antes de dimensionar nada.
+   */
+  referencePrice(
+    ticker: string,
+  ):
+    | { price: number; asOf: string }
+    | null
+    | Promise<{ price: number; asOf: string } | null>;
+  /**
+   * Reloj de mercado para juzgar la frescura de la referencia (el reloj
+   * anclado con el que se ingieren las velas); por defecto `now`.
+   */
+  marketNow?(): number;
   /** Ejecuta una conciliación app ↔ broker real y la persiste. */
   reconcileNow(): Promise<ReconcileRun>;
   /** Descuadres abiertos tras la última conciliación. */
@@ -159,6 +186,23 @@ export interface LiveSmokeTestService {
 export const SMOKE_FILL_TIMEOUT_MS = 20_000;
 /** Intervalo por defecto entre consultas al broker (ms). */
 export const SMOKE_POLL_INTERVAL_MS = 500;
+/**
+ * Slippage máximo frente a la referencia (300 pb = 3 %). Acota además el
+ * precio limit de la compra: el broker no puede rellenar por encima de
+ * referencia × 1,03.
+ */
+export const LIVE_SMOKE_MAX_SLIPPAGE_BPS = 300;
+/**
+ * Margen sobre el mínimo (5 %): la prueba falla si la compra ejecutó más
+ * de `LIVE_SMOKE_NOTIONAL_USD × (1 + 5 %)` de nocional.
+ */
+export const LIVE_SMOKE_NOTIONAL_TOLERANCE = 0.05;
+/**
+ * Días de margen sobre la última sesión esperada (reloj de mercado) para
+ * que la referencia cuente como reciente: cubre un fin de semana largo
+ * festivo; un cierre más viejo es dato desfasado y no se envía nada.
+ */
+export const LIVE_SMOKE_REFERENCE_MAX_AGE_DAYS = 4;
 
 const STEP_LABELS: Record<LiveSmokeStep, string> = {
   'compra-enviada': 'compra enviada',
@@ -243,9 +287,10 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
       strategyId: null,
       leg: null,
       ticker: request.ticker,
-      type: 'market',
+      type: request.type,
       side: request.side,
       quantity: request.quantity,
+      limitPrice: request.limitPrice ?? null,
       requestedPrice: referencePrice,
       requestedAt: isoNow(),
       status: 'pendiente',
@@ -360,19 +405,39 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
     // referencia para dimensionar la fracción y la guarda de techos. Un
     // rechazo en este tramo no deja prueba 'en-curso' persistida.
     const reference = await deps.referencePrice(LIVE_SMOKE_TICKER);
-    if (reference === null || !(reference > 0) || !Number.isFinite(reference)) {
+    if (reference === null || !(reference.price > 0) || !Number.isFinite(reference.price)) {
       throw new LiveSmokeError(
         'sin-precio',
         `No hay precio de referencia reciente de ${LIVE_SMOKE_TICKER}; ` +
           'sin él no se puede dimensionar la fracción de 1 USD.',
       );
     }
+    // La referencia debe ser de una sesión reciente: con un cierre
+    // desfasado la fracción se dimensiona mal y la comparación con la
+    // ejecución del broker queda sesgada.
+    const marketNow = deps.marketNow ?? now;
+    const lastSession = lastExpectedSession(marketNow());
+    const asOfMs = Date.parse(`${reference.asOf}T00:00:00.000Z`);
+    const referenceFresh =
+      lastSession !== null &&
+      Number.isFinite(asOfMs) &&
+      asOfMs >=
+        Date.parse(`${lastSession.date}T00:00:00.000Z`) -
+          LIVE_SMOKE_REFERENCE_MAX_AGE_DAYS * 86_400_000;
+    if (!referenceFresh) {
+      throw new LiveSmokeError(
+        'precio-desfasado',
+        `El último cierre guardado de ${LIVE_SMOKE_TICKER} es del ${reference.asOf}: ` +
+          'demasiado viejo para mover dinero real. Actualiza los datos de mercado.',
+      );
+    }
+    const referencePrice = reference.price;
     // Fracción a la baja (6 decimales): el estimado nunca supera 1 USD.
-    const quantity = Math.floor((LIVE_SMOKE_NOTIONAL_USD / reference) * 1e6) / 1e6;
+    const quantity = Math.floor((LIVE_SMOKE_NOTIONAL_USD / referencePrice) * 1e6) / 1e6;
     if (!(quantity > 0)) {
       throw new LiveSmokeError(
         'sin-precio',
-        `Con ${LIVE_SMOKE_TICKER} a ${fmtPrice(reference)} USD la fracción de ` +
+        `Con ${LIVE_SMOKE_TICKER} a ${fmtPrice(referencePrice)} USD la fracción de ` +
           '1 USD queda por debajo del mínimo representable.',
       );
     }
@@ -389,7 +454,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
     // por debajo de 1 USD la frena aquí, antes de llegar a la red.
     const blocked = deps.checkOrderAllowed(buyRequest, {
       leg: null,
-      requestedPrice: reference,
+      requestedPrice: referencePrice,
     });
     if (blocked !== null) {
       journal({
@@ -401,13 +466,35 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
           clientOrderId: buyRequest.clientOrderId,
           notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
           cantidad: quantity,
-          precioReferencia: reference,
+          precioReferencia: referencePrice,
         },
         errors: [blocked],
       });
       logger.warn?.(`[live-humo] compra bloqueada por techos: ${blocked}`);
       throw new LiveSmokeError('orden-bloqueada', blocked);
     }
+
+    // La compra sale limitada con tope —min(techo por orden confirmado,
+    // capital escrito, referencia × (1 + slippage máximo))—: ni un hueco
+    // ni una referencia algo vieja pueden ejecutar por encima. Una
+    // limitada no cruzable se cancela sola al vencer la espera.
+    const limitsRow = deps.store.getLimits();
+    const capUsd =
+      limitsRow !== null && limitsRow.confirmados === 1
+        ? Math.min(limitsRow.orden_usd, limitsRow.capital_usd)
+        : null;
+    const limitBound = Math.min(
+      capUsd === null ? Number.POSITIVE_INFINITY : capUsd / quantity,
+      referencePrice * (1 + LIVE_SMOKE_MAX_SLIPPAGE_BPS / 10_000),
+    );
+    const limitPrice = Math.floor(limitBound * 100) / 100;
+    if (!(limitPrice > 0)) {
+      throw new LiveSmokeError(
+        'sin-precio',
+        'No se pudo acotar el precio de la compra dentro de los techos escritos.',
+      );
+    }
+    const buyOrder: BrokerOrderRequest = { ...buyRequest, type: 'limit', limitPrice };
 
     const result: LiveSmokeTestResult = {
       state: 'en-curso',
@@ -444,8 +531,8 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
     persist();
 
     try {
-      // -- Paso 1: compra de mercado fraccionaria por 1 USD nocional ----
-      const sent = await submit(adapter, 'compra-enviada', buyRequest, reference);
+      // -- Paso 1: compra limitada con tope por 1 USD nocional ----------
+      const sent = await submit(adapter, 'compra-enviada', buyOrder, referencePrice);
       if (sent.status === 'rechazada' || sent.status === 'cancelada') {
         throw new SmokeStepError(
           'compra-enviada',
@@ -457,8 +544,37 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
       // el subpaso siguiente y puede fallar por su cuenta.
       markStep('compra-enviada');
       const buy = await waitForFill(adapter, 'compra-enviada', sent);
-      result.buyExecutedPrice = buy.execution.executedPrice;
+      // Cordura del fill: un nocional por encima del mínimo con margen o
+      // un slippage absurdo frente a la referencia delatan un dato
+      // desfasado o una ejecución errónea — la prueba falla en vez de
+      // firmar que «compra y vende de verdad».
+      const buyExecuted = buy.execution.executedPrice;
+      const buyNotional = buy.filledQuantity * (buyExecuted ?? 0);
+      if (
+        buyExecuted !== null &&
+        buyNotional > LIVE_SMOKE_NOTIONAL_USD * (1 + LIVE_SMOKE_NOTIONAL_TOLERANCE)
+      ) {
+        throw new SmokeStepError(
+          'compra-enviada',
+          `la compra ejecutó ${fmtPrice(buyNotional)} USD de nocional (máximo ` +
+            `${fmtPrice(LIVE_SMOKE_NOTIONAL_USD * (1 + LIVE_SMOKE_NOTIONAL_TOLERANCE))} USD): ` +
+            'la referencia y el broker no cuadran',
+        );
+      }
+      result.buyExecutedPrice = buyExecuted;
       result.slippageBps = buy.execution.slippageBps;
+      if (
+        result.slippageBps !== null &&
+        Math.abs(result.slippageBps) > LIVE_SMOKE_MAX_SLIPPAGE_BPS
+      ) {
+        throw new SmokeStepError(
+          'compra-enviada',
+          `la compra ejecutó con slippage ${fmtBps(result.slippageBps)} frente a ` +
+            `la referencia (máximo ${LIVE_SMOKE_MAX_SLIPPAGE_BPS} pb): ` +
+            'la referencia y el broker no cuadran',
+        );
+      }
+      result.requestedPrice = buy.limitPrice;
       persist();
       journal({
         type: 'resumen',
@@ -467,7 +583,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
         reason:
           `Prueba de humo · compra de ${fmtQty(buy.filledQuantity)} uds de ` +
           `${LIVE_SMOKE_TICKER} ejecutada a ${fmtPrice(buy.execution.executedPrice!)} USD ` +
-          `(referencia ${fmtPrice(reference)} USD` +
+          `(referencia ${fmtPrice(referencePrice)} USD` +
           (result.slippageBps !== null ? `, slippage ${fmtBps(result.slippageBps)}` : '') +
           ').',
         dataUsed: {
@@ -475,7 +591,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
           brokerOrderId: buy.brokerOrderId,
           lado: 'buy',
           cantidad: buy.filledQuantity,
-          precioReferencia: reference,
+          precioReferencia: referencePrice,
           precioEjecutado: buy.execution.executedPrice,
           slippageBps: result.slippageBps,
           notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
@@ -494,7 +610,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
         quantity: buy.filledQuantity,
         timeInForce: 'day',
       };
-      const sellSent = await submit(adapter, 'posicion-cerrada', sellRequest, reference);
+      const sellSent = await submit(adapter, 'posicion-cerrada', sellRequest, referencePrice);
       const sell = await waitForFill(adapter, 'posicion-cerrada', sellSent);
       markStep('posicion-cerrada');
       result.sellExecutedPrice = sell.execution.executedPrice;
@@ -554,7 +670,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
         dataUsed: {
           compraClientOrderId: buy.clientOrderId,
           cierreClientOrderId: sell.clientOrderId,
-          precioReferencia: reference,
+          precioReferencia: referencePrice,
           precioEjecutadoCompra: result.buyExecutedPrice,
           precioEjecutadoCierre: result.sellExecutedPrice,
           slippageBps: result.slippageBps,

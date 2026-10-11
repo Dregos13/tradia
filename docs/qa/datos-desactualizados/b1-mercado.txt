@@ -1,0 +1,113 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Mercado
+Señales + paper trading
+Parada activa
+Parada activa: Dato de mercado anómalo · 02:10:43 CEST · Activada por Sistema
+provider:tiingo: [tiingo] error del servidor (HTTP 503): maintenance
+Ver en Riesgo
+Reanudar
+Tiingo · No fiable
+
+[tiingo] error del servidor (HTTP 503): maintenance
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+FRED · Desactualizado
+
+6 de 6 series fallaron en el último refresco
+
+Mostramos los últimos datos disponibles. Último dato correcto: No hay un dato correcto registrado.
+
+Reintentar
+Tu mercado, con perspectiva.
+
+Precios diarios ajustados por splits y dividendos.
+
+Ticker
+Añadir
+Añadir universo inicial · 25
+Lista de seguimiento
+4 / 25
+SPY
+◷
+Desactualizado
+QQQ
+◷
+Desactualizado
+AAPL
+◷
+Desactualizado
+MSFT
+◷
+Desactualizado
+Quitar SPY
+SPY
+
+USD · Precios ajustados por splits y dividendos
+
+Fuente: tiingo · Última vela: 2026-09-18
+
+1051,9 USD
+◷
+Desactualizado
+1A
+3A
+5A
+
+falta la vela del 2026-09-21 (+14 más); último dato: 2026-09-18
+
+El histórico está desactualizado; puede faltar el último cierre.
+
+Medias móviles
+SMA 20
+SMA 50
+SMA 200
+Alcista: cuerpo vacío · Bajista: cuerpo sólido
+
+RSI 14: 57,75 · Referencias 30 y 70. ATR 14: 20 USD.
+
+	
+	
+
+
+
+	
+	
+
+
+
+	
+	
+
+	
+	
+
+2026-09-18 · Alcista · Apertura 1047,62 · Máximo 1058,21 · Mínimo 1041,34 · Cierre 1051,9 · Volumen 4.665.855
+
+Ver tabla de datos · 1255 velas
+
+Gráficos con TradingView Lightweight Charts™.
+
+En línea
+Agentes en pausa
+· Pausa manual
+Última comprobación 02:10:43
+Próximo reintento —
+Último latido Pendiente

@@ -94,7 +94,16 @@ const unavailableSecrets: BrokerSecretsStore = {
   getKey: () => Promise.resolve(null),
 };
 
-export function registerLive(ctx: ServiceContext): LiveServices {
+export interface RegisterLiveOptions {
+  /**
+   * Reloj de mercado (el mismo anclado con el que se ingieren las
+   * velas): la prueba de humo lo usa para juzgar la frescura de la
+   * referencia. Por defecto el tiempo real.
+   */
+  marketNow?: () => number;
+}
+
+export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions): LiveServices {
   // Mismo patrón que registerKillSwitch: sin base de datos el servicio
   // degrada a memoria y la app sigue arrancando.
   let db = ctx.services.storage?.getDb() ?? null;
@@ -111,6 +120,16 @@ export function registerLive(ctx: ServiceContext): LiveServices {
   // Referencia de precio para la prueba de humo (misma fuente que el
   // resto del dominio: las velas ingeridas de la watchlist).
   const marketRepo = createMarketRepository(db);
+  // Los ganchos E2E existen solo con TRADIA_E2E y sin empaquetar; la
+  // evidencia sembrada en settings solo cuenta en ese mismo contexto.
+  const e2eEnabled = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+  /** Último cierre ingerido del ticker con la fecha de su vela. */
+  const lastClose = (ticker: string): { price: number; asOf: string } | null => {
+    const lastDate = marketRepo.lastBarDate(ticker);
+    if (lastDate === null) return null;
+    const close = marketRepo.getBars(ticker, { desde: lastDate, hasta: lastDate }).at(-1)?.close;
+    return close === undefined || close === null ? null : { price: close, asOf: lastDate };
+  };
 
   const service = createLiveService({
     store,
@@ -118,6 +137,9 @@ export function registerLive(ctx: ServiceContext): LiveServices {
       settings ? (key) => settings.getValue(key) : undefined,
       settings ? (key, value) => settings.setValue(key, value) : undefined,
     ),
+    // Fuera del contexto E2E la evidencia de settings no cuenta: una
+    // copia restaurada o una edición a mano no cumple requisitos.
+    allowSeededEvidence: () => e2eEnabled,
     listExecutedOrders: () => {
       const broker = ctx.services.broker;
       if (!broker) return [];
@@ -195,7 +217,6 @@ export function registerLive(ctx: ServiceContext): LiveServices {
   // La puerta del modo real: la lista completa, evaluada en el proceso
   // principal en cada construcción del adaptador y en cada envío.
   const liveGateOpen = (): boolean => service.getChecklist().allComplete;
-  const e2eEnabled = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
 
   const liveBroker = createLiveBrokerService({
     live: service,
@@ -211,11 +232,16 @@ export function registerLive(ctx: ServiceContext): LiveServices {
     // Solo E2E y sin empaquetar: el adaptador live contra el servidor
     // falso de __fixtures__ (misma API, mismo contrato, sin red). La
     // cuenta falsa arranca sin posiciones para que la prueba de humo
-    // (compra + cierre) quede plana y concilie sin descuadres.
+    // (compra + cierre) quede plana y concilie sin descuadres. Ejecuta
+    // al último cierre ingerido, como haría un broker real al contado:
+    // así el slippage frente a la referencia es el honesto (≈ 0).
     createSimulatedAdapter: e2eEnabled
       ? (getCredentials) =>
           createAlpacaLiveBroker({
-            fetch: createAlpacaLiveFakeFetch({ positions: [] }),
+            fetch: createAlpacaLiveFakeFetch({
+              positions: [],
+              priceFor: (ticker) => lastClose(ticker)?.price,
+            }),
             getCredentials,
             isLiveGateOpen: liveGateOpen,
           })
@@ -227,14 +253,11 @@ export function registerLive(ctx: ServiceContext): LiveServices {
     emitOrderUpdated: (order) => ctx.broadcast(IPC_CHANNELS.broker.orderUpdated, order),
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
     // Precio de referencia de la prueba de humo: el último cierre
-    // ingerido del ticker, igual que el precio del broker simulado E2E
-    // del modo paper. Sin velas guardadas no hay compra dimensionable.
-    referencePrice: (ticker) => {
-      const lastDate = marketRepo.lastBarDate(ticker);
-      return lastDate === null
-        ? null
-        : (marketRepo.getBars(ticker, { desde: lastDate, hasta: lastDate }).at(-1)?.close ?? null);
-    },
+    // ingerido del ticker con la fecha de su vela (la prueba exige una
+    // referencia reciente, juzgada con el reloj de mercado). Sin velas
+    // guardadas no hay compra dimensionable.
+    referencePrice: lastClose,
+    marketNow: options?.marketNow,
     sendEvent: (kind, message) => ctx.services.delivery?.sendEvent(kind, message),
     emitDiscrepancy: (event) => ctx.broadcast(IPC_CHANNELS.reconcile.discrepancy, event),
     logger: console,
