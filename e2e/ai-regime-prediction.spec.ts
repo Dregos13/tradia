@@ -242,7 +242,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await history.click();
     const past = page.getByRole('region', { name: 'Histórico de predicciones' });
     await expect(past).toBeVisible();
-    await expect(past.getByRole('row').filter({ hasText: 'Cierre 6 oct 2026' }).first()).toBeVisible();
+    await expect(
+      past.getByRole('row').filter({ hasText: 'Cierre 6 oct 2026' }).first(),
+    ).toBeVisible();
     await expect(past).not.toContainText('Cierre 7 oct 2026');
     await capturePhaseScreenshot(
       page,
@@ -261,16 +263,16 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(body).toHaveCount(2);
 
     // «Ver ficha del modelo» se queda en IA y pone el foco en la ficha.
-    const link = body.filter({ hasText: 'SPY' }).getByRole('button', { name: 'Ver ficha del modelo' });
+    const link = body
+      .filter({ hasText: 'SPY' })
+      .getByRole('button', { name: 'Ver ficha del modelo' });
     await link.focus();
     await page.keyboard.press('Enter');
     const modelCard = page.getByRole('region', { name: /^Ficha del modelo/ });
     await expect(modelCard).toBeFocused();
     await expect(modelCard).toBeInViewport();
     expect(await page.evaluate(() => location.hash)).toBe('#ia');
-    await expect(
-      page.getByRole('heading', { name: 'IA', exact: true, level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'IA', exact: true, level: 1 })).toBeVisible();
     await expect(modelCard.getByText(`v${card!.version}`, { exact: true })).toBeVisible();
     await capturePhaseScreenshot(page, 'continuacion-ia-ver-ficha-modelo.png');
   });

@@ -26,7 +26,9 @@ type Provider = (typeof PROVIDERS)[number];
 /** Texto esperado de la línea de resultado para cada estado, salvo «Conectado». */
 const EXPECTED: Record<Exclude<ProviderTestStatus, 'ok'>, (name: string) => RegExp> = {
   'sin-clave': (name) =>
-    new RegExp(`^Sin clave · Falta la clave de ${name}\\. Pégala arriba y pulsa «Guardar clave de ${name}»\\.$`),
+    new RegExp(
+      `^Sin clave · Falta la clave de ${name}\\. Pégala arriba y pulsa «Guardar clave de ${name}»\\.$`,
+    ),
   'clave-rechazada': (name) =>
     new RegExp(
       `^Clave rechazada · ${name} ha rechazado la clave\\. Comprueba que la has copiado entera o genera una nueva en tu cuenta\\.$`,
@@ -37,6 +39,9 @@ const EXPECTED: Record<Exclude<ProviderTestStatus, 'ok'>, (name: string) => RegE
     ),
   'sin-red': () =>
     /^Sin red · No hay conexión a internet\. Tradia volverá a intentarlo al recuperar la red\.$/,
+  // Hallazgo abierto (docs/qa/e2e-continuacion-fase-6-7.md, H3): el motivo del backend
+  // ya acaba en punto y la interfaz añade otro («esperaba.. Vuelve»). Se acepta `\.+`
+  // para no esconder el resto del texto; al corregirlo, cambiar a `\.`.
   error: (name) =>
     new RegExp(
       `^Error del proveedor · ${name} no ha respondido como esperábamos: El proveedor no respondió como se esperaba\\.+ Vuelve a probar; si se repite, revisa el estado del servicio\\.$`,
@@ -187,7 +192,10 @@ test.describe('Responsable de equipo que revisa entregas', () => {
   test('la clave nunca vuelve, sin red real da «Sin red» y los enlaces llevan al botón del proveedor', async () => {
     test.setTimeout(120_000);
     const { page } = context!;
-    const secrets = { tiingo: 'tiingo-E2E-clave-secreta-7731', fred: 'fred-E2E-clave-secreta-4410' };
+    const secrets = {
+      tiingo: 'tiingo-E2E-clave-secreta-7731',
+      fred: 'fred-E2E-clave-secreta-4410',
+    };
     await openProviders(page);
 
     for (const provider of PROVIDERS) {
@@ -232,9 +240,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await page.evaluate(() => window.tradia.testing!.simulateOffline(true));
     const tiingo = providerForm(page, PROVIDERS[0]);
     await runTest(tiingo);
-    await expect(testButton(tiingo)).toHaveAccessibleDescription(
-      EXPECTED['sin-red']('Tiingo'),
-    );
+    await expect(testButton(tiingo)).toHaveAccessibleDescription(EXPECTED['sin-red']('Tiingo'));
     await capturePhaseScreenshot(page, 'continuacion-probar-conexion-sin-red.png', tiingo);
     await page.evaluate(() => window.tradia.testing!.simulateOffline(false));
     await tiingo.getByRole('button', { name: 'Probar de nuevo', exact: true }).click();

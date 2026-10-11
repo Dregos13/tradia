@@ -39,7 +39,8 @@ async function expectStep(page: Page, step: number): Promise<void> {
   await expect(dialog).toHaveAccessibleName(`Paso ${step} de ${TOUR_TOTAL_STEPS}. ${data.title}`);
   await expect(dialog).toHaveAccessibleDescription(data.text);
   await expect(stepTitle(page)).toBeFocused();
-  if (data.route) await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#${data.route}`);
+  if (data.route)
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#${data.route}`);
   // El globo deja de esperar al ancla en 1,5 s como máximo.
   await expect(dialog).toHaveAttribute('aria-busy', 'false', { timeout: 5_000 });
 }
@@ -202,11 +203,15 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await capturePhaseScreenshot(page, 'continuacion-primeros-pasos-retomar.png', firstSteps);
     await firstSteps.getByRole('button', { name: 'Retomar el tour (paso 4 de 10)' }).click();
     await expectStep(page, 4);
-    await tourDialog(page).getByRole('button', { name: 'Cerrar el tour y retomarlo más tarde' }).click();
+    await tourDialog(page)
+      .getByRole('button', { name: 'Cerrar el tour y retomarlo más tarde' })
+      .click();
     await expect(tourDialog(page)).toHaveCount(0);
 
     await openPage(page, 'Ajustes');
-    await expect(page.getByRole('button', { name: 'Retomar el tour (paso 4 de 10)' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Retomar el tour (paso 4 de 10)' }),
+    ).toBeVisible();
 
     // Siguiente arranque del mismo perfil: sin aviso (ya aceptado) y el tour en el paso 4.
     await relaunchPhaseApp(context!);

@@ -170,7 +170,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     // «Actualizar ahora» con el proveedor aún caído explica el motivo real.
     await banner.getByRole('button', { name: 'Actualizar ahora' }).click();
     await expect(
-      banner.getByRole('status').filter({ hasText: /^No se pudo actualizar: / }).first(),
+      banner
+        .getByRole('status')
+        .filter({ hasText: /^No se pudo actualizar: / })
+        .first(),
     ).toBeVisible({ timeout: 15_000 });
     await expect(banner.getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
     await capturePhaseScreenshot(page, 'continuacion-datos-desactualizados-reintento.png', banner);
@@ -180,9 +183,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(page.getByRole('region', { name: 'Estado de los datos' })).toHaveCount(0, {
       timeout: 30_000,
     });
-    await expect(
-      page.getByRole('status').filter({ hasText: /^Datos al día\.$/ }),
-    ).toHaveCount(1);
+    await expect(page.getByRole('status').filter({ hasText: /^Datos al día\.$/ })).toHaveCount(1);
     expect(await lastBar(page, 'SPY')).toBe('2026-10-07');
     await expect.poll(async () => (await freshness(page)).state).toBe('current');
     await expect.poll(async () => (await predictionSessions()).at(-1)).toBe('2026-10-07');

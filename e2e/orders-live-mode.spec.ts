@@ -104,7 +104,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     // Órdenes con el modo real activo: las reales de la prueba y la paper anterior.
     await openPage(page, 'Órdenes');
-    await expect(page.getByRole('banner').getByText('Dinero real activo', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('banner').getByText('Dinero real activo', { exact: true }),
+    ).toBeVisible();
     const liveRows = ordersTable(page).getByRole('row').filter({ hasText: 'SPY' });
     await expect(liveRows).toHaveCount(ipcOrders.filter((order) => order.ticker === 'SPY').length);
     for (const row of await liveRows.all()) {
@@ -148,7 +150,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(smokeEntry).toContainText('Dinero real');
     await expect(smokeEntry).not.toContainText('Operación simulada');
     const journal = await page.evaluate(() => window.tradia.journal.list({ limit: 100 }));
-    const smokeEntries = journal.entries.filter((entry) => entry.reason.startsWith('Prueba de humo ·'));
+    const smokeEntries = journal.entries.filter((entry) =>
+      entry.reason.startsWith('Prueba de humo ·'),
+    );
     expect(smokeEntries.length).toBeGreaterThanOrEqual(2);
     expect(smokeEntries.every((entry) => entry.mode === 'live')).toBe(true);
     await capturePhaseScreenshot(page, 'continuacion-diario-prueba-humo-real.png');
