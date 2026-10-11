@@ -17,7 +17,11 @@ import {
   registerBroker,
   type BrokerService,
 } from './index';
-import { createBrokerRepository, type BrokerRepository } from './repository';
+import {
+  createBrokerRepository,
+  type BrokerRepository,
+  type NewBrokerOrder,
+} from './repository';
 
 // electron solo aporta app/ipcMain: mismo patrón que las demás pruebas
 // de servicios de main (settings-ipc.test.ts, routine/index.test.ts).
@@ -610,6 +614,40 @@ describe('registerBroker · orders:list une paper y reales', () => {
     })) as BrokerOrder[];
     expect(onlyPaper.every((o) => o.mode === 'paper')).toBe(true);
     expect(onlyPaper.some((o) => o.clientOrderId === 'tradia-humo-1-compra')).toBe(false);
+  });
+
+  it('devuelve el conjunto unido en orden cronológico, no tabla a tabla', async () => {
+    await connectSimulated();
+    const paperOrder = (clientOrderId: string): void => {
+      repo.insertOrder({
+        clientOrderId,
+        ticker: 'AAPL',
+        type: 'market',
+        side: 'buy',
+        quantity: 1,
+        requestedPrice: 200,
+        requestedAt: '2026-10-08T20:00:00.000Z',
+        status: 'ejecutada',
+      } satisfies NewBrokerOrder);
+    };
+    // Una real entre dos paper: por el canal llega el orden del conjunto
+    // mezclado (creado_en DESC), no las live primero ni por tabla.
+    paperOrder('paper-1');
+    seedLiveOrder('tradia-humo-1-compra');
+    paperOrder('paper-2');
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`)
+      .run('2026-10-08T20:00:00.000Z', 'paper-1');
+    db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`)
+      .run('2026-10-08T20:05:00.000Z', 'tradia-humo-1-compra');
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`)
+      .run('2026-10-08T20:10:00.000Z', 'paper-2');
+
+    const all = (await handle(IPC_CHANNELS.orders.list)(null, undefined)) as BrokerOrder[];
+    expect(all.map((o) => [o.clientOrderId, o.mode])).toEqual([
+      ['paper-2', 'paper'],
+      ['tradia-humo-1-compra', 'live'],
+      ['paper-1', 'paper'],
+    ]);
   });
 
   it('orders:cancel con mode live se niega en claro sin tocar la orden paper con ese id', async () => {

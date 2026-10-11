@@ -24,6 +24,8 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   render(<App />);
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(await screen.findByRole('heading', { name: 'Antes de empezar' })).toHaveFocus();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(document.querySelector('.onboarding-root')).not.toBeInTheDocument();
   const button = screen.getByRole('button', { name: 'Continuar' });
   expect(button).toBeDisabled();
   await user.tab();
@@ -40,11 +42,15 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
     await screen.findByRole('heading', { name: /Paso 1 de 10. Te enseñamos Tradia/ }),
   ).toHaveFocus();
   await user.click(screen.getByRole('button', { name: 'Saltar tour' }));
-  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await waitFor(async () =>
+    expect((await window.tradia.settings.get()).onboardingTourCompletedAt).toBeTruthy(),
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   cleanup();
   render(<App />);
   expect(await screen.findByRole('navigation')).toBeInTheDocument();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
 it('vuelve a solicitar aceptación si la versión aceptada no coincide', async () => {

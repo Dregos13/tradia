@@ -383,6 +383,9 @@ describe('ejecución real con techos de capital', () => {
     );
     expect(entry).toBeDefined();
     expect(String(entry!.reason)).toContain('límite por orden');
+    // Dinero real: la traza de la orden real nunca se rotula «simulada».
+    expect(entry!.mode).toBe('live');
+    expect(journal.every((j) => j.mode === 'live')).toBe(true);
   });
 
   it('una posición nueva por encima del máximo se bloquea; ampliar la existente pasa', async () => {

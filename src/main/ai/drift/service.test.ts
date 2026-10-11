@@ -666,7 +666,8 @@ describe('revisión mensual de estrategias', () => {
 
   it('la desviación llega en vivo aunque la revisión sea vieja; sin backtest, null con motivo', () => {
     fichas = [seedFicha('Cruce de medias'), seedFicha('Sin backtest', 'paper')];
-    const [conBacktest, sinBacktest] = fichas;
+    const conBacktest = fichas[0]!;
+    const sinBacktest = fichas[1]!;
     trades = Array.from({ length: 10 }, (_, i) => trade(conBacktest.id, 0.4, i));
     expectations = {
       [conBacktest.id]: {
@@ -747,6 +748,23 @@ describe('propuestas de reentrenamiento', () => {
     expect(entry!.reason).toContain('2027-03-01');
     expect(entry!.reason).toContain('esperar a más datos');
     expect(entry!.dataUsed?.['propuestaId']).toBe(proposal.id);
+  });
+
+  it('posponer con un motivo acabado en punto no deja «..» en el Diario', () => {
+    fichas = [seedFicha('Cruce de medias')];
+    const service = makeService();
+    service.simulateDrift({ kind: 'rendimiento', subjectId: fichas[0]!.id, streak: 2 });
+    const proposal = repo.listProposals()[0]!;
+    service.resolve({
+      id: proposal.id,
+      action: 'posponer',
+      postponeUntil: '2027-03-01',
+      note: 'esperar al próximo trimestre.',
+    });
+    const entry = journal.find((e) => e.reason.includes('pospuesta'));
+    expect(entry).toBeDefined();
+    expect(entry!.reason).not.toContain('..');
+    expect(entry!.reason).toContain('esperar al próximo trimestre.');
   });
 });
 

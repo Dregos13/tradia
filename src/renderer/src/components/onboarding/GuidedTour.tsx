@@ -85,6 +85,9 @@ export function GuidedTour({ step, onMove, onPause, onFinish }: Props) {
         aria-busy={loading}
         onKeyDown={onKeyDown}
       >
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {`Paso ${step} de ${TOUR_STEPS.length}. ${current.title}. ${current.text}`}
+        </p>
         <div className="tour-header">
           <span className="tour-label" aria-hidden="true">
             Paso {step} de {TOUR_STEPS.length}

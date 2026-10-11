@@ -34,6 +34,7 @@ const heading = async (step: number) => {
 };
 
 it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la finalización', async () => {
+  vi.spyOn(simulation.api.secrets, 'hasKey').mockResolvedValue(true);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
     left: 100,
     top: 100,
@@ -50,6 +51,9 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
   const activate = vi.spyOn(simulation.api.live, 'activate');
   const { unmount } = render(<App />);
   expect(await heading(1)).toHaveFocus();
+  expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent(
+    `Paso 1 de 10. ${TOUR_STEPS[0]!.title}. ${TOUR_STEPS[0]!.text}`,
+  );
   const root = document.querySelector('.app')!.closest('[inert]');
   expect(root).not.toBeNull();
   const first = screen.getByRole('button', { name: 'Cerrar el tour y retomarlo más tarde' });
@@ -71,7 +75,19 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
     await user.keyboard('{ArrowRight}');
     expect(await heading(step)).toHaveFocus();
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription(TOUR_STEPS[step - 1]!.text);
+    const announcement = within(screen.getByRole('dialog')).getByRole('status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).toHaveAttribute('aria-atomic', 'true');
+    expect(announcement).toHaveTextContent(
+      `Paso ${step} de 10. ${TOUR_STEPS[step - 1]!.title}. ${TOUR_STEPS[step - 1]!.text}`,
+    );
     await waitFor(() => expect(window.location.hash).toBe(`#${TOUR_STEPS[step - 1]!.route}`));
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-tour="${TOUR_STEPS[step - 1]!.anchor}"]`),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(document.querySelector('.tour-spotlight')).toBeInTheDocument());
     expect(readTourStep()).toBe(step);
   }
   await user.tab();

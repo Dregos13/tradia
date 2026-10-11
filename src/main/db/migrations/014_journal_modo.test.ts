@@ -34,6 +34,25 @@ describe('migración 014 · modo por entrada del diario', () => {
       db.prepare(`INSERT INTO journal_entries (tipo, motivo) VALUES ('operacion', 'r')`).run()
         .lastInsertRowid,
     );
+    // Datos de la 012 y de las tablas que la 013 recrea: una orden real
+    // y un análisis de noticia ya guardados antes de subir.
+    db.prepare(
+      `INSERT INTO broker_orders_live
+         (client_order_id, ticker, tipo, lado, cantidad, pedida_en)
+       VALUES ('tradia-humo-1-compra', 'SPY', 'limit', 'buy', 0.002, '2026-10-08T20:00:00.000Z')`,
+    ).run();
+    const newsId = Number(
+      db
+        .prepare(
+          `INSERT INTO news_items (titulo, url, publicado, resumen, prioridad, confirmada, hash)
+           VALUES ('Titular', NULL, '2026-10-10T10:00:00.000Z', NULL, 'activo', 1, 'h1')`,
+        )
+        .run().lastInsertRowid,
+    );
+    db.prepare(
+      `INSERT INTO news_analysis (noticia_id, ticker, resumen, sentimiento, analizador)
+       VALUES (?, 'AAPL', 'resumen', 'positivo', 'local')`,
+    ).run(newsId);
 
     // La 013 (CHECK del analizador) también sube en esta pasada.
     expect(migrate(db, ALL)).toEqual([13, 14]);
@@ -44,6 +63,15 @@ describe('migración 014 · modo por entrada del diario', () => {
     };
     // La fila previa no se pierde y queda sin cuenta, como le corresponde.
     expect(row).toEqual({ tipo: 'operacion', modo: null });
+    // Ni la orden real (012) ni el análisis copiado por la 013 se pierden.
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM broker_orders_live').get() as { n: number },
+    ).toEqual({ n: 1 });
+    expect(
+      db
+        .prepare('SELECT ticker, analizador FROM news_analysis WHERE noticia_id = ?')
+        .get(newsId) as { ticker: string; analizador: string },
+    ).toEqual({ ticker: 'AAPL', analizador: 'local' });
     db.close();
   });
 

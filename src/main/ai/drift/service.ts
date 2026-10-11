@@ -999,13 +999,14 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
           dataUsed: { componente: 'ai/drift', propuestaId: resolved.id, trimestre: resolved.quarter },
         });
       } else {
+        const note = resolved.note?.replace(/[\s.]+$/, '');
         recordJournal({
           type: 'resumen',
           result: 'completado',
           reason:
             `Propuesta de reentrenamiento ${resolved.quarter} pospuesta hasta ` +
             `${resolved.postponedUntil}` +
-            (resolved.note !== null ? `. Motivo: ${resolved.note}` : '') +
+            (note ? `. Motivo: ${note}` : '') +
             '.',
           dataUsed: {
             componente: 'ai/drift',

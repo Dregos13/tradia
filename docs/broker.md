@@ -39,6 +39,17 @@ señales).
   muestra «3 meses de paper» solo leen la tabla paper; la guarda de
   techos solo lee la live. El repositorio interpola el nombre de la
   tabla desde una lista blanca de dos valores —nunca texto de fuera.
+- **`orders:list` une las dos cuentas**: la página Órdenes ve las paper
+  y las reales juntas (`UNION ALL` en `createBrokerOrdersListing`) y
+  cada orden trae su `mode` histórico ('paper' | 'live'), fijado al
+  crearla; nunca se deduce del modo vigente. El filtro `mode` sirve una
+  sola tabla. Los ids de ambas se solapan, así `orders:cancel` acepta
+  `mode` y rechaza en claro una cancelación marcada 'live' en vez de
+  tocar la orden paper con ese mismo id.
+- **Modo también en el Diario** (migración 014, columna `modo`): la
+  prueba de humo y las trazas del broker real llevan `mode: 'live'` y
+  el Diario las rotula «Dinero real»; la conciliación diaria de la
+  rutina solo cuadra las 'operacion' que no son live.
 - **Una señal nunca sale dos veces**: con el modo real 'activo' y la
   cuenta live conectada, `liveExecutionActive` hace que el gestor paper
   ceda las señales al gestor real; el resto del tiempo las ejecuta el
