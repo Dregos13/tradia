@@ -15,102 +15,158 @@ Diario
 Real vs backtest
 Dinero real
 Ajustes
-Fuentes
+Estado del sistema
 Señales + paper trading
 Parada
-Canales de información bajo tu control.
+Situación del mercado
 
-6 fuentes configuradas · 6 activas
+Seguridad, señales y cartera simulada de un vistazo.
 
-Añadir nueva fuente
-Actualizar lista
+Actualizado 11:19:30 CEST
 
-Fuentes oficiales predefinidas
+Conexión y fuentes
+Ver fuentes
 
-Protegidas: puedes pausar su lectura; su fiabilidad siempre es Oficial.
+En línea
 
-Fuente	Tipo	Fiabilidad	Estado	Última lectura	Actividad	Acciones
-Reserva Federal — comunicados y FOMC
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:33
-Cada 10 min
-	
-Activa
-	
-Probar conexión
+Precios · Tiingo
 
-BCE — notas de prensa
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:33
-Cada 10 min
-	
-Activa
-	
-Probar conexión
+11 oct 2026, 11:19 CEST
 
-BLS — nóminas no agrícolas e IPC
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:34
-Cada 15 min
-	
-Activa
-	
-Probar conexión
+Disponible
+Macro · FRED
 
-BEA — comunicados (PIB, PCE…)
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:34
-Cada 15 min
-	
-Activa
-	
-Probar conexión
+11 oct 2026, 11:19 CEST
 
-SEC EDGAR — 8-K y Form 4 de los activos seguidos
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:45
-Cada 10 min
-	
-Activa
-	
-Probar conexión
+Disponible
+Noticias · Reserva Federal — comunicados y FOMC
 
-CNMV — información privilegiada y relevante
-Fuente protegida
-	RSS / Atom	Oficial	Correcto	11/10/2026, 10:56:45
-Cada 10 min
-	
-Activa
-	
-Probar conexión
-Añadir nueva fuente de noticias
+11 oct 2026, 11:19 CEST
 
-Verifica la respuesta antes de guardarla.
+Disponible
+Noticias · BCE — notas de prensa
 
-Tipo de fuente
-RSS / Feed Atom
-API financiera
-URL del Feed RSS o Atom
-HTTPS para fuentes remotas; HTTP para feeds locales.
-Nombre descriptivo
-Nivel de fiabilidad
-Oficial (Reservado para organismos del sistema)
-Agencia
-Prensa
-Redes
-Intervalo de consulta
-Cada 5 minutos
-Cada 10 minutos
-Cada 15 minutos
-Cada 30 minutos
-Cada 60 minutos
+11 oct 2026, 11:19 CEST
 
-Las noticias de Redes nunca se marcan como confirmadas por sí solas. Las consultas respetan los límites de cada proveedor.
+Disponible
+Noticias · BLS — nóminas no agrícolas e IPC
 
-Probar conexión
-Guardar fuente
+11 oct 2026, 11:19 CEST
+
+Disponible
+Noticias · BEA — comunicados (PIB, PCE…)
+
+11 oct 2026, 11:19 CEST
+
+Disponible
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+11 oct 2026, 11:19 CEST
+
+Disponible
+Noticias · CNMV — información privilegiada y relevante
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Contexto macro
+Ver macro
+
+Régimen · Tendencia · Volatilidad baja · Fuente FRED
+
+VIXCLS
+✓ Fiable
+Volatilidad VIX
+2,26 puntos
+
+= 0,00 puntos respecto al dato diario anterior
+
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
+
+Dato diario
+8 oct 2026
+DGS10
+✓ Fiable
+Treasury · 10 años
+3,42 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+CPIAUCSL
+✓ Fiable
+IPC de EE. UU. · interanual
+2,44 %
+
+▼ -1,82 pp respecto al dato mensual anterior
+
+Dato mensual
+1 ago 2026
+Señales vivas
+Ver en Diario
+
+Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 11 oct 2026, 11:19 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Reversión RSI/Bollinger
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Ruptura de rangos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Momentum entre activos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
 En línea
 Agentes activos
-Última comprobación 10:57:16
+Última comprobación 11:20:00
 Próximo reintento —
-Último latido 10:57:03
+Último latido 11:19:47

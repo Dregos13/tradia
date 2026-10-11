@@ -33,7 +33,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 10:55:59 CEST
+Actualizado 11:18:43 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -47,37 +47,37 @@ Precios · Tiingo
 Con retraso
 Macro · FRED
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · BCE — notas de prensa
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · BLS — nóminas no agrícolas e IPC
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · BEA — comunicados (PIB, PCE…)
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · CNMV — información privilegiada y relevante
 
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Contexto macro
@@ -141,7 +141,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 10:55 CEST
+Datos de 11 oct 2026, 11:18 CEST
 
 Ver límites de riesgo
 Exposición
@@ -184,6 +184,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 10:55:54
+Última comprobación 11:18:39
 Próximo reintento —
 Último latido Pendiente

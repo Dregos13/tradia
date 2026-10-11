@@ -86,7 +86,7 @@ Prueba final intacta
 Entrenado
 10 oct 2026, 22:40 CEST
 Registrado
-11 oct 2026, 10:55 CEST
+11 oct 2026, 11:17 CEST
 Evaluación fuera de muestra
 
 En Brier, menos es mejor. 0 indica probabilidades perfectas; la comparación solo usa la prueba final fuera de muestra.
@@ -122,6 +122,6 @@ Ver datos del gráfico
 Revisar fuentes de mercado
 En línea
 Agentes activos
-Última comprobación 10:55:01
+Última comprobación 11:17:45
 Próximo reintento —
 Último latido Pendiente

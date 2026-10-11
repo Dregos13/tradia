@@ -191,6 +191,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
         page.getByRole('status').filter({ hasText: 'Declaración guardada con fecha.' }),
       ).toBeVisible();
       await expect(row(LIVE_REQUIREMENT_TITLES[requirement])).toContainText('Cumplido');
+      await expect(row(LIVE_REQUIREMENT_TITLES[requirement])).not.toContainText(
+        'Sin evidencia guardada.',
+      );
     }
     const checklist = await page.evaluate(() => window.tradia.live.checklist());
     expect(checklist.allComplete).toBe(true);
@@ -219,9 +222,14 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
 
     // Activación con la frase exacta.
     await openPage(page, 'Dinero real');
-    // Los límites se guardaron en esta vista: se vuelven a confirmar tras navegar.
-    await fillLimits(page, LIMITS);
-    await page.getByRole('button', { name: 'Guardar límites' }).click();
+    // El borrador guardado debe sobrevivir a la navegación a Ajustes.
+    await expect(page.getByLabel('Capital total en real', { exact: true })).toHaveValue(
+      String(LIMITS.capitalUsd),
+    );
+    await expect(page.getByLabel('Máximo por orden', { exact: true })).toHaveValue(
+      String(LIMITS.orderUsd),
+    );
+    await expect(page.getByText(liveConfirmationPhrase(LIMITS), { exact: true })).toBeVisible();
     const panel = activationPanel(page);
     await expect(
       panel.getByRole('heading', { name: 'Todos los requisitos están vigentes' }),
@@ -244,9 +252,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
         .getByRole('status')
         .filter({ hasText: 'Dinero real activado con los límites confirmados.' }),
     ).toBeVisible();
-    // Estado autoritativo: cabecera y franja global. El texto de estado de la
-    // lista puede quedarse en «bloqueado · faltan 0 de 7» si llega `live:changed`
-    // durante la activación (condición de carrera documentada en el informe).
+    // La lista también refleja la activación aunque llegue live:changed.
+    await expect(page.locator('.live-mode-status')).toHaveText('Dinero real activo');
+    await expect(page.getByText(/faltan 0 de 7/)).toHaveCount(0);
+    await expect(page.getByText(/Los requisitos cambiaron/)).toHaveCount(0);
     await expect(
       page.getByRole('banner').getByText('Dinero real activo', { exact: true }),
     ).toBeVisible();

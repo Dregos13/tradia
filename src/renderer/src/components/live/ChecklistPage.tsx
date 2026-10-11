@@ -91,7 +91,9 @@ export function ChecklistPage({
             ? 'Dinero real suspendido · no se enviarán órdenes nuevas.'
             : ready
               ? 'Listo para confirmar · revisa los límites una última vez'
-              : `Dinero real bloqueado${checklist ? ` · faltan ${checklist.total - checklist.completedCount} de ${checklist.total} requisitos` : ''}`}
+              : checklist && checklist.completedCount === checklist.total
+                ? 'Lista completa · revisa los motivos antes de activar dinero real'
+                : `Dinero real bloqueado${checklist ? ` · faltan ${checklist.total - checklist.completedCount} de ${checklist.total} requisitos` : ''}`}
       </p>
       {state.notice && <p role="status">{state.notice}</p>}
       {state.snapshot?.state.suspension && (
@@ -195,7 +197,11 @@ export function ChecklistPage({
           aria-live="polite"
         >
           <h3 id={`${id}-reasons`} ref={reasonsTitle} tabIndex={-1}>
-            {ready ? 'Todos los requisitos están vigentes' : 'No se puede activar todavía'}
+            {active
+              ? 'Dinero real está activo con los límites confirmados'
+              : ready
+                ? 'Todos los requisitos están vigentes'
+                : 'No se puede activar todavía'}
           </h3>
           {reasons.length > 0 && (
             <ul id={`${id}-reasons-list`}>

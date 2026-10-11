@@ -225,7 +225,7 @@ Base local, una copia diaria a las 02:00 y retención de 7.
 Destino: carpeta backups del directorio de datos de Tradia. Hora local del equipo.
 
 Crear copia ahora
-11 oct 2026, 10:55 (hora local)
+11 oct 2026, 11:17 (hora local)
 0,7 MB · Esquema 12
 Integridad verificada
 Restaurar
@@ -247,6 +247,6 @@ Tradia no es asesoramiento financiero. El modo predeterminado usa señales infor
 Ver aviso de riesgo, versión 1.0
 En línea
 Agentes activos
-Última comprobación 10:55:16
+Última comprobación 11:18:00
 Próximo reintento —
 Último latido Pendiente

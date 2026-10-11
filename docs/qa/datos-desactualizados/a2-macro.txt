@@ -33,6 +33,6 @@ Añade las claves de Tiingo y FRED para recibir precios y contexto macro actuali
 Configurar claves
 En línea
 Agentes activos
-Última comprobación 10:55:01
+Última comprobación 11:17:45
 Próximo reintento —
 Último latido Pendiente

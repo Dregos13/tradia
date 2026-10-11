@@ -1,0 +1,17 @@
+
+Running 9 tests using 1 worker
+
+(node:10406) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:389:5 › A · perfil vacío sin claves (reloj real) (16.3s)
+  ✓  2 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:420:5 › B0 · siembra: base al día del viernes 18-sep-2026 (reloj atrasado) (22.6s)
+  ✓  3 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:453:5 › B1 · 23 días después, proveedor caído (no puede ponerse al día) (26.8s)
+  ✓  4 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:481:5 › B2 · 23 días después, proveedor disponible (¿se pone al día al arrancar?) (27.2s)
+  ✓  5 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:503:5 › C · sin red al abrir con datos viejos y vuelta a la red (54.6s)
+  ✓  6 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:546:5 › D1 · domingo 11-oct-2026 con datos del viernes 9 (fin de semana) (30.6s)
+  ✓  7 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:565:5 › D2 · miércoles 14-oct-2026 tras Columbus Day (festivo de bonos, bolsa abierta) (30.6s)
+  ✓  8 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:590:5 › D3 · viernes 27-nov-2026 tras Acción de Gracias (30.6s)
+  ✓  9 docs/qa/datos-desactualizados/recorrido/recorrido.spec.ts:611:5 › B3 · estrategia en paper y proveedor que solo llega al 25-sep (sigue desactualizado) (27.9s)
+
+  9 passed (4.5m)
+EXIT 0

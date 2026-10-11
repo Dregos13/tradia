@@ -84,6 +84,6 @@ Gráficos con TradingView Lightweight Charts™.
 
 En línea
 Agentes activos
-Última comprobación 10:56:21
+Última comprobación 11:19:05
 Próximo reintento —
 Último latido Pendiente

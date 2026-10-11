@@ -381,6 +381,31 @@ it('al perder conexión conserva el progreso recibido y cierra una confirmación
     ),
   ).toHaveLength(1);
 });
+it.each(['compra-enviada', null] as const)(
+  'muestra el motivo de cordura incluso sin paso fallido (%s) y bloquea repetir',
+  async (failedStep) => {
+    const error = 'Slippage de −8278 pb fuera del margen de cordura de 300 pb.';
+    vi.spyOn(adapter.api.live, 'state').mockResolvedValue({
+      ...active(),
+      mode: 'suspendido',
+      smokeTest: {
+        ...smoke,
+        state: 'fallida-posicion-abierta',
+        failedStep,
+        error,
+        slippageBps: -8278,
+        sellExecutedPrice: null,
+        discrepancies: null,
+        steps: [{ step: 'compra-enviada', at }],
+      },
+    });
+    render(<SmokeTestPanel />);
+    expect(await screen.findByText(/fuera del margen de cordura/)).toHaveAttribute('role', 'alert');
+    expect(screen.getByText(/Queda una posición real abierta/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ejecutar prueba de 1,00 USD' })).toBeDisabled();
+    expect(screen.queryByText('Cerrada y conciliada')).not.toBeInTheDocument();
+  },
+);
 it('rechazos IPC se muestran y nunca se reenvía automáticamente la prueba', async () => {
   const send = vi
     .spyOn(adapter.api.live, 'smokeTest')

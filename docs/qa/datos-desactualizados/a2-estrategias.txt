@@ -51,17 +51,17 @@ Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en late
 	v1	● Investigación	5,51%	6,04%	0,19	64	11/10/2026
 Procedencia no disponible
 
-Ruptura de rangos
-Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales. · SPY, QQQ, TLT
-	v1	● Investigación	Sin datos	Sin datos	Sin datos	Sin datos	11/10/2026
-Procedencia no disponible
-
 Momentum entre activos
 Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas. · SPY, QQQ, DIA, IWM, VTI, XLF, XLK, XLE, XLV, TLT
 	v1	● Investigación	Sin datos	Sin datos	Sin datos	Sin datos	11/10/2026
 Procedencia no disponible
+
+Ruptura de rangos
+Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales. · SPY, QQQ, TLT
+	v1	● Investigación	Sin datos	Sin datos	Sin datos	Sin datos	11/10/2026
+Procedencia no disponible
 En línea
 Agentes activos
-Última comprobación 10:55:01
+Última comprobación 11:17:45
 Próximo reintento —
 Último latido Pendiente

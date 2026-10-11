@@ -18,7 +18,7 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada
-Sin conexión: las decisiones están en pausa. Reintentando en 3 s.
+Sin conexión: las decisiones están en pausa. Reintentando en 4 s.
 Comprobar ahora
 Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
@@ -34,7 +34,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Datos congelados · Esperando datos
+Datos congelados · Actualizado 11:19:18 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -48,7 +48,7 @@ Precios · Tiingo
 Con retraso
 Macro · FRED
 
-11 oct 2026, 10:56 CEST
+11 oct 2026, 11:19 CEST
 
 Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
@@ -87,7 +87,7 @@ Ver macro
 Régimen · Lateral · Volatilidad alta · Fuente FRED
 
 VIXCLS
-◷ Desactualizado
+◌ Actualizando
 Volatilidad VIX
 2,46 puntos
 
@@ -99,7 +99,7 @@ Banda baja
 Dato diario
 17 sept 2026
 
-falta la observación esperada; último dato: 2026-09-17
+descargando observaciones del 2026-09-17 al 2026-10-11 en 'fred'
 
 DGS10
 ◷ Desactualizado
@@ -142,7 +142,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 10:56 CEST
+Datos de 11 oct 2026, 11:19 CEST
 
 Ver límites de riesgo
 Exposición
@@ -186,6 +186,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 Sin conexión
 Agentes en pausa
 · Sin conexión
-Última comprobación 10:56:35
-Próximo reintento 10:56:38
+Última comprobación 11:19:20
+Próximo reintento 11:19:24
 Último latido Pendiente

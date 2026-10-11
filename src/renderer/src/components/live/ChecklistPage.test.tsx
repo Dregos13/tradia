@@ -13,6 +13,7 @@ import {
 } from '../../../../shared/live';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { ChecklistPage } from './ChecklistPage';
+import { evaluateKillSwitchTest } from '../../../../main/live/checklist';
 
 let adapter: ReturnType<typeof createSimulatedAdapter>;
 const limits: LiveLimits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
@@ -217,19 +218,56 @@ it('abre con foco seguro, frase exacta accesible y activa solo tras confirmar lo
   ).toBeInTheDocument();
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   await waitFor(() => expect(screen.getByText('Dinero real activo')).toHaveFocus());
+  expect(screen.queryByText(/faltan 0 de 7/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Los requisitos cambiaron/)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: 'Dinero real está activo con los límites confirmados' }),
+  ).toBeVisible();
 });
 
-it('conserva la respuesta de guardar cuando main solo expone límites confirmados en live:state', async () => {
+it('recupera límites sin confirmar desde la lista al volver a la pantalla', async () => {
   await complete();
   const current = await adapter.api.live.state();
   vi.spyOn(adapter.api.live, 'state').mockResolvedValue({ ...current, limits: null });
   await mount();
-  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
-  fillLimits();
-  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeEnabled();
+  expect(screen.getByLabelText('Capital total en real')).toHaveValue(limits.capitalUsd);
+  cleanup();
+  await mount();
+  expect(screen.getByLabelText('Máximo por orden')).toHaveValue(limits.orderUsd);
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeEnabled();
   const dialog = await openDialog();
   expect(dialog).toHaveTextContent(liveConfirmationPhrase(limits));
+});
+
+it('conserva la activación cuando live:changed llega durante su relectura', async () => {
+  await complete();
+  await mount();
+  await openDialog();
+  fireEvent.change(screen.getByLabelText('Escribe exactamente esta frase para confirmar'), {
+    target: { value: liveConfirmationPhrase(limits) },
+  });
+  const readChecklist = adapter.api.live.checklist;
+  let resolve!: (value: LiveChecklist) => void;
+  vi.spyOn(adapter.api.live, 'checklist').mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Activar dinero real con estos límites' }),
+  );
+  await act(async () => {
+    adapter.emitLiveChanged();
+    resolve(await readChecklist());
+  });
+  expect(
+    await screen.findByText('Dinero real activado con los límites confirmados.'),
+  ).toBeVisible();
+  expect(screen.getByText('Dinero real activo')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
+  expect(screen.queryByText(/faltan 0 de 7|Los requisitos cambiaron/)).not.toBeInTheDocument();
 });
 
 it('Escape cancela, devuelve foco y Tab queda dentro del diálogo', async () => {
@@ -289,12 +327,23 @@ it('un rechazo del proceso principal muestra todos sus motivos y mueve el foco a
   );
 });
 
-it('descarta una comprobación en curso si llega un cambio de requisitos', async () => {
+it('relee un cambio durante la comprobación y bloquea por la nueva evidencia sin error espurio', async () => {
   await complete();
   await mount();
   const current = await adapter.api.live.checklist();
   let resolve!: (checklist: LiveChecklist) => void;
-  vi.spyOn(adapter.api.live, 'checklist').mockImplementationOnce(
+  const updated: LiveChecklist = {
+    ...current,
+    allComplete: false,
+    completedCount: 6,
+    items: current.items.map((item) =>
+      item.requirement === 'paper-continuo'
+        ? { ...item, state: 'pendiente', evidence: 'Solo hay 24 operaciones.' }
+        : item,
+    ),
+  };
+  const checklist = vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue(updated);
+  checklist.mockImplementationOnce(
     () =>
       new Promise((done) => {
         resolve = done;
@@ -307,10 +356,122 @@ it('descarta una comprobación en curso si llega un cambio de requisitos', async
   });
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
-  expect(screen.getByRole('alert')).toHaveTextContent(
-    'Los requisitos cambiaron durante la comprobación',
+  expect(checklist).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('region', { name: 'No se puede activar todavía' })).toHaveTextContent(
+    'Solo hay 24 operaciones.',
   );
+  expect(screen.queryByText(/Los requisitos cambiaron/)).not.toBeInTheDocument();
 });
+
+it('aplica saved.limits aunque live:changed llegue durante la relectura del guardado', async () => {
+  await complete();
+  const state = await adapter.api.live.state();
+  vi.spyOn(adapter.api.live, 'state').mockResolvedValue({ ...state, limits: null });
+  await mount();
+  fillLimits({ ...limits, orderUsd: 80 });
+  const readChecklist = adapter.api.live.checklist;
+  let resolve!: (value: LiveChecklist) => void;
+  const checklist = vi.spyOn(adapter.api.live, 'checklist').mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
+  await act(async () => {
+    adapter.emitLiveChanged();
+    resolve(await readChecklist());
+  });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeEnabled(),
+  );
+  expect(checklist).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(liveConfirmationPhrase({ ...limits, orderUsd: 80 }))).toBeVisible();
+  expect(screen.queryByText(/Los requisitos cambiaron/)).not.toBeInTheDocument();
+});
+
+it('con siete requisitos y claves pendientes muestra lista completa, nunca faltan 0 de 7', async () => {
+  await complete();
+  const state = await adapter.api.live.state();
+  vi.spyOn(adapter.api.live, 'state').mockResolvedValue({
+    ...state,
+    mode: 'bloqueado',
+    hasCredentials: false,
+    accountMasked: null,
+  });
+  await mount();
+  expect(
+    screen.getByText('Lista completa · revisa los motivos antes de activar dinero real'),
+  ).toBeVisible();
+  expect(screen.queryByText(/faltan 0 de 7/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
+});
+
+it('conserva saved.limits si falla la lectura posterior al guardado', async () => {
+  await complete();
+  await mount();
+  fillLimits({ ...limits, orderUsd: 80 });
+  vi.spyOn(adapter.api.live, 'checklist').mockRejectedValue(new Error('lectura fallida'));
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo verificar la lista');
+  expect(screen.getByText(liveConfirmationPhrase({ ...limits, orderUsd: 80 }))).toBeVisible();
+  expect(screen.getByLabelText('Máximo por orden')).toHaveValue(80);
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
+});
+
+it('las declaraciones cumplidas muestran texto, fecha y detalle aunque evidence sea null', async () => {
+  await complete();
+  const checklist = await adapter.api.live.checklist();
+  vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue({
+    ...checklist,
+    items: checklist.items.map((item) =>
+      item.kind === 'declaracion' ? { ...item, evidence: null } : item,
+    ),
+  });
+  await mount();
+  for (const requirement of LIVE_DECLARATION_REQUIREMENTS) {
+    const row = screen
+      .getByRole('heading', { name: LIVE_REQUIREMENT_TITLES[requirement] })
+      .closest('li')!;
+    expect(within(row).queryByText('Sin evidencia guardada.')).not.toBeInTheDocument();
+    expect(
+      within(row).getByText(LIVE_DECLARATION_TEXTS[requirement], { selector: 'p' }),
+    ).toBeVisible();
+    expect(row).toHaveTextContent('Declarada');
+    expect(within(row).getByText('Documento revisado', { selector: 'p' })).toBeVisible();
+  }
+});
+
+it.each([0, 1])(
+  'la parada usa la fecha civil local para hoy y el día anterior (%s)',
+  async (previousDay) => {
+    const now = new Date(2026, 9, 11, 0, 46);
+    const tested = new Date(2026, 9, 11 - previousDay, previousDay ? 23 : 0, 30);
+    const checklist = await adapter.api.live.checklist();
+    const verdict = evaluateKillSwitchTest(tested.toISOString(), now.getTime());
+    vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue({
+      ...checklist,
+      items: checklist.items.map((item) =>
+        item.requirement === 'parada-probada'
+          ? {
+              ...item,
+              state: verdict.state,
+              evidence: verdict.evidence,
+              markedAt: tested.toISOString(),
+            }
+          : item,
+      ),
+    });
+    await mount();
+    const row = screen
+      .getByRole('heading', { name: LIVE_REQUIREMENT_TITLES['parada-probada'] })
+      .closest('li')!;
+    expect(row).toHaveTextContent(previousDay ? 'Última prueba hace 1 día' : 'Última prueba hoy');
+    expect(row).toHaveTextContent(tested.toLocaleDateString('es-ES', { dateStyle: 'medium' }));
+    if (previousDay) expect(row).not.toHaveTextContent('hoy');
+  },
+);
 
 it('un error IPC de activación conserva el bloqueo y ofrece reintentar la verificación', async () => {
   await complete();

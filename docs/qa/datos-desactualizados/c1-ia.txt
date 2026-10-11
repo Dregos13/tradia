@@ -18,7 +18,7 @@ Ajustes
 IA
 Señales + paper trading
 Parada
-Sin conexión: las decisiones están en pausa. Reintentando en 8 s.
+Sin conexión: las decisiones están en pausa. Reintentando en 7 s.
 Comprobar ahora
 Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
 
@@ -72,6 +72,6 @@ Revisar fuentes de mercado
 Sin conexión
 Agentes en pausa
 · Sin conexión
-Última comprobación 10:56:38
-Próximo reintento 10:56:46
+Última comprobación 11:19:24
+Próximo reintento 11:19:30
 Último latido Pendiente

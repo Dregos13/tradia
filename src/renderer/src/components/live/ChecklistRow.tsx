@@ -45,14 +45,14 @@ export function ChecklistRow({
       </div>
       <div>
         <h4>{item.title}</h4>
-        <p>{item.evidence ?? 'Sin evidencia guardada.'}</p>
+        <p>{item.evidence ?? item.declaration ?? 'Sin evidencia guardada.'}</p>
         {item.markedAt && (
           <p className="live-meta">
             {manual ? 'Declarada' : 'Evaluada'}{' '}
             <time dateTime={item.markedAt}>{timestamp(item.markedAt)}</time>
           </p>
         )}
-        {item.declaration && <p>{item.declaration}</p>}
+        {item.evidence && item.declaration && <p>{item.declaration}</p>}
         {item.declarationDetail && <p className="live-detail">{item.declarationDetail}</p>}
         {manual ? (
           <DeclarationForm

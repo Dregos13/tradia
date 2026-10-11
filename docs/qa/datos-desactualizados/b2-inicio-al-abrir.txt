@@ -22,7 +22,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 10:56:06 CEST
+Actualizado 11:18:51 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -31,12 +31,12 @@ En línea
 
 Precios · Tiingo
 
-11 oct 2026, 10:56 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Macro · FRED
 
-11 oct 2026, 10:56 CEST
+11 oct 2026, 11:18 CEST
 
 Disponible
 Noticias · Reserva Federal — comunicados y FOMC
@@ -124,7 +124,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 10:56 CEST
+Datos de 11 oct 2026, 11:18 CEST
 
 Ver límites de riesgo
 Exposición
@@ -167,6 +167,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 10:56:06
+Última comprobación 11:18:50
 Próximo reintento —
 Último latido Pendiente

@@ -44,26 +44,31 @@ export function useLiveChecklist() {
   const mounted = useRef(false);
   const working = useRef(false);
   const disconnected = useRef(false);
+  const pendingRead = useRef(false);
   const generation = useRef(0);
-  const read = useCallback(async (saved?: LiveLimits): Promise<Snapshot | null> => {
+  const read = useCallback(async (): Promise<Snapshot | null> => {
     const id = ++generation.current;
     setLoading(true);
-    setError('');
     try {
-      const [checklist, state, stop, connection] = await Promise.all([
-        window.tradia.live.checklist(),
-        window.tradia.live.state(),
-        window.tradia.risk.getKillSwitch(),
-        window.tradia.connectivity.getState(),
-      ]);
-      if (!mounted.current || id !== generation.current) return null;
-      disconnected.current = connection.status !== 'online';
-      setOffline(disconnected.current);
-      const next = { checklist, state, stopActive: stop.active };
+      // Push events during an action are coalesced. Repeat the snapshot if
+      // it changed while reading, without discarding the mutation's result.
+      let next: Snapshot;
+      do {
+        pendingRead.current = false;
+        const [checklist, state, stop, connection] = await Promise.all([
+          window.tradia.live.checklist(),
+          window.tradia.live.state(),
+          window.tradia.risk.getKillSwitch(),
+          window.tradia.connectivity.getState(),
+        ]);
+        if (!mounted.current || id !== generation.current) return null;
+        disconnected.current = connection.status !== 'online';
+        setOffline(disconnected.current);
+        next = { checklist, state, stopActive: stop.active };
+      } while (pendingRead.current && mounted.current && id === generation.current);
       setSnapshot(next);
-      // LiveState only exposes confirmed limits in main. Unconfirmed values
-      // come from setLimits; after an external change they must be saved again.
-      setLimits(saved ?? state.limits);
+      // The checklist also persists unconfirmed limits, unlike live:state.
+      setLimits(next.checklist.limits.limits ?? next.state.limits);
       return disconnected.current ? null : next;
     } catch {
       if (mounted.current && id === generation.current)
@@ -107,6 +112,7 @@ export function useLiveChecklist() {
       if (mounted.current) setError(fallback);
       return false;
     } finally {
+      if (pendingRead.current && mounted.current) await read();
       working.current = false;
       if (mounted.current) {
         setBusy(false);
@@ -117,27 +123,28 @@ export function useLiveChecklist() {
   const declare = (request: LiveDeclareRequest) =>
     run(async () => {
       await window.tradia.live.declare(request);
-      if (await read(limits ?? undefined))
+      if (await read())
         setNotice(request.confirmed ? 'Declaración guardada con fecha.' : 'Declaración retirada.');
     }, 'No se pudo guardar la declaración. Reintenta y verifica su estado.');
   const save = (input: LiveLimits) =>
     run(async () => {
       const saved = await window.tradia.live.setLimits(input);
       if (!saved.limits) throw new Error('Sin límites guardados');
-      if (await read(saved.limits))
-        setNotice('Límites guardados · todavía debes confirmarlos por escrito.');
+      if (!mounted.current) return;
+      setLimits(saved.limits);
+      if (await read()) setNotice('Límites guardados · todavía debes confirmarlos por escrito.');
     }, 'No se pudieron guardar los límites. Dinero real permanece bloqueado.');
   const testStop = () =>
     run(async () => {
       const result = await window.tradia.live.testKillSwitch();
-      await read(limits ?? undefined);
+      await read();
       if (!result.ok) setError(result.error ?? 'La prueba de parada falló. Revisa Riesgo.');
       else setNotice('Parada probada: se activó y se reanudó en paper.');
     }, 'No se pudo probar la parada. Revisa su estado en Riesgo antes de reintentar.');
   const testAlert = (channel: DeliveryTestableChannel) =>
     run(async () => {
       const result = await window.tradia.delivery.test({ channel });
-      await read(limits ?? undefined);
+      await read();
       if (!result.ok)
         setError(result.error ?? 'La alerta de prueba falló. Revisa los canales en Ajustes.');
       else setNotice('Alerta de prueba enviada correctamente.');
@@ -145,8 +152,8 @@ export function useLiveChecklist() {
   const prepare = async () => {
     let ready = false;
     await run(async () => {
-      const next = await read(limits ?? undefined);
-      ready = !!next && checklistReasons(next).length === 0 && !!limits;
+      const next = await read();
+      ready = !!next && checklistReasons(next).length === 0 && !!next.checklist.limits.limits;
     }, 'No se pudo verificar la activación. Dinero real permanece bloqueado.');
     return ready;
   };
@@ -154,7 +161,9 @@ export function useLiveChecklist() {
     let activated = false;
     await run(async () => {
       const result = await window.tradia.live.activate({ phrase });
-      await read(limits ?? undefined);
+      if (!mounted.current) return;
+      setSnapshot((previous) => previous && { ...previous, state: result.state });
+      await read();
       if (!mounted.current) return;
       activated = result.activated;
       if (!result.activated) {
@@ -174,17 +183,17 @@ export function useLiveChecklist() {
     const offConnection = window.tradia.connectivity.onChanged((connection) => {
       disconnected.current = connection.status !== 'online';
       setOffline(disconnected.current);
-      generation.current++;
-      if (disconnected.current) setLoading(false);
-      else if (!working.current) void reload();
+      if (working.current) pendingRead.current = true;
+      else {
+        generation.current++;
+        if (disconnected.current) setLoading(false);
+        else void reload();
+      }
     });
     const changed = () => {
       if (!working.current) void reload();
       else {
-        // An event after a read began invalidates that response, including
-        // while preparing the dialog. Mutations always read again afterward.
-        generation.current++;
-        setError('Los requisitos cambiaron durante la comprobación. Reintenta la verificación.');
+        pendingRead.current = true;
       }
     };
     const offLive = window.tradia.live.onChanged(changed);

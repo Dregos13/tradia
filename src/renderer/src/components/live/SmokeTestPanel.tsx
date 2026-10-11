@@ -197,15 +197,22 @@ export function SmokeTestPanel({
           </div>
         </dl>
       )}
-      {result?.failedStep && (
+      {result && (result.failedStep || result.error) && (
         <p role="alert">
-          Paso fallido:{' '}
-          {result.failedStep === 'compra-enviada'
-            ? 'Compra enviada / ejecución de compra'
-            : result.failedStep === 'posicion-cerrada'
-              ? 'Posición cerrada'
-              : 'Conciliación sin descuadres'}
-          . {result.error}
+          {result.failedStep ? (
+            <>
+              Paso fallido:{' '}
+              {result.failedStep === 'compra-enviada'
+                ? 'Compra enviada / ejecución de compra'
+                : result.failedStep === 'posicion-cerrada'
+                  ? 'Posición cerrada'
+                  : 'Conciliación sin descuadres'}
+              .{' '}
+            </>
+          ) : (
+            'Prueba fallida: '
+          )}
+          {result.error}
         </p>
       )}
       {error && <p role="alert">{error}</p>}

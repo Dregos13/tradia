@@ -1,8 +1,8 @@
 {
-  "now": "2026-10-11T08:55:16.732Z",
+  "now": "2026-10-11T09:18:00.959Z",
   "connectivity": {
     "status": "online",
-    "lastCheckedAt": "2026-10-11T08:55:16.251Z",
+    "lastCheckedAt": "2026-10-11T09:18:00.635Z",
     "nextRetryAt": null,
     "attempt": 0
   },
@@ -10,10 +10,10 @@
     {
       "key": "modelo:0.1.0",
       "state": "fiable",
-      "lastOkAt": "2026-10-11T08:55:01.187Z",
+      "lastOkAt": "2026-10-11T09:17:45.807Z",
       "consecutiveFailures": 0,
       "reason": null,
-      "updatedAt": "2026-10-11T08:55:01.187Z"
+      "updatedAt": "2026-10-11T09:17:45.807Z"
     }
   ],
   "lastBars": {},
@@ -199,7 +199,7 @@
         },
         "strategyEval": null,
         "reason": null,
-        "lastReviewedAt": "2026-10-11T08:55:00.570Z"
+        "lastReviewedAt": "2026-10-11T09:17:45.187Z"
       },
       {
         "subject": "estrategia",
@@ -277,7 +277,7 @@
       "insuficiente": 4
     },
     "proposals": [],
-    "evaluatedAt": "2026-10-11T08:55:00.570Z"
+    "evaluatedAt": "2026-10-11T09:17:45.187Z"
   },
   "signals": [],
   "signalStrategies": [
