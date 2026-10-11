@@ -252,7 +252,10 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
 
   const recordJournal = (input: JournalRecordInput): void => {
     try {
-      deps.recordJournal?.(input);
+      // Las entradas del gestor llevan la cuenta de su tabla de órdenes:
+      // 'paper' para el broker paper y 'live' para el real, así el Diario
+      // sabe si una traza de orden fue dinero real.
+      deps.recordJournal?.({ ...input, mode: input.mode ?? deps.repository.orderMode });
     } catch (error: unknown) {
       logger.warn?.(`[ordenes] no se pudo escribir en el diario: ${errorMessage(error)}`);
     }

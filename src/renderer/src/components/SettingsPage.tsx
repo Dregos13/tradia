@@ -1,3 +1,4 @@
+import { TourHelp } from './onboarding/TourHelp';
 import { AiSettings } from './settings/AiSettings';
 import { LiveBrokerSettings } from './live/LiveBrokerSettings';
 import { BrokerSettings } from './settings/BrokerSettings';
@@ -464,6 +465,7 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <RoutineSettings />
       <BackupSettings />
       <LogSettings />
+      <TourHelp />
     </section>
   );
 }

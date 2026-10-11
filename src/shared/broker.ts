@@ -502,6 +502,13 @@ export interface BrokerOrdersQuery {
 export interface CancelOrderRequest {
   /** Id local (`broker_orders.id`) de una orden abierta. */
   id: number;
+  /**
+   * Cuenta de la orden que se quiere cancelar. Los ids de `broker_orders`
+   * y de `broker_orders_live` se solapan: con 'live' el canal se niega en
+   * claro en vez de cancelar por accidente la orden paper con ese mismo
+   * id. Sin `mode` se asume 'paper' (comportamiento anterior).
+   */
+  mode?: BrokerOrderMode;
 }
 
 /**

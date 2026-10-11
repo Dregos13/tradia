@@ -1,3 +1,5 @@
+import { OnboardingProvider, useOnboarding } from './components/onboarding/OnboardingProvider';
+import { FirstStepsCard } from './components/onboarding/FirstStepsCard';
 import { AiPage } from './components/ai/AiPage';
 import { ModelHealthPage } from './components/model-health/ModelHealthPage';
 import { ChecklistPage } from './components/live/ChecklistPage';
@@ -67,12 +69,15 @@ const currentPage = (): Page => {
 export default function App() {
   return (
     <RiskGate>
-      <AppShell />
+      <OnboardingProvider>
+        <AppShell />
+      </OnboardingProvider>
     </RiskGate>
   );
 }
 
 function AppShell() {
+  const tour = useOnboarding();
   const [legalOpen, setLegalOpen] = useState(false);
   const legalButton = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>(currentPage);
@@ -104,8 +109,8 @@ function AppShell() {
   useEffect(() => {
     if (previousPage.current === page) return;
     previousPage.current = page;
-    heading.current?.focus();
-  }, [page]);
+    if (!tour?.open) heading.current?.focus();
+  }, [page, tour?.open]);
   return (
     <div className={`app${hasBanner ? ' has-banner' : ''}`}>
       <a className="skip-link" href="#contenido">
@@ -276,6 +281,7 @@ function AppShell() {
           <StrategiesPage />
         ) : page === 'inicio' ? (
           <>
+            <FirstStepsCard />
             <HomePhaseNotices live={live} />
             <HomePage state={state} />
           </>

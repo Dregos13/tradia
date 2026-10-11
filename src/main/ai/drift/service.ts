@@ -20,6 +20,10 @@
  *   degrada la ficha solo tras DEGRADE_MIN_CONSECUTIVE_REVIEWS revisiones
  *   mensuales seguidas en alerta. Una racha perdedora aislada —aunque
  *   supere el máximo del backtest— queda en observación y nunca degrada.
+ *   Una revisión solo cuenta como mensual si ha pasado un mes real
+ *   (≥ DEGRADE_MIN_REVIEW_GAP_DAYS días) o si ve operaciones nuevas: dos
+ *   revisiones a un día de distancia a caballo de fin de mes con las
+ *   mismas operaciones no son dos meses de evidencia (`sinMesReal`).
  *
  * Una degradación es irreversible hasta el reentrenamiento: deja el
  * motivo en la ficha (`model_cards.motivo_no_apto` para el modelo;
@@ -32,6 +36,7 @@
 import {
   DEGRADE_DEVIATION_PCT,
   DEGRADE_MIN_CONSECUTIVE_REVIEWS,
+  DEGRADE_MIN_REVIEW_GAP_DAYS,
   DEGRADE_MIN_TRADES,
   DRIFT_BRIER_DELTA,
   DRIFT_BRIER_WINDOW,
@@ -473,6 +478,37 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
 
   // -- Revisión mensual de estrategias ------------------------------------------
 
+  /**
+   * Métricas de rendimiento de una ficha sobre sus operaciones paper
+   * cerradas: desviación frente a la expectativa del backtest, racha
+   * perdedora actual y fecha NY del último cierre (la huella que dice
+   * si una revisión posterior ve operaciones nuevas). La usa la
+   * revisión mensual y la vista de Salud, que la devuelve en vivo.
+   */
+  const strategyMetrics = (ficha: StrategySummary, all?: readonly ClosedTrade[]) => {
+    const trades = (all ?? deps.closedTrades()).filter(
+      (trade) => trade.strategyId === ficha.id,
+    );
+    const expectation = deps.expectationFor(ficha.id);
+    const realPct = round4(trades.reduce((acc, trade) => acc + trade.returnPct, 0));
+    const expectedPct =
+      expectation.perTradeReturnPct === null
+        ? null
+        : round4(expectation.perTradeReturnPct * trades.length);
+    const deviationPct = expectedPct === null ? null : round4(realPct - expectedPct);
+    let losingStreak = 0;
+    for (let i = trades.length - 1; i >= 0 && trades[i]!.returnPct < 0; i -= 1) {
+      losingStreak += 1;
+    }
+    let lastClosedAt: string | null = null;
+    for (const trade of trades) {
+      if (lastClosedAt === null || trade.closedAtNy > lastClosedAt) {
+        lastClosedAt = trade.closedAtNy;
+      }
+    }
+    return { trades, expectation, realPct, expectedPct, deviationPct, losingStreak, lastClosedAt };
+  };
+
   const evaluateStrategy = (
     ficha: StrategySummary,
     evaluatedAt: string,
@@ -485,18 +521,8 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     ) {
       return null; // una revisión mensual por estrategia
     }
-    const trades = deps.closedTrades().filter((trade) => trade.strategyId === ficha.id);
-    const expectation = deps.expectationFor(ficha.id);
-    const realPct = round4(trades.reduce((acc, trade) => acc + trade.returnPct, 0));
-    const expectedPct =
-      expectation.perTradeReturnPct === null
-        ? null
-        : round4(expectation.perTradeReturnPct * trades.length);
-    const deviationPct = expectedPct === null ? null : round4(realPct - expectedPct);
-    let losingStreak = 0;
-    for (let i = trades.length - 1; i >= 0 && trades[i]!.returnPct < 0; i -= 1) {
-      losingStreak += 1;
-    }
+    const { trades, realPct, expectedPct, deviationPct, losingStreak, lastClosedAt } =
+      strategyMetrics(ficha);
 
     const detail: Record<string, number | string> = {
       trades: trades.length,
@@ -506,12 +532,38 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     };
     if (expectedPct !== null) detail.expectedPct = expectedPct;
     if (deviationPct !== null) detail.deviationPct = deviationPct;
+    if (lastClosedAt !== null) detail.ultimaOperacionCierre = lastClosedAt;
 
     const drifted =
       trades.length >= DEGRADE_MIN_TRADES &&
       deviationPct !== null &&
       Math.abs(deviationPct) > DEGRADE_DEVIATION_PCT;
-    const streak = drifted ? (previous?.drifted === true ? previous.streak + 1 : 1) : 0;
+    // Una revisión solo cuenta como «mensual» si ha pasado un mes real
+    // (≥ DEGRADE_MIN_REVIEW_GAP_DAYS) o si la segunda ve operaciones
+    // nuevas: dos revisiones a un día de distancia a caballo de fin de
+    // mes con las mismas operaciones no son dos meses de evidencia y la
+    // racha se congela —nunca aumenta— con `sinMesReal`.
+    const previousLastClose =
+      typeof previous?.detail['ultimaOperacionCierre'] === 'string'
+        ? (previous.detail['ultimaOperacionCierre'] as string)
+        : null;
+    const newTrades =
+      previous !== null &&
+      (trades.length > (detailNumber(previous.detail, 'trades') ?? 0) ||
+        (lastClosedAt !== null &&
+          (previousLastClose === null || lastClosedAt > previousLastClose)));
+    const reviewCounts =
+      previous === null ||
+      now() - Date.parse(previous.evaluatedAt) >= DEGRADE_MIN_REVIEW_GAP_DAYS * DAY_MS ||
+      newTrades;
+    if (!reviewCounts) detail.sinMesReal = 'si';
+    const streak = drifted
+      ? reviewCounts
+        ? previous?.drifted === true
+          ? previous.streak + 1
+          : 1
+        : previous!.streak
+      : 0;
     const check = deps.repo.insertCheck({
       subject: 'estrategia',
       subjectId: ficha.id,
@@ -612,21 +664,44 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
             driftSince: dataDriftSince(checks),
           };
 
+    // El Brier móvil y la desviación se calculan en vivo (como
+    // resolvedCount): la revisión diaria guardada solo gobierna la
+    // alerta y la persistencia, no la métrica que se muestra. Con la
+    // referencia disponible los números siempre llegan; el null queda
+    // para cuando de verdad falta, y entonces `missingReason` dice por
+    // qué.
+    const briers = deps.repo.resolvedBriers(card.version, DRIFT_BRIER_WINDOW);
     const resolvedCount = deps.repo.resolvedCount(card.version);
+    const rollingBrier =
+      briers.length === 0
+        ? null
+        : round4(briers.reduce((acc, brier) => acc + brier, 0) / briers.length);
+    const delta =
+      rollingBrier !== null && briers.length >= DRIFT_BRIER_WINDOW
+        ? round4(rollingBrier - card.metrics.brierOos)
+        : null;
     const resultsDrift: ResultsDriftSummary = {
       drifted: lastResult?.drifted ?? false,
       resolvedCount: Math.min(resolvedCount, DRIFT_BRIER_WINDOW),
-      rollingBrier: detailNumber(lastResult?.detail ?? {}, 'rollingBrier'),
+      rollingBrier,
       cardBrier: card.metrics.brierOos,
-      delta: detailNumber(lastResult?.detail ?? {}, 'delta'),
+      delta,
       driftSince: resultsDriftSince(checks),
+      missingReason:
+        rollingBrier === null
+          ? 'Todavía no hay predicciones resueltas del modelo.'
+          : delta === null
+            ? `Ventana incompleta: ${briers.length} de ${DRIFT_BRIER_WINDOW} ` +
+              'predicciones resueltas; la diferencia con la ficha llega con la ventana llena.'
+            : null,
     };
 
     let state: ModelHealthState;
     let reason: string | null = null;
     if (isCardMarked(card)) {
       state = 'degradada';
-      reason = `${card.ineligibleReason}. No se debe a una sola racha perdedora.`;
+      const mark = (card.ineligibleReason ?? '').replace(/[\s.:]+$/u, '');
+      reason = `${mark}. No se debe a una sola racha perdedora.`;
     } else if (lastDatos?.drifted === true || lastResult?.drifted === true) {
       state = 'observacion';
       reason =
@@ -659,15 +734,24 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     };
   };
 
-  const strategyRow = (ficha: StrategySummary): ModelHealthRow => {
+  const strategyRow = (ficha: StrategySummary, allTrades: readonly ClosedTrade[]): ModelHealthRow => {
     const last = deps.repo.latestCheck('estrategia', ficha.id, 'rendimiento');
+    // Operaciones, desviación y racha van en vivo (la revisión mensual
+    // solo gobierna la persistencia): la desviación es número siempre
+    // que haya backtest de referencia, y cuando falta `missingReason`
+    // lo dice.
+    const live = strategyMetrics(ficha, allTrades);
     const backtestMax = ficha.metricsSummary?.maxLosingStreak ?? null;
     const strategyEval: StrategyDriftSummary = {
-      trades: detailNumber(last?.detail ?? {}, 'trades') ?? 0,
-      deviationPct: detailNumber(last?.detail ?? {}, 'deviationPct'),
+      trades: live.trades.length,
+      deviationPct: live.deviationPct,
       consecutiveReviews: last?.streak ?? 0,
-      losingStreak: detailNumber(last?.detail ?? {}, 'losingStreak'),
+      losingStreak: live.losingStreak,
       maxLosingStreakBacktest: backtestMax,
+      missingReason:
+        live.deviationPct === null
+          ? 'Sin backtest de referencia: no hay expectativa con la que comparar la desviación.'
+          : null,
     };
 
     let state: ModelHealthState;
@@ -716,9 +800,10 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
   };
 
   const overview = (): ModelHealthOverview => {
+    const allTrades = deps.closedTrades();
     const subjects: ModelHealthRow[] = [
       modelRow(deps.repo.latestModelCard()),
-      ...deps.listStrategies().map(strategyRow),
+      ...deps.listStrategies().map((ficha) => strategyRow(ficha, allTrades)),
     ];
     const counts: Record<ModelHealthState, number> = {
       saludable: 0,
@@ -913,8 +998,24 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
             'el pipeline ml/ corre fuera de la app.',
           dataUsed: { componente: 'ai/drift', propuestaId: resolved.id, trimestre: resolved.quarter },
         });
-        emitChanged();
+      } else {
+        recordJournal({
+          type: 'resumen',
+          result: 'completado',
+          reason:
+            `Propuesta de reentrenamiento ${resolved.quarter} pospuesta hasta ` +
+            `${resolved.postponedUntil}` +
+            (resolved.note !== null ? `. Motivo: ${resolved.note}` : '') +
+            '.',
+          dataUsed: {
+            componente: 'ai/drift',
+            propuestaId: resolved.id,
+            trimestre: resolved.quarter,
+            pospuestaHasta: resolved.postponedUntil,
+          },
+        });
       }
+      emitChanged();
       return {
         proposal: resolved,
         instructions: request.action === 'aprobar' ? RETRAIN_INSTRUCTIONS : null,

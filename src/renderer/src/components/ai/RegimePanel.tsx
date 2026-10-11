@@ -3,7 +3,7 @@ import { Badge, date, number, percent, RegimeBadge, regimeLabel, TableWrap } fro
 export function RegimePanel({ overview }: { overview: RegimeOverview | null }) {
   const market = overview?.market;
   return (
-    <section className="ai-section" aria-labelledby="ai-regime-title">
+    <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
       <h3 id="ai-regime-title">Régimen del mercado</h3>
       {market ? (
         <>

@@ -144,7 +144,7 @@ Se ha atacado desde fuera, con los servicios reales cableados y sin simular la l
 
 ## Observaciones (no son fallos; requieren decisión)
 
-- **Régimen desconocido: la estrategia queda habilitada.** `resolveStrategyRegime` habilita la estrategia cuando no hay régimen calculado (`current === null`, por ejemplo sin velas de SPY), aunque declare `failsIn`. Está documentado en `enablement.ts` como decisión deliberada, pero es una regla de seguridad que «falla abierta».
+- **Régimen desconocido: la estrategia queda habilitada.** `resolveStrategyRegime` habilita la estrategia cuando no hay régimen calculado (`current === null`, por ejemplo sin velas de SPY), aunque declare `failsIn`. Está documentado en `enablement.ts` como decisión deliberada, pero es una regla de seguridad que «falla abierta». **Resuelto:** desde la corrección de este ciclo la regla cierra en falso — con `current === null` una ficha que declara `failsIn` queda `desactivada` con motivo «Régimen desconocido» (ver `enablement.ts` y `docs/ia.md`).
 - **Requisito vencido con el modo activo.** La guarda de órdenes (`orderGuard`) lee `live_mode.estado` sin reevaluar la lista. Hoy lo cubre el adaptador live, que llama a `getChecklist()` en cada `submitOrder` y suspende. La orden queda `rechazada` en local, sin llegar a la red. La defensa existe, pero está en una sola capa (prueba `live.audit.test.ts:518`).
 
 ## Sesión · Profesional independiente que organiza varios proyectos

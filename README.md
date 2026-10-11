@@ -178,6 +178,9 @@ Todos los canales están tipados en `src/shared/ipc.ts`:
   aviso, rutina diaria, copias y registros.
 - `broker`, `orders`, `reconcile`, `deviation`: cuenta paper, órdenes,
   conciliación e informe real vs backtest.
+- `providers`: `test-connection` («Probar conexión» de Tiingo y FRED en
+  Ajustes) y el gancho de desarrollo `simulate-test` (solo `TRADIA_E2E` y
+  sin empaquetar).
 - `ai`: `regime-overview`, `predictions`, `model-card`, `news-analysis`,
   ajustes del LLM (`get/set/test-llm`), `health`, `retrain-proposals`,
   `resolve-retrain` y evento `changed` (ver `docs/ia.md`).
@@ -202,9 +205,26 @@ versionado en SQLite (`data_batches`, `bars`, `corporate_actions`,
 peticiones/día, respetada por el limitador local) cuando hay una clave
 guardada en Ajustes → Proveedores de datos (`secrets.setKey('tiingo', …)`;
 la clave viaja en la cabecera `Authorization`, nunca en la URL ni en los
-logs). Sin clave no hay proveedor y la app muestra el estado vacío. Con
+logs). Sin clave no hay proveedor y la app muestra el estado vacío —
+nunca se sirven velas ni series simuladas como si fueran reales. Con
 `TRADIA_E2E=1` y **sin empaquetar** se usa un adaptador simulado
 determinista rotulado «Datos simulados».
+
+**Probar conexión** (`src/main/providers/`): el botón de Ajustes hace una
+petición mínima real con la clave guardada —la última cotización de SPY en
+Tiingo y la observación más reciente de VIXCLS en FRED— y clasifica el
+resultado en `ok` (con la fecha del último dato), `sin-clave`,
+`clave-rechazada`, `cuota`, `sin-red` o `error`, con el motivo legible y
+la latencia; la clave nunca aparece en el resultado ni en los logs. Cada
+prueba actualiza `provider:<id>` en `data_status` (`ok` → `fiable`,
+`sin-clave` → sin estado, `clave-rechazada` → `no-fiable`, el resto
+acumula fallos como una pasada de ingesta). Desde la terminal:
+`TIINGO_API_KEY=… FRED_API_KEY=… npm run qa:providers` ejecuta la misma
+comprobación y muestra estado, fecha y latencia sin imprimir la clave
+(sin variables termina con el mensaje de uso y código distinto de 0). En
+modo E2E el sondeo usa los proveedores simulados y el canal
+`providers:simulate-test` fuerza el estado de la próxima prueba (se
+consume una vez).
 
 **Horario de la actualización diaria**: se ejecuta al cierre de NYSE más un
 margen de 75 minutos (16:00 ET + 75 min ≈ 21:15 UTC, normalmente **23:15 en

@@ -21,10 +21,10 @@ const memoryStore = (): KeyValueStore => {
 
 const analyzerStub = (
   impl?: NewsHeadlineAnalyzer['analyze'],
-  label: 'llm' | 'local' = 'local',
+  label: 'llm' | 'local' | 'suscripcion' = 'local',
 ): NewsHeadlineAnalyzer & { analyze: ReturnType<typeof vi.fn> } => ({
   analyzer: label,
-  model: label === 'llm' ? 'claude-haiku-4-5-20251001' : null,
+  model: label === 'llm' ? 'claude-haiku-4-5-20251001' : label === 'suscripcion' ? 'claude-code-cli' : null,
   analyze: vi.fn(
     impl ??
       (async (input) => ({
@@ -42,6 +42,7 @@ function setup(options: {
   assets?: string[];
   llm?: NewsHeadlineAnalyzer | null;
   local?: NewsHeadlineAnalyzer;
+  sub?: (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean }) | null;
   hasKey?: boolean;
   useSimulated?: boolean;
   simulated?: NewsHeadlineAnalyzer | null;
@@ -61,6 +62,7 @@ function setup(options: {
     repo,
     localAnalyzer: options.local ?? analyzerStub(),
     llmAnalyzer: options.llm ?? null,
+    subscriptionAnalyzer: options.sub ?? null,
     simulatedAnalyzer: options.simulated ?? null,
     useSimulated: options.useSimulated ?? false,
     secrets,
@@ -253,6 +255,129 @@ describe('elección de analizador y respaldo local', () => {
     await service.drain();
     expect(simulated.analyze).toHaveBeenCalledTimes(1);
     expect(llm.analyze).not.toHaveBeenCalled();
+  });
+});
+
+describe('proveedor por suscripción (CLI de Claude Code)', () => {
+  const subStub = (overrides: {
+    analyze?: NewsHeadlineAnalyzer['analyze'];
+    available?: boolean;
+    ping?: () => Promise<number>;
+  } = {}) =>
+    Object.assign(analyzerStub(overrides.analyze, 'suscripcion'), {
+      available: vi.fn(() => overrides.available ?? true),
+      ...(overrides.ping ? { ping: vi.fn(overrides.ping) } : {}),
+    });
+
+  it('usa la CLI cuando el proveedor es suscripcion y está activada', async () => {
+    const sub = subStub();
+    const local = analyzerStub();
+    const { db, repo, service, store } = setup({ sub, local });
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'true');
+    service.enqueueItem({
+      id: insertItem(db, { confirmed: true, assets: ['AAPL'] }),
+      confirmed: true,
+    });
+    await service.drain();
+    expect(sub.analyze).toHaveBeenCalledTimes(1);
+    expect(local.analyze).not.toHaveBeenCalled();
+    // La fila queda rotulada con el método de suscripción.
+    expect(repo.list().map((row) => row.analyzer)).toEqual(['suscripcion']);
+    expect(repo.list()[0]!.model).toBe('claude-code-cli');
+  });
+
+  it('sin CLI localizable cae al local con un aviso', async () => {
+    const sub = subStub({ available: false });
+    const local = analyzerStub();
+    const { db, service, store, logger } = setup({ sub, local });
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'true');
+    service.enqueueItem({
+      id: insertItem(db, { confirmed: true, assets: ['AAPL'] }),
+      confirmed: true,
+    });
+    await service.drain();
+    expect(sub.analyze).not.toHaveBeenCalled();
+    expect(local.analyze).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn.mock.calls[0]![0]).toContain('no encuentra la CLI');
+  });
+
+  it('un fallo de la CLI cae al local como cualquier otro proveedor', async () => {
+    const sub = subStub({
+      analyze: async () => {
+        throw new NewsLlmError('timeout', 'la CLI no respondió en 120000 ms');
+      },
+    });
+    const local = analyzerStub();
+    const { db, service, store, logger } = setup({ sub, local });
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'true');
+    service.enqueueItem({
+      id: insertItem(db, { confirmed: true, assets: ['AAPL'] }),
+      confirmed: true,
+    });
+    await service.drain();
+    expect(local.analyze).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn.mock.calls[0]![0]).toContain('la CLI no respondió');
+  });
+
+  it('sin nada guardado el proveedor por defecto es suscripcion con CLI y local sin ella', async () => {
+    const { service: conCli } = setup({ sub: subStub() });
+    const settings = await conCli.getLlmSettings();
+    expect(settings.provider).toBe('suscripcion');
+    expect(settings.cliAvailable).toBe(true);
+
+    const { service: sinCli } = setup({});
+    const sinSettings = await sinCli.getLlmSettings();
+    expect(sinSettings.provider).toBe('local');
+    expect(sinSettings.cliAvailable).toBe(false);
+  });
+
+  it('activar el interruptor sin proveedor guardado elige el detectado', async () => {
+    // Con CLI: activar guarda 'suscripcion'.
+    const { service: conCli, store: conCliStore } = setup({ sub: subStub() });
+    const saved = await conCli.setLlmSettings({ enabled: true });
+    expect(saved.provider).toBe('suscripcion');
+    expect(conCliStore.getValue(NEWS_LLM_SETTINGS_KEYS.provider)).toBe('suscripcion');
+
+    // Sin CLI: conserva la elección heredada de la API.
+    const { service: sinCli, store: sinCliStore } = setup({});
+    const savedSin = await sinCli.setLlmSettings({ enabled: true });
+    expect(savedSin.provider).toBe('llm');
+    expect(sinCliStore.getValue(NEWS_LLM_SETTINGS_KEYS.provider)).toBe('llm');
+  });
+
+  it('testLlm con suscripcion prueba la CLI y distingue sus motivos', async () => {
+    const okSub = subStub({ ping: async () => 321 });
+    const { service: ok, store: okStore } = setup({ sub: okSub });
+    okStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    expect(await ok.testLlm()).toEqual({ ok: true, error: null, latencyMs: 321 });
+    expect(okSub.ping).toHaveBeenCalledTimes(1);
+
+    const authSub = subStub({
+      ping: async () => {
+        throw new NewsLlmError('auth', 'sesión no iniciada: ejecuta «claude» y completa /login');
+      },
+    });
+    const { service: noAuth, store: noAuthStore } = setup({ sub: authSub });
+    noAuthStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    const noAuthResult = await noAuth.testLlm();
+    expect(noAuthResult.ok).toBe(false);
+    expect(noAuthResult.error).toContain('sesión no iniciada');
+
+    const missingSub = subStub({
+      ping: async () => {
+        throw new NewsLlmError('network', 'CLI no encontrada: instala Claude Code');
+      },
+    });
+    const { service: missing, store: missingStore } = setup({ sub: missingSub });
+    missingStore.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    const missingResult = await missing.testLlm();
+    expect(missingResult.ok).toBe(false);
+    expect(missingResult.error).toContain('CLI no encontrada');
   });
 });
 

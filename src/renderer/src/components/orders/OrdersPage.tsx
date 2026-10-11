@@ -357,6 +357,7 @@ export function OrdersPage() {
       <p className="orders-scroll-hint">Desplázate horizontalmente para ver todas las columnas.</p>
       <div
         className="orders-table-wrap"
+        data-tour="ordenes-paper"
         role="region"
         aria-label="Órdenes, desplazamiento horizontal"
         tabIndex={0}

@@ -73,9 +73,10 @@ export interface ReconcileLogger {
 export interface ReconcileServiceDeps {
   /** Adaptador de la cuenta paper conectada; null mientras no la haya. */
   getAdapter(): BrokerAdapter | null;
-  /** Repositorio del dominio broker (migración 010). */
+  /** Repositorio del dominio broker (migración 010; la 012 en live). */
   repository: Pick<
     BrokerRepository,
+    | 'orderMode'
     | 'listOrders'
     | 'startReconcileRun'
     | 'finishReconcileRun'
@@ -172,7 +173,9 @@ export function createReconcileService(deps: ReconcileServiceDeps): ReconcileSer
 
   const recordJournal = (input: JournalRecordInput): void => {
     try {
-      deps.recordJournal?.(input);
+      // La conciliación corre sobre la tabla del repositorio: sus
+      // trazas llevan la misma cuenta ('paper' o 'live').
+      deps.recordJournal?.({ ...input, mode: input.mode ?? deps.repository.orderMode });
     } catch (error: unknown) {
       logger.warn?.(`[reconcile] no se pudo escribir en el diario: ${errorMessage(error)}`);
     }

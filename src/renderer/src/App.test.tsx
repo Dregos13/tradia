@@ -5,15 +5,20 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import type { LiveState } from '../../shared/live';
+import { ONBOARDING_TOUR_VERSION } from '../../shared/ipc';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { createSimulatedAdapter } from './adapters/simulated';
 
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 beforeEach(async () => {
   window.location.hash = '';
+  localStorage.clear();
   simulation = createSimulatedAdapter();
   window.tradia = simulation.api;
-  await simulation.api.settings.set({ disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION });
+  await simulation.api.settings.set({
+    disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION,
+    onboardingTourVersion: ONBOARDING_TOUR_VERSION,
+  });
 });
 afterEach(() => {
   cleanup();
@@ -138,7 +143,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(14);
+    expect(simulation.listenerCount()).toBe(16);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });

@@ -16,6 +16,7 @@
 
 import type Database from 'better-sqlite3';
 
+import type { BrokerOrderMode } from '../../shared/broker';
 import {
   JOURNAL_LIST_MAX_LIMIT,
   type JournalEntry,
@@ -38,6 +39,7 @@ const DAY_MS = 86_400_000;
 interface JournalRow {
   id: number;
   tipo: string;
+  modo: string | null;
   ticker: string | null;
   estrategia_id: number | null;
   estrategias: string;
@@ -86,6 +88,7 @@ function rowToEntry(row: JournalRow): JournalEntry {
     id: row.id,
     type: row.tipo as JournalEntryType,
     createdAt: row.creado_en,
+    mode: (row.modo as BrokerOrderMode | null) ?? undefined,
     ticker: row.ticker,
     strategies: parseJson<JournalStrategyRef[]>(row.estrategias, []),
     reason: row.motivo,
@@ -105,8 +108,8 @@ function nextDay(isoDate: string): string {
 export function createJournalRepository(db: Database.Database): JournalRepository {
   const insertEntry = db.prepare(
     `INSERT INTO journal_entries
-       (tipo, ticker, estrategia_id, estrategias, motivo, datos, resultado, errores, reglas, senal_id, creado_en)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (tipo, modo, ticker, estrategia_id, estrategias, motivo, datos, resultado, errores, reglas, senal_id, creado_en)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const entryById = db.prepare('SELECT * FROM journal_entries WHERE id = ?');
 
@@ -157,6 +160,7 @@ export function createJournalRepository(db: Database.Database): JournalRepositor
       const strategies = input.strategies ?? [];
       const result = insertEntry.run(
         input.type,
+        input.mode ?? null,
         input.ticker !== undefined && input.ticker !== null ? normalizeTicker(input.ticker) : null,
         strategies[0]?.strategyId ?? null,
         JSON.stringify(strategies),

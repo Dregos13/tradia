@@ -92,7 +92,11 @@ import {
 } from './deviationService';
 import { createOrderManager, type OrderManager } from './orderManager';
 import { createReconcileService } from './reconcileService';
-import { createBrokerRepository, type BrokerRepository } from './repository';
+import {
+  createBrokerOrdersListing,
+  createBrokerRepository,
+  type BrokerRepository,
+} from './repository';
 import { createSimulatedBroker, type SimulatedBroker } from './simulated';
 import { isBrokerError, type BrokerAdapter } from './types';
 
@@ -114,6 +118,8 @@ export const ERR_BROKER_NO_KEYS =
   'No hay claves guardadas de una cuenta paper. Conecta la cuenta primero.';
 export const ERR_BROKER_NO_ACCOUNT =
   'No hay una cuenta paper conectada: el broker no puede cancelar la orden.';
+export const ERR_ORDER_NOT_PAPER =
+  'Las órdenes de dinero real se gestionan desde su cuenta live; este canal solo cancela órdenes paper.';
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -135,6 +141,12 @@ export interface BrokerSecretsStore {
 export interface BrokerServiceDeps {
   /** Repositorio del dominio broker (migración 010). */
   repository: BrokerRepository;
+  /**
+   * Listado unido de `broker_orders` y `broker_orders_live` para
+   * `orders:list` (migración 012): cada orden trae su `mode`. Sin él el
+   * servicio lista solo las paper, como antes de la fase 7.
+   */
+  ordersListing?: Pick<BrokerRepository, 'listOrders'>;
   /** Claves cifradas del broker (`BROKER_SECRET_KEYS` como proveedores). */
   secrets: BrokerSecretsStore;
   /**
@@ -605,7 +617,9 @@ export function createBrokerService(deps: BrokerServiceDeps): BrokerService {
       }
     },
 
-    listOrders: (query) => deps.repository.listOrders(query),
+    // orders:list une las órdenes paper y las reales cuando el listado
+    // unido está cableado (fase 7); cada orden trae su `mode` histórico.
+    listOrders: (query) => (deps.ordersListing ?? deps.repository).listOrders(query),
 
     createOrder: async (request) => {
       if (orders === null) throw new Error(ERR_BROKER_NO_ACCOUNT);
@@ -613,6 +627,12 @@ export function createBrokerService(deps: BrokerServiceDeps): BrokerService {
     },
 
     cancelOrder: async (request) => {
+      // Los ids de las dos tablas se solapan: una cancelación marcada
+      // 'live' se rechaza en claro en vez de tocar la orden paper con
+      // ese mismo id. Sin `mode` se asume paper (contrato anterior).
+      if (request.mode !== undefined && request.mode !== 'paper') {
+        throw new Error(ERR_ORDER_NOT_PAPER);
+      }
       if (orders === null) throw new Error(ERR_BROKER_NO_ACCOUNT);
       return orders.cancelOrder(request.id);
     },
@@ -698,6 +718,9 @@ export function registerBroker(ctx: ServiceContext): BrokerService {
     db = openDatabase(':memory:');
   }
   const repository = createBrokerRepository(db);
+  // `orders:list` une las dos tablas (paper + real): cada orden llega al
+  // renderer con su `mode` histórico.
+  const ordersListing = createBrokerOrdersListing(db);
 
   // Solo en modo E2E sin empaquetar el adaptador es el broker simulado.
   // Su precio de referencia es el último cierre ingerido del ticker —el
@@ -720,6 +743,7 @@ export function registerBroker(ctx: ServiceContext): BrokerService {
   const journal = ctx.services.journal;
   const service = createBrokerService({
     repository,
+    ordersListing,
     secrets: ctx.services.secrets ?? unavailableSecrets,
     createAdapter: (getCredentials) =>
       createAlpacaBroker({ fetch: globalThis.fetch, getCredentials }),

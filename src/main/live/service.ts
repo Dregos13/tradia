@@ -740,7 +740,8 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
 
   const journal = (input: JournalRecordInput): void => {
     try {
-      deps.recordJournal?.(input);
+      // La lista, los límites y el modo son del dominio del dinero real.
+      deps.recordJournal?.({ ...input, mode: 'live' });
     } catch (error: unknown) {
       logger.warn(`[live] no se pudo escribir el Diario: ${String(error)}`);
     }

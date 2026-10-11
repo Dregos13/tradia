@@ -386,6 +386,25 @@ describe('live:smoke-test — flujo completo', () => {
       slippageBps: 0,
       descuadres: 0,
     });
+    // Dinero real: nunca «Operación simulada».
+    expect(cierre!.mode).toBe('live');
+  });
+
+  it('todas las entradas del Diario de la prueba van marcadas como dinero real', async () => {
+    confirmLimits();
+    activateMode();
+    const { smoke } = makeSmoke();
+
+    await smoke.run({ confirm: true });
+
+    // Compra, cierre, 'operacion' final y cualquier traza de la
+    // conciliación live: todas llevan el modo real persistido.
+    expect(journal.length).toBeGreaterThan(0);
+    expect(journal.every((j) => j.mode === 'live')).toBe(true);
+    // La entrada 'operacion' es la que el Diario rotulaba «simulada».
+    expect(journal.filter((j) => j.type === 'operacion').every((j) => j.mode === 'live')).toBe(
+      true,
+    );
   });
 
   it('registra precio pedido (referencia), ejecutado y slippage con signo', async () => {

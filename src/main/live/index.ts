@@ -148,6 +148,9 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
       for (;;) {
         const page = broker.listOrders({
           status: 'ejecutada',
+          // La muestra de «paper continuo» de la lista solo mide la
+          // cuenta paper: orders:list une las reales desde la fase 7.
+          mode: 'paper',
           limit: BROKER_ORDERS_MAX_LIMIT,
           offset,
         });

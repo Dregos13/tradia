@@ -450,6 +450,13 @@ export const DRIFT_BRIER_DELTA = 0.02;
 export const DEGRADE_MIN_TRADES = 30;
 export const DEGRADE_DEVIATION_PCT = 30;
 export const DEGRADE_MIN_CONSECUTIVE_REVIEWS = 2;
+/**
+ * Separación mínima en días para que una revisión 'rendimiento' cuente
+ * como mensual: dos revisiones a caballo de fin de mes (30-09 y 01-10)
+ * con las mismas operaciones no son dos meses de evidencia. Solo
+ * operaciones nuevas en la segunda la hacen contar antes de plazo.
+ */
+export const DEGRADE_MIN_REVIEW_GAP_DAYS = 28;
 
 /** Qué se evalúa: el modelo (drift de datos/resultados) o una estrategia. */
 export const DRIFT_SUBJECTS = ['modelo', 'estrategia'] as const;
@@ -547,6 +554,13 @@ export interface ResultsDriftSummary {
    * principal con `resultsDriftSince`.
    */
   driftSince: string | null;
+  /**
+   * Motivo legible cuando `rollingBrier` o `delta` no se pueden dar
+   * (sin predicciones resueltas, ventana incompleta); null cuando los
+   * dos llegan en número. La interfaz lo muestra en lugar de un
+   * «Sin referencia» genérico.
+   */
+  missingReason?: string | null;
 }
 
 // — Fechas de inicio del drift (las calcula el proceso principal) -------
@@ -642,6 +656,11 @@ export interface StrategyDriftSummary {
   losingStreak: number | null;
   /** Racha perdedora máxima del backtest; null si no hay referencia. */
   maxLosingStreakBacktest: number | null;
+  /**
+   * Motivo legible cuando `deviationPct` no se puede dar (sin backtest
+   * de referencia); null cuando llega en número.
+   */
+  missingReason?: string | null;
 }
 
 /**

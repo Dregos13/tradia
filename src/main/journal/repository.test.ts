@@ -71,6 +71,16 @@ describe('journal repository: registro', () => {
     expect(created.ruleChecks).toEqual([]);
     expect(created.result).toBeNull();
     expect(created.dataUsed).toBeNull();
+    expect(created.mode).toBeUndefined();
+  });
+
+  it('persiste la cuenta de la entrada (paper o live) y la devuelve', () => {
+    const simulated = repo.insert({ type: 'operacion', mode: 'paper', reason: 'cierre' }, NOW);
+    const real = repo.insert({ type: 'operacion', mode: 'live', reason: 'humo' }, NOW);
+    expect(simulated.mode).toBe('paper');
+    expect(real.mode).toBe('live');
+    expect(repo.getById(real.id)?.mode).toBe('live');
+    expect(repo.list({}).entries.map((e) => e.mode)).toEqual(['live', 'paper']);
   });
 
   it('getById devuelve null cuando la entrada no existe', () => {

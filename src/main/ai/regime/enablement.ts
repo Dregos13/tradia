@@ -7,6 +7,9 @@
  *   sostenido manda y se resuelve en Salud de modelos.
  * - 'desactivada' si alguna etiqueta vigente está en `failsIn`, o si
  *   `worksIn` no está vacío y no contiene ninguna etiqueta vigente.
+ * - Sin régimen calculado (`current === null`) la regla cierra en
+ *   falso: 'desactivada' cuando la ficha declara `failsIn` (motivo
+ *   «Régimen desconocido»); el resto queda habilitada.
  * - 'habilitada' en el resto de los casos.
  *
  * El motivo es legible y sigue los textos de docs/diseno-fase-6-7.md.
@@ -66,8 +69,10 @@ export function staleRegimeResolution(sessionDate: string, expected: string): St
  * Resuelve una estrategia frente al régimen vigente (`current`: el del
  * mercado en la vista general; una capa posterior puede pasar el del
  * activo, cambiando `reference` para el motivo). `current === null`
- * significa que aún no hay régimen calculado: la estrategia queda
- * habilitada y el motivo explica por qué no se evaluó.
+ * significa que aún no hay régimen calculado: sin certeza sobre el
+ * régimen, una estrategia que declara `failsIn` queda desactivada
+ * (regla de cierre, motivo «Régimen desconocido»); las que no declaran
+ * régimen de fallo quedan habilitadas con el motivo del porqué.
  */
 export function resolveStrategyRegime(
   fields: RegimeRuleFields,
@@ -82,6 +87,14 @@ export function resolveStrategyRegime(
     };
   }
   if (current === null) {
+    if (fields.failsIn.length > 0) {
+      return {
+        regimeState: 'desactivada',
+        reason:
+          `Régimen desconocido: todavía no hay régimen calculado del ${reference} ` +
+          `y la estrategia declara que falla en ${joinLabels(fields.failsIn)}.`,
+      };
+    }
     return {
       regimeState: 'habilitada',
       reason: `Todavía no hay régimen calculado del ${reference}: faltan cierres.`,

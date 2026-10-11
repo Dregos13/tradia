@@ -35,7 +35,7 @@ export function Dashboard({
           {updatedAt ? `Actualizado ${time(updatedAt)}` : 'Esperando datos'}
         </p>
       </div>
-      <div className="dashboard-grid">
+      <div className="dashboard-grid" data-tour="inicio-situacion">
         <DashboardBlock
           id="connection"
           title="Conexión y fuentes"

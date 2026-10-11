@@ -33,6 +33,7 @@ import {
 import { openDatabase } from '../../db/database';
 import type { ServiceContext } from '../../services';
 import { createAnthropicNewsAnalyzer } from './anthropic';
+import { createClaudeCliAnalyzer } from './claudeCli';
 import { createLocalNewsAnalyzer } from './local';
 import { createNewsAnalysisRepository } from './repository';
 import { createNewsAiService, NEWS_LLM_SETTINGS_KEYS, type NewsAiService } from './service';
@@ -42,6 +43,7 @@ import type { KeyValueStore, NewsLlmUsageStore } from './types';
 export * from './types';
 export * from './local';
 export * from './anthropic';
+export * from './claudeCli';
 export * from './simulated';
 export * from './repository';
 export * from './service';
@@ -116,10 +118,21 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     logger: console,
   });
 
+  const subscriptionAnalyzer = createClaudeCliAnalyzer({
+    // La ruta puede cambiar en Ajustes: se relee en cada resolución.
+    cliPath: () => {
+      const raw = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath);
+      return raw && raw.trim().length > 0 ? raw : null;
+    },
+    usage,
+    dailyCap: () => readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
+  });
+
   const service = createNewsAiService({
     repo,
     localAnalyzer: createLocalNewsAnalyzer(),
     llmAnalyzer,
+    subscriptionAnalyzer,
     // E2E: el simulado con etiqueta 'llm' reproduce el método del diseño.
     simulatedAnalyzer: createSimulatedNewsAnalyzer({ analyzer: 'llm' }),
     useSimulated: e2e,

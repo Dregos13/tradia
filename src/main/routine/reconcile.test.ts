@@ -150,6 +150,26 @@ describe('reconcileDay', () => {
     expect(result.discrepancies.some((d) => d.includes('posición #11'))).toBe(true);
   });
 
+  it('una operación de dinero real no cuadra contra la cartera simulada ni da discrepancia', () => {
+    const input = baseInput();
+    // La entrada 'operacion' de la prueba de humo (sin posicionId, como
+    // corresponde a una operación real) no es una operación simulada.
+    input.operations = [
+      ...input.operations,
+      makeOperation({
+        id: 40,
+        mode: 'live',
+        ticker: 'SPY',
+        reason: 'Prueba de humo real completada: compra y cierre conciliados',
+        dataUsed: { notionalUsd: 1, descuadres: 0 },
+      }),
+    ];
+    const result = reconcileDay(input);
+    expect(result.discrepancies).toEqual([]);
+    // Solo cuenta las operaciones simuladas.
+    expect(result.checked.operacionesHoy).toBe(1);
+  });
+
   it('operación del diario sin posición o con P&L distinto es discrepancia', () => {
     const input = baseInput();
     input.operations = [

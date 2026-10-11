@@ -298,12 +298,27 @@ describe('habilitación de estrategias según su ficha', () => {
     expect(statuses[1]!.reason).toContain('Coincide: Lateral');
   });
 
-  it('sin régimen calculado las estrategias quedan habilitadas con motivo', () => {
-    strategies = [strategy({ id: 1, worksIn: ['lateral'] })];
+  it('con régimen desconocido solo se desactivan las que declaran «falla en»', () => {
+    strategies = [
+      strategy({ id: 1, worksIn: ['lateral'] }),
+      strategy({ id: 2, failsIn: ['tendencia'] }),
+      strategy({ id: 3, worksIn: ['tendencia'], failsIn: ['volatilidad-alta'] }),
+    ];
     const service = makeService(); // sin barras: mercado null
-    const [card] = service.overview().strategies;
-    expect(card!.regimeState).toBe('habilitada');
-    expect(card!.reason).toBe('Todavía no hay régimen calculado del mercado: faltan cierres.');
+    const [sinFallo, conFallo, conAmbas] = service.overview().strategies;
+    // Regla de cierre: sin régimen calculado no se puede descartar el
+    // régimen de fallo declarado — esas fichas quedan desactivadas.
+    expect(sinFallo!.regimeState).toBe('habilitada');
+    expect(sinFallo!.reason).toBe('Todavía no hay régimen calculado del mercado: faltan cierres.');
+    for (const card of [conFallo, conAmbas]) {
+      expect(card!.regimeState).toBe('desactivada');
+      expect(card!.reason).toContain('Régimen desconocido');
+      expect(card!.reason).toContain('la estrategia declara que falla en');
+    }
+    expect(conFallo!.reason).toBe(
+      'Régimen desconocido: todavía no hay régimen calculado del mercado ' +
+        'y la estrategia declara que falla en Tendencia.',
+    );
   });
 });
 

@@ -763,7 +763,7 @@ describe('auditoría · racha aislada en la revisión mensual real', () => {
     slippageBps: [],
   }));
 
-  it.fails(
+  it(
     'HALLAZGO H3 · dos revisiones en días consecutivos a caballo de fin de mes no cuentan como dos meses',
     () => {
       let nowMs = Date.parse('2026-09-30T21:00:00.000Z'); // 30-sep, 17:00 en Nueva York

@@ -3116,7 +3116,8 @@ export function isBrokerOrdersQuery(value: unknown): value is BrokerOrdersQuery 
 export function isCancelOrderRequest(value: unknown): value is CancelOrderRequest {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'id')) return false;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'mode')) return false;
+  if ('mode' in v && !isBrokerOrderMode(v.mode)) return false;
   return isBrokerOrderId(v.id);
 }
 

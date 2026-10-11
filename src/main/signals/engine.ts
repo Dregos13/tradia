@@ -560,7 +560,8 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     // Fase 6: la habilitación por régimen se resuelve contra el mercado
     // (referencia SPY), mismo criterio que la página «IA» y el filtro del
     // backtest. Una estrategia desactivada no vota y queda en el Diario
-    // con el motivo de su ficha; sin régimen calculado todas habilitan.
+    // con el motivo de su ficha; con régimen desconocido solo votan las
+    // que no declaran `failsIn` (regla de cierre de enablement).
     const ai = deps.ai;
     const marketRegime = ai?.marketRegime?.() ?? null;
 

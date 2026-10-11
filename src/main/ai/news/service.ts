@@ -10,10 +10,12 @@
  *   y la cola los procesa en orden, uno a uno. Un titular NO confirmado
  *   nunca se encola, y se relee `confirmada` en disco antes de analizar
  *   por si la reclasificación llegó después.
- * - Elección de analizador por titular: simulado en E2E; si no, LLM solo
- *   cuando `enabled` + clave guardada + presupuesto mensual > 0; si no,
- *   siempre el léxico local (sin coste). Cualquier error del LLM —'quota'
- *   incluida— cae al local con un aviso por clase de fallo.
+ * - Elección de analizador por titular según el proveedor (`provider`):
+ *   simulado en E2E; 'suscripcion' usa la CLI de Claude Code del equipo
+ *   (sin coste de API; exige `enabled` y un `claude` localizable); 'llm'
+ *   usa la API de Anthropic solo con `enabled` + clave guardada +
+ *   presupuesto mensual > 0; 'local' —y cualquier fallo o proveedor no
+ *   disponible— cae al léxico local con un aviso por clase de fallo.
  * - Persistencia: una fila por activo en `news_analysis`, solo para los
  *   tickers que aún no tienen análisis (UNIQUE noticia × ticker), con el
  *   método que lo produjo ('llm' + modelo o 'local').
@@ -76,18 +78,18 @@ const clampInt = (value: number, min: number, max: number): number =>
 const isStoredProvider = (value: string | null): value is NewsAnalyzer =>
   value !== null && (NEWS_ANALYZERS as readonly string[]).includes(value);
 
-const readSettings = (store: KeyValueStore): StoredLlmSettings => {
+const readSettings = (store: KeyValueStore, detectedProvider: NewsAnalyzer): StoredLlmSettings => {
   const enabled = store.getValue(NEWS_LLM_SETTINGS_KEYS.enabled) === 'true';
   const storedProvider = store.getValue(NEWS_LLM_SETTINGS_KEYS.provider);
   // Sin proveedor guardado se deriva del interruptor heredado: quien tenía
-  // el LLM activado sigue con la API ('llm'); el resto arranca en 'local'.
-  // La autodetección de la CLI de Claude Code (provider 'suscripcion' por
-  // defecto cuando exista) la incorpora el analizador por suscripción.
+  // el LLM activado sigue con la API ('llm'); el resto arranca con el
+  // proveedor detectado —'suscripcion' si hay CLI de Claude Code
+  // localizable, 'local' si no—.
   const provider: NewsAnalyzer = isStoredProvider(storedProvider)
     ? storedProvider
     : enabled
       ? 'llm'
-      : 'local';
+      : detectedProvider;
   const cliPath = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath) || null;
   const rawCap = Number(store.getValue(NEWS_LLM_SETTINGS_KEYS.dailyCap));
   const dailyCap =
@@ -118,6 +120,14 @@ export interface NewsAiServiceDeps {
   localAnalyzer: NewsHeadlineAnalyzer;
   /** Adaptador LLM (Anthropic); null si no hay adaptador montado. */
   llmAnalyzer?: (NewsHeadlineAnalyzer & { ping?(): Promise<number> }) | null;
+  /**
+   * Analizador por suscripción (CLI de Claude Code); null si no está
+   * montado. `available()` dice si hay un `claude` localizable y `ping()`
+   * lo comprueba de verdad («CLI no encontrada» / «sesión no iniciada»).
+   */
+  subscriptionAnalyzer?:
+    | (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean })
+    | null;
   /** Analizador determinista del modo E2E. */
   simulatedAnalyzer?: NewsHeadlineAnalyzer | null;
   /** true con TRADIA_E2E: siempre el simulado, sin claves ni cuotas. */
@@ -173,31 +183,52 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     }
   };
 
-  /**
-   * El LLM solo corre si: está activado, hay clave guardada y hay gasto
-   * autorizado (presupuesto > 0). El tope diario y el gasto acumulado los
-   * vigila además el propio adaptador ('quota').
-   */
-  const llmConfigured = async (): Promise<boolean> => {
-    const settings = readSettings(store);
-    if (!settings.enabled || settings.monthlyBudgetEur <= 0) return false;
-    return hasKey();
-  };
+  /** ¿Hay un `claude` localizable para el proveedor por suscripción? */
+  const cliAvailable = (): boolean => deps.subscriptionAnalyzer?.available?.() ?? false;
 
-  const pickAnalyzer = async (): Promise<NewsHeadlineAnalyzer> => {
-    if (deps.useSimulated && deps.simulatedAnalyzer) return deps.simulatedAnalyzer;
-    if (deps.llmAnalyzer && (await llmConfigured())) return deps.llmAnalyzer;
-    return deps.localAnalyzer;
+  /** Proveedor por defecto sin nada guardado: 'suscripcion' con CLI, 'local' sin ella. */
+  const detectedProvider = (): NewsAnalyzer => (cliAvailable() ? 'suscripcion' : 'local');
+
+  const readStored = (): StoredLlmSettings => readSettings(store, detectedProvider());
+
+  /**
+   * El LLM de la API solo corre si: está elegido y activado, hay clave
+   * guardada y hay gasto autorizado (presupuesto > 0). El tope diario y
+   * el gasto acumulado los vigila además el propio adaptador ('quota').
+   */
+  const llmConfigured = async (settings: StoredLlmSettings): Promise<boolean> => {
+    if (!settings.enabled || settings.provider !== 'llm' || settings.monthlyBudgetEur <= 0) {
+      return false;
+    }
+    return hasKey();
   };
 
   /** Un aviso por clase de fallo por sesión: el registro no se inunda. */
   const warnedKinds = new Set<string>();
-  const warnFallback = (error: unknown): void => {
-    const kind = isNewsLlmError(error) ? error.kind : 'desconocido';
+  const warnOnce = (kind: string, message: string): void => {
     if (warnedKinds.has(kind)) return;
     warnedKinds.add(kind);
+    logger.warn(`[news-ai] ${message} — el titular se analiza con el clasificador local`);
+  };
+
+  const pickAnalyzer = async (): Promise<NewsHeadlineAnalyzer> => {
+    if (deps.useSimulated && deps.simulatedAnalyzer) return deps.simulatedAnalyzer;
+    const settings = readStored();
+    if (settings.provider === 'suscripcion' && settings.enabled) {
+      if (deps.subscriptionAnalyzer && cliAvailable()) return deps.subscriptionAnalyzer;
+      warnOnce(
+        'sin-cli',
+        'el proveedor «Suscripción (Claude Code)» no encuentra la CLI en este equipo',
+      );
+    }
+    if (deps.llmAnalyzer && (await llmConfigured(settings))) return deps.llmAnalyzer;
+    return deps.localAnalyzer;
+  };
+
+  const warnFallback = (error: unknown): void => {
+    const kind = isNewsLlmError(error) ? error.kind : 'desconocido';
     const detail = isNewsLlmError(error) ? error.message : 'error inesperado del analizador LLM';
-    logger.warn(`[news-ai] ${detail} — el titular se analiza con el clasificador local`);
+    warnOnce(kind, detail);
   };
 
   // -- Cola FIFO --------------------------------------------------------------
@@ -287,7 +318,7 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   // -- Ajustes IPC ------------------------------------------------------------
 
   const getLlmSettings = async (): Promise<NewsLlmSettings> => {
-    const settings = readSettings(store);
+    const settings = readStored();
     const counters = usage.load();
     const today = isoNow().slice(0, 10);
     const month = today.slice(0, 7);
@@ -295,9 +326,8 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       enabled: settings.provider !== 'local' && settings.enabled,
       provider: settings.provider,
       cliPath: settings.cliPath,
-      // La detección real de la CLI de Claude Code llega con el analizador
-      // por suscripción; hasta entonces la opción se muestra no disponible.
-      cliAvailable: false,
+      // Detección real de la CLI de Claude Code en este equipo.
+      cliAvailable: cliAvailable(),
       dailyCap: settings.dailyCap,
       monthlyBudgetEur: settings.monthlyBudgetEur,
       hasKey: await hasKey(),
@@ -321,12 +351,15 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     }
     if (input.enabled !== undefined) {
       store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, input.enabled ? 'true' : 'false');
-      // Activar a mano con proveedor 'local' guardado sube al de la API,
-      // el único LLM operativo hasta el analizador por suscripción.
+      // Activar a mano sin proveedor guardado elige el detectado: la
+      // suscripción si hay CLI y, si no, la API (el único LLM que queda).
       if (input.enabled && input.provider === undefined) {
         const stored = store.getValue(NEWS_LLM_SETTINGS_KEYS.provider);
         if (!isStoredProvider(stored) || stored === 'local') {
-          store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'llm');
+          store.setValue(
+            NEWS_LLM_SETTINGS_KEYS.provider,
+            detectedProvider() === 'suscripcion' ? 'suscripcion' : 'llm',
+          );
         }
       } else if (!input.enabled && input.provider === undefined) {
         store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'local');
@@ -353,7 +386,7 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   };
 
   const testLlm = async (): Promise<NewsLlmTestResult> => {
-    const { provider } = readSettings(store);
+    const { provider } = readStored();
     if (provider === 'local') {
       return {
         ok: true,
@@ -362,9 +395,22 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       };
     }
     if (provider === 'suscripcion') {
-      // La comprobación real de la CLI llega con el analizador por
-      // suscripción; el contrato ya devuelve un motivo legible.
-      return { ok: false, error: 'CLI no encontrada.', latencyMs: null };
+      const cli = deps.subscriptionAnalyzer;
+      if (!cli?.ping) {
+        return { ok: false, error: 'CLI no encontrada.', latencyMs: null };
+      }
+      try {
+        const latencyMs = await cli.ping();
+        return { ok: true, error: null, latencyMs };
+      } catch (error) {
+        // El adaptador clasifica el motivo: 'CLI no encontrada',
+        // 'sesión no iniciada' u otro fallo de la ejecución.
+        return {
+          ok: false,
+          error: isNewsLlmError(error) ? error.message : 'No se pudo ejecutar la CLI de Claude.',
+          latencyMs: null,
+        };
+      }
     }
     if (!secrets) {
       return { ok: false, error: 'El llavero del sistema no está disponible.', latencyMs: null };

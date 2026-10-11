@@ -145,7 +145,7 @@ export function ChecklistPage({
         </section>
       )}
       {checklist && checklist.items.length > 0 && (
-        <section className="live-sheet" aria-labelledby={`${id}-checklist`}>
+        <section className="live-sheet" data-tour="dinero-real-lista" aria-labelledby={`${id}-checklist`}>
           <h3 id={`${id}-checklist`}>Requisitos previos</h3>
           <p>
             Los requisitos automáticos se verifican en el proceso principal; las declaraciones se

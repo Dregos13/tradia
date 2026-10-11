@@ -79,6 +79,7 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
       </p>
       <div>
         <button
+          id={`${provider}-test`}
           className="button"
           type="button"
           disabled
@@ -100,7 +101,7 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
 }
 export function DataProvidersSettings() {
   return (
-    <section className="settings-section" aria-label="Proveedores de datos">
+    <section className="settings-section" data-tour="ajustes-proveedores" aria-label="Proveedores de datos">
       <div>
         <h2>Proveedores de datos</h2>
         <p>Las claves se cifran en el sistema y nunca vuelven a mostrarse.</p>

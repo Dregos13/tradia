@@ -46,6 +46,10 @@ la resuelve contra el régimen del mercado —misma referencia en la página
 prioridad; `desactivada` si una etiqueta vigente está en `failsIn` o
 `worksIn` no está vacío y no contiene ninguna; `habilitada` en el resto.
 Una estrategia desactivada **no vota** y el motivo queda en el Diario.
+Sin régimen calculado la regla **cierra en falso**: las fichas que
+declaran `failsIn` quedan `desactivada` con motivo «Régimen desconocido»
+—sin certeza no se puede descartar su régimen de fallo— y las que no lo
+declaran quedan habilitadas.
 
 El backtest puede ejecutarse con el mismo filtro (`regimeFilter`) y la
 ficha muestra la comparación pareada con/sin filtro (`backtest:*-regime-
@@ -90,21 +94,42 @@ analizar). Una noticia sin verificar nunca dispara una señal: solo
 ajusta la confianza vía `news_analysis` y pasa por el motor de riesgo
 como todo lo demás.
 
-Analizador por titular, en este orden:
+Analizador por titular según el proveedor elegido en Ajustes
+(`ai:get-llm-settings` / `ai:set-llm-settings`, campo `provider`):
 
 1. **Simulado determinista**: siempre en modo E2E (rotula `llm` para
    reproducir el método del diseño sin tocar la red).
-2. **Anthropic** (`NEWS_LLM_MODEL`): solo con el interruptor activado,
-   clave guardada y presupuesto mensual > 0; vigila además el tope
-   diario y el gasto estimado (`ai:get-llm-settings` expone contadores y
-   `hasKey`, jamás la clave). Cualquier fallo —cuota incluida— cae al
-   analizador local con un aviso por clase de error.
-3. **Léxico local**: sin coste ni clave, siempre disponible.
+2. **Suscripción (Claude Code)** (`'suscripcion'`, proveedor por
+   defecto cuando hay CLI instalada): el adaptador `claudeCli.ts`
+   ejecuta el `claude` local con `spawn` sin shell, una pasada por
+   llamada (`-p --output-format json`), **sin herramientas ni MCP**
+   (`--allowedTools ''`, MCP estricto vacío), con el prompt —el mismo
+   de la API— por stdin, concurrencia 1, timeout con kill y un entorno
+   mínimo que jamás reenvía claves (la llamada siempre corre por la
+   sesión de la suscripción, nunca por una API). Busca la ruta de
+   Ajustes (`cliPath`), luego `claude` en el PATH y después las rutas
+   típicas de nvm, Homebrew e instalación nativa. «Probar» devuelve
+   «CLI no encontrada», «sesión no iniciada» o la latencia.
+3. **API de Anthropic** (`'llm'`, `NEWS_LLM_MODEL`, opcional y apagada
+   por defecto): solo con el interruptor activado, clave guardada y
+   presupuesto mensual > 0; vigila además el tope diario y el gasto
+   estimado (`ai:get-llm-settings` expone contadores y `hasKey`, jamás
+   la clave).
+4. **Léxico local** (`'local'`): sin coste ni clave, siempre
+   disponible; es el respaldo de cualquier fallo de otro proveedor —
+   tope incluido— con un aviso por clase de error.
+
+El **tope diario se mide en titulares** y vale para cualquier
+proveedor LLM (suscripción y API comparten el contador); el
+presupuesto en euros solo aplica a la API. Para entrar en la CLI:
+`claude` en un terminal y `/login` con la cuenta de la suscripción.
 
 El resultado es una fila por activo en `news_analysis` (resumen +
-sentimiento `positivo`/`negativo`/`neutro`/`mixto`, método y modelo).
-`npm run eval:news-llm` mide precisión y coste del LLM real sobre el
-conjunto etiquetado.
+sentimiento `positivo`/`negativo`/`neutro`/`mixto`, método y modelo:
+`'suscripcion'` anota `claude-code-cli`, `'llm'` el modelo exacto,
+`'local'` deja NULL). `npm run eval:news-llm -- --provider
+suscripcion|local|api` mide la precisión sobre el conjunto etiquetado
+con el proveedor elegido.
 
 ## Salud de modelos y reentrenamiento (`ai/drift`)
 
@@ -122,15 +147,26 @@ estrategia (`rendimiento`). Umbrales del contrato (`src/shared/ai.ts`):
 - **Rendimiento de estrategia**: ≥ 30 operaciones con desviación > ±30
   pp frente a la expectativa del backtest en 2 revisiones mensuales
   seguidas. Una racha mala aislada queda en `observacion` y **nunca**
-  degrada.
+  degrada. Una revisión solo cuenta como mensual si ha pasado un mes
+  real (≥ `DEGRADE_MIN_REVIEW_GAP_DAYS` = 28 días) o si ve operaciones
+  nuevas desde la anterior: dos revisiones a un día de distancia a
+  caballo de fin de mes con las mismas operaciones no son dos meses de
+  evidencia (queda marcada `sinMesReal` y la racha se congela).
 
 La degradación escribe la ficha (`strategies` → `degradada`, el modelo →
 `apto = 0` con motivo), deja entrada en el Diario, envía notificación
 crítica hacia «Salud de modelos» y propone un **reentrenamiento
 trimestral** (`retrain_proposals`, máximo una por trimestre). Aprobarla
 solo devuelve las instrucciones del pipeline `ml/` —la app nunca
-reentrena sola—; posponerla exige una fecha futura. Un modelo degradado
-sigue informando pero deja de apoyar señales.
+reentrena sola—; posponerla exige una fecha futura y, como aprobarla,
+deja la decisión en el Diario con la fecha y el motivo. Un modelo
+degradado sigue informando pero deja de apoyar señales.
+
+La vista `ai:health` devuelve el Brier móvil, la desviación de cada
+estrategia, las operaciones y las rachas **en vivo** (las revisiones
+guardadas solo gobiernan la alerta y la persistencia): con referencia
+disponible los números siempre llegan, y cuando falta —sin resueltas,
+ventana incompleta o sin backtest— `missingReason` dice por qué.
 
 Gancho E2E: `ai:simulate-drift` inyecta una racha sostenida de
 `datos`/`resultados`/`rendimiento` y aplica la misma transición, para

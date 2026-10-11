@@ -302,6 +302,13 @@ function toDeviationAlert(row: DeviationAlertRow): DeviationAlert {
 
 export interface BrokerRepository {
   /**
+   * Modo de las órdenes que sirve este repositorio ('paper' en
+   * `broker_orders`, 'live' en `broker_orders_live`): fijo desde la
+   * creación, así las entradas de diario que escribe su gestor llevan
+   * la cuenta correcta.
+   */
+  readonly orderMode: BrokerOrderMode;
+  /**
    * Inserta la orden; si el client_order_id ya existe devuelve la fila
    * guardada con `inserted: false` (la misma señal no crea dos órdenes).
    */
@@ -348,6 +355,33 @@ const ORDER_COLUMNS = `id, client_order_id, broker_order_id, senal_id, estrategi
   pata, ticker, tipo, lado, cantidad, cantidad_ejecutada, precio_limite, precio_stop,
   precio_pedido, precio_ejecutado, pedida_en, ejecutada_en, slippage_pb, estado,
   intentos, motivo_rechazo, oco_group_id, creado_en, actualizado_en`;
+
+/** Cláusulas y parámetros de los filtros del contrato sobre una tabla de órdenes. */
+function buildOrderFilters(query: BrokerOrdersQuery): { clauses: string[]; params: unknown[] } {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (query.status !== undefined) {
+    clauses.push('estado = ?');
+    params.push(query.status);
+  }
+  if (query.strategyId !== undefined) {
+    clauses.push('estrategia_id = ?');
+    params.push(query.strategyId);
+  }
+  if (query.ticker !== undefined) {
+    clauses.push('ticker = ?');
+    params.push(query.ticker.trim().toUpperCase());
+  }
+  return { clauses, params };
+}
+
+/** Paginación del contrato: `limit` acotado al tope y `offset` ≥ 0. */
+function orderPage(query: BrokerOrdersQuery): { limit: number; offset: number } {
+  return {
+    limit: Math.min(query.limit ?? BROKER_ORDERS_MAX_LIMIT, BROKER_ORDERS_MAX_LIMIT),
+    offset: query.offset ?? 0,
+  };
+}
 
 const RUN_COLUMNS = `id, origen, iniciada_en, terminada_en, resultado, posiciones_app,
   posiciones_broker, ordenes_app, ordenes_broker, discrepancias, error`;
@@ -426,6 +460,7 @@ export function createBrokerRepository(
   );
 
   const repo: BrokerRepository = {
+    orderMode,
     insertOrder: (input) => {
       let row: BrokerOrderRow | null = null;
       try {
@@ -502,26 +537,12 @@ export function createBrokerRepository(
 
     listOrders: (query = {}) => {
       // El modo de las filas de esta tabla es fijo: un filtro por el otro
-      // modo no puede devolver nada (la unión de las dos tablas la hace el
-      // servicio de `orders:list`).
+      // modo no puede devolver nada (la unión de las dos tablas la hace
+      // `createBrokerOrdersListing` para `orders:list`).
       if (query.mode !== undefined && query.mode !== orderMode) return [];
-      const clauses: string[] = [];
-      const params: unknown[] = [];
-      if (query.status !== undefined) {
-        clauses.push('estado = ?');
-        params.push(query.status);
-      }
-      if (query.strategyId !== undefined) {
-        clauses.push('estrategia_id = ?');
-        params.push(query.strategyId);
-      }
-      if (query.ticker !== undefined) {
-        clauses.push('ticker = ?');
-        params.push(query.ticker.trim().toUpperCase());
-      }
+      const { clauses, params } = buildOrderFilters(query);
       const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-      const limit = Math.min(query.limit ?? BROKER_ORDERS_MAX_LIMIT, BROKER_ORDERS_MAX_LIMIT);
-      const offset = query.offset ?? 0;
+      const { limit, offset } = orderPage(query);
       const rows = db
         .prepare(
           `SELECT ${ORDER_COLUMNS} FROM ${ordersTable} ${where}
@@ -691,4 +712,45 @@ export function createBrokerRepository(
   };
 
   return repo;
+}
+
+// ---------------------------------------------------------------------------
+// Listado unido paper + live (`orders:list`)
+// ---------------------------------------------------------------------------
+
+interface JoinedOrderRow extends BrokerOrderRow {
+  modo: BrokerOrderMode;
+}
+
+/**
+ * Listado unido de las dos tablas de órdenes para `orders:list`: cada
+ * fila trae el modo de la tabla de la que salió, así el modo histórico
+ * viaja siempre con la orden y nunca se deduce del modo vigente de la
+ * app. Los filtros del contrato se aplican sobre el conjunto ya mezclado
+ * —`mode` selecciona una sola tabla— y la paginación ordena el resultado
+ * unido (los ids de cada tabla se solapan: son libros distintos).
+ */
+export function createBrokerOrdersListing(
+  db: Database.Database,
+): Pick<BrokerRepository, 'listOrders'> {
+  const union = `SELECT * FROM (
+      SELECT ${ORDER_COLUMNS}, 'paper' AS modo FROM broker_orders
+      UNION ALL
+      SELECT ${ORDER_COLUMNS}, 'live' AS modo FROM broker_orders_live
+    )`;
+  return {
+    listOrders: (query = {}) => {
+      const { clauses, params } = buildOrderFilters(query);
+      if (query.mode !== undefined) {
+        clauses.unshift('modo = ?');
+        params.unshift(query.mode);
+      }
+      const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+      const { limit, offset } = orderPage(query);
+      const rows = db
+        .prepare(`${union} ${where} ORDER BY creado_en DESC, id DESC LIMIT ? OFFSET ?`)
+        .all(...params, limit, offset) as JoinedOrderRow[];
+      return rows.map((row) => toBrokerOrder(row, row.modo));
+    },
+  };
 }

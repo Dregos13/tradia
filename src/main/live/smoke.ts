@@ -242,7 +242,10 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
 
   const journal = (input: JournalRecordInput): void => {
     try {
-      deps.recordJournal?.(input);
+      // La prueba de humo usa dinero real: todas sus entradas quedan
+      // marcadas 'live' para que el Diario las rotule «Dinero real» y la
+      // conciliación diaria no las cuente como operaciones simuladas.
+      deps.recordJournal?.({ ...input, mode: 'live' });
     } catch (error: unknown) {
       logger.warn?.(`[live-humo] no se pudo escribir el Diario: ${errorMessage(error)}`);
     }

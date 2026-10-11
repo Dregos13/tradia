@@ -81,7 +81,13 @@ export interface AnthropicNewsAnalyzerDeps {
 
 type JsonObject = Record<string, unknown>;
 
-const SYSTEM_PROMPT = [
+/**
+ * Instrucciones del analizador de titulares. Las comparten la API
+ * (`requestBody`) y la CLI de Claude Code (`claudeCli.ts`, que las
+ * antepone al contenido por stdin): una sola fuente para que ambos
+ * proveedores pidan exactamente el mismo formato de salida.
+ */
+export const SYSTEM_PROMPT = [
   'Eres el analizador de noticias financieras de Tradia (herramienta de uso personal).',
   'Respondes SOLO con JSON válido con esta forma exacta, sin texto alrededor:',
   '{"assets":[{"ticker":"AAPL","summary":"…","sentiment":"positivo"}]}',
@@ -100,7 +106,11 @@ const SYSTEM_PROMPT = [
  */
 const fence = (untrusted: string): string => untrusted.replaceAll('<', '‹').replaceAll('>', '›');
 
-function buildUserContent(input: NewsAnalysisInput): string {
+/**
+ * Contenido «user» con el titular cercado como dato no fiable y los
+ * candidatos del lector. Lo usan la API y la CLI por igual.
+ */
+export function buildUserContent(input: NewsAnalysisInput): string {
   const candidates = (input.candidateTickers ?? [])
     .map((t) => t.trim().toUpperCase())
     .filter((t) => TICKER_PATTERN.test(t));

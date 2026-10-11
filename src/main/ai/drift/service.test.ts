@@ -433,6 +433,52 @@ describe('drift de resultados (Brier móvil)', () => {
     expect(check.drifted).toBe(false);
     expect(check.streak).toBe(0);
   });
+
+  it('con la ventana resuelta, Brier móvil y diferencia llegan en número aunque la revisión sea vieja', () => {
+    const card = registerCard();
+    // Reproduce el caso de QA: la revisión diaria corrió cuando aún no
+    // había resoluciones; el resolvedCount en vivo ya dice 60 pero la
+    // revisión guardada no tiene rollingBrier. La vista debe dar los
+    // números en vivo, no «Sin referencia».
+    makeService().evaluate();
+    expect(repo.latestCheck('modelo', card.id, 'resultados')!.detail.rollingBrier).toBeUndefined();
+
+    seedResolvedPredictions(card.id, DRIFT_BRIER_WINDOW, 0.22);
+    const row = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    expect(row.resultsDrift?.resolvedCount).toBe(DRIFT_BRIER_WINDOW);
+    expect(row.resultsDrift?.rollingBrier).toBeCloseTo(0.22, 4);
+    expect(row.resultsDrift?.delta).toBeCloseTo(0.04, 4);
+    expect(row.resultsDrift?.missingReason ?? null).toBeNull();
+  });
+
+  it('sin resueltas el Brier móvil es null con el motivo; con ventana incompleta, la diferencia', () => {
+    const card = registerCard();
+    const empty = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    expect(empty.resultsDrift?.rollingBrier).toBeNull();
+    expect(empty.resultsDrift?.delta).toBeNull();
+    expect(empty.resultsDrift?.missingReason).toContain('predicciones resueltas');
+
+    seedResolvedPredictions(card.id, 10, 0.22);
+    const partial = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    expect(partial.resultsDrift?.rollingBrier).toBeCloseTo(0.22, 4);
+    expect(partial.resultsDrift?.delta).toBeNull();
+    expect(partial.resultsDrift?.missingReason).toContain('Ventana incompleta');
+  });
+
+  it('el motivo de degradación del modelo se compone sin puntuación duplicada', () => {
+    const card = registerCard();
+    repo.markModelCardDegraded(
+      card.id,
+      `${MODEL_DEGRADED_MARK}: Drift de datos sostenido: PSI > 0.25 en ret_1 durante 20 sesiones.`,
+    );
+    const row = makeService().overview().subjects.find((s) => s.subject === 'modelo')!;
+    expect(row.state).toBe('degradada');
+    expect(row.reason).toBe(
+      'Degradada por drift sostenido: Drift de datos sostenido: PSI > 0.25 en ret_1 ' +
+        'durante 20 sesiones. No se debe a una sola racha perdedora.',
+    );
+    expect(row.reason!).not.toMatch(/\.\.|:\./);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -545,6 +591,103 @@ describe('revisión mensual de estrategias', () => {
     expect(again).toHaveLength(0);
     expect(repo.listChecks('estrategia', strategyId, 'rendimiento')).toHaveLength(1);
   });
+
+  it('dos revisiones a un día a caballo de fin de mes no cuentan como dos meses', () => {
+    fichas = [seedFicha('Cruce de medias')];
+    const strategyId = fichas[0]!.id;
+    // Desviación de −40,8 pp sostenida: en alerta desde la primera revisión.
+    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) =>
+      trade(strategyId, -1, i),
+    );
+    expectations = {
+      [strategyId]: {
+        perTradeReturnPct: 0.2,
+        winRate: 0.55,
+        backtestVersion: 2,
+        backtestRunId: 3,
+      },
+    };
+    const service = makeService();
+
+    nowMs = Date.parse('2026-09-30T21:00:00.000Z');
+    const first = service.evaluate().find((c) => c.kind === 'rendimiento')!;
+    expect(first.drifted).toBe(true);
+    expect(first.streak).toBe(1);
+    expect(first.detail.ultimaOperacionCierre).toBe('2026-10-09');
+
+    // 24 h después, mes nuevo pero mismas operaciones: la racha se
+    // congela marcada «sinMesReal» en lugar de sumar una segunda.
+    nowMs = Date.parse('2026-10-01T21:00:00.000Z');
+    const second = service.evaluate().find((c) => c.kind === 'rendimiento')!;
+    expect(second.drifted).toBe(true);
+    expect(second.streak).toBe(1);
+    expect(second.detail.sinMesReal).toBe('si');
+    expect(statusCalls).toHaveLength(0);
+
+    // Un mes real después la revisión sí cuenta y la racha retoma.
+    nowMs = Date.parse('2026-11-02T21:00:00.000Z');
+    service.evaluate();
+    expect(statusCalls).toEqual([
+      expect.objectContaining({ id: strategyId, status: 'degradada' }),
+    ]);
+  });
+
+  it('con operaciones nuevas la segunda revisión sí cuenta aunque no haya pasado un mes', () => {
+    fichas = [seedFicha('Cruce de medias')];
+    const strategyId = fichas[0]!.id;
+    trades = Array.from({ length: DEGRADE_MIN_TRADES + 4 }, (_, i) =>
+      trade(strategyId, -1, i),
+    );
+    expectations = {
+      [strategyId]: {
+        perTradeReturnPct: 0.2,
+        winRate: 0.55,
+        backtestVersion: 2,
+        backtestRunId: 3,
+      },
+    };
+    const service = makeService();
+
+    nowMs = Date.parse('2026-09-30T21:00:00.000Z');
+    service.evaluate();
+    expect(statusCalls).toHaveLength(0);
+
+    // Al día siguiente hay una operación nueva: la revisión es evidencia
+    // nueva y sí cuenta como segunda mensual.
+    trades = [...trades, trade(strategyId, -2, 500)];
+    nowMs = Date.parse('2026-10-01T21:00:00.000Z');
+    const second = service.evaluate().find((c) => c.kind === 'rendimiento')!;
+    expect(second.streak).toBe(2);
+    expect(second.detail.sinMesReal).toBeUndefined();
+    expect(statusCalls).toEqual([
+      expect.objectContaining({ id: strategyId, status: 'degradada' }),
+    ]);
+  });
+
+  it('la desviación llega en vivo aunque la revisión sea vieja; sin backtest, null con motivo', () => {
+    fichas = [seedFicha('Cruce de medias'), seedFicha('Sin backtest', 'paper')];
+    const [conBacktest, sinBacktest] = fichas;
+    trades = Array.from({ length: 10 }, (_, i) => trade(conBacktest.id, 0.4, i));
+    expectations = {
+      [conBacktest.id]: {
+        perTradeReturnPct: 0.5,
+        winRate: 0.55,
+        backtestVersion: 2,
+        backtestRunId: 3,
+      },
+    };
+    // Sin ninguna revisión todavía, la vista da los números en vivo
+    // (10 × 0,4 − 10 × 0,5 = −1 pp) en lugar de «0 · Sin referencia».
+    const rows = makeService().overview().subjects.filter((s) => s.subject === 'estrategia');
+    const evaluada = rows.find((s) => s.subjectId === conBacktest.id)!;
+    expect(evaluada.strategyEval?.trades).toBe(10);
+    expect(evaluada.strategyEval?.deviationPct).toBeCloseTo(-1, 4);
+    expect(evaluada.strategyEval?.missingReason ?? null).toBeNull();
+
+    const sinReferencia = rows.find((s) => s.subjectId === sinBacktest.id)!;
+    expect(sinReferencia.strategyEval?.deviationPct).toBeNull();
+    expect(sinReferencia.strategyEval?.missingReason).toContain('backtest');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -597,6 +740,13 @@ describe('propuestas de reentrenamiento', () => {
     expect(result.proposal.note).toBe('esperar a más datos');
     expect(result.proposal.nextAllowedAt).toBe('2027-03-01');
     expect(result.instructions).toBeNull();
+    // La decisión queda en el Diario con la fecha y el motivo, como al aprobar.
+    const entry = journal.find((e) => e.reason.includes('pospuesta'));
+    expect(entry).toBeDefined();
+    expect(entry!.type).toBe('resumen');
+    expect(entry!.reason).toContain('2027-03-01');
+    expect(entry!.reason).toContain('esperar a más datos');
+    expect(entry!.dataUsed?.['propuestaId']).toBe(proposal.id);
   });
 });
 

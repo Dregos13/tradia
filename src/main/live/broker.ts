@@ -217,7 +217,8 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
 
   const journal = (input: JournalRecordInput): void => {
     try {
-      deps.recordJournal?.(input);
+      // Todo lo que traza el broker real es dinero real ('live').
+      deps.recordJournal?.({ ...input, mode: 'live' });
     } catch (error: unknown) {
       logger.warn?.(`[live-broker] no se pudo escribir el Diario: ${errorMessage(error)}`);
     }
