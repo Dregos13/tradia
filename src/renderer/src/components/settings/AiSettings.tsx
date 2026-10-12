@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import {
   NEWS_LLM_DAILY_CAP_BOUNDS,
   type NewsLlmSettings,
-  type NewsAnalyzer,
+  type NewsProvider,
 } from '../../../../shared/ai';
 import { isNewsLlmSettingsInput } from '../../../../shared/ipc';
+import { SubscriptionNotice } from '../news/SubscriptionNotice';
+import { useNewsStatus } from '../../hooks/useNewsStatus';
 import { useSystemState } from '../../hooks/useSystemState';
 import { SettingsFeedback, SettingsSection } from './SettingsSection';
 import './settings.css';
 
 export function AiSettings() {
   const [settings, setSettings] = useState<NewsLlmSettings | null>(null);
-  const [provider, setProvider] = useState<NewsAnalyzer>('local');
+  const [provider, setProvider] = useState<NewsProvider>('local');
   const [cliPath, setCliPath] = useState('');
   const testAfterSave = useRef(false);
   const enabled = provider !== 'local';
@@ -20,7 +22,11 @@ export function AiSettings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [noticeRetryActive, setNoticeRetryActive] = useState(false);
   const saveButton = useRef<HTMLButtonElement>(null);
+  const newsStatus = useNewsStatus();
+  const failedSubscription =
+    newsStatus.status?.provider === 'suscripcion' && newsStatus.status.state !== 'ok';
   const { connectivity } = useSystemState();
   const offline = connectivity?.status === 'offline';
   const input = {
@@ -90,9 +96,10 @@ export function AiSettings() {
     } catch {
       setError('No se pudieron guardar los ajustes. Reintenta.');
     } finally {
+      const probed = testAfterSave.current;
       testAfterSave.current = false;
       setBusy(false);
-      saveButton.current?.focus();
+      if (!probed) saveButton.current?.focus();
     }
   }
   async function test() {
@@ -105,9 +112,10 @@ export function AiSettings() {
         setMessage(
           provider === 'local'
             ? 'Análisis local disponible · sin coste.'
-            : 'Suscripción disponible.',
+            : 'Suscripción disponible · Claude Code responde y la sesión está iniciada. El analizador local queda como respaldo.',
         );
       else setError(result.error ?? 'No se pudo usar la suscripción. Reintenta.');
+      await newsStatus.refresh();
     } catch {
       setError('No se pudo usar la suscripción. Reintenta.');
     } finally {
@@ -141,38 +149,42 @@ export function AiSettings() {
                 requestSave();
               }}
             >
-              <fieldset className="channel-fields" disabled={busy}>
-                <div className="channel-field">
-                  <label htmlFor="llm-provider">Proveedor de análisis</label>
-                  <select
-                    id="llm-provider"
-                    value={provider}
-                    onChange={(event) => {
-                      setProvider(event.target.value as NewsAnalyzer);
-                      setError('');
-                      setMessage('');
-                    }}
-                  >
-                    <option value="suscripcion">Suscripción (Claude Code)</option>
-                    <option value="local">Analizador local</option>
-                  </select>
-                </div>
-                {provider === 'suscripcion' && !settings.cliAvailable && (
-                  <p role="status">
-                    CLI no detectada. Recomendamos el analizador local mientras configuras Claude
-                    Code.
-                  </p>
-                )}
-                {provider === 'suscripcion' && (
-                  <p>
-                    Para iniciar sesión en Claude Code, ejecuta <code>claude</code> y después{' '}
-                    <code>/login</code> con tu suscripción.
-                  </p>
-                )}
+              <fieldset className="channel-fields">
+                <fieldset className="analyzer-choices" disabled={busy}>
+                  <legend>Proveedor de análisis</legend>
+                  {(['suscripcion', 'local'] as const).map((choice) => (
+                    <label key={choice} className="analyzer-choice">
+                      <input
+                        type="radio"
+                        name="news-provider"
+                        value={choice}
+                        checked={provider === choice}
+                        onChange={() => {
+                          setProvider(choice);
+                          setError('');
+                          setMessage('');
+                        }}
+                      />
+                      <span>
+                        <strong>
+                          {choice === 'suscripcion'
+                            ? 'Suscripción (Claude Code)'
+                            : 'Analizador local'}
+                        </strong>
+                        <span>
+                          {choice === 'suscripcion'
+                            ? 'Usa la sesión iniciada en este equipo. Si falla, Tradia continúa con el analizador local.'
+                            : 'Funciona sin sesión. Es más limitado, pero mantiene el análisis básico en el equipo.'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
                 {provider === 'suscripcion' && (
                   <div className="channel-field">
-                    <label htmlFor="llm-cli-path">Ruta de la CLI (opcional)</label>
+                    <label htmlFor="llm-cli-path">Ruta de Claude Code (opcional)</label>
                     <input
+                      disabled={busy}
                       id="llm-cli-path"
                       type="text"
                       value={cliPath}
@@ -180,27 +192,34 @@ export function AiSettings() {
                       aria-describedby="llm-cli-help"
                       onChange={(event) => setCliPath(event.target.value)}
                     />
-                    <p id="llm-cli-help">
-                      Déjala vacía para detectar claude automáticamente. Si falla la suscripción, se
-                      usa el analizador local.
-                    </p>
+                    <p id="llm-cli-help">Déjala vacía para buscar claude automáticamente.</p>
                   </div>
                 )}
                 {provider === 'local' && (
-                  <p>Análisis local sin coste; no necesita clave de API ni sesión de CLI.</p>
+                  <div>
+                    <strong>Analizador local seleccionado</strong>
+                    <p>
+                      No necesita sesión y seguirá funcionando aunque Claude Code no esté
+                      disponible.
+                    </p>
+                  </div>
                 )}
                 {provider === 'suscripcion' && (
                   <div className="channel-field">
-                    <label htmlFor="llm-cap">Máximo diario de titulares</label>
+                    <label htmlFor="llm-cap">Máximo diario</label>
                     <input
+                      disabled={busy}
                       id="llm-cap"
                       type="number"
                       min={NEWS_LLM_DAILY_CAP_BOUNDS.min}
                       max={NEWS_LLM_DAILY_CAP_BOUNDS.max}
                       step="1"
                       value={cap}
+                      aria-describedby="llm-cap-help"
+                      aria-invalid={!valid}
                       onChange={(event) => setCap(event.target.value)}
                     />
+                    <p id="llm-cap-help">Titulares por día. Introduce un entero entre 1 y 2000.</p>
                   </div>
                 )}
                 {provider === 'suscripcion' && (
@@ -214,21 +233,35 @@ export function AiSettings() {
                 {offline && provider !== 'local' && (
                   <p role="status">Sin conexión · la prueba está pausada.</p>
                 )}
+                <SubscriptionNotice
+                  status={newsStatus.status}
+                  error={newsStatus.error}
+                  busy={busy && testAfterSave.current && noticeRetryActive}
+                  context="ajustes"
+                  canRetry={valid && !(provider !== 'local' && offline)}
+                  onRetry={() => {
+                    setNoticeRetryActive(true);
+                    requestSave(true);
+                  }}
+                />
                 <p>Probar guarda estos ajustes y comprueba el proveedor elegido.</p>
                 <div className="settings-actions">
-                  <button
-                    className="button"
-                    type="button"
-                    disabled={!valid || (provider !== 'local' && offline)}
-                    onClick={() => requestSave(true)}
-                  >
-                    Probar
-                  </button>
+                  {!failedSubscription && !newsStatus.error && !noticeRetryActive && (
+                    <button
+                      className="button"
+                      type="button"
+                      aria-disabled={busy}
+                      disabled={!valid || (provider !== 'local' && offline)}
+                      onClick={() => requestSave(true)}
+                    >
+                      {busy && testAfterSave.current ? 'Probando…' : 'Probar de nuevo'}
+                    </button>
+                  )}
                   <button
                     ref={saveButton}
                     className="button primary"
                     type="submit"
-                    disabled={!valid}
+                    disabled={busy || !valid}
                   >
                     Guardar ajustes
                   </button>

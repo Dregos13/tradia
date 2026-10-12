@@ -2,14 +2,22 @@
  * Lenguaje de reglas seguro para las estrategias propias — misión «reglas».
  *
  * Las reglas de una ficha propia (`StrategyRules`: entry, exit, stop,
- * target) se escriben en un lenguaje pequeño en español que este módulo
- * **analiza, nunca ejecuta como código**: no hay `eval`, `Function` ni
- * import dinámico en ninguna parte. El resultado es un `StrategyProgram`
- * —un AST de datos puros, serializable— que el motor de backtest convierte
- * en una `Strategy` ejecutable con
- * `src/main/backtest/strategies/custom.ts` (`createCustomStrategy`).
+ * target y, opcionales, entryShort/exitShort) se escriben en un lenguaje
+ * pequeño en español que este módulo **analiza, nunca ejecuta como
+ * código**: no hay `eval`, `Function` ni import dinámico en ninguna parte.
+ * El resultado es un `StrategyProgram` —un AST de datos puros,
+ * serializable— que el motor de backtest convierte en una `Strategy`
+ * ejecutable con `src/main/backtest/strategies/custom.ts`
+ * (`createCustomStrategy`).
  *
- * Gramática de `entry` y `exit` (expresiones booleanas):
+ * `entryShort`/`exitShort` (entrada y salida de la posición en corto) son
+ * opcionales y van en pareja: vacíos o ausentes la estrategia opera solo
+ * en largo, así que las fichas guardadas antes de la ampliación siguen
+ * siendo válidas sin migración. La misma regla de `stop`/`target` se
+ * aplica al corto al revés (el stop por encima, el objetivo por debajo).
+ *
+ * Gramática de `entry`, `exit`, `entryShort` y `exitShort`
+ * (expresiones booleanas):
  * - Comparaciones `>`, `<`, `>=`, `<=`, `=` entre expresiones numéricas.
  * - Lógica `y`, `o`, `no` (prioridad: `no` > `y` > `o`) y paréntesis.
  * - Aritmética `+`, `-`, `*`, `/` con paréntesis y signo unario.
@@ -161,6 +169,10 @@ export type RulesLevel =
 export interface StrategyProgram {
   entry: RulesBoolExpr;
   exit: RulesBoolExpr;
+  /** Entrada en corto; `null` cuando la ficha no opera en corto. */
+  entryShort: RulesBoolExpr | null;
+  /** Salida del corto; `null` sin corto (va en pareja con `entryShort`). */
+  exitShort: RulesBoolExpr | null;
   stop: RulesLevel;
   target: RulesLevel;
   /** Parámetros de la ficha que usan las reglas (ordenados, sin duplicados). */
@@ -188,6 +200,8 @@ class RulesParseError extends Error {
 const FIELD_LABEL: Record<RulesFieldName, string> = {
   entry: 'entrada',
   exit: 'salida',
+  entryShort: 'entrada en corto',
+  exitShort: 'salida en corto',
   stop: 'stop',
   target: 'objetivo',
 };
@@ -860,9 +874,9 @@ function parseField(
   const label = FIELD_LABEL[field];
   if (source.trim().length === 0) {
     const hint =
-      field === 'entry' || field === 'exit'
-        ? `la regla de ${label} está vacía: escribe una condición (por ejemplo, «cierre > sma(20)»)`
-        : `el campo de ${label} está vacío: escribe «ninguno», un porcentaje como «5%» o un múltiplo como «2 * atr(14)»`;
+      field === 'stop' || field === 'target'
+        ? `el campo de ${label} está vacío: escribe «ninguno», un porcentaje como «5%» o un múltiplo como «2 * atr(14)»`
+        : `la regla de ${label} está vacía: escribe una condición (por ejemplo, «cierre > sma(20)»)`;
     fail(hint, 0, 0);
   }
   if (source.length > RULES_FIELD_MAX_LENGTH) {
@@ -920,8 +934,14 @@ function collectParamsBool(expr: RulesBoolExpr, out: Set<string>): void {
 }
 
 /**
- * Analiza las cuatro reglas de una ficha propia y devuelve el programa
- * compilado o la lista de errores (uno por campo, el primero encontrado).
+ * Analiza las reglas de una ficha propia y devuelve el programa compilado
+ * o la lista de errores (uno por campo, el primero encontrado).
+ *
+ * Las cuatro reglas del largo son obligatorias; `entryShort`/`exitShort`
+ * son opcionales y van en pareja: las dos vacías o ausentes significan
+ * que la ficha no opera en corto (válido, sin migración para las fichas
+ * antiguas) y escrita solo una de las dos es un error en el campo que
+ * falta.
  *
  * Puro y determinista: no lee archivos ni variables de entorno, así que el
  * mismo resultado sirve al proceso principal y al renderer (validación en
@@ -936,6 +956,8 @@ export function parseStrategyRules(
   const parsed = {} as {
     entry?: RulesBoolExpr;
     exit?: RulesBoolExpr;
+    entryShort?: RulesBoolExpr;
+    exitShort?: RulesBoolExpr;
     stop?: RulesLevel;
     target?: RulesLevel;
   };
@@ -955,12 +977,55 @@ export function parseStrategyRules(
       throw error;
     }
   }
+
+  // Reglas de corto: opcionales y en pareja. Vacías/ausentes = sin corto;
+  // escritas solo una = error en la que falta. Un valor que no es texto
+  // (ni null/undefined) también es error: no se descarta en silencio.
+  for (const field of ['entryShort', 'exitShort'] as const) {
+    const raw: unknown = rules[field];
+    if (raw === undefined || raw === null) continue;
+    if (typeof raw !== 'string') {
+      errors.push({
+        field,
+        message: `la regla de ${FIELD_LABEL[field]} debe ser texto`,
+        start: 0,
+        end: 0,
+      });
+      continue;
+    }
+    if (raw.trim().length === 0) continue;
+    try {
+      parsed[field] = parseField(field, raw, params) as RulesBoolExpr;
+    } catch (error) {
+      if (error instanceof RulesParseError) {
+        errors.push({ field, message: error.message, start: error.start, end: error.end });
+        continue;
+      }
+      throw error;
+    }
+  }
+  const shortText = (field: 'entryShort' | 'exitShort'): boolean =>
+    typeof rules[field] === 'string' && rules[field]!.trim().length > 0;
+  if (shortText('entryShort') !== shortText('exitShort')) {
+    const missing = shortText('entryShort') ? 'exitShort' : 'entryShort';
+    errors.push({
+      field: missing,
+      message:
+        `las reglas de corto van en pareja: falta la de ${FIELD_LABEL[missing]} ` +
+        '(o deja en blanco también la otra para operar solo en largo)',
+      start: 0,
+      end: 0,
+    });
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
   const used = new Set<string>();
   collectParamsBool(parsed.entry!, used);
   collectParamsBool(parsed.exit!, used);
+  if (parsed.entryShort !== undefined) collectParamsBool(parsed.entryShort, used);
+  if (parsed.exitShort !== undefined) collectParamsBool(parsed.exitShort, used);
   for (const level of [parsed.stop!, parsed.target!]) {
     if (level.kind === 'pct') {
       collectParamsNum(level.percent, used);
@@ -974,9 +1039,30 @@ export function parseStrategyRules(
     program: {
       entry: parsed.entry!,
       exit: parsed.exit!,
+      entryShort: parsed.entryShort ?? null,
+      exitShort: parsed.exitShort ?? null,
       stop: parsed.stop!,
       target: parsed.target!,
       parameters: [...used].sort(),
     },
   };
+}
+
+/** Lado(s) por el que opera una estrategia propia. */
+export type StrategySide = 'largo' | 'corto' | 'ambos';
+
+/**
+ * Dice si la estrategia opera en largo, en corto o en ambos, a partir de
+ * sus campos de regla: hay corto cuando `entryShort` o `exitShort` traen
+ * texto, y largo cuando `entry` lo trae (obligatorio en la ficha). Es un
+ * resumen de lectura, no una validación: la pareja incompleta la detecta
+ * `parseStrategyRules`.
+ */
+export function strategySide(rules: StrategyRules): StrategySide {
+  const hasLong = rules.entry.trim().length > 0;
+  const hasShort =
+    (typeof rules.entryShort === 'string' && rules.entryShort.trim().length > 0) ||
+    (typeof rules.exitShort === 'string' && rules.exitShort.trim().length > 0);
+  if (hasLong && hasShort) return 'ambos';
+  return hasShort ? 'corto' : 'largo';
 }

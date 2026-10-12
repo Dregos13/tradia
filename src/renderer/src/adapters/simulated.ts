@@ -1,3 +1,4 @@
+import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
   DEFAULT_STRATEGY_COSTS,
@@ -62,7 +63,6 @@ import {
   LIVE_SMOKE_STEPS,
   LIVE_SMOKE_TICKER,
   NEWS_LLM_DAILY_CAP_DEFAULT,
-  NEWS_LLM_MODEL,
   PREDICTION_HORIZON_DAYS,
   REGIME_MARKET_TICKER,
   BROKER_ORDER_OPEN_STATUSES,
@@ -1364,18 +1364,20 @@ export function createSimulatedAdapter() {
     newsStatusListeners.forEach((listener) => listener(status));
 
   /** Estado del análisis por suscripción del falso (determinista). */
-  const newsStatusNow = (): NewsStatus => ({
-    provider: llmSettings.provider,
-    state:
-      llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
-        ? 'cli-no-encontrada'
-        : 'ok',
-    since: nowIso(),
-    message:
-      llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
-        ? 'Instala Claude Code y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.'
-        : null,
-  });
+  let forcedNewsStatus: NewsStatus | null = null;
+  const newsStatusNow = (): NewsStatus =>
+    forcedNewsStatus ?? {
+      provider: llmSettings.provider,
+      state:
+        llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+          ? 'cli-no-encontrada'
+          : 'ok',
+      since: nowIso(),
+      message:
+        llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+          ? 'Instala Claude Code y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.'
+          : null,
+    };
 
   /** Última sesión laborable simulada (el cierre que evalúa el régimen). */
   const lastSession = (): string => {
@@ -1564,14 +1566,11 @@ export function createSimulatedAdapter() {
   const analysesFor = (item: NewsItem): NewsAnalysis[] => {
     if (!item.confirmed) return [];
     const sentiments: NewsSentiment[] = ['positivo', 'negativo', 'neutro', 'mixto'];
-    // El proveedor configurado manda: 'suscripcion' va por la CLI de la
-    // suscripción, 'llm' por la API con clave y 'local' por el léxico.
+    // Una caída de la suscripción mantiene el análisis local.
     const provider =
-      llmSettings.provider === 'suscripcion' && llmSettings.cliAvailable
+      llmSettings.provider === 'suscripcion' && newsStatusNow().state === 'ok'
         ? ('suscripcion' as const)
-        : llmSettings.provider === 'llm' && llmSettings.enabled && llmSettings.hasKey
-          ? ('llm' as const)
-          : ('local' as const);
+        : ('local' as const);
     return item.assets.map((ticker, index) => {
       const h = hashSeed(`analisis:${item.id}:${ticker}`);
       return {
@@ -1581,12 +1580,7 @@ export function createSimulatedAdapter() {
         summary: `Resumen automático del titular para ${ticker}: impacto moderado según el contexto de la noticia.`,
         sentiment: sentiments[h % sentiments.length]!,
         analyzer: provider,
-        model:
-          provider === 'llm'
-            ? NEWS_LLM_MODEL
-            : provider === 'suscripcion'
-              ? 'claude-code-cli'
-              : null,
+        model: provider === 'suscripcion' ? 'claude-code-cli' : null,
         analyzedAt: item.publishedAt,
         publishedAt: item.publishedAt,
       };
@@ -2900,7 +2894,7 @@ export function createSimulatedAdapter() {
             ? llmSettings.provider
             : input.enabled
               ? llmSettings.provider === 'local'
-                ? ('llm' as const)
+                ? ('suscripcion' as const)
                 : llmSettings.provider
               : ('local' as const));
         llmSettings = {
@@ -2921,14 +2915,11 @@ export function createSimulatedAdapter() {
         if (llmSettings.provider === 'local') {
           return { ok: true, error: null, latencyMs: null };
         }
-        if (llmSettings.provider === 'suscripcion') {
-          return llmSettings.cliAvailable
-            ? { ok: true, error: null, latencyMs: 180 }
-            : { ok: false, error: 'CLI no encontrada.', latencyMs: null };
-        }
-        return llmSettings.hasKey
-          ? { ok: true, error: null, latencyMs: 120 }
-          : { ok: false, error: 'No hay una clave de Anthropic guardada.', latencyMs: null };
+        const status = newsStatusNow();
+        emitNewsStatus(status);
+        return status.state === 'ok'
+          ? { ok: true, error: null, latencyMs: 180 }
+          : { ok: false, error: status.message, latencyMs: null };
       },
       health: async () => healthOverview(),
       retrainProposals: async () => [...retrainProposals],
@@ -3164,6 +3155,20 @@ export function createSimulatedAdapter() {
     },
     /** Notifica un ai:changed (fase 6). */
     emitAiChanged,
+    /** Fuerza y conserva el estado para lecturas y eventos posteriores. */
+    forceNewsStatus(state: NewsStatus['state']) {
+      forcedNewsStatus = {
+        provider: 'suscripcion',
+        state,
+        since: nowIso(),
+        message: state === 'ok' ? null : NEWS_SUBSCRIPTION_COPY[state].step,
+      };
+      emitNewsStatus(forcedNewsStatus);
+    },
+    emitNewsStatus(status: NewsStatus) {
+      forcedNewsStatus = { ...status };
+      emitNewsStatus(forcedNewsStatus);
+    },
     /** Notifica un live:changed con el estado actual (fase 7). */
     emitLiveChanged,
     listenerCount: () =>

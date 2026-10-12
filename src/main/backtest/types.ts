@@ -12,7 +12,13 @@
  *   `LookAheadError` si se pide un índice fuera del historial visible.
  * - Stop y objetivo se evalúan con el high/low intrabarra; si en la misma
  *   vela se tocan los dos, cuenta primero el stop (supuesto conservador).
- * - Solo posiciones largas, sin apalancamiento y sin piramidación.
+ * - Posiciones largas y cortas (`context.short`/`context.cover`), sin
+ *   apalancamiento y sin piramidación. En el corto el stop va por encima
+ *   de la entrada y el objetivo por debajo, el P&L va invertido y los
+ *   costes siguen siempre en contra. No puede haber largo y corto a la
+ *   vez en el mismo activo: si las dos entradas se cumplen en la misma
+ *   vela, no se entra. El nominal de los cortos cuenta para la
+ *   exposición.
  * - Cada activo cotiza solo dentro de su ventana [listedFrom, listedUntil];
  *   fuera de ella no recibe señales y una posición abierta se cierra cuando
  *   el activo deja de cotizar (sesgo de supervivencia mitigado).
@@ -118,9 +124,27 @@ export interface BuyOptions {
   target?: number;
 }
 
+/** Lado de una posición abierta o de una operación cerrada. */
+export type PositionSide = 'largo' | 'corto';
+
+/** Opciones de una orden de apertura en corto emitida por la estrategia. */
+export interface ShortOptions {
+  /**
+   * Precio de stop de protección del corto: queda POR ENCIMA del precio
+   * de ejecución (el espejo del largo). Si es válido (> precio de
+   * ejecución), dimensiona la posición por riesgo: acciones = capital ×
+   * riesgo / (stop − precio de ejecución).
+   */
+  stop?: number;
+  /** Objetivo de beneficios del corto (por debajo de la entrada). */
+  target?: number;
+}
+
 /** Vista de solo lectura de una posición abierta, tal como la ve la estrategia. */
 export interface PositionView {
   ticker: string;
+  /** Lado de la posición: 'largo' (comprada) o 'corto' (vendida). */
+  side: PositionSide;
   shares: number;
   /** Precio de ejecución de la entrada (ya incluye slippage y spread). */
   entryPrice: number;
@@ -170,8 +194,19 @@ export interface StrategyContext {
    * abierta en él o si se alcanzó el máximo de posiciones al ejecutarla.
    */
   buy(ticker: string, options?: BuyOptions): void;
-  /** Orden de venta de toda la posición para la próxima apertura del activo. */
+  /** Orden de venta de toda la posición larga para la próxima apertura del activo. */
   sell(ticker: string): void;
+  /**
+   * Orden de apertura en corto para la próxima apertura del activo. Las
+   * mismas guardas que `buy` (calentamiento, cotización, filtro de
+   * régimen), y además: nunca hay largo y corto a la vez en el mismo
+   * activo —si en la misma señal se emiten `buy` y `short` sobre él no
+   * se entra— y no hay piramidación ni cambio de lado. El stop de un
+   * corto va por encima de la ejecución y el objetivo por debajo.
+   */
+  short(ticker: string, options?: ShortOptions): void;
+  /** Orden de recompra que cierra todo el corto en la próxima apertura. */
+  cover(ticker: string): void;
   /** Mueve el stop de la posición abierta; efectivo desde la próxima vela. */
   setStop(ticker: string, price: number): void;
   /** Mueve el objetivo de la posición abierta; efectivo desde la próxima vela. */
@@ -242,21 +277,27 @@ export const EXIT_REASONS: readonly ExitReason[] = [
 /** Una operación cerrada, con sus precios de ejecución y costes. */
 export interface Trade {
   ticker: string;
+  /** Lado de la posición que cerró la operación. */
+  side: PositionSide;
   /** Fecha de la señal de entrada (cierre que generó la orden). */
   signalDate: SessionDate;
   /** Fecha de ejecución de la entrada (apertura de la vela siguiente). */
   entryDate: SessionDate;
-  /** Precio de ejecución de la entrada (apertura + slippage + spread). */
+  /**
+   * Precio de ejecución de la entrada: apertura con slippage y spread
+   * siempre en contra (en largo se compra más caro; en corto se vende
+   * más barato).
+   */
   entryPrice: number;
   exitDate: SessionDate;
-  /** Precio de ejecución de la salida (base − slippage − spread). */
+  /** Precio de ejecución de la salida (costes siempre en contra). */
   exitPrice: number;
   shares: number;
   /** Comisión total pagada (entrada + salida), en la moneda de la cuenta. */
   commission: number;
   /** Coste monetario del slippage y el spread (entrada + salida). */
   slippage: number;
-  /** (exitPrice − entryPrice) × shares, antes de comisiones. */
+  /** (exitPrice − entryPrice) × shares con signo del lado, antes de comisiones. */
   grossPnl: number;
   /** grossPnl − commission. */
   pnl: number;

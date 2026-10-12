@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
@@ -32,11 +32,10 @@ it('muestra el uso diario y no ofrece la API de pago', async () => {
   });
   await mount();
   expect(screen.getByText('Hoy: 34 de 200 titulares')).toBeInTheDocument();
-  const select = screen.getByLabelText('Proveedor de análisis');
-  expect(select).toHaveValue('suscripcion');
-  expect(screen.getByRole('option', { name: 'Suscripción (Claude Code)' })).toBeInTheDocument();
-  expect(screen.getByRole('option', { name: 'Analizador local' })).toBeInTheDocument();
-  expect(screen.queryByRole('option', { name: /API/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /Suscripción/ })).toBeChecked();
+  expect(screen.getByRole('radio', { name: /Suscripción \(Claude Code\)/ })).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /Analizador local/ })).toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: /API/ })).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Clave de API/)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Tope mensual/)).not.toBeInTheDocument();
 });
@@ -45,16 +44,16 @@ it('valida el máximo diario y avisa al enviar un valor fuera de margen', async 
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   await mount();
   for (const value of ['', '0', '2001', '1.5']) {
-    fireEvent.change(screen.getByLabelText('Máximo diario de titulares'), { target: { value } });
+    fireEvent.change(screen.getByLabelText('Máximo diario'), { target: { value } });
     expect(screen.getByRole('button', { name: 'Guardar ajustes' })).toBeDisabled();
   }
-  fireEvent.change(screen.getByLabelText('Máximo diario de titulares'), {
+  fireEvent.change(screen.getByLabelText('Máximo diario'), {
     target: { value: '200' },
   });
-  fireEvent.change(screen.getByLabelText('Máximo diario de titulares'), {
+  fireEvent.change(screen.getByLabelText('Máximo diario'), {
     target: { value: '0' },
   });
-  fireEvent.submit(screen.getByLabelText('Ruta de la CLI (opcional)').closest('form')!);
+  fireEvent.submit(screen.getByLabelText('Ruta de Claude Code (opcional)').closest('form')!);
   expect(screen.getByRole('alert')).toBeInTheDocument();
   expect(save).not.toHaveBeenCalled();
 });
@@ -62,10 +61,10 @@ it('valida el máximo diario y avisa al enviar un valor fuera de margen', async 
 it('guarda los ajustes de suscripción con ruta y devuelve el foco al guardar', async () => {
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   await mount();
-  fireEvent.change(screen.getByLabelText('Ruta de la CLI (opcional)'), {
+  fireEvent.change(screen.getByLabelText('Ruta de Claude Code (opcional)'), {
     target: { value: '/opt/bin/claude' },
   });
-  fireEvent.change(screen.getByLabelText('Máximo diario de titulares'), {
+  fireEvent.change(screen.getByLabelText('Máximo diario'), {
     target: { value: '25' },
   });
   await userEvent.click(screen.getByRole('button', { name: 'Guardar ajustes' }));
@@ -76,15 +75,17 @@ it('guarda los ajustes de suscripción con ruta y devuelve el foco al guardar', 
     cliPath: '/opt/bin/claude',
     dailyCap: 25,
   });
-  expect(screen.getByRole('button', { name: 'Guardar ajustes' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Guardar ajustes' })).toHaveFocus(),
+  );
 });
 
 it('el analizador local guarda el LLM desactivado y no pide CLI ni clave', async () => {
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   await mount();
-  await userEvent.selectOptions(screen.getByLabelText('Proveedor de análisis'), 'local');
-  expect(screen.queryByLabelText('Ruta de la CLI (opcional)')).not.toBeInTheDocument();
-  expect(screen.queryByLabelText('Máximo diario de titulares')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('radio', { name: /Analizador local/ }));
+  expect(screen.queryByLabelText('Ruta de Claude Code (opcional)')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Máximo diario')).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Clave de API/)).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Guardar ajustes' }));
   await screen.findByText('Ajustes de análisis guardados.');
@@ -110,8 +111,8 @@ it('cubre carga, error de lectura, reintento y prueba fallida', async () => {
   expect(screen.getByText('Cargando ajustes de análisis…')).toBeInTheDocument();
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar ajustes' }));
-  await screen.findByLabelText('Proveedor de análisis');
-  fireEvent.click(screen.getByRole('button', { name: 'Probar' }));
+  await screen.findByRole('radio', { name: /Suscripción/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
   await screen.findByText('Sesión no iniciada. Ejecuta claude y /login.');
 });
 
@@ -135,7 +136,7 @@ it('actualiza uso al recibir noticias, bloquea prueba offline y libera suscripci
   const connectivity = await simulation.api.connectivity.getState();
   act(() => simulation.emitConnectivity({ ...connectivity, status: 'offline' }));
   await screen.findByText(/la prueba está pausada/);
-  expect(screen.getByRole('button', { name: 'Probar' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Probar de nuevo' })).toBeDisabled();
   unmount();
   expect(simulation.listenerCount()).toBe(0);
 });
@@ -148,22 +149,21 @@ it('propone el analizador local sin CLI y explica el inicio de sesión', async (
     cliAvailable: false,
   });
   await mount();
-  expect(screen.getByLabelText('Proveedor de análisis')).toHaveValue('suscripcion');
-  expect(screen.getByText(/CLI no detectada/)).toHaveTextContent('analizador local');
-  expect(screen.getByText(/Para iniciar sesión/)).toHaveTextContent('claude y después /login');
-  expect(screen.getByRole('button', { name: 'Probar' })).toBeEnabled();
+  expect(screen.getByRole('radio', { name: /Suscripción/ })).toBeChecked();
+  expect(screen.getByText(/Usa la sesión iniciada/)).toHaveTextContent('analizador local');
+  expect(screen.getByRole('button', { name: 'Probar de nuevo' })).toBeEnabled();
 });
 
 it('prueba el proveedor guardado tras guardar los ajustes', async () => {
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   const test = vi.spyOn(window.tradia.ai, 'testLlm');
   await mount();
-  await userEvent.selectOptions(screen.getByLabelText('Proveedor de análisis'), 'suscripcion');
-  fireEvent.change(screen.getByLabelText('Máximo diario de titulares'), {
+  await userEvent.click(screen.getByRole('radio', { name: /Suscripción/ }));
+  fireEvent.change(screen.getByLabelText('Máximo diario'), {
     target: { value: '25' },
   });
-  await userEvent.click(screen.getByRole('button', { name: 'Probar' }));
-  await screen.findByText('Suscripción disponible.');
+  await userEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
+  await screen.findByText(/Suscripción disponible · Claude/);
   expect(save).toHaveBeenCalledWith({
     enabled: true,
     provider: 'suscripcion',
@@ -177,13 +177,13 @@ it('prueba el proveedor guardado tras guardar los ajustes', async () => {
 it('muestra el motivo de CLI no encontrada y de sesión no iniciada', async () => {
   const test = vi.spyOn(window.tradia.ai, 'testLlm');
   await mount();
-  await userEvent.selectOptions(screen.getByLabelText('Proveedor de análisis'), 'suscripcion');
+  await userEvent.click(screen.getByRole('radio', { name: /Suscripción/ }));
   for (const error of [
     'CLI no encontrada. Configura la ruta.',
     'Sesión no iniciada. Ejecuta claude y /login.',
   ]) {
     test.mockResolvedValueOnce({ ok: false, error, latencyMs: null });
-    await userEvent.click(screen.getByRole('button', { name: 'Probar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(error);
   }
 });
@@ -201,6 +201,6 @@ it('prueba el analizador local sin conexión y sin clave de pago', async () => {
   simulation.emitConnectivity({ ...connectivity, status: 'offline' });
   await mount();
   expect(screen.queryByText(/la prueba está pausada/)).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Probar' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
   await screen.findByText('Análisis local disponible · sin coste.');
 });

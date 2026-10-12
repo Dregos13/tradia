@@ -4,6 +4,7 @@ import { useNews } from '../../hooks/useNews';
 import { useSystemState } from '../../hooks/useSystemState';
 import './news.css';
 import { NewsAnalysis } from './NewsAnalysis';
+import { NewsSubscriptionNotice } from './SubscriptionNotice';
 import { aiTokens } from '../ai/presentation';
 
 const priorities = {
@@ -163,6 +164,7 @@ export function NewsFeed() {
           noticias guardadas en el histórico local.
         </p>
       )}
+      <NewsSubscriptionNotice />
       <div className="news-filters">
         <label>
           Prioridad

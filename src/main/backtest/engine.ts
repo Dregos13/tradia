@@ -14,11 +14,15 @@
  * 2. Si d está dentro del periodo operable (>= `startDate`):
  *    a. Se ejecutan las órdenes pendientes de cada activo a su apertura
  *       (las señales del cierre anterior se llenan hoy, nunca en la misma
- *       vela). Compra: precio × (1 + coste), venta: precio × (1 − coste),
- *       donde coste = (slippageBp + spreadBp) / 10 000.
- *    b. Se evalúan stop y objetivo con el high/low intrabarra. Si la vela
- *       toca los dos, gana el stop (conservador). Un hueco de apertura más
- *       allá del nivel ejecuta a la apertura, no al nivel.
+ *       vela). Compra y recompra de corto: precio × (1 + coste); venta y
+ *       apertura en corto: precio × (1 − coste), donde coste =
+ *       (slippageBp + spreadBp) / 10 000. Si en la misma señal llegan una
+ *       apertura en largo y una en corto del mismo activo, se anulan: no
+ *       hay largo y corto simultáneos ni cambio de lado en una orden.
+ *    b. Se evalúan stop y objetivo con el high/low intrabarra —en el
+ *       corto el stop está por encima y el objetivo por debajo—. Si la
+ *       vela toca los dos, gana el stop (conservador). Un hueco de
+ *       apertura más allá del nivel ejecuta a la apertura, no al nivel.
  *    c. Si la vela procesada es la última del activo y la simulación
  *       continúa, la posición abierta se cierra al cierre ('delisted').
  * 3. Se marca el capital al cierre (efectivo + posiciones a último cierre
@@ -50,7 +54,9 @@ import {
   type EngineBar,
   type EquityPoint,
   type ExitReason,
+  type PositionSide,
   type PositionView,
+  type ShortOptions,
   type StrategyContext,
   type Trade,
 } from './types';
@@ -250,6 +256,8 @@ function buildAsset(
 
 interface Position {
   ticker: string;
+  /** 'largo' comprada; 'corto' vendida (el nominal cuenta como exposición). */
+  side: PositionSide;
   shares: number;
   entryPrice: number;
   entryDate: SessionDate;
@@ -263,7 +271,9 @@ interface Position {
 
 type PendingOrder =
   | { kind: 'buy'; signalDate: SessionDate; stop: number | null; target: number | null }
-  | { kind: 'sell'; signalDate: SessionDate };
+  | { kind: 'sell'; signalDate: SessionDate }
+  | { kind: 'short'; signalDate: SessionDate; stop: number | null; target: number | null }
+  | { kind: 'cover'; signalDate: SessionDate };
 
 // ---------------------------------------------------------------------------
 // Vista truncada de velas (barrera anti look-ahead)
@@ -370,8 +380,8 @@ class EngineContext implements StrategyContext {
   buy(ticker: string, options: BuyOptions = {}): void {
     const key = this.requireMember(ticker);
     if (this.warmup || !this.isListed(key)) return;
-    // Filtro de régimen: la señal de compra de una sesión desactivada se
-    // descarta. Las ventas y los stops nunca se bloquean.
+    // Filtro de régimen: la señal de entrada de una sesión desactivada se
+    // descarta. Las salidas y los stops nunca se bloquean.
     if (this.deps.regimeEnabled?.get(this.date) === false) return;
     const stop = optionalPrice(options.stop, 'stop');
     const target = optionalPrice(options.target, 'target');
@@ -382,6 +392,23 @@ class EngineContext implements StrategyContext {
     const key = this.requireMember(ticker);
     if (this.warmup || !this.isListed(key)) return;
     this.enqueue(key, { kind: 'sell', signalDate: this.date });
+  }
+
+  short(ticker: string, options: ShortOptions = {}): void {
+    const key = this.requireMember(ticker);
+    if (this.warmup || !this.isListed(key)) return;
+    // La apertura en corto es una entrada: el filtro de régimen la
+    // bloquea igual que la compra.
+    if (this.deps.regimeEnabled?.get(this.date) === false) return;
+    const stop = optionalPrice(options.stop, 'stop');
+    const target = optionalPrice(options.target, 'target');
+    this.enqueue(key, { kind: 'short', signalDate: this.date, stop, target });
+  }
+
+  cover(ticker: string): void {
+    const key = this.requireMember(ticker);
+    if (this.warmup || !this.isListed(key)) return;
+    this.enqueue(key, { kind: 'cover', signalDate: this.date });
   }
 
   setStop(ticker: string, price: number): void {
@@ -425,6 +452,7 @@ function optionalPrice(value: number | undefined, field: string): number | null 
 function positionView(position: Position): PositionView {
   return {
     ticker: position.ticker,
+    side: position.side,
     shares: position.shares,
     entryPrice: position.entryPrice,
     entryDate: position.entryDate,

@@ -204,3 +204,91 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await capturePhaseScreenshot(page, 'fase-6-7-noticias-sin-verificar.png', card);
   });
 });
+
+test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mover el foco', async () => {
+  const { app, page } = context!;
+  // Doble del contrato IPC: recorre preload y eventos reales de Electron,
+  // sin CLI externa ni cambios en el proceso principal de producción.
+  await app.evaluate(({ ipcMain }) => {
+    const state = globalThis as typeof globalThis & {
+      __newsStatusE2E?: {
+        provider: 'suscripcion';
+        state: 'ok' | 'sin-sesion';
+        since: string;
+        message: string | null;
+      };
+    };
+    state.__newsStatusE2E = {
+      provider: 'suscripcion',
+      state: 'ok',
+      since: new Date().toISOString(),
+      message: null,
+    };
+    ipcMain.removeHandler('ai:news-status');
+    ipcMain.handle('ai:news-status', () => state.__newsStatusE2E);
+    ipcMain.removeHandler('ai:test-llm');
+    ipcMain.handle('ai:test-llm', () => ({ ok: true, error: null, latencyMs: 1 }));
+  });
+  await openPage(page, 'Noticias');
+  const search = page.getByRole('searchbox').first();
+  await search.focus();
+  async function force(state: 'ok' | 'sin-sesion') {
+    await app.evaluate(({ BrowserWindow }, value) => {
+      const global = globalThis as typeof globalThis & { __newsStatusE2E?: unknown };
+      const status = {
+        provider: 'suscripcion',
+        state: value,
+        since: new Date().toISOString(),
+        message:
+          value === 'ok'
+            ? null
+            : 'Abre un terminal, ejecuta claude y después /login. Vuelve aquí y prueba de nuevo. Mientras tanto, se usa el analizador local.',
+      };
+      global.__newsStatusE2E = status;
+      for (const window of BrowserWindow.getAllWindows())
+        window.webContents.send('ai:news-status-changed', status);
+    }, state);
+  }
+  await force('sin-sesion');
+  const notice = page.getByRole('status', { name: 'Estado de la suscripción' });
+  await expect(notice).toContainText('Suscripción no disponible · sesión no iniciada');
+  await expect(notice).toContainText('claude y después /login');
+  await expect(notice).toContainText('las noticias se analizan con el analizador local');
+  await expect(search).toBeFocused();
+  await page.screenshot({ path: '/tmp/tradia-news-notice-desktop.png' });
+  await page.setViewportSize({ width: 700, height: 900 });
+  await app.evaluate(({ nativeTheme }) => {
+    nativeTheme.themeSource = 'dark';
+  });
+  await expect
+    .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(75, 28, 38)');
+  await page.screenshot({ path: '/tmp/tradia-news-notice-dark-700.png' });
+  await force('ok');
+  await expect(notice).toHaveCount(0);
+  await expect(search).toBeFocused();
+
+  await force('sin-sesion');
+  await openPage(page, 'Ajustes');
+  await expect(page.getByRole('radio', { name: /Suscripción \(Claude Code\)/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Analizador local/ })).toBeVisible();
+  await expect(
+    page
+      .getByRole('region', { name: 'Análisis de noticias', exact: true })
+      .getByLabel(/Clave de API/),
+  ).toHaveCount(0);
+  await expect(notice).toContainText('Vuelve aquí y prueba de nuevo.');
+  await page.screenshot({ path: '/tmp/tradia-settings-notice-dark-700.png' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await app.evaluate(({ nativeTheme }) => {
+    nativeTheme.themeSource = 'light';
+  });
+  await expect
+    .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(251, 228, 231)');
+  await page.screenshot({ path: '/tmp/tradia-settings-notice-desktop.png' });
+  const retry = notice.getByRole('button', { name: 'Probar de nuevo' });
+  await retry.focus();
+  await force('ok');
+  await expect(notice).toHaveCount(0);
+});

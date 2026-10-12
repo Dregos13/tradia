@@ -41,14 +41,24 @@ export const STRATEGY_MARKET_MAX_LENGTH = 64;
 /**
  * Reglas exactas de la ficha en texto legible. Lo que ejecuta el motor es
  * `parameters`; estos campos documentan la lógica para la biblioteca.
- * Son obligatorios los cuatro: si la estrategia no usa stop u objetivo se
- * dice explícitamente («Sin stop: sale solo por señal»).
+ * Son obligatorios los cuatro primeros: si la estrategia no usa stop u
+ * objetivo se dice explícitamente («Sin stop: sale solo por señal»).
+ *
+ * `entryShort`/`exitShort` son las reglas de la posición en corto
+ * (opcionales): vacías o ausentes significan que la estrategia no opera
+ * en corto, así que las fichas guardadas antes de esta ampliación siguen
+ * siendo válidas sin migrar. Van en pareja: si una está escrita la otra
+ * también hace falta, igual que `entry`/`exit`.
  */
 export interface StrategyRules {
   entry: string;
   exit: string;
   stop: string;
   target: string;
+  /** Entrada en corto (venta en la próxima apertura); vacío = sin corto. */
+  entryShort?: string;
+  /** Salida del corto (recompra en la próxima apertura). */
+  exitShort?: string;
 }
 
 /** Rango de un parámetro para el mapa de sensibilidad del informe. */
