@@ -137,7 +137,7 @@ _Claude · Predeterminado (Testing) · 12-10-2026 · `HEAD` = `f0bf2226` («Rond
 | `npm run eval:news-llm -- --provider local` | **EXIT 0**: activo 128/128 (umbral 90 %), sentimiento 128/128 (umbral 70 %), «Titulares analizados por el proveedor: 0 de 200 (sin coste de API)», «SUPERA los umbrales documentados» |
 | `npm run eval:news-llm -- --provider api` | **EXIT 2**: «Proveedor desconocido «api». Uso: … --provider suscripcion\|local» (la API ya no existe) |
 | `git ls-files .venv-ml \| wc -l` | **0** |
-| `grep -rnE "\b(describe\|it\|test)\.(skip\|skipIf\|runIf\|only\|fails\|todo)\b\|\.fixme\(\|\bx(it\|describe)\(" src e2e` (patrón fijado por el orquestador) | 2 líneas, **las dos en comentarios** que dicen que _no_ se usa `it.fails`: `src/main/backtest/__audit__/reglas.audit.test.ts:27` y `src/main/ai/__audit__/sin-api.audit.test.ts:22` («Ningún hallazgo se declara `it.fails`»). Quitando los comentarios (`… \| grep -vE ':[0-9]+:\s*(\*\|//)'`) → **0**. Ninguna prueba se salta |
+| `grep -rnE 'it\.fails\|\.skip\(\|fixme\|\.only\(' src e2e` (patrón fijado por el orquestador) | **Vacío.** Los dos comentarios que antes coincidían se han reescrito sin nombrar el marcador («Ningún hallazgo se marca como fallo esperado»): `src/main/backtest/__audit__/reglas.audit.test.ts:27` y `src/main/ai/__audit__/sin-api.audit.test.ts:22`. Ninguna prueba se salta |
 
 `npm run test:e2e` reescribe unas 65 capturas de `docs/qa/capturas/`; se han restaurado con `git checkout -- docs/qa/capturas/` y el árbol queda limpio.
 
@@ -163,7 +163,7 @@ _Claude · Predeterminado (Testing) · 12-10-2026 · `HEAD` = `f0bf2226` («Rond
 | Corto con dinero real con techos propios (100/200/1/5 %) | **Hecho** | `orderGuard.ts` y `live.audit.test.ts:721`; techos en `src/shared/live.ts` (`LIVE_FIXED_SHORT_CAPS`) |
 | **Aviso de la suscripción** (motivo + paso + una notificación, también al arrancar sin CLI) | **Hecho** | `src/shared/newsSubscription.ts:9`, `:13`; `news/service.ts:586` (`start()`); `news/service.test.ts:595`, `index.test.ts:172`; E2E `news-sentiment.spec.ts` |
 | **Retirada de la API de pago** | **Hecho** | Ajustes solo ofrece «Suscripción (Claude Code)» y «Analizador local» (`AiSettings.tsx:155`, `:171-172`); `sin-api.audit.test.ts:184`, `:257`, `:421` (la clave antigua se borra y nadie llama a la API) |
-| **Limpieza** (`sessionDateLabel` único, `.venv-ml`, saltos de pruebas, Prettier) | **Hecho** | `format:check` en verde; grep de saltos sin código; `claudeCli.test.ts` y `news/service.test.ts` sin `skipIf` (helper `__fixtures__/installFakeCli.ts`) |
+| **Limpieza** (`sessionDateLabel` único, `.venv-ml`, saltos de pruebas, Prettier) | **Hecho** | `format:check` en verde; grep de saltos vacío; `claudeCli.test.ts` y `news/service.test.ts` sin `skipIf` (helper `__fixtures__/installFakeCli.ts`) |
 
 ### Hallazgos de los tres informes
 
@@ -175,7 +175,7 @@ _Claude · Predeterminado (Testing) · 12-10-2026 · `HEAD` = `f0bf2226` («Rond
 | `scaling.test.ts` sin formato | auditoría | Corregido | `format:check` en verde |
 | F1 · ficha sin «Estado actualizado» ni foco | `e2e-reglas-noticias.md` | Corregido | `StrategiesPage.tsx:123`, `StrategyDetail.tsx:252`; `StrategiesPage.test.tsx:149`; E2E `custom-strategy.spec.ts:127` (3/3) |
 | O1 · «Venta» sin posición en una propia solo larga | E2E | Justificado | Riesgo la veta con motivo; igual en las clásicas (`signals-dashboard.spec.ts:152`) |
-| O2 · con `Objetivo: ninguno` Riesgo veta la compra | E2E | Justificado (comportamiento correcto) | Sin objetivo no hay ratio beneficio/riesgo. La ayuda del editor **todavía no avisa** de ello (`RuleEditor.tsx:21`, `:54`): Backend lo pasó a Frontend y Frontend lo dejó como observación. Queda como mejora menor de texto, no bloquea la entrega |
+| O2 · con `Objetivo: ninguno` Riesgo veta la compra | E2E | **Hecho** | El comportamiento del motor de riesgo no cambia. La ayuda del objetivo avisa ahora de que con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo: `src/renderer/src/components/strategies/RuleEditor.tsx:21-22`; prueba `RuleEditor.test.tsx:366` |
 | P-1 · nombre cortado a 120 | `perfiles-reglas-noticias.md` | Corregido | `StrategyNameAndLibrary.test.tsx:28`, `:41` |
 | P-2 · cabeceras partidas en la biblioteca | perfiles | Corregido | `StrategyNameAndLibrary.test.tsx:83`, `:102` |
 | P-3 · `estado-pendientes.md` desfasado | perfiles | Corregido | §1 reescrito; referencias revisadas otra vez en esta verificación |

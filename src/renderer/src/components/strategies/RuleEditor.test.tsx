@@ -362,3 +362,11 @@ it('el adaptador simulado ejecuta cortos de una propia y persiste el lado en el 
   expect(await window.tradia.backtest.get(report.id)).toEqual(report);
   expect(await window.tradia.backtest.list({ strategyId: own.id, version: 2 })).toEqual([report]);
 });
+
+it('avisa en la ayuda del objetivo de que sin objetivo el motor de riesgo vetará la compra', () => {
+  render(<StrategyForm strategy={strategy} save={vi.fn()} />);
+  const target = screen.getByLabelText('Objetivo');
+  expect(target).toHaveAccessibleDescription(
+    /Con «ninguno» \(Sin objetivo\) el motor de riesgo vetará la compra por la relación beneficio\/riesgo\./,
+  );
+});

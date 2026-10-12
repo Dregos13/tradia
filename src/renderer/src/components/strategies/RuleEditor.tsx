@@ -18,7 +18,8 @@ const help: Record<RuleField, string> = {
   exitShort:
     'Opcional. Condición para recomprar y cerrar el corto. Deja ambas vacías para operar solo en largo.',
   stop: 'Distancia máxima de pérdida: porcentaje, múltiplo de ATR o ninguno.',
-  target: 'Distancia para tomar beneficio: porcentaje, múltiplo de ATR o ninguno.',
+  target:
+    'Distancia para tomar beneficio: porcentaje, múltiplo de ATR o ninguno. Con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo.',
 };
 const examples: Record<RuleField, { label: string; value: string }[]> = {
   entry: [

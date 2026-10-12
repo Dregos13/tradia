@@ -19,7 +19,7 @@
  *   solo acepta 'local' y 'suscripcion'.
  *
  * Convención: cada garantía corre como `it` normal. Ningún hallazgo se
- * declara `it.fails`: los que haya se describen en
+ * marca como fallo esperado: los que haya se describen en
  * `docs/qa/auditoria-reglas-noticias.md` con su gravedad y sus pasos.
  */
 import type Database from 'better-sqlite3';
