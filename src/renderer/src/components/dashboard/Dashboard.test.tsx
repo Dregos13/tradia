@@ -328,3 +328,44 @@ it('una consulta inicial antigua no oculta una señal recibida durante la carga'
   await act(async () => resolveList([]));
   expect(screen.getByText(signal.reason)).toBeVisible();
 });
+
+it('R3: sin red aplica dataStatus.onChanged y deja de mostrar Actualizando conservando el último dato', async () => {
+  const simulation = createSimulatedAdapter();
+  window.tradia = simulation.api;
+  const status = {
+    key: 'macro:VIXCLS',
+    state: 'actualizando' as const,
+    lastOkAt: '2026-09-17T20:00:00Z',
+    updatedAt: '2026-10-12T13:40:00Z',
+    reason: 'Descargando observaciones de FRED',
+    consecutiveFailures: 0,
+  };
+  const macro = {
+    id: 'VIXCLS',
+    name: 'VIX',
+    unit: 'puntos',
+    frequency: 'diaria' as const,
+    observations: [{ date: '2026-09-17', value: 21.4 }],
+    status,
+  };
+  const readMacro = vi.spyOn(simulation.api.macro, 'getSeries').mockResolvedValue([macro]);
+  vi.spyOn(simulation.api.dataStatus, 'get').mockResolvedValue([status]);
+  const connectivity = await simulation.api.connectivity.getState();
+  render(
+    <Dashboard system={{ ...system, connectivity: { ...connectivity, status: 'offline' } }} />,
+  );
+  const panel = screen.getByRole('region', { name: 'Contexto macro' });
+  expect(await within(panel).findByText('Actualizando')).toBeVisible();
+  const reason = 'Falta la observación esperada; último dato: 17 sept 2026';
+  // La relectura puede traer otros valores; sin red conservamos las observaciones locales.
+  readMacro.mockResolvedValue([{ ...macro, observations: [{ date: '2026-10-09', value: 99 }] }]);
+  act(() => simulation.emitDataStatus({ ...status, state: 'desactualizado', reason }));
+  await waitFor(() => {
+    expect(within(panel).queryByText('Actualizando')).not.toBeInTheDocument();
+    expect(within(panel).getByText('Desactualizado')).toBeVisible();
+    expect(within(panel).getByText(reason)).toBeVisible();
+    expect(within(panel).getByText('21,40 puntos')).toBeVisible();
+  });
+  await waitFor(() => expect(readMacro).toHaveBeenCalledTimes(2));
+  expect(within(panel).getByText('21,40 puntos')).toBeVisible();
+});

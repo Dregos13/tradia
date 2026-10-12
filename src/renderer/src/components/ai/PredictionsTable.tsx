@@ -7,6 +7,7 @@ export function PredictionsTable({
   predictions,
   summary,
   pauseReason,
+  offline = false,
   model,
   modelUnavailable = false,
   expectedSessionDate = null,
@@ -14,6 +15,7 @@ export function PredictionsTable({
   predictions: Prediction[];
   summary: DataFreshnessSummary | null;
   pauseReason?: string;
+  offline?: boolean;
   model: ModelCard | null;
   modelUnavailable?: boolean;
   /** Última sesión esperada ('YYYY-MM-DD'); las predicciones anteriores están desactualizadas. */
@@ -141,13 +143,16 @@ export function PredictionsTable({
       <section className="ai-section" aria-labelledby="ai-predictions-title">
         <h3 id="ai-predictions-title">Predicción por activo</h3>
         <p role="status">
-          {freshnessTitle({
-            state:
-              summary && summary.state !== 'current' && summary.state !== 'no-data'
-                ? summary.state
-                : 'stale',
-            sinceDate: summary?.sinceDate ?? null,
-          })}
+          {freshnessTitle(
+            {
+              state:
+                summary && summary.state !== 'current' && summary.state !== 'no-data'
+                  ? summary.state
+                  : 'stale',
+              sinceDate: summary?.sinceDate ?? null,
+            },
+            { offline, snapshotSessionDate: latestSession ?? undefined },
+          )}
         </p>
         {latestSession && (
           <p>

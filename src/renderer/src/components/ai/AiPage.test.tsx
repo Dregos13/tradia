@@ -415,8 +415,10 @@ it('H2: una instantánea caducada pausa IA aunque el resumen de frescura aún di
   await mount();
   await waitFor(() =>
     expect(
-      screen.getAllByText('Datos desactualizados · fecha del último dato no disponible'),
-    ).toHaveLength(2),
+      screen.getAllByText(
+        'Sin conexión · datos del 9 oct 2026. No se pudo comprobar si hay datos más recientes.',
+      ),
+    ).toHaveLength(3),
   );
   expect(
     screen.getByText(/En pausa: datos desactualizados. No se calcula el régimen/),

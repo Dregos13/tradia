@@ -20,7 +20,15 @@ export function sessionDateLabel(date: string | null): string {
         year: 'numeric',
       });
 }
-export function freshnessTitle(summary: Pick<DataFreshnessSummary, 'state' | 'sinceDate'>): string {
+export function freshnessTitle(
+  summary: Pick<DataFreshnessSummary, 'state' | 'sinceDate'>,
+  {
+    offline = false,
+    snapshotSessionDate,
+  }: { offline?: boolean; snapshotSessionDate?: string } = {},
+): string {
+  if (offline && !summary.sinceDate)
+    return `Sin conexión${snapshotSessionDate ? ` · datos del ${sessionDateLabel(snapshotSessionDate)}` : ' · última instantánea local conservada'}. No se pudo comprobar si hay datos más recientes.`;
   return summary.state === 'stale'
     ? summary.sinceDate
       ? `Datos desactualizados desde el ${sessionDateLabel(summary.sinceDate)}`
@@ -147,15 +155,7 @@ export function DataFreshness({
       </p>
     );
   if (summary.state === 'current' && offline)
-    return (
-      <p role="status">
-        Sin conexión
-        {snapshotSessionDate
-          ? ` · datos del ${sessionDateLabel(snapshotSessionDate)}`
-          : ' · última instantánea local conservada'}
-        . No se pudo comprobar si hay datos más recientes.
-      </p>
-    );
+    return <p role="status">{freshnessTitle(summary, { offline, snapshotSessionDate })}</p>;
   if (summary.state === 'current')
     return variant === 'banner' ? (
       <p className="sr-only" role="status">
@@ -173,7 +173,7 @@ export function DataFreshness({
   const paused = summary.state === 'stale' || summary.state === 'unreliable';
   const provider =
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
-  const title = freshnessTitle(summary);
+  const title = freshnessTitle(summary, { offline, snapshotSessionDate });
   const modifier =
     summary.state === 'unreliable'
       ? 'unreliable'

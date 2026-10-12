@@ -107,6 +107,7 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
           <RegimePanel
             overview={state.overview}
             summary={summary}
+            offline={state.offline}
             pauseReason={paused ? pauseReason : undefined}
           />
           {paused ? (
@@ -124,6 +125,7 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
             predictions={state.predictions}
             model={state.model}
             summary={summary}
+            offline={state.offline}
             pauseReason={paused ? pauseReason : undefined}
             modelUnavailable={modelUnavailable}
             expectedSessionDate={state.overview?.expectedSessionDate ?? null}

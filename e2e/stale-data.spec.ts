@@ -245,17 +245,18 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     // el cierre local no debe convertirse en «desactualizados desde».
     await expect(
       page
-        .locator('.ai-page')
-        .getByRole('status')
+        .locator('.ai-page > [role="status"]')
         .filter({ hasText: /^Sin conexión · datos del 6 oct 2026/ }),
     ).toBeVisible();
     for (const name of ['Régimen del mercado', 'Predicción por activo']) {
       const panel = page.getByRole('region', { name });
       await expect(panel.getByRole('status')).toHaveText(
-        'Datos desactualizados · fecha del último dato no disponible',
+        'Sin conexión · datos del 6 oct 2026. No se pudo comprobar si hay datos más recientes.',
       );
       await expect(panel).toContainText('Calculado con el cierre del 6 oct 2026');
     }
+    await expect(page.locator('.ai-page')).not.toContainText('fecha del último dato no disponible');
+    expect(await page.locator('.ai-page').innerText()).not.toMatch(/\d{4}-\d{2}-\d{2}/);
     await capturePhaseScreenshot(page, 'continuacion-datos-sin-red.png');
     await page.evaluate(() => window.tradia.testing!.simulateOffline(false));
     await expect.poll(() => lastBar(page, 'SPY'), { timeout: 30_000 }).toBe('2026-10-07');

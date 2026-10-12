@@ -6,10 +6,12 @@ export function RegimePanel({
   overview,
   summary,
   pauseReason,
+  offline = false,
 }: {
   overview: RegimeOverview | null;
   summary: DataFreshnessSummary | null;
   pauseReason?: string;
+  offline?: boolean;
 }) {
   const market = overview?.market;
   if (pauseReason)
@@ -17,13 +19,16 @@ export function RegimePanel({
       <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
         <h3 id="ai-regime-title">Régimen del mercado</h3>
         <p role="status">
-          {freshnessTitle({
-            state:
-              summary && summary.state !== 'current' && summary.state !== 'no-data'
-                ? summary.state
-                : 'stale',
-            sinceDate: summary?.sinceDate ?? null,
-          })}
+          {freshnessTitle(
+            {
+              state:
+                summary && summary.state !== 'current' && summary.state !== 'no-data'
+                  ? summary.state
+                  : 'stale',
+              sinceDate: summary?.sinceDate ?? null,
+            },
+            { offline, snapshotSessionDate: market?.sessionDate },
+          )}
         </p>
         {market && (
           <p>

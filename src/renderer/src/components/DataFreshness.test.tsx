@@ -367,3 +367,46 @@ it.each(['2026-09-25', null])(
     });
   },
 );
+
+it('R4: IA sin red conserva la fecha conocida en ambos paneles sin negarla ni mostrar ISO', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    state: 'current',
+    sinceDate: null,
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 0,
+    items: [],
+    updatedAt: stale.updatedAt,
+  });
+  const overview = await simulation.api.ai.regimeOverview();
+  expect(overview.market).not.toBeNull();
+  vi.spyOn(simulation.api.ai, 'regimeOverview').mockResolvedValue({
+    ...overview,
+    market: { ...overview.market!, sessionDate: '2026-10-06' },
+    expectedSessionDate: '2026-10-09',
+    stale: true,
+  });
+  await simulation.api.watchlist.add('SPY');
+  const predictions = await simulation.api.ai.predictions({});
+  expect(predictions.length).toBeGreaterThan(0);
+  vi.spyOn(simulation.api.ai, 'predictions').mockResolvedValue(
+    predictions.map((row) => ({ ...row, sessionDate: '2026-10-06' })),
+  );
+  simulation.emitConnectivity({
+    status: 'offline',
+    lastCheckedAt: null,
+    nextRetryAt: null,
+    attempt: 0,
+  });
+  const view = render(<AiPage />);
+  await waitFor(() => {
+    for (const name of ['Régimen del mercado', 'Predicción por activo']) {
+      const panel = screen.getByRole('region', { name });
+      expect(within(panel).getByRole('status')).toHaveTextContent(
+        'Sin conexión · datos del 6 oct 2026. No se pudo comprobar si hay datos más recientes.',
+      );
+      expect(panel).toHaveTextContent('Calculado con el cierre del 6 oct 2026');
+    }
+  });
+  expect(view.container).not.toHaveTextContent('fecha del último dato no disponible');
+  expect(view.container.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+});

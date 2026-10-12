@@ -167,6 +167,8 @@ Resultado: **23 archivos, 397/397** (`comandos/regresiones.txt`). Las pruebas E2
 - **Evidencia:** `app-real/c1-sin-red-80s.txt:120-135` frente a `app-real/c1-estado-80s.json` (`macro:VIXCLS`, `state: "desactualizado"`, `updatedAt 13:40:21Z`; volcado a las 13:41:50Z).
 - **Arreglo sugerido:** no conservar `actualizando` en la instantánea sin red (mostrar el último estado estable o «Sin conexión»), o seguir aplicando los cambios de `data-status` que llegan del proceso principal, que no dependen de la red.
 
+- **Estado:** Corregido en fe-fix-cierre-r3-r4. Regresión: `src/renderer/src/components/dashboard/Dashboard.test.tsx:332` (evento de actualizando a desactualizado sin red; conserva la observación local y cambia la tarjeta).
+
 ### R4 · Baja · Frontend: sin red, los paneles de IA dicen «fecha del último dato no disponible» junto a la fecha que sí se conoce
 
 - **Pasos:** escenario de `e2e/stale-data.spec.ts:225`: sin red pasa un cierre; abrir IA.
@@ -176,6 +178,9 @@ Resultado: **23 archivos, 397/397** (`comandos/regresiones.txt`). Las pruebas E2
   - La fecha del último dato sí se conoce. Lo que no se sabe es desde cuándo están desactualizados.
   - La spec lo fija así (`e2e/stale-data.spec.ts:253-256`), y el texto sale de `DataFreshness.tsx:27`.
 - **Evidencia:** `e2e/stale-data.spec.ts:244-258`; `docs/qa/capturas/continuacion-datos-sin-red.png`.
+
+- **Estado:** Corregido en fe-fix-cierre-r3-r4. Regresiones: `src/renderer/src/components/DataFreshness.test.tsx:371`, `src/renderer/src/components/ai/AiPage.test.tsx:394` y `e2e/stale-data.spec.ts:225` (ambos paneles muestran la fecha conocida y el aviso sin red, sin negarla ni mostrar fechas ISO). Captura actualizada: `docs/qa/capturas/continuacion-datos-sin-red.png`.
+- **Validación de R3/R4:** `npm run typecheck`, `npm run lint`, `npm test` (183 archivos, 2493 pruebas) y `npx playwright test e2e/stale-data.spec.ts` (2 pruebas, tras `npx electron-vite build`) en verde.
 
 ## 5. Fuera de alcance / no comprobado aquí
 
