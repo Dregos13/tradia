@@ -73,6 +73,16 @@ export function FirstStepsCard() {
       ) {
         setError(true);
       } else {
+        const keysDone =
+          tiingo.status === 'fulfilled' &&
+          tiingo.value &&
+          fred.status === 'fulfilled' &&
+          fred.value;
+        // Invalida la preferencia antes de publicar la configuración que hace reaparecer la tarjeta.
+        if (!keysDone) {
+          writeStorage(FIRST_STEPS_HIDDEN_KEY, null);
+          setHidden(false);
+        }
         setConfig({
           tiingo: tiingo.status === 'fulfilled' && tiingo.value,
           fred: fred.status === 'fulfilled' && fred.value,
@@ -107,12 +117,6 @@ export function FirstStepsCard() {
   );
   const sourcesDone = Boolean(config?.hasSources);
   const allDone = keysDone && connectionDone && sourcesDone;
-  useEffect(() => {
-    if (config && !keysDone && hidden) {
-      writeStorage(FIRST_STEPS_HIDDEN_KEY, null);
-      setHidden(false);
-    }
-  }, [config, keysDone, hidden]);
   if (hidden && allDone && !error) return null;
   const rows = [
     {

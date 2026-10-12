@@ -18,6 +18,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  localStorage.clear();
 });
 const reliable = (provider: string): DataStatusEntry => ({
   key: `provider:${provider}`,
@@ -123,22 +124,29 @@ it('refleja el estado real de los proveedores sin lanzar una prueba de conexión
 });
 
 it('permite ocultar cuando todo está hecho y reaparece si se elimina una clave', async () => {
-  vi.spyOn(simulation.api.secrets, 'hasKey').mockResolvedValue(true);
-  vi.spyOn(simulation.api.dataStatus, 'get').mockResolvedValue([
-    reliable('tiingo'),
-    reliable('fred'),
-  ]);
+  const hasKey = vi.spyOn(simulation.api.secrets, 'hasKey').mockResolvedValue(true);
+  let resolveStatuses!: (statuses: DataStatusEntry[]) => void;
+  const statuses = new Promise<DataStatusEntry[]>((resolve) => {
+    resolveStatuses = resolve;
+  });
+  vi.spyOn(simulation.api.dataStatus, 'get').mockReturnValue(statuses);
   const user = userEvent.setup();
   const { unmount } = render(<FirstStepsCard />);
+  expect(card().getByRole('status')).toBeInTheDocument();
+  await act(async () => {
+    resolveStatuses([reliable('tiingo'), reliable('fred')]);
+  });
   await user.click(await screen.findByRole('button', { name: 'Ocultar' }));
-  expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBe('true');
-  expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBe('true');
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
   unmount();
-  vi.mocked(simulation.api.secrets.hasKey).mockImplementation(
-    async (provider) => provider === 'tiingo',
-  );
+  hasKey.mockImplementation(async (provider) => provider === 'tiingo');
   render(<FirstStepsCard />);
-  expect(await screen.findByText('1 de 3 hechos')).toBeInTheDocument();
-  // La marca se borra en un useEffect posterior al render: bajo carga puede llegar después.
-  await waitFor(() => expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull());
+  await waitFor(() => {
+    expect(card().getByText('1 de 3 hechos')).toBeInTheDocument();
+    expect(card().getByRole('button', { name: 'Añadir claves' })).toBeInTheDocument();
+    expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull();
+  });
 });
