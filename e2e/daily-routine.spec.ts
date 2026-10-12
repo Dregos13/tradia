@@ -227,7 +227,9 @@ test('Responsable de equipo: adelanta el reloj y recibe los tres resúmenes en d
 
     await page.getByRole('link', { name: 'Diario', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Diario', level: 2 })).toBeVisible();
-    await expect(page.getByRole('row').filter({ hasText: 'Conciliación' })).toBeVisible();
+    // El reloj avanza 25 h por vuelta: según la hora local de la ejecución puede
+    // haber más de una conciliación en el Diario, y todas son correctas.
+    await expect(page.getByRole('row').filter({ hasText: 'Conciliación' }).first()).toBeVisible();
     await page.screenshot({ path: 'test-results/daily-routine-journal.png' });
 
     const capture = readFileSync(join(userData, 'delivery-captures.jsonl'), 'utf8');
