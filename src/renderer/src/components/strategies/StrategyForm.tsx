@@ -80,16 +80,34 @@ export function StrategyForm({
     () => parseStrategyRules(draft.rules, parsedParameters ?? {}),
     [draft.rules, parsedParameters],
   );
-  const [visibleValidation, setVisibleValidation] = useState(validation);
+  // Solo publicamos resultados que correspondan a las reglas y parámetros visibles.
+  const [visibleValidation, setVisibleValidation] = useState({
+    result: validation,
+    rules: draft.rules,
+    parameters: parsedParameters,
+  });
   useEffect(() => {
-    const timer = setTimeout(() => setVisibleValidation(validation), 200);
+    const timer = setTimeout(
+      () =>
+        setVisibleValidation({
+          result: validation,
+          rules: draft.rules,
+          parameters: parsedParameters,
+        }),
+      200,
+    );
     return () => clearTimeout(timer);
-  }, [validation]);
-  const ruleErrors = visibleValidation.ok ? [] : visibleValidation.errors;
+  }, [validation, draft.rules, parsedParameters]);
+  const validationPending =
+    visibleValidation.rules !== draft.rules || visibleValidation.parameters !== parsedParameters;
+  const ruleErrors =
+    validationPending || visibleValidation.result.ok ? [] : visibleValidation.result.errors;
   const emptyRules = !Object.values(draft.rules).some((value) => value?.trim());
   const summary = ruleErrors.length
     ? `Hay ${ruleErrors.length} ${ruleErrors.length === 1 ? 'error' : 'errores'}. Corrige ${ruleLabels[ruleErrors[0]!.field]} antes de guardar.`
-    : 'Reglas válidas · se pueden guardar y ejecutar.';
+    : validationPending
+      ? 'Comprobando reglas…'
+      : 'Reglas válidas · se pueden guardar y ejecutar.';
   const nameExcess = draft.name.length - STRATEGY_NAME_MAX_LENGTH;
   // Sin maxLength: un nombre pegado de más se conserva entero y se explica, no se corta en silencio.
   const nameField = (
@@ -151,7 +169,11 @@ export function StrategyForm({
     }
     setSubmitted(true);
     if (!descriptiveRules && !validation.ok) {
-      setVisibleValidation(validation);
+      setVisibleValidation({
+        result: validation,
+        rules: draft.rules,
+        parameters: parsedParameters,
+      });
       selectRuleError(validation.errors[0]!);
       return;
     }
@@ -296,7 +318,17 @@ export function StrategyForm({
                       (item.field === 'entryShort' && !!draft.rules.exitShort?.trim()) ||
                       (item.field === 'exitShort' && !!draft.rules.entryShort?.trim()),
                   )}
-                  change={(rules) => setDraft({ ...draft, rules })}
+                  pending={validationPending}
+                  change={(rules, source) => {
+                    setDraft({ ...draft, rules });
+                    if (source === 'insertion') {
+                      setVisibleValidation({
+                        result: parseStrategyRules(rules, parsedParameters ?? {}),
+                        rules,
+                        parameters: parsedParameters,
+                      });
+                    }
+                  }}
                   busy={busy}
                 />
               </>

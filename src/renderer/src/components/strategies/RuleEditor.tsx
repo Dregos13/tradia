@@ -9,6 +9,7 @@ import {
 } from '../../../../shared/strategyRules';
 import { ruleErrorText, ruleLabels } from './ruleValidation';
 
+type RuleChangeSource = 'typing' | 'insertion';
 type RuleField = keyof StrategyRules;
 const fields: RuleField[] = ['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'];
 const help: Record<RuleField, string> = {
@@ -68,12 +69,14 @@ function RuleFieldEditor({
   error,
   change,
   busy,
+  pending,
 }: {
   field: RuleField;
   value: string;
   error?: StrategyRulesError;
-  change: (value: string) => void;
+  change: (value: string, source: RuleChangeSource) => void;
   busy: boolean;
+  pending?: boolean;
 }) {
   const editor = useRef<HTMLTextAreaElement>(null);
   const inserted = useRef(false);
@@ -98,19 +101,23 @@ function RuleFieldEditor({
         aria-invalid={!!error}
         aria-describedby={`${id}-help ${id}-result ${id}-count`}
         value={value}
-        onChange={(event) => change(event.target.value)}
+        onChange={(event) => change(event.target.value, 'typing')}
       />
       <div className="strategy-rule-result">
         <span
           id={`${id}-result`}
           aria-live="polite"
           aria-atomic="true"
-          className={error ? 'strategy-rule-error' : value.trim() ? 'strategy-rule-valid' : ''}
+          className={
+            error ? 'strategy-rule-error' : !pending && value.trim() ? 'strategy-rule-valid' : ''
+          }
         >
           {error ? (
             <button type="button" onClick={() => selectRuleError(error)}>
               {ruleErrorText(error)}
             </button>
+          ) : pending ? (
+            'Comprobando…'
           ) : value.trim() ? (
             'Válida'
           ) : field === 'entryShort' || field === 'exitShort' ? (
@@ -131,7 +138,7 @@ function RuleFieldEditor({
             disabled={busy}
             onClick={() => {
               inserted.current = example !== value;
-              change(example);
+              change(example, 'insertion');
               editor.current?.focus();
               editor.current?.setSelectionRange(example.length, example.length);
             }}
@@ -149,12 +156,14 @@ export function RuleEditor({
   errors,
   change,
   busy,
+  pending,
 }: {
   rules: StrategyRules;
   parameters: Record<string, number>;
   errors: StrategyRulesError[];
-  change: (rules: StrategyRules) => void;
+  change: (rules: StrategyRules, source: RuleChangeSource) => void;
   busy: boolean;
+  pending?: boolean;
 }) {
   return (
     <div className="strategy-rule-layout">
@@ -165,7 +174,8 @@ export function RuleEditor({
             field={field}
             value={rules[field] ?? ''}
             error={errors.find((error) => error.field === field)}
-            change={(value) => change({ ...rules, [field]: value })}
+            change={(value, source) => change({ ...rules, [field]: value }, source)}
+            pending={pending}
             busy={busy}
           />
         ))}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { parseStrategyRules } from '../../../../shared/strategyRules';
@@ -34,6 +34,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -369,4 +370,62 @@ it('avisa en la ayuda del objetivo de que sin objetivo el motor de riesgo vetar�
   expect(target).toHaveAccessibleDescription(
     /Con «ninguno» \(Sin objetivo\) el motor de riesgo vetará la compra por la relación beneficio\/riesgo\./,
   );
+});
+
+it.each([
+  ['Objetivo', 'Sin objetivo', 'ninguno', 'target'],
+  ['Stop', 'Insertar stop del 2 %', '2%', 'stop'],
+])(
+  'valida %s al insertar sobre un campo vacío sin esperar al reloj',
+  (label, button, value, field) => {
+    vi.useFakeTimers();
+    render(<StrategyForm save={vi.fn()} />);
+    const editor = screen.getByLabelText(label);
+    const result = document.getElementById(`strategy-rule-${field}-result`)!;
+    expect(editor).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: button }));
+    expect(editor).toHaveValue(value);
+    expect(result).toHaveTextContent(/^Válida$/);
+    expect(editor).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.queryByText(/está vacío/)).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(100));
+    expect(result).toHaveTextContent(/^Válida$/);
+    expect(editor).toHaveAttribute('aria-invalid', 'false');
+    act(() => vi.advanceTimersByTime(100));
+    expect(result).toHaveTextContent(/^Válida$/);
+    expect(screen.queryByText(/está vacío/)).not.toBeInTheDocument();
+  },
+);
+
+it('mantiene los 200 ms al escribir y retira los errores del valor anterior mientras comprueba', () => {
+  vi.useFakeTimers();
+  render(<StrategyForm strategy={strategy} save={vi.fn()} />);
+  const target = screen.getByLabelText('Objetivo');
+  const result = document.getElementById('strategy-rule-target-result')!;
+  fireEvent.change(target, { target: { value: 'desconocido' } });
+  expect(result).toHaveTextContent(/^Comprobando…$/);
+  expect(target).toHaveAttribute('aria-invalid', 'false');
+  act(() => vi.advanceTimersByTime(199));
+  expect(result).toHaveTextContent(/^Comprobando…$/);
+  act(() => vi.advanceTimersByTime(1));
+  expect(target).toHaveAttribute('aria-invalid', 'true');
+  expect(result).toHaveTextContent(/desconocido/);
+
+  fireEvent.change(target, { target: { value: '6%' } });
+  expect(result).toHaveTextContent(/^Comprobando…$/);
+  expect(result).not.toHaveTextContent(/desconocido/);
+  expect(target).toHaveAttribute('aria-invalid', 'false');
+  act(() => vi.advanceTimersByTime(199));
+  expect(result).toHaveTextContent(/^Comprobando…$/);
+  act(() => vi.advanceTimersByTime(1));
+  expect(result).toHaveTextContent(/^Válida$/);
+
+  // Una inserción sustituye también una validación manual aún pendiente.
+  fireEvent.change(target, { target: { value: 'desconocido' } });
+  act(() => vi.advanceTimersByTime(100));
+  fireEvent.click(screen.getByRole('button', { name: 'Sin objetivo' }));
+  expect(result).toHaveTextContent(/^Válida$/);
+  act(() => vi.advanceTimersByTime(200));
+  expect(result).toHaveTextContent(/^Válida$/);
+  expect(target).toHaveAttribute('aria-invalid', 'false');
 });

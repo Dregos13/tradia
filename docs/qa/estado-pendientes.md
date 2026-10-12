@@ -244,3 +244,13 @@ Ejecutadas una a una sobre `d12b7734`, sin otras pruebas en marcha salvo donde s
 
 - **Responsable de equipo que revisa entregas.** Repite la prueba intermitente 50 veces con el equipo cargado, lanza todas las puertas y comprueba cada archivo:línea con `grep -n`. Esperado: 50/50 y todo en verde. Observado: 50/50, todas las puertas en verde y las referencias coinciden.
 - **Profesional independiente que organiza varios proyectos.** Crea una estrategia y pulsa «Sin objetivo». Esperado: la ayuda avisa del veto de Riesgo. Observado: lo avisa (captura de arriba). Durante unos 200 ms, el campo muestra en rojo «el campo de objetivo está vacío…» aunque ya contiene `ninguno` (`docs/qa/capturas/cierre-o2-aviso-transitorio.png`). Detalle en `docs/qa/cierre-fallos-continuacion.md`.
+
+## C1 · Validación al insertar una regla (13-10-2026)
+
+| Fallo | Estado | Evidencia | Verificación |
+| --- | --- | --- | --- |
+| C1 · aviso falso de «está vacío» durante 200 ms tras insertar un ejemplo | **Cerrado** | `src/renderer/src/components/strategies/StrategyForm.tsx:83` conserva las reglas y parámetros del resultado; `:101` oculta resultados desfasados; `:324` valida inmediatamente las inserciones. `RuleEditor.tsx:104` distingue escritura e inserción, y `:120` muestra «Comprobando…» durante la validación manual pendiente. | `RuleEditor.test.tsx:379`: reloj falso, «Sin objetivo» e «Insertar stop del 2 %» sobre campos vacíos muestran «Válida» sin avanzar el reloj ni anunciar vacío ni marcar `aria-invalid`; `:400`: escritura diferida 200 ms, retirada de errores anteriores y cancelación del resultado pendiente al insertar. 55/55 pruebas de estrategias; 2.714/2.714 en `npm test`. |
+
+La ayuda de O2 se conserva sin cambios y su prueba sigue pasando (`RuleEditor.test.tsx:367`). Comprobado en Electron con `TRADIA_E2E`: Estrategias › Nueva estrategia › «Sin objetivo». Un observador del DOM registra tres cambios tras insertar, todos con `value: "ninguno"`, `invalid: "false"`, `result: "Válida"`. También se comprobó «Insertar stop del 2 %». Captura: [campo válido al insertar](capturas/cierre-c1-validacion-insercion.png). Registro de esta comprobación: `/tmp/tradia-c1-electron.log`.
+
+Puertas de esta corrección: `typecheck`, `lint`, `format:check` y `npm test` en verde. `npm run test:e2e` en verde: 54/54 (4,9 min). Las capturas ajenas reescritas por la batería se han restaurado. `git ls-files .venv-ml` vacío; búsqueda de saltos prohibidos en `src` y `e2e` sin resultados. No se añaden tareas manuales ni dependencias.
