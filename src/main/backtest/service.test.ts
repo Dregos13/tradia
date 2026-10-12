@@ -21,8 +21,13 @@ import {
   splitTimeline,
   unionDates,
 } from './validation';
-import { createBacktestRepository, type BacktestRepository } from './repository';
-import { createBacktestService, registerBacktest, type BacktestService } from './service';
+import { BacktestError, createBacktestRepository, type BacktestRepository } from './repository';
+import {
+  createBacktestService,
+  registerBacktest,
+  withBacktestErrorCode,
+  type BacktestService,
+} from './service';
 import {
   costConfigFromAssumed,
   stressSourceFromProvider,
@@ -786,6 +791,57 @@ describe('registro IPC', () => {
     expect(await electronMock.handlers.get(IPC_CHANNELS.backtest.list)!(null, undefined)).toEqual(
       [],
     );
+  });
+
+  it('conserva el code de BacktestError al cruzar el IPC ([code] motivo)', async () => {
+    // El envoltorio traduce cualquier BacktestError; el resto pasa intacto.
+    await expect(
+      withBacktestErrorCode(() => {
+        throw new BacktestError('reglas-invalidas', 'motivo');
+      }),
+    ).rejects.toThrowError('[reglas-invalidas] motivo');
+    const other = new Error('fallo interno');
+    await expect(withBacktestErrorCode(() => Promise.reject(other))).rejects.toBe(other);
+
+    // Por el manejador real: una propia con texto libre sale con el marcador.
+    const db = database();
+    const strategies = createStrategiesRepository(db);
+    const ctx: ServiceContext = {
+      broadcast: () => undefined,
+      services: { storage: fakeStorage(db), strategies },
+    };
+    registerBacktest(ctx, { seed: 'none' });
+    const broken = strategies.create({
+      ...DSL_SEED,
+      rules: {
+        entry: 'compra cuando sube mucho',
+        exit: 'vende cuando baja',
+        stop: 'ninguno',
+        target: 'ninguno',
+      },
+    });
+    const run = electronMock.handlers.get(IPC_CHANNELS.backtest.run)!;
+    const failure = await (run(null, { strategyId: broken.id }) as Promise<unknown>).then(
+      () => null,
+      (cause: unknown) => cause,
+    );
+    expect(failure).toMatchObject({ name: 'BacktestError', code: 'reglas-invalidas' });
+    expect((failure as Error).message).toMatch(/^\[reglas-invalidas\] \S/);
+    // Las guardas y los errores ajenos no llevan el marcador.
+    expect(() => run(null, { strategyId: 'x' })).toThrowError(IpcValidationError);
+    await expect(
+      electronMock.handlers.get(IPC_CHANNELS.backtest.runFinalTest)!(null, {
+        strategyId: broken.id,
+      }),
+    ).rejects.toThrowError('[reglas-invalidas]');
+    await expect(
+      electronMock.handlers.get(IPC_CHANNELS.stress.run)!(null, { strategyId: broken.id }),
+    ).rejects.toThrowError('[reglas-invalidas]');
+    await expect(
+      electronMock.handlers.get(IPC_CHANNELS.backtest.runRegimeComparison)!(null, {
+        strategyId: broken.id,
+      }),
+    ).rejects.toThrowError('[reglas-invalidas]');
   });
 
   it('siembra las fichas al registrar (seed activado por defecto)', () => {

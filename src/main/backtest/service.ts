@@ -1575,6 +1575,27 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 // ---------------------------------------------------------------------------
 
 /**
+ * Envoltorio único de los manejadores `backtest:*` y `stress:*`: Electron
+ * solo transporta `name: message` de los errores lanzados en
+ * `ipcMain.handle`, así que el `code` de `BacktestError` se perdería al
+ * cruzar al renderer. Para conservarlo, todo `BacktestError` se reenvía
+ * con el mensaje `'[<code>] <motivo>'` (el marcador que reconoce
+ * `ruleValidation.ts`); la instancia mantiene `code` para quien la
+ * inspeccione dentro de main. Cualquier otro error pasa intacto.
+ * Las guardas de entrada quedan fuera: su rechazo sigue siendo síncrono.
+ */
+export async function withBacktestErrorCode<T>(run: () => T | Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    if (cause instanceof BacktestError) {
+      throw new BacktestError(cause.code, `[${cause.code}] ${cause.message}`);
+    }
+    throw cause;
+  }
+}
+
+/**
  * Registra los canales `backtest:*` y `stress:*` y lanza la semilla del
  * primer arranque: fichas de forma síncrona (la biblioteca las muestra al
  * instante) y resultados en segundo plano (`seedResults` es idempotente:
@@ -1615,19 +1636,19 @@ export function registerBacktest(
     if (!isBacktestRunRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.run, 'petición de backtest inválida');
     }
-    return service.run(request);
+    return withBacktestErrorCode(() => service.run(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.list, (_event, query: unknown) => {
     if (!isBacktestListQuery(query)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.list, 'filtros inválidos');
     }
-    return service.listRuns(query);
+    return withBacktestErrorCode(() => service.listRuns(query));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.get, (_event, id: unknown) => {
     if (!isBacktestRunId(id)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.get, 'id de ejecución inválido');
     }
-    return service.getRun(id);
+    return withBacktestErrorCode(() => service.getRun(id));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.runFinalTest, (_event, request: unknown) => {
     if (!isBacktestFinalTestRequest(request)) {
@@ -1636,19 +1657,19 @@ export function registerBacktest(
         'petición de prueba final inválida',
       );
     }
-    return service.runFinalTest(request);
+    return withBacktestErrorCode(() => service.runFinalTest(request));
   });
   ipcMain.handle(IPC_CHANNELS.stress.get, (_event, request: unknown) => {
     if (!isStressRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.stress.get, 'consulta de estrés inválida');
     }
-    return service.getStress(request);
+    return withBacktestErrorCode(() => service.getStress(request));
   });
   ipcMain.handle(IPC_CHANNELS.stress.run, (_event, request: unknown) => {
     if (!isStressRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.stress.run, 'petición de estrés inválida');
     }
-    return service.runStress(request);
+    return withBacktestErrorCode(() => service.runStress(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.regimeComparison, (_event, request: unknown) => {
     if (!isRegimeComparisonRequest(request)) {
@@ -1657,7 +1678,7 @@ export function registerBacktest(
         'consulta de comparación inválida',
       );
     }
-    return service.getRegimeComparison(request);
+    return withBacktestErrorCode(() => service.getRegimeComparison(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.runRegimeComparison, (_event, request: unknown) => {
     if (!isRegimeComparisonRequest(request)) {
@@ -1666,7 +1687,7 @@ export function registerBacktest(
         'petición de comparación inválida',
       );
     }
-    return service.runRegimeComparison(request);
+    return withBacktestErrorCode(() => service.runRegimeComparison(request));
   });
 
   // Semilla del primer arranque: fichas síncronas, resultados en segundo
