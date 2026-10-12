@@ -399,7 +399,11 @@ describe('guarda de frescura (datos desactualizados)', () => {
     expect(states[1]!.regimeState).toBe('desactualizada');
     expect(states[2]!.regimeState).toBe('degradada'); // el drift manda aunque el dato sea viejo
     expect(states[3]!.regimeState).toBe('desactualizada');
-    expect(states[0]!.reason).toContain('desactualizado');
+    // El motivo usa el formato local de la franja global, nunca ISO.
+    expect(states[0]!.reason).toBe(
+      'Régimen calculado con el cierre del 25 sept 2026; se esperaba la sesión del ' +
+        '9 oct 2026: no habilita ni desactiva hasta ponerse al día.',
+    );
   });
 
   it('un lote atrasado no recalcula; al ponerse al día cubre las sesiones pendientes', () => {

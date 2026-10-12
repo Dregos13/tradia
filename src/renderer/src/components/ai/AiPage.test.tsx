@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { RegimeOverview, Prediction, ModelCard as ModelCardData } from '../../../../shared/ai';
@@ -413,7 +413,11 @@ it('H2: una instantánea caducada pausa IA aunque el resumen de frescura aún di
     attempt: 1,
   });
   await mount();
-  expect(screen.getByText('Datos desactualizados desde el 9 oct 2026')).toBeVisible();
+  await waitFor(() =>
+    expect(
+      screen.getAllByText('Datos desactualizados · fecha del último dato no disponible'),
+    ).toHaveLength(2),
+  );
   expect(
     screen.getByText(/En pausa: datos desactualizados. No se calcula el régimen/),
   ).toBeVisible();
@@ -441,3 +445,45 @@ it('H2: sin conexión y sin datos persistidos informa que no hay instantánea', 
   await mount();
   expect(screen.getByText(/sin una instantánea disponible/)).toBeVisible();
 });
+
+it.each(['2026-09-25', null])(
+  'usa el resumen de frescura (%s), separado del cierre de cálculo',
+  async (sinceDate) => {
+    const overview = await adapter.api.ai.regimeOverview();
+    vi.mocked(adapter.api.ai.regimeOverview).mockResolvedValue({
+      ...overview,
+      stale: true,
+      market: { ...overview.market!, sessionDate: '2026-09-18' },
+    });
+    const rows = await adapter.api.ai.predictions();
+    vi.mocked(adapter.api.ai.predictions).mockResolvedValue(
+      rows.map((row) => ({ ...row, sessionDate: '2026-09-18' })),
+    );
+    vi.spyOn(adapter.api.dataStatus, 'freshness').mockResolvedValue({
+      state: 'stale',
+      sinceDate,
+      expectedSessionDate: '2026-10-09',
+      missingSessions: 10,
+      items: [],
+      updatedAt: '2026-10-12T22:00:00Z',
+    });
+    await mount();
+    const title = sinceDate
+      ? 'Datos desactualizados desde el 25 sept 2026'
+      : 'Datos desactualizados · fecha del último dato no disponible';
+    await waitFor(() => {
+      expect(screen.getAllByText(title)).toHaveLength(3);
+      for (const name of ['Régimen del mercado', 'Predicción por activo']) {
+        const panel = screen.getByRole('region', { name });
+        expect(within(panel).getByRole('status')).toHaveTextContent(title);
+        expect(panel).toHaveTextContent('Calculado con el cierre del 18 sept 2026');
+      }
+      expect(document.querySelector('.ai-page')).not.toHaveTextContent(/\b\d{4}-\d{2}-\d{2}\b/);
+      expect(screen.queryByText(/desde el sin datos/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Dirección: ADX/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('table', { name: 'Probabilidades estimadas al cierre diario' }),
+      ).not.toBeInTheDocument();
+    });
+  },
+);

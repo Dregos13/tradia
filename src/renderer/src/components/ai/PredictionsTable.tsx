@@ -1,13 +1,19 @@
+import type { DataFreshnessSummary } from '../../../../shared/ipc';
+import { freshnessTitle, sessionDateLabel } from '../DataFreshness';
 import { useId, useState } from 'react';
 import type { ModelCard, Prediction } from '../../../../shared/ai';
 import { date, Fitness, percent, TableWrap } from './presentation';
 export function PredictionsTable({
   predictions,
+  summary,
+  pauseReason,
   model,
   modelUnavailable = false,
   expectedSessionDate = null,
 }: {
   predictions: Prediction[];
+  summary: DataFreshnessSummary | null;
+  pauseReason?: string;
   model: ModelCard | null;
   modelUnavailable?: boolean;
   /** Última sesión esperada ('YYYY-MM-DD'); las predicciones anteriores están desactualizadas. */
@@ -130,6 +136,28 @@ export function PredictionsTable({
       </table>
     </TableWrap>
   );
+  if (pauseReason)
+    return (
+      <section className="ai-section" aria-labelledby="ai-predictions-title">
+        <h3 id="ai-predictions-title">Predicción por activo</h3>
+        <p role="status">
+          {freshnessTitle({
+            state:
+              summary && summary.state !== 'current' && summary.state !== 'no-data'
+                ? summary.state
+                : 'stale',
+            sinceDate: summary?.sinceDate ?? null,
+          })}
+        </p>
+        {latestSession && (
+          <p>
+            Calculado con el cierre del{' '}
+            <time dateTime={latestSession}>{sessionDateLabel(latestSession)}</time>
+          </p>
+        )}
+        <p>En pausa: {pauseReason}. No se calculan nuevas probabilidades hasta ponerse al día.</p>
+      </section>
+    );
   return (
     <section className="ai-section" aria-labelledby="ai-predictions-title">
       <h3 id="ai-predictions-title">Predicción por activo</h3>
@@ -137,8 +165,9 @@ export function PredictionsTable({
       {stale && (
         <div className="ai-warning" role="status">
           <p>
-            Datos desactualizados desde el {date(latestSession!)} · se esperaba la sesión del{' '}
-            {date(expectedSessionDate)}. No se crean predicciones nuevas hasta ponerse al día.
+            {freshnessTitle({ state: 'stale', sinceDate: summary?.sinceDate ?? null })} · se
+            esperaba la sesión del {date(expectedSessionDate)}. No se crean predicciones nuevas
+            hasta ponerse al día.
           </p>
         </div>
       )}

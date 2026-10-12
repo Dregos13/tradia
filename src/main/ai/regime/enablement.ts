@@ -20,6 +20,7 @@ import {
   type RegimeVolatilityLabel,
   type StrategyRegimeState,
 } from '../../../shared/ai';
+import { sessionDateLabel } from '../../../shared/dates';
 import type { StrategyStatus } from '../../../shared/strategy';
 
 /** Texto visible de cada etiqueta (página «IA» y motivos). */
@@ -54,7 +55,9 @@ const joinLabels = (labels: readonly RegimeLabel[]): string =>
 /**
  * Resolución cuando el régimen guardado está desactualizado: hay una
  * etiqueta pero su sesión es anterior a la última esperada, así que no
- * habilita ni desactiva hasta que los datos se pongan al día.
+ * habilita ni desactiva hasta que los datos se pongan al día. Las fechas
+ * se escriben en el formato local del renderer (`sessionDateLabel` de
+ * src/shared/dates) para no contradecir la franja global de frescura.
  */
 export function staleRegimeResolution(
   sessionDate: string,
@@ -63,8 +66,9 @@ export function staleRegimeResolution(
   return {
     regimeState: 'desactualizada',
     reason:
-      `El régimen del mercado está desactualizado (último cierre ${sessionDate}; ` +
-      `se esperaba la sesión del ${expected}): no habilita ni desactiva.`,
+      `Régimen calculado con el cierre del ${sessionDateLabel(sessionDate)}; ` +
+      `se esperaba la sesión del ${sessionDateLabel(expected)}: ` +
+      `no habilita ni desactiva hasta ponerse al día.`,
   };
 }
 

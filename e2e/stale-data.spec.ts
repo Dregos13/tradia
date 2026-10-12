@@ -144,6 +144,20 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     const overview = await page.evaluate(() => window.tradia.ai.regimeOverview());
     expect(overview).toMatchObject({ stale: true, expectedSessionDate: '2026-10-07' });
     expect(overview.market?.sessionDate).toBe('2026-10-06');
+    const globalTitle = page
+      .getByRole('region', { name: 'Estado de los datos' })
+      .getByRole('status')
+      .first()
+      .locator('strong');
+    await expect(globalTitle).toHaveText(STALE_TITLE);
+    const sharedTitle = (await globalTitle.innerText()).trim();
+    for (const name of ['Régimen del mercado', 'Predicción por activo']) {
+      const panel = page.getByRole('region', { name });
+      await expect(panel.getByRole('status')).toHaveText(sharedTitle);
+      await expect(panel).toContainText('Calculado con el cierre del 6 oct 2026');
+      await expect(panel).not.toContainText(/\b\d{4}-\d{2}-\d{2}\b/);
+    }
+    await expect(globalTitle).not.toContainText(/\b\d{4}-\d{2}-\d{2}\b/);
     await capturePhaseScreenshot(page, 'continuacion-datos-desactualizados-ia.png');
 
     // «Ver detalles»: una fila por entrada, con su último dato y su motivo.
@@ -227,7 +241,21 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(page.getByRole('region', { name: 'Régimen del mercado' })).toContainText(
       'En pausa:',
     );
-    await expect(page.getByRole('group', { name: 'Frescura de datos' })).toContainText(STALE_TITLE);
+    // Sin red, el resumen conserva current sin una fecha de inicio verificada:
+    // el cierre local no debe convertirse en «desactualizados desde».
+    await expect(
+      page
+        .locator('.ai-page')
+        .getByRole('status')
+        .filter({ hasText: /^Sin conexión · datos del 6 oct 2026/ }),
+    ).toBeVisible();
+    for (const name of ['Régimen del mercado', 'Predicción por activo']) {
+      const panel = page.getByRole('region', { name });
+      await expect(panel.getByRole('status')).toHaveText(
+        'Datos desactualizados · fecha del último dato no disponible',
+      );
+      await expect(panel).toContainText('Calculado con el cierre del 6 oct 2026');
+    }
     await capturePhaseScreenshot(page, 'continuacion-datos-sin-red.png');
     await page.evaluate(() => window.tradia.testing!.simulateOffline(false));
     await expect.poll(() => lastBar(page, 'SPY'), { timeout: 30_000 }).toBe('2026-10-07');

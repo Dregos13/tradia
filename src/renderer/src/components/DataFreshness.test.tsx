@@ -50,9 +50,11 @@ it('banner, Inicio, Mercado, Macro e IA comparten fecha, motivo y acciones del a
     <AiPage />,
   ]) {
     const view = render(surface);
-    expect(
-      await screen.findByText('Datos desactualizados desde el 25 sept 2026'),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getAllByText('Datos desactualizados desde el 25 sept 2026').length,
+      ).toBeGreaterThan(0),
+    );
     const freshness = screen.getByLabelText(
       surface.type === ProviderBanner ? 'Estado de los datos' : 'Frescura de datos',
     );
@@ -209,7 +211,10 @@ it('Inicio muestra la fecha del dato real, nunca la hora de consulta del proveed
       system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
     />,
   );
-  expect(await screen.findByText('Último cierre 25 sept 2026')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText('Último cierre 25 sept 2026')).toBeVisible();
+    expect(document.body).not.toHaveTextContent(/\b\d{4}-\d{2}-\d{2}\b/);
+  });
 });
 it('con estrategias paper el vacío de señales no pide activarlas otra vez', async () => {
   const strategies = strategyFixtures;
@@ -315,11 +320,50 @@ it('H2: sin conexión no anuncia datos al día con un resumen current', async ()
 it('N2: los eventos de la propia descarga no descartan su resultado de error', async () => {
   simulation.emitDataStatus(stale);
   vi.spyOn(simulation.api.market, 'refreshNow').mockImplementation(async () => {
-    await act(async () => simulation.emitDataStatus({ ...stale, state: 'actualizando' }));
-    await act(async () => simulation.emitDataStatus(stale));
+    simulation.emitDataStatus({ ...stale, state: 'actualizando' });
+    await Promise.resolve();
+    simulation.emitDataStatus(stale);
+    await Promise.resolve();
     return { accepted: true, ok: false, detail: 'fallo de esta descarga', reason: null };
   });
   render(<DataFreshness />);
   await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
-  expect(await screen.findByText('No se pudo actualizar: fallo de esta descarga')).toBeVisible();
+  await waitFor(() => {
+    expect(screen.getByText('No se pudo actualizar: fallo de esta descarga')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
+  });
 });
+
+it.each(['2026-09-25', null])(
+  'franja e IA comparten el aviso del resumen (%s) y nunca fechas ISO',
+  async (sinceDate) => {
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+      state: 'stale',
+      sinceDate,
+      expectedSessionDate: '2026-10-09',
+      missingSessions: 10,
+      items: [],
+      updatedAt: stale.updatedAt,
+    });
+    await act(async () => {
+      render(
+        <>
+          <ProviderBanner />
+          <AiPage />
+        </>,
+      );
+    });
+    const title = sinceDate
+      ? 'Datos desactualizados desde el 25 sept 2026'
+      : 'Datos desactualizados · fecha del último dato no disponible';
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Estado de los datos' })).toHaveTextContent(title);
+      for (const name of ['Régimen del mercado', 'Predicción por activo']) {
+        expect(within(screen.getByRole('region', { name })).getByRole('status')).toHaveTextContent(
+          title,
+        );
+      }
+      expect(document.body).not.toHaveTextContent(/\b\d{4}-\d{2}-\d{2}\b/);
+    });
+  },
+);

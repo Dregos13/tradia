@@ -1,20 +1,52 @@
+import type { DataFreshnessSummary } from '../../../../shared/ipc';
+import { freshnessTitle, sessionDateLabel } from '../DataFreshness';
 import type { RegimeOverview } from '../../../../shared/ai';
 import { Badge, date, number, percent, RegimeBadge, regimeLabel, TableWrap } from './presentation';
-export function RegimePanel({ overview }: { overview: RegimeOverview | null }) {
+export function RegimePanel({
+  overview,
+  summary,
+  pauseReason,
+}: {
+  overview: RegimeOverview | null;
+  summary: DataFreshnessSummary | null;
+  pauseReason?: string;
+}) {
   const market = overview?.market;
+  if (pauseReason)
+    return (
+      <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
+        <h3 id="ai-regime-title">Régimen del mercado</h3>
+        <p role="status">
+          {freshnessTitle({
+            state:
+              summary && summary.state !== 'current' && summary.state !== 'no-data'
+                ? summary.state
+                : 'stale',
+            sinceDate: summary?.sinceDate ?? null,
+          })}
+        </p>
+        {market && (
+          <p>
+            Calculado con el cierre del{' '}
+            <time dateTime={market.sessionDate}>{sessionDateLabel(market.sessionDate)}</time>
+          </p>
+        )}
+        <p>En pausa: {pauseReason}. No se calcula el régimen hasta ponerse al día.</p>
+      </section>
+    );
   return (
     <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
       <h3 id="ai-regime-title">Régimen del mercado</h3>
       {market ? (
         <>
           <p>
-            Referencia {market.ticker} · cierre{' '}
+            Referencia {market.ticker} · Calculado con el cierre del{' '}
             <time dateTime={market.sessionDate}>{date(market.sessionDate)}</time>
           </p>
           {overview?.stale && (
             <div className="ai-warning" role="status">
               <p>
-                Datos desactualizados desde el {date(market.sessionDate)}
+                {freshnessTitle({ state: 'stale', sinceDate: summary?.sinceDate ?? null })}
                 {overview.expectedSessionDate
                   ? ` · se esperaba la sesión del ${date(overview.expectedSessionDate)}`
                   : ''}

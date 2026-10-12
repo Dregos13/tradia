@@ -20,6 +20,19 @@ export function sessionDateLabel(date: string | null): string {
         year: 'numeric',
       });
 }
+export function freshnessTitle(summary: Pick<DataFreshnessSummary, 'state' | 'sinceDate'>): string {
+  return summary.state === 'stale'
+    ? summary.sinceDate
+      ? `Datos desactualizados desde el ${sessionDateLabel(summary.sinceDate)}`
+      : 'Datos desactualizados · fecha del último dato no disponible'
+    : summary.state === 'unreliable'
+      ? summary.sinceDate
+        ? `Datos no fiables desde el ${sessionDateLabel(summary.sinceDate)}`
+        : 'Datos no fiables · fecha del último dato no disponible'
+      : summary.state === 'catching-up'
+        ? 'Poniéndose al día…'
+        : 'Aún no hay datos de mercado';
+}
 export function providerSettingsLink(provider: 'tiingo' | 'fred', focus: 'key' | 'test' = 'test') {
   return `#ajustes?provider=${provider}&focus=${focus}`;
 }
@@ -157,22 +170,10 @@ export function DataFreshness({
       </span>
     );
   const oldest = summary.items[0];
-  const since = sessionDateLabel(summary.sinceDate);
   const paused = summary.state === 'stale' || summary.state === 'unreliable';
   const provider =
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
-  const title =
-    summary.state === 'stale'
-      ? summary.sinceDate
-        ? `Datos desactualizados desde el ${since}`
-        : 'Datos desactualizados · fecha del último dato no disponible'
-      : summary.state === 'unreliable'
-        ? summary.sinceDate
-          ? `Datos no fiables desde el ${since}`
-          : 'Datos no fiables · fecha del último dato no disponible'
-        : summary.state === 'catching-up'
-          ? 'Poniéndose al día…'
-          : 'Aún no hay datos de mercado';
+  const title = freshnessTitle(summary);
   const modifier =
     summary.state === 'unreliable'
       ? 'unreliable'

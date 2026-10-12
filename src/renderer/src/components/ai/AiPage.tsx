@@ -48,7 +48,6 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
       <DataFreshness
         offline={state.offline}
         snapshotSessionDate={state.overview?.market?.sessionDate}
-        snapshotStale={state.overview?.stale}
       />
       <p className="ai-notice">
         Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el
@@ -105,14 +104,11 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
         </div>
       ) : (
         <>
-          {paused ? (
-            <section className="ai-section" data-tour="ia-regimen" aria-label="Régimen del mercado">
-              <h3>Régimen del mercado</h3>
-              <p>En pausa: {pauseReason}. No se calcula el régimen hasta ponerse al día.</p>
-            </section>
-          ) : (
-            <RegimePanel overview={state.overview} />
-          )}
+          <RegimePanel
+            overview={state.overview}
+            summary={summary}
+            pauseReason={paused ? pauseReason : undefined}
+          />
           {paused ? (
             <section className="ai-section" aria-label="Estrategias por régimen">
               <h3>Estrategias por régimen</h3>
@@ -124,21 +120,14 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
               onOpenStrategy={onOpenStrategy}
             />
           )}
-          {paused ? (
-            <section className="ai-section" aria-label="Predicción por activo">
-              <h3>Predicción por activo</h3>
-              <p>
-                En pausa: {pauseReason}. No se calculan nuevas probabilidades hasta ponerse al día.
-              </p>
-            </section>
-          ) : (
-            <PredictionsTable
-              predictions={state.predictions}
-              model={state.model}
-              modelUnavailable={modelUnavailable}
-              expectedSessionDate={state.overview?.expectedSessionDate ?? null}
-            />
-          )}
+          <PredictionsTable
+            predictions={state.predictions}
+            model={state.model}
+            summary={summary}
+            pauseReason={paused ? pauseReason : undefined}
+            modelUnavailable={modelUnavailable}
+            expectedSessionDate={state.overview?.expectedSessionDate ?? null}
+          />
           <ModelCard model={state.model} unavailable={modelUnavailable} />
           {onOpenMarketSources && !state.overview?.market && (
             <button className="button" onClick={onOpenMarketSources}>
