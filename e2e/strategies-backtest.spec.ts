@@ -499,9 +499,7 @@ test('estrategia propia con corto: validación por campo, backtest y operación 
       page.getByRole('heading', { name: 'Cruce bajista propio', exact: true }),
     ).toBeVisible();
     await expect(page.getByText('Opera en: largo y corto.', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText(/con dinero real solo se ejecutan las entradas en largo/),
-    ).toBeVisible();
+    await expect(page.getByText(/Corto con dinero real desactivado/)).toBeVisible();
     await page.getByLabel('Simulaciones Monte Carlo').fill('100');
     await page.getByRole('button', { name: 'Lanzar backtest', exact: true }).click();
     await expect(

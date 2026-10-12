@@ -178,9 +178,9 @@ Revisa que cada fallo del objetivo tiene su cierre comprobable.
   se conserva en `StrategyForm.tsx:254`; cada campo enlaza ayuda, error y posición
   con `aria-describedby` y anuncia cambios con `aria-live="polite"`.
 - **Hecho:** `StrategyDetail.tsx:46` usa `strategySide` (clásicas solo en largo),
-  muestra la dirección y las reglas de corto. Su aviso de dinero real en `:135`
-  es provisional y debe sustituirlo `fe-corto-real` por los límites confirmados,
-  según la decisión del usuario. Esta entrega no modifica esa puerta.
+  muestra la dirección y las reglas de corto. `fe-corto-real` ha sustituido el aviso
+  provisional por `LiveShortStatus`: desactivado sin límites confirmados o con un
+  límite a 0; permitido por los límites confirmados, sujeto a la guarda de cada orden.
 - **Hecho:** `TradesTable.tsx:25` muestra el lado de cada operación y conserva la
   paginación y los rótulos de la vista estrecha.
 - **Pruebas:** `RuleEditor.test.tsx:257` cubre error y posición en ambos campos,
@@ -217,3 +217,40 @@ Revisa que cada fallo del objetivo tiene su cierre comprobable.
 - `format:check` detecta únicamente `src/main/live/scaling.test.ts`, fuera
   del alcance de esta tarea de frontend; Backend debe formatearlo. Se han
   formateado los fixtures de límites de renderer y E2E sin alterar su contenido.
+
+
+## Límites del corto con dinero real · Frontend
+
+- **Hecho:** `src/renderer/src/components/live/LimitsForm.tsx` expone los tres
+  límites, inicialmente a 0, y valida contra `LIVE_FIXED_SHORT_CAPS`. Cada error
+  aparece junto al campo con `aria-invalid`, `aria-describedby` y `role="alert"`.
+  Conserva los tokens de dinero real y el foco visible del proyecto.
+- **Hecho:** `LiveLimitsSettings.tsx`, integrado en `SettingsPage.tsx`, permite
+  guardar y confirmar desde Ajustes mediante el mismo diálogo de activación;
+  `ChecklistPage` conserva también el formulario completo. Confirmar activa
+  dinero real, con la lista completa y las claves verificadas. Guardar no activa.
+  El diálogo muestra los siete límites y exige la frase compartida que incluye el corto.
+- **Hecho:** `strategies/LiveShortStatus.tsx` y `StrategyDetail.tsx` consultan
+  `live:state` y sus eventos, muestran carga/error/reintento y distinguen el permiso
+  de los límites del permiso de cada orden: el motor de riesgo, Alpaca y el stop
+  siguen siendo obligatorios. No queda el aviso provisional de corto bloqueado.
+- **Ya hecho, verificado:** `adapters/simulated.ts:2983` normaliza los límites
+  del corto a 0 cuando faltan, los valida y cambia la frase al guardarlos.
+  `orders/OrderRow.tsx:19` presenta el `rejectReason` del backend en español.
+- **Pruebas:** `ChecklistPage.test.tsx` cubre los tres techos y su anuncio accesible;
+  `LiveLimitsSettings.test.tsx` cubre guardado, frase, foco, Escape, tabulación y
+  error de guardado sin perder el borrador; `LiveShortStatus.test.tsx` cubre
+  permitido/desactivado/carga/error; `OrdersPage.test.tsx` verifica el motivo de
+  rechazo de una venta de entrada real. `e2e/live-short-limits.spec.ts` recorre
+  Ajustes → error en los tres techos → guardar → confirmar frase → ficha permitida.
+- **Verificación de esta entrega:** typecheck y lint pasan; las **473 pruebas del
+  renderer** pasan. `npm test` acaba con **2 697 aprobadas y 1 fallida**: R1 en
+  `src/main/backtest/__audit__/reglas.audit.test.ts:308` (un nivel con escalar no
+  finito se acepta). Es una auditoría añadida en paralelo por otra tarea, fuera
+  del alcance de frontend. `format:check` falla en
+  `src/main/ai/__audit__/sin-api.audit.test.ts` y `src/main/live/scaling.test.ts`,
+  también fuera de alcance. **Los 51 E2E pasan** tras actualizar en
+  `e2e/strategies-backtest.spec.ts:502` la expectativa del aviso provisional
+  al estado real del corto desactivado. Capturas: `corto-real-ajustes-limites.png` y
+  `corto-real-ficha-permitido.png`. No se ha hecho auditoría axe ni prueba manual
+  con lector de pantalla.

@@ -48,7 +48,18 @@ const activateAt = (iso: string | null): void => {
 
 const confirmLimits = (capitalUsd = 500): void => {
   const at = new Date(NOW).toISOString();
-  store.saveLimits({ capitalUsd, orderUsd: 100, dailyLossUsd: 10, openPositions: 1, shortOrderUsd: 0, shortExposureUsd: 0, shortPositions: 0 }, at);
+  store.saveLimits(
+    {
+      capitalUsd,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    },
+    at,
+  );
   store.confirmLimits(at);
 };
 

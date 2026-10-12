@@ -745,7 +745,9 @@ function toScalar(ctx: ParseContext, x: PExpr): RulesNumExpr {
 function evalScalar(expr: RulesNumExpr, parameters: Record<string, number>): number | null {
   switch (expr.kind) {
     case 'num':
-      return expr.value;
+      // Un literal puede desbordar a Infinity (p. ej. 490 cifras): no es
+      // un escalar computable y el nivel debe rechazarse.
+      return Number.isFinite(expr.value) ? expr.value : null;
     case 'param': {
       const value = parameters[expr.name];
       return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -811,6 +813,9 @@ function parseLevel(ctx: ParseContext, field: 'stop' | 'target'): RulesLevel {
     if (value === null) {
       fail(`el porcentaje del ${label} no se puede calcular`, expr.s, expr.e);
     }
+    if (!Number.isFinite(value)) {
+      fail(`el porcentaje del ${label} no es un número finito`, expr.s, expr.e);
+    }
     if (field === 'stop' ? !(value > 0 && value < 100) : !(value > 0)) {
       fail(
         field === 'stop'
@@ -852,6 +857,9 @@ function parseLevel(ctx: ParseContext, field: 'stop' | 'target'): RulesLevel {
   const multValue = evalScalar(mult, ctx.parameters);
   if (multValue === null) {
     fail(`el multiplicador del ${label} no se puede calcular`, expr.s, expr.e);
+  }
+  if (!Number.isFinite(multValue)) {
+    fail(`el multiplicador de atr del ${label} no es un número finito`, expr.s, expr.e);
   }
   if (multValue <= 0) {
     fail(

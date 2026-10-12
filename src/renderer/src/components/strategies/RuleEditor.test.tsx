@@ -336,9 +336,7 @@ it.each([
     render(<StrategyDetail strategy={own} latest={own} history={[]} changeStatus={vi.fn()} />);
     expect(screen.getByText(`Opera en: ${side}.`)).toBeVisible();
     if (side !== 'largo') {
-      expect(
-        screen.getByText(/con dinero real solo se ejecutan las entradas en largo/),
-      ).toBeVisible();
+      expect(await screen.findByText(/Corto con dinero real desactivado/)).toBeVisible();
       expect(screen.getByText('cierre < sma(20)')).toBeVisible();
       expect(screen.getByText('cierre > sma(20)')).toBeVisible();
     }

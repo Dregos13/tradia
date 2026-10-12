@@ -1,3 +1,4 @@
+import { LiveLimitsSettings } from './live/LiveLimitsSettings';
 import { TourHelp } from './onboarding/TourHelp';
 import { AiSettings } from './settings/AiSettings';
 import { LiveBrokerSettings } from './live/LiveBrokerSettings';
@@ -461,6 +462,7 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <AiSettings />
       <BrokerSettings />
       <LiveBrokerSettings />
+      <LiveLimitsSettings />
       <DeliverySettings />
       <RoutineSettings />
       <BackupSettings />

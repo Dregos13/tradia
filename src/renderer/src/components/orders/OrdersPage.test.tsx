@@ -383,3 +383,16 @@ it('N5: separa límite y referencia de ejecución sin atribuir el slippage al l�
   expect(row).toHaveTextContent('0 pb · sin desviación');
   expect(row).toHaveTextContent('Respecto a la referencia');
 });
+
+it('muestra en español el motivo del rechazo de una entrada en corto real', async () => {
+  const rejectReason =
+    'el corto con dinero real no está habilitado en los límites escritos: los límites del corto son 0. Confírmalos por escrito en «Dinero real» para habilitarlo';
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    { ...order(7, 'rechazada', null), mode: 'live', side: 'sell', leg: 'entrada', rejectReason },
+  ]);
+  render(<OrdersPage />);
+  const reason = await screen.findByText(rejectReason);
+  expect(reason).toBeVisible();
+  expect(reason.closest('tr')).toHaveTextContent('Dinero real');
+  expect(reason.closest('tr')).toHaveTextContent('Rechazada');
+});

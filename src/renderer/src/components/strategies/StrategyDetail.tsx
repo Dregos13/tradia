@@ -1,3 +1,4 @@
+import { LiveShortStatus } from './LiveShortStatus';
 import { ExecutionNotice } from './ExecutionNotice';
 import { strategySide } from '../../../../shared/strategyRules';
 import { ruleLabels } from './ruleValidation';
@@ -132,12 +133,7 @@ export function StrategyDetail({
       <section className="strategy-section">
         <h3>Reglas reproducibles</h3>
         <p>Opera en: {side === 'ambos' ? 'largo y corto' : side}.</p>
-        {side !== 'largo' && (
-          <p>
-            Por ahora, con dinero real solo se ejecutan las entradas en largo; el corto está
-            bloqueado. Las reglas de corto se ejecutan en backtest y paper.
-          </p>
-        )}
+        {side !== 'largo' && <LiveShortStatus />}
         <dl className="strategy-grid">
           {(['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'] as const).map((key) => (
             <div key={key}>
