@@ -224,19 +224,25 @@ describe('rutina, copias y registros', () => {
     await userEvent.click(trigger);
     const dialog = screen.getByRole('alertdialog');
     expect(dialog).toHaveTextContent('se reiniciará');
-    expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus(),
+    );
     await userEvent.tab({ shift: true });
-    expect(within(dialog).getByRole('button', { name: 'Restaurar y reiniciar' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Restaurar y reiniciar' })).toHaveFocus(),
+    );
     await userEvent.tab();
-    expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus(),
+    );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(restore).not.toHaveBeenCalled();
     await userEvent.click(trigger);
     await userEvent.keyboard('{Escape}');
     expect(restore).not.toHaveBeenCalled();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
   it('restaura solo con confirmación explícita y bloquea cancelar mientras reinicia', async () => {
     const restore = vi.spyOn(api.backup, 'restore').mockResolvedValue({ accepted: true });

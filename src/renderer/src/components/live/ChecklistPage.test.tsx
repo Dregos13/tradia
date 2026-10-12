@@ -296,12 +296,16 @@ it('Escape cancela, devuelve foco y Tab queda dentro del diálogo', async () => 
   const activate = vi.spyOn(adapter.api.live, 'activate');
   const dialog = await openDialog();
   await userEvent.tab({ shift: true });
-  expect(within(dialog).getByRole('textbox')).toHaveFocus();
+  await waitFor(() => expect(within(dialog).getByRole('textbox')).toHaveFocus());
   await userEvent.tab();
-  expect(screen.getByRole('button', { name: 'Cancelar y seguir en paper' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Cancelar y seguir en paper' })).toHaveFocus(),
+  );
   await userEvent.keyboard('{Escape}');
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Activar dinero real' })).toHaveFocus(),
+  );
   expect(activate).not.toHaveBeenCalled();
 });
 
@@ -316,7 +320,9 @@ it('revalida antes del diálogo y bloquea si la evidencia cambió', async () => 
   vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue(next);
   await userEvent.click(screen.getByRole('button', { name: 'Activar dinero real' }));
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'No se puede activar todavía' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'No se puede activar todavía' })).toHaveFocus(),
+  );
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
 });
 
@@ -597,7 +603,7 @@ it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', asyn
   const trigger = screen.getByRole('button', { name: 'Volver a paper (desactivar dinero real)' });
   await userEvent.click(trigger);
   await userEvent.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(deactivate).not.toHaveBeenCalled();
   await userEvent.click(trigger);
   await userEvent.click(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));

@@ -67,9 +67,9 @@ it('Ajustes guarda y confirma el corto, retiene el foco y lo devuelve al cancela
     ).toHaveFocus(),
   );
   await userEvent.tab({ shift: true });
-  expect(within(dialog).getByRole('textbox')).toHaveFocus();
+  await waitFor(() => expect(within(dialog).getByRole('textbox')).toHaveFocus());
   await userEvent.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   await userEvent.click(trigger);
   fireEvent.change(screen.getByLabelText('Escribe exactamente esta frase para confirmar'), {
     target: { value: liveConfirmationPhrase(limits) },

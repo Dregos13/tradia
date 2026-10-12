@@ -92,11 +92,29 @@ Dos superficies:
 
 - `parseStrategyRules(null)` lanza `TypeError` (`strategyRules.ts:1006` lee `rules.entry`). No llega por IPC (`isStrategyRules` lo corta) ni por el repositorio (`regla_entrada` es `NOT NULL`); el lanzamiento es inmediato y cerrado — `listEvaluables` se llevaría el error por `handleBarStored` (registrado, sin colgar). Se deja como riesgo residual, sin prueba roja.
 - `secrets:set-key` admite cualquier nombre de proveedor: un renderer comprometido podría reescribir `news-llm-anthropic`. Nada la lee (verificado: no hay `getKey` sobre ese proveedor en todo `src/`), y la migración la vuelve a borrar en el siguiente arranque (probado). Residual.
-- `src/main/live/scaling.test.ts` incumple `prettier --check` **en el árbol confirmado** (no es de esta tarea): `npm run format:check` dará ese aviso hasta que su dueño lo arregle.
+- `src/main/live/scaling.test.ts` incumplía `prettier --check` **en el árbol confirmado** (no era de esta tarea). Ya corregido: `npm run format:check` queda en verde.
+
+## Correcciones
+
+Ronda `be-correcciones` (12-10-2026): estado final de los hallazgos de **Backend** de los cuatro informes de la misión (`auditoria-reglas-noticias.md`, `e2e-reglas-noticias.md`, `perfiles-reglas-noticias.md`, `estado-pendientes.md`). Los de Frontend (F1 del E2E; P-1 y P-2 de perfiles) no están en esta tabla: los cierra `fe-correcciones` y van en la tabla «Correcciones de Frontend» de `docs/qa/perfiles-reglas-noticias.md`.
+
+| Id | Origen | Gravedad | Estado | Archivo | Prueba |
+| --- | --- | --- | --- | --- | --- |
+| R1 | Auditoría | Baja | Corregido | `src/shared/strategyRules.ts:747-750` (caso `num` de `evalScalar`: un literal no finito devuelve `null` y el nivel se rechaza, en `%` y en `K * atr(n)`) | `src/main/backtest/__audit__/reglas.audit.test.ts:294` «HALLAZGO R1 (cerrado)…» |
+| P-3 | Perfiles | Media | Corregido | `docs/qa/estado-pendientes.md` reescrito: veredicto al día, E1/E2 cerrados y cada referencia `archivo:línea` comprobada con `sed -n` (H1 → `live/service.ts:551`, H2 → `orderGuard.ts:155` y `:215-216`, H3 → `ai.audit.test.ts:926`, H4 → `news/service.ts:414-428`, H5 → `ai.audit.test.ts:319`, P4 → `ai.audit.test.ts:852`) | Batería de regresiones de su §1: 270/270 en verde |
+| P-4 | Perfiles | Media | Corregido | `docs/tareas-del-usuario.md`: §0 (`origin/main` + CI), §1 paso 5 (`/logout`), §4 paso 5 (`claude.cmd` sin `spawn EINVAL`), §7 (corto con dinero real en Alpaca: margen, ≥2 000 USD, techos 100/200/1/stop 5 %) y el botón citado como «Probar de nuevo» | `grep -niE 'corto\|logout\|claude.cmd\|EINVAL\|origin/main' docs/tareas-del-usuario.md` (estado-pendientes §2.2) |
+| Obs. «arranque sin CLI» | Perfiles | Observación → criterio 3 | Corregido | `src/main/ai/news/service.ts:586-597` (`start()`: una vez por proceso, si el proveedor guardado es la suscripción activada y no hay CLI, emite el estado y llama a `notifyFailure`); cableado en `src/main/ai/news/index.ts:138` | `src/main/ai/news/service.test.ts:595` «…el arranque notifica UNA vez», `:628` (recaída); `src/main/ai/news/index.test.ts:172`, `:194` (vía `registerNewsAi`) |
+| O1 «Venta sin posición» | E2E | Observación | Justificado, sin cambio | `src/main/signals/probe.ts`: las órdenes emitidas por la estrategia son propuestas; una «Venta» sin posición es inerte y el motor de riesgo la veta con motivo legible. Idéntico en las cuatro clásicas — suprimirla solo en las propias rompería la paridad del contrato | Esperado por `e2e/signals-dashboard.spec.ts:152` («las ventas sin protección se vetan con motivo legible») |
+| O2 veto con `Objetivo: ninguno` | E2E | Observación | Justificado en backend | Sin objetivo no hay ratio beneficio/riesgo y el motor de riesgo veta la señal: comportamiento correcto, no un fallo | El aviso sugerido es texto de ayuda del editor (`src/renderer/src/components/strategies/RuleEditor.tsx`) → `fe-correcciones` |
+| Residual `parseStrategyRules(null)` | Auditoría | — | Justificado | `src/shared/strategyRules.ts`: `TypeError` inmediato y acotado; `isStrategyRules` lo corta en el borde IPC y `regla_entrada` es `NOT NULL` en el repositorio | Sin prueba roja (ver «Observaciones») |
+| Residual `secrets:set-key` | Auditoría | — | Justificado | El canal acepta cualquier proveedor, pero nada lee `news-llm-anthropic` y la migración la borra en el siguiente arranque | `src/main/ai/__audit__/sin-api.audit.test.ts:184`, `:257`, `:421` |
+
+No queda ningún hallazgo de Backend abierto: los de gravedad media están corregidos y los de gravedad baja y las observaciones están corregidos o justificados arriba. Las 70 pruebas de los dos archivos de auditoría pasan.
 
 ## Verificación
 
 - `npm run typecheck` — verde.
 - `npm run lint` — verde.
-- `npm run format:check` — mis dos archivos verdes; falla `src/main/live/scaling.test.ts` (preexistente, ajeno a esta auditoría).
+- `npm run format:check` — verde (tras el formateo de `src/main/live/scaling.test.ts`).
 - `npx vitest run src/main/backtest/__audit__ src/main/ai/__audit__` — 70 pruebas en verde.
+- `npm test` — 2710/2710 en 192 archivos (verificación de `be-correcciones`).

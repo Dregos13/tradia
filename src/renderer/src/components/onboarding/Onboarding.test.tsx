@@ -50,7 +50,7 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
   const stop = vi.spyOn(simulation.api.risk, 'activateKillSwitch');
   const activate = vi.spyOn(simulation.api.live, 'activate');
   const { unmount } = render(<App />);
-  expect(await heading(1)).toHaveFocus();
+  await waitFor(async () => expect(await heading(1)).toHaveFocus());
   expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent(
     `Paso 1 de 10. ${TOUR_STEPS[0]!.title}. ${TOUR_STEPS[0]!.text}`,
   );
@@ -58,22 +58,22 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
   expect(root).not.toBeNull();
   const first = screen.getByRole('button', { name: 'Cerrar el tour y retomarlo más tarde' });
   await user.tab();
-  expect(first).toHaveFocus();
+  await waitFor(() => expect(first).toHaveFocus());
   await user.tab({ shift: true });
-  expect(screen.getByRole('button', { name: 'Empezar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Empezar' })).toHaveFocus());
   await user.tab();
-  expect(first).toHaveFocus();
+  await waitFor(() => expect(first).toHaveFocus());
   await user.tab();
-  expect(screen.getByRole('button', { name: 'Saltar tour' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Saltar tour' })).toHaveFocus());
   await user.tab();
-  expect(screen.getByRole('button', { name: 'Empezar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Empezar' })).toHaveFocus());
   await user.keyboard('{Enter}');
-  expect(await heading(2)).toHaveFocus();
+  await waitFor(async () => expect(await heading(2)).toHaveFocus());
   await user.keyboard('{ArrowLeft}');
-  expect(await heading(1)).toHaveFocus();
+  await waitFor(async () => expect(await heading(1)).toHaveFocus());
   for (let step = 2; step <= 10; step++) {
     await user.keyboard('{ArrowRight}');
-    expect(await heading(step)).toHaveFocus();
+    await waitFor(async () => expect(await heading(step)).toHaveFocus());
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription(TOUR_STEPS[step - 1]!.text);
     const announcement = within(screen.getByRole('dialog')).getByRole('status');
     expect(announcement).toHaveAttribute('aria-live', 'polite');
@@ -93,7 +93,7 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
   await user.tab();
   await user.tab();
   await user.tab();
-  expect(screen.getByRole('button', { name: 'Terminar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Terminar' })).toHaveFocus());
   await user.keyboard('{Enter}');
   await waitFor(async () =>
     expect((await simulation.api.settings.get()).onboardingTourVersion).toBe(
@@ -127,11 +127,11 @@ it('Esc pausa en el paso actual, retoma desde Inicio y desde un nuevo arranque',
     screen.getByText('Tour en pausa en el paso 2 de 10. Retómalo desde Inicio o Ajustes.'),
   ).toHaveAttribute('role', 'status');
   await user.click(screen.getByRole('button', { name: 'Retomar el tour (paso 2 de 10)' }));
-  expect(await heading(2)).toHaveFocus();
+  await waitFor(async () => expect(await heading(2)).toHaveFocus());
   await user.keyboard('{Escape}');
   unmount();
   render(<App />);
-  expect(await heading(2)).toHaveFocus();
+  await waitFor(async () => expect(await heading(2)).toHaveFocus());
 });
 
 it('saltar no vuelve a ofrecerlo y Ajustes lo reinicia aunque ya esté visto', async () => {
@@ -150,7 +150,7 @@ it('saltar no vuelve a ofrecerlo y Ajustes lo reinicia aunque ya esté visto', a
   await user.click(within(screen.getByRole('navigation')).getByRole('link', { name: 'Ajustes' }));
   const restart = await screen.findByRole('button', { name: 'Ver el tour de nuevo' });
   await user.click(restart);
-  expect(await heading(1)).toHaveFocus();
+  await waitFor(async () => expect(await heading(1)).toHaveFocus());
   await user.keyboard('{Escape}');
   await waitFor(() => expect(restart).toHaveFocus());
   expect(
@@ -172,14 +172,14 @@ it('espera a que se cierre otro diálogo antes de abrirse', async () => {
       <TourHelp />
     </OnboardingProvider>,
   );
-  expect(await heading(1)).toHaveFocus();
+  await waitFor(async () => expect(await heading(1)).toHaveFocus());
 });
 
 it('ofrece una versión nueva y reanuda un paso guardado válido', async () => {
   await simulation.api.settings.set({ onboardingTourVersion: 'anterior' });
   localStorage.setItem('tradia.tour.step', '3');
   render(<App />);
-  expect(await heading(3)).toHaveFocus();
+  await waitFor(async () => expect(await heading(3)).toHaveFocus());
 });
 
 it('ignora un paso guardado inválido y mantiene el tour usable si falla el guardado', async () => {
@@ -261,5 +261,5 @@ it('no espera a un diálogo oculto para abrir el tour', async () => {
       </div>
     </OnboardingProvider>,
   );
-  expect(await heading(1)).toHaveFocus();
+  await waitFor(async () => expect(await heading(1)).toHaveFocus());
 });

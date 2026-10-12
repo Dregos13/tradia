@@ -51,13 +51,19 @@ it('no reanuda al cancelar o pulsar Escape y devuelve el foco al disparador', as
   render(<Harness />);
   const trigger = await screen.findByRole('button', { name: 'Parada activa' });
   await user.click(trigger);
-  expect(screen.getByRole('button', { name: 'Mantener parada' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Mantener parada' })).toHaveFocus(),
+  );
   await user.keyboard('{Shift>}{Tab}{/Shift}');
-  expect(screen.getByRole('button', { name: 'Confirmar y reanudar' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Confirmar y reanudar' })).toHaveFocus(),
+  );
   await user.tab();
-  expect(screen.getByRole('button', { name: 'Mantener parada' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Mantener parada' })).toHaveFocus(),
+  );
   await user.click(screen.getByRole('button', { name: 'Mantener parada' }));
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   await user.click(screen.getByRole('button', { name: 'Reanudar' }));
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

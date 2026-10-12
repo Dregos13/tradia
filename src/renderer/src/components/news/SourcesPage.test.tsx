@@ -114,12 +114,16 @@ it('confirma la baja, conserva el foco al cancelar y atrapa Tab y Escape', async
   const trigger = screen.getByRole('button', { name: `Quitar fuente ${source.name}` });
   await user.click(trigger);
   let dialog = screen.getByRole('alertdialog');
-  expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus(),
+  );
   expect(dialog).toHaveTextContent('Los titulares ya guardados se mantendrán');
   await user.tab({ shift: true });
-  expect(within(dialog).getByRole('button', { name: 'Quitar fuente' })).toHaveFocus();
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Quitar fuente' })).toHaveFocus(),
+  );
   await user.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(remove).not.toHaveBeenCalled();
   await user.click(trigger);
   dialog = screen.getByRole('alertdialog');

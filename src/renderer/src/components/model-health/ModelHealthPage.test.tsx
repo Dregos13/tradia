@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ModelHealthOverview, RetrainProposal } from '../../../../shared/ai';
@@ -154,7 +154,9 @@ it('aprobar exige confirmación, recibe instrucciones externas y actualiza el es
   await userEvent.click(screen.getByRole('button', { name: 'Aprobar y abrir instrucciones' }));
   expect(resolve).not.toHaveBeenCalled();
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus(),
+  );
   await userEvent.click(within(dialog).getByRole('button', { name: 'Confirmar aprobación' }));
   expect(resolve).toHaveBeenCalledWith({ id: 1, action: 'aprobar' });
   expect(await screen.findByText('Propuesta 2026-Q4 · aprobada')).toBeInTheDocument();
@@ -196,11 +198,13 @@ it('Escape cancela, restaura foco y el teclado permanece dentro de la confirmaci
   const trigger = screen.getByRole('button', { name: 'Aprobar y abrir instrucciones' });
   await userEvent.click(trigger);
   await userEvent.tab({ shift: true });
-  expect(screen.getByRole('button', { name: 'Confirmar aprobación' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Confirmar aprobación' })).toHaveFocus(),
+  );
   await userEvent.tab();
-  expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus());
   await userEvent.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(resolve).not.toHaveBeenCalled();
 });
 it('un rechazo conserva la propuesta y permite reintentar sin mostrar instrucciones', async () => {

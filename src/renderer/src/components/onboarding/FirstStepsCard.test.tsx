@@ -139,5 +139,6 @@ it('permite ocultar cuando todo está hecho y reaparece si se elimina una clave'
   );
   render(<FirstStepsCard />);
   expect(await screen.findByText('1 de 3 hechos')).toBeInTheDocument();
-  expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull();
+  // La marca se borra en un useEffect posterior al render: bajo carga puede llegar después.
+  await waitFor(() => expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull());
 });

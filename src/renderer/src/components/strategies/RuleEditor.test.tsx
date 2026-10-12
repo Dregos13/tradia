@@ -47,7 +47,7 @@ it('valida al escribir, describe el error y selecciona exactamente el rango sin 
   if (parsed.ok) throw new Error('La regla de prueba debe ser inválida');
   const error = parsed.errors[0]!;
   await waitFor(() => expect(entry).toHaveAttribute('aria-invalid', 'true'));
-  expect(entry).toHaveFocus();
+  await waitFor(() => expect(entry).toHaveFocus());
   expect(document.getElementById('strategy-rule-entry-result')).toHaveAttribute(
     'aria-live',
     'polite',
@@ -75,7 +75,9 @@ it('inserta ejemplos por teclado, devuelve foco y cursor, y revalida al cambiar 
   await userEvent.tab();
   // La posición del error es el primer control después del editor.
   await userEvent.tab();
-  expect(screen.getByRole('button', { name: 'Insertar cruce de medias' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Insertar cruce de medias' })).toHaveFocus(),
+  );
   await userEvent.keyboard(' ');
   await waitFor(() => expect(entry).toHaveFocus());
   expect(entry).toHaveValue(strategy.rules.entry);
@@ -140,7 +142,7 @@ it('la ficha explica reglas antiguas antes de pulsar y bloquea las tres acciones
     expect(button).toHaveAccessibleDescription(/Desactivado hasta/);
     button.focus();
     await userEvent.keyboard('{Enter}');
-    expect(button).toHaveFocus();
+    await waitFor(() => expect(button).toHaveFocus());
   }
   expect(run).not.toHaveBeenCalled();
   expect(stress).not.toHaveBeenCalled();
@@ -272,7 +274,7 @@ it.each(['entryShort', 'exitShort'] as const)(
     if (parsed.ok) throw new Error('Se esperaba el error de la regla de corto');
     const error = parsed.errors.find((item) => item.field === field)!;
     await waitFor(() => expect(editor).toHaveAttribute('aria-invalid', 'true'));
-    expect(editor).toHaveFocus();
+    await waitFor(() => expect(editor).toHaveFocus());
     expect(editor).toHaveAccessibleDescription(
       new RegExp(`caracteres ${error.start + 1}–${error.end}`),
     );

@@ -192,7 +192,7 @@ it('cambia exposición por activo y sector usando el teclado', async () => {
   );
   await user.tab();
   await user.tab();
-  expect(screen.getByRole('button', { name: 'Por sector' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Por sector' })).toHaveFocus());
   await user.keyboard('{Enter}');
   expect(screen.getByText('Tecnología')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Por sector' })).toHaveAttribute(
@@ -250,7 +250,7 @@ it('signals:new se intercala sin duplicados ni pérdida de foco y limpia listene
   });
   expect(await screen.findByText('NVDA')).toBeVisible();
   await waitFor(() => expect(screen.getAllByText('NVDA')).toHaveLength(1));
-  expect(focused).toHaveFocus();
+  await waitFor(() => expect(focused).toHaveFocus());
   unmount();
   expect(unsubscribe).toHaveBeenCalledOnce();
 });

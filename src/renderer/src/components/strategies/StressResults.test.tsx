@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { StressResultDto } from '../../../../shared/backtest';
@@ -161,7 +161,7 @@ it('explica el bloqueo del estrés y conserva el botón enfocable', async () => 
   const button = screen.getByRole('button', { name: 'Ejecutar pruebas de estrés' });
   expect(button).toHaveAttribute('aria-disabled', 'true');
   button.focus();
-  expect(button).toHaveFocus();
+  await waitFor(() => expect(button).toHaveFocus());
   await userEvent.click(button);
   expect(run).not.toHaveBeenCalled();
 });

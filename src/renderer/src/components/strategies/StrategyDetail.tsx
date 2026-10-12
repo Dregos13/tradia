@@ -8,7 +8,7 @@ import { RegimeBacktestComparison } from './RegimeBacktestComparison';
 import { regimeLabels } from './regimeLabels';
 import { StressResults } from './StressResults';
 import { BacktestLauncher } from '../backtest/BacktestLauncher';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useIpcList } from '../../hooks/useIpcList';
 import {
   STRATEGY_STATUSES,
@@ -50,6 +50,7 @@ export function StrategyDetail({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const statusSelect = useRef<HTMLSelectElement>(null);
   return (
     <>
       <a href="#estrategias">Volver a la biblioteca</a>
@@ -246,12 +247,16 @@ export function StrategyDetail({
                 setError('No pudimos cambiar el estado. Inténtalo de nuevo.');
               } finally {
                 setBusy(false);
+                // El botón queda desactivado durante el cambio y, si acierta,
+                // también después: el foco vuelve al selector y no cae en body.
+                statusSelect.current?.focus();
               }
             }}
           >
             <label>
               Nuevo estado
               <select
+                ref={statusSelect}
                 aria-label="Nuevo estado"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as StrategyStatus)}

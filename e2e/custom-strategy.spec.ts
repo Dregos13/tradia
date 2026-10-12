@@ -122,8 +122,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     // Paso a paper desde la ficha (estado que emite como las clásicas).
     await page.getByLabel('Nuevo estado').selectOption({ label: 'Paper' });
     await page.getByRole('button', { name: 'Cambiar estado', exact: true }).click();
-    // La ficha no conserva el aviso «Estado actualizado» tras recargar (ver
-    // docs/qa/e2e-reglas-noticias.md, hallazgo F1): se comprueba lo visible.
+    // F1 (docs/qa/e2e-reglas-noticias.md): la ficha confirma el cambio y el
+    // foco vuelve al selector en lugar de caer en body.
+    await expect(page.getByRole('status').filter({ hasText: 'Estado actualizado' })).toBeVisible();
+    await expect(page.getByLabel('Nuevo estado')).toBeFocused();
     await expect(page.getByText('● Paper', { exact: true })).toBeVisible();
     await expect(page.getByText('Investigación → Paper', { exact: true })).toBeVisible();
     const strategyId = await page.evaluate(

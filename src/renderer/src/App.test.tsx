@@ -36,7 +36,9 @@ describe('Estructura de Tradia', () => {
     const settings = screen.getByRole('link', { name: 'Ajustes' });
     settings.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Ajustes' })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Ajustes' })).toHaveFocus(),
+    );
     expect(settings).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('region', { name: 'Preferencias' })).toBeInTheDocument();
     expect(statusbar().getByText('Comprobando conexión')).toBeInTheDocument();
@@ -161,7 +163,9 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name: heading })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toHaveFocus(),
+    );
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configurar claves' })).toHaveAttribute(
@@ -198,7 +202,7 @@ it('navega con teclado a Noticias, Calendario y Fuentes y muestra sus estados va
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(await screen.findByText(empty)).toBeInTheDocument();
     expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
@@ -251,7 +255,7 @@ it('navega con teclado a las páginas paper después de Diario', async () => {
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
   }
@@ -296,7 +300,9 @@ it('muestra el descuadre global, conserva el aviso al navegar y lo retira al res
   expect(banner.closest('.app-global-banners')).toBeVisible();
   expect(banner.closest('.app')).toHaveClass('has-banner');
   await user.click(within(banner).getByRole('link', { name: 'Ver en Órdenes' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Órdenes' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Órdenes' })).toHaveFocus(),
+  );
   expect(banner).toBeVisible();
   await act(async () => {
     simulation.emitReconcileDiscrepancy([]);
@@ -391,7 +397,7 @@ it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', a
     const link = nav.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { level: 2, name })).toBeVisible();
   }
@@ -424,10 +430,14 @@ it('conecta la ficha de estrategia desde IA y la evidencia del checklist', async
   });
   await user.click((await screen.findAllByRole('button', { name: /^Ver ficha de / }))[0]!);
   expect(window.location.hash).toMatch(/^#estrategias\/\d+$/);
-  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus(),
+  );
   await user.click(screen.getByRole('link', { name: 'Dinero real' }));
   await user.click(await screen.findByRole('button', { name: 'Ver validación' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus(),
+  );
 });
 
 it('monta los ajustes LLM y la conexión live junto a las preferencias existentes', async () => {
@@ -594,7 +604,9 @@ it('anuncia degradación recibida por evento en Inicio y abre Salud de modelos',
   await user.click(
     within(alert).getByRole('link', { name: 'Ver degradación y propuestas de reentrenamiento' }),
   );
-  expect(await screen.findByRole('heading', { level: 1, name: 'Salud de modelos' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Salud de modelos' })).toHaveFocus(),
+  );
 });
 
 it('muestra carga, error recuperable y desconexión sin afirmar que los modelos están sanos', async () => {

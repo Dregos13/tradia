@@ -283,7 +283,7 @@ it('explica el bloqueo de las reglas antes de lanzar, incluso con historial', as
   await waitFor(() => expect(window.tradia.backtest.list).toHaveBeenCalled());
   expect(launch).toHaveAttribute('aria-disabled', 'true');
   launch.focus();
-  expect(launch).toHaveFocus();
+  await waitFor(() => expect(launch).toHaveFocus());
   expect(finalButton).toBeDisabled();
   await userEvent.click(launch);
   await userEvent.click(finalButton);

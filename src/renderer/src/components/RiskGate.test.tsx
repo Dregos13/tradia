@@ -30,7 +30,9 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   const button = screen.getByRole('button', { name: 'Continuar' });
   expect(button).toBeDisabled();
   await user.tab();
-  expect(screen.getByRole('checkbox', { name: 'He leído y acepto' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('checkbox', { name: 'He leído y acepto' })).toHaveFocus(),
+  );
   await user.keyboard(' ');
   await user.tab();
   await user.keyboard('{Enter}');
@@ -39,9 +41,11 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
     disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION,
   });
   expect((await window.tradia.settings.get()).disclaimerAcceptedAt).toBeTruthy();
-  expect(
-    await screen.findByRole('heading', { name: /Paso 1 de 10. Te enseñamos Tradia/ }),
-  ).toHaveFocus();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', { name: /Paso 1 de 10. Te enseñamos Tradia/ }),
+    ).toHaveFocus(),
+  );
   await user.click(screen.getByRole('button', { name: 'Saltar tour' }));
   await waitFor(async () =>
     expect((await window.tradia.settings.get()).onboardingTourCompletedAt).toBeTruthy(),
@@ -104,7 +108,9 @@ it('abre el aviso en Legal sin controles de aceptación y restaura el foco', asy
   render(<App />);
   const open = await screen.findByRole('button', { name: /Ver aviso de riesgo/ });
   await user.click(open);
-  expect(screen.getByRole('heading', { name: 'Aviso de riesgo' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'Aviso de riesgo' })).toHaveFocus(),
+  );
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Continuar' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Volver a Ajustes' }));

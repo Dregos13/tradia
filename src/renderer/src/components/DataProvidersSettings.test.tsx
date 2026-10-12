@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../adapters/simulated';
@@ -88,7 +88,7 @@ it.each(['tiingo', 'fred'] as const)(
         expect(form.getByText(/Último dato disponible: 9 oct 2026/)).toBeInTheDocument();
       if (status === 'sin-clave' || status === 'clave-rechazada') {
         await userEvent.click(form.getByRole('button', { name: action }));
-        expect(form.getByLabelText(`Clave de API de ${name}`)).toHaveFocus();
+        await waitFor(() => expect(form.getByLabelText(`Clave de API de ${name}`)).toHaveFocus());
       }
       expect(document.body).not.toHaveTextContent('clave-super-secreta');
     }

@@ -118,7 +118,9 @@ function StrategyRoute({
       history={detail.history ?? []}
       changeStatus={async (status) => {
         await actions.setStatus({ id, status });
-        await detail.reload();
+        // Relectura de fondo: sin «Cargando ficha…», la ficha no se desmonta y
+        // conserva el aviso «Estado actualizado» y el foco.
+        await detail.reload(true);
       }}
     />
   );

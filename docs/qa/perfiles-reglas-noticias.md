@@ -195,6 +195,18 @@ explícita del código («una CLI que nunca estuvo bien no cae»,
 arranque». El criterio 3 dice «llega una sola notificación» si la CLI no se
 encuentra. Lo dejo como pregunta al orquestador; no lo cuento como fallo.
 
+## Correcciones de Frontend
+
+_Ronda de correcciones de Frontend tras E2E y QA · 12-10-2026._ No quedaba ningún hallazgo de Frontend de gravedad alta o media abierto: P-1 y P-2 (bajas) ya los cerró «Contador del nombre y columnas estables en la biblioteca»; P-3 y P-4 eran de documentación. Esta ronda cierra los dos de gravedad baja que seguían abiertos y la regla de foco con `waitFor`.
+
+| Hallazgo | Origen | Gravedad | Estado | Corrección | Prueba de regresión |
+| --- | --- | --- | --- | --- | --- |
+| **F1** · la ficha no confirma el cambio de estado y el foco cae en `body` | `docs/qa/e2e-reglas-noticias.md` | Baja | **Corregido** | `StrategiesPage.tsx:123`: la relectura tras «Cambiar estado» es de fondo, así que «Cargando ficha…» ya no desmonta la ficha y se conserva «Estado actualizado» (`role="status"`). `StrategyDetail.tsx:252`: el foco vuelve al selector «Nuevo estado», porque el botón queda desactivado | `StrategiesPage.test.tsx:149` (con la relectura retenida: falla sin el arreglo); E2E `e2e/custom-strategy.spec.ts:127` (aviso visible y foco en el selector) |
+| **P-1** · el nombre se corta a 120 caracteres sin aviso | Este informe | Baja | Corregido antes de esta ronda | Contador «n/120» y aviso en `StrategyForm.tsx` | `StrategyNameAndLibrary.test.tsx:28`, `:41` |
+| **P-2** · la biblioteca parte cabeceras y cifras | Este informe | Baja | Corregido antes de esta ronda | Columnas con `nowrap` y ancho mínimo; nombre con elipsis y `title` | `StrategyNameAndLibrary.test.tsx:83`, `:102` |
+| Prueba intermitente de `FirstStepsCard` bajo carga | Regresión con todos los perfiles | Baja | **Corregido** | La marca de «ocultar» se borra en un `useEffect` posterior al render: la comprobación espera con `waitFor` | `FirstStepsCard.test.tsx:143` |
+| Aserciones de foco síncronas | Lección de misiones anteriores | — | **Corregido** | Las 84 aserciones `toHaveFocus()` de `src/renderer` que no estaban dentro de `waitFor` lo están ahora (las que usaban `await findBy…` pasan a `getBy…` dentro del `waitFor`). `grep -rn "toHaveFocus()" src/renderer --include='*.test.tsx' \| grep -v waitFor` solo devuelve las que ocupan varias líneas, todas ya dentro de un `waitFor` | Toda la batería de `src/renderer` |
+
 ## Lo que no he podido comprobar en este entorno
 
 - La notificación real de macOS tras un `/logout` en Claude Code: la sesión

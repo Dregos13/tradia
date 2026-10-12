@@ -100,18 +100,20 @@ it('abre detalle por teclado, contiene foco y lo devuelve al cerrar', async () =
   trigger.focus();
   await user.keyboard('{Enter}');
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByRole('heading', { level: 2 })).toHaveFocus();
+  await waitFor(() => expect(within(dialog).getByRole('heading', { level: 2 })).toHaveFocus());
   expect(await within(dialog).findByText('250')).toBeVisible();
   for (const name of ['Motivo', 'Datos usados', 'Resultado', 'Errores', 'Cumplimiento de reglas'])
     expect(within(dialog).getByRole('heading', { name })).toBeVisible();
   expect(within(dialog).getByText('✓ Cumplida · Stop obligatorio')).toBeVisible();
   await user.tab({ shift: true });
-  expect(within(dialog).getByText('Ver datos técnicos JSON')).toHaveFocus();
+  await waitFor(() => expect(within(dialog).getByText('Ver datos técnicos JSON')).toHaveFocus());
   await user.tab();
-  expect(within(dialog).getByRole('button', { name: 'Cerrar detalle' })).toHaveFocus();
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Cerrar detalle' })).toHaveFocus(),
+  );
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 it('distingue vacío inicial y filtrado y permite limpiar', async () => {
   vi.mocked(window.tradia.journal.list).mockResolvedValue({
@@ -163,7 +165,7 @@ it('refresca en vivo sin mover foco y libera la suscripción', async () => {
   });
   act(() => listener?.({ entry }));
   expect(await screen.findByText('Nueva entrada')).toBeVisible();
-  expect(screen.getByLabelText('Activo')).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText('Activo')).toHaveFocus());
   view.unmount();
   expect(off).toHaveBeenCalledOnce();
 });

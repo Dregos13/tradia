@@ -35,7 +35,7 @@ it.each(['cli-no-encontrada', 'sin-sesion', 'tope-diario', 'error'] as const)(
       expect(notice).toHaveTextContent(NEWS_SUBSCRIPTION_COPY[state].title);
     expect(notices[1]).toHaveTextContent(NEWS_SUBSCRIPTION_COPY[state].step);
     expect(notices[0]).toHaveTextContent('las noticias se analizan con el analizador local');
-    expect(previous).toHaveFocus();
+    await waitFor(() => expect(previous).toHaveFocus());
     expect(await simulation.api.ai.newsStatus()).toMatchObject({ state });
     act(() => simulation.forceNewsStatus('ok'));
     await waitFor(() =>
@@ -43,7 +43,7 @@ it.each(['cli-no-encontrada', 'sin-sesion', 'tope-diario', 'error'] as const)(
         screen.queryByRole('status', { name: 'Estado de la suscripción' }),
       ).not.toBeInTheDocument(),
     );
-    expect(previous).toHaveFocus();
+    await waitFor(() => expect(previous).toHaveFocus());
   },
 );
 

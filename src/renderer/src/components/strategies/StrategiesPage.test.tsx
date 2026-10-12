@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
@@ -145,6 +145,29 @@ describe('Biblioteca y ficha versionada', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
     expect(await screen.findByText('Cambio de estado: investigacion → paper')).toBeInTheDocument();
     expect((await window.tradia.strategies.get({ id: 1 }))?.version).toBe(1);
+  });
+  it('confirma el cambio de estado sin desmontar la ficha y deja el foco en el selector (F1)', async () => {
+    await window.tradia.strategies.create(draft);
+    window.location.hash = '#estrategias/1';
+    render(<StrategiesPage />);
+    await screen.findByRole('heading', { name: draft.name });
+    const select = screen.getByLabelText('Nuevo estado');
+    await userEvent.selectOptions(select, 'paper');
+    // La relectura de la ficha tras el cambio queda pendiente hasta soltarla.
+    const history = window.tradia.strategies.history.bind(window.tradia.strategies);
+    let release = () => {};
+    const pending = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(window.tradia.strategies, 'history').mockImplementation(async (id) => {
+      await pending;
+      return history(id);
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
+    expect(screen.queryByText('Cargando ficha…')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Nuevo estado')).toBe(select);
+    await act(async () => release());
+    expect(await screen.findByText('Estado actualizado')).toHaveAttribute('role', 'status');
+    expect(screen.getByLabelText('Nuevo estado')).toBe(select);
+    await waitFor(() => expect(select).toHaveFocus());
   });
   it('muestra carga, error recuperable y vacío', async () => {
     const read = vi.spyOn(window.tradia.strategies, 'list').mockRejectedValueOnce(new Error('IPC'));
