@@ -389,6 +389,9 @@ test('reglas antiguas: motivo previo, acciones bloqueadas y corrección por tecl
     await expect(entry).toHaveAttribute('aria-invalid', 'true');
     await expect(entry).toHaveAccessibleDescription(/caracteres 1–7/);
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page
+      .locator('#strategy-section-2')
+      .evaluate((element) => element.scrollIntoView({ block: 'start' }));
     await page.screenshot({ path: 'test-results/editor-reglas-error-1440.png' });
     const examples = page.getByRole('button', { name: 'Insertar cruce de medias', exact: true });
     await examples.focus();
@@ -403,12 +406,15 @@ test('reglas antiguas: motivo previo, acciones bloqueadas y corrección por tecl
     await expect(page.getByRole('heading', { name: 'Editar estrategia' })).toBeVisible();
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
-      await page.locator('.main').evaluate((element) => {
-        element.scrollTop = 0;
-      });
+      await page
+        .locator('#strategy-section-2')
+        .evaluate((element) => element.scrollIntoView({ block: 'start' }));
       await page.screenshot({ path: `test-results/editor-reglas-${theme}-1440.png` });
       await page.setViewportSize({ width: 700, height: 900 });
       await expectNoHorizontalOverflow(page);
+      await page
+        .locator('#strategy-section-2')
+        .evaluate((element) => element.scrollIntoView({ block: 'start' }));
       await page.screenshot({ path: `test-results/editor-reglas-${theme}-700.png` });
       await page.setViewportSize({ width: 1440, height: 1000 });
     }

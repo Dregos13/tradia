@@ -49,8 +49,7 @@ export function StrategyForm({
         },
   );
   // La implementación clásica usa parámetros y conserva sus textos descriptivos.
-  const descriptiveRules =
-    !!strategy?.executable && !parseStrategyRules(strategy.rules, strategy.parameters).ok;
+  const descriptiveRules = !!strategy?.executable;
   const [parameters, setParameters] = useState(JSON.stringify(draft.parameters, null, 2));
   const [ranges, setRanges] = useState(JSON.stringify(draft.parameterRanges ?? {}, null, 2));
   const [markets, setMarkets] = useState(draft.markets.join(', '));
@@ -103,7 +102,7 @@ export function StrategyForm({
       />
     </div>
   );
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     setError(null);

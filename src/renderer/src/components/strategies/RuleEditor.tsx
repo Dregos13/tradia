@@ -90,6 +90,8 @@ function RuleFieldEditor({
       <div className="strategy-rule-result">
         <span
           id={`${id}-result`}
+          aria-live="polite"
+          aria-atomic="true"
           className={error ? 'strategy-rule-error' : value.trim() ? 'strategy-rule-valid' : ''}
         >
           {error ? (

@@ -2183,7 +2183,7 @@ export function createSimulatedAdapter() {
         const note = request.note?.trim() || 'Alta de la estrategia';
         const strategy: Strategy = {
           id: nextStrategyId++,
-          executable: parseStrategyRules(request.rules, request.parameters).ok,
+          executable: false,
           version: 1,
           name: request.name.trim(),
           hypothesis: request.hypothesis,
@@ -2224,9 +2224,6 @@ export function createSimulatedAdapter() {
         const version: Strategy = {
           ...current,
           version: current.version + 1,
-          executable:
-            implementations.has(current.id) ||
-            parseStrategyRules(merged.rules, merged.parameters).ok,
           name: merged.name.trim(),
           hypothesis: merged.hypothesis,
           rules: merged.rules,
@@ -2445,7 +2442,11 @@ export function createSimulatedAdapter() {
           throw new Error('Consulta de estrés inválida.');
         }
         const strategy = findStrategyVersion(request.strategyId, request.version);
-        if (strategy === null || !strategy.executable) return [];
+        if (
+          strategy === null ||
+          (!strategy.executable && !parseStrategyRules(strategy.rules, strategy.parameters).ok)
+        )
+          return [];
         // Como la semilla real: la primera lectura calcula las tres crisis.
         return (
           stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ??

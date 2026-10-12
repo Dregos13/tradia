@@ -48,6 +48,10 @@ it('valida al escribir, describe el error y selecciona exactamente el rango sin 
   const error = parsed.errors[0]!;
   await waitFor(() => expect(entry).toHaveAttribute('aria-invalid', 'true'));
   expect(entry).toHaveFocus();
+  expect(document.getElementById('strategy-rule-entry-result')).toHaveAttribute(
+    'aria-live',
+    'polite',
+  );
   expect(entry).toHaveAccessibleDescription(
     new RegExp(`caracteres ${error.start + 1}–${error.end}`),
   );
@@ -144,7 +148,9 @@ it('la ficha explica reglas antiguas antes de pulsar y bloquea las tres acciones
 });
 
 it('ejecuta reglas válidas del adaptador, persiste informe y estrés y conserva la validez de cada versión', async () => {
-  expect(strategy.executable).toBe(true);
+  // El contrato distingue la implementación registrada de las reglas compilables.
+  expect(strategy.executable).toBe(false);
+  expect(parseStrategyRules(strategy.rules, strategy.parameters).ok).toBe(true);
   const report = await window.tradia.backtest.run({
     strategyId: strategy.id,
     desde: '2015-01-01',
@@ -168,9 +174,8 @@ it('ejecuta reglas válidas del adaptador, persiste informe y estrés y conserva
     rules: { ...strategy.rules, entry: 'Comprar' },
   });
   expect(invalid.executable).toBe(false);
-  expect((await window.tradia.strategies.get({ id: strategy.id, version: 1 }))?.executable).toBe(
-    true,
-  );
+  const firstVersion = await window.tradia.strategies.get({ id: strategy.id, version: 1 });
+  expect(parseStrategyRules(firstVersion!.rules, firstVersion!.parameters).ok).toBe(true);
   await expect(
     window.tradia.backtest.runRegimeComparison({ strategyId: strategy.id, version: 2 }),
   ).rejects.toThrow(/reglas-invalidas/);
