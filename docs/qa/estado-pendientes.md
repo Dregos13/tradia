@@ -243,14 +243,15 @@ Revisa que cada fallo del objetivo tiene su cierre comprobable.
   permitido/desactivado/carga/error; `OrdersPage.test.tsx` verifica el motivo de
   rechazo de una venta de entrada real. `e2e/live-short-limits.spec.ts` recorre
   Ajustes → error en los tres techos → guardar → confirmar frase → ficha permitida.
-- **Verificación de esta entrega:** typecheck y lint pasan; las **473 pruebas del
-  renderer** pasan. `npm test` acaba con **2 697 aprobadas y 1 fallida**: R1 en
-  `src/main/backtest/__audit__/reglas.audit.test.ts:308` (un nivel con escalar no
-  finito se acepta). Es una auditoría añadida en paralelo por otra tarea, fuera
-  del alcance de frontend. `format:check` falla en
-  `src/main/ai/__audit__/sin-api.audit.test.ts` y `src/main/live/scaling.test.ts`,
-  también fuera de alcance. **Los 51 E2E pasan** tras actualizar en
-  `e2e/strategies-backtest.spec.ts:502` la expectativa del aviso provisional
-  al estado real del corto desactivado. Capturas: `corto-real-ajustes-limites.png` y
-  `corto-real-ficha-permitido.png`. No se ha hecho auditoría axe ni prueba manual
-  con lector de pantalla.
+- **Verificación de esta entrega:** `npm install`, typecheck y lint pasan;
+  `npm test` acaba con **2 698 aprobadas de 2 698** (191 archivos) y **los 51 E2E
+  pasan**. El hallazgo R1 de la auditoría (`reglas.audit.test.ts:293`, un nivel
+  con escalar no finito se aceptaba) queda cerrado en `src/shared/strategyRules.ts`:
+  `evalScalar` devuelve `null` ante un valor no finito y `parseLevel` comprueba
+  además `Number.isFinite` en el porcentaje y en el multiplicador de `atr`; el
+  error sale en su campo.
+  `format:check` solo falla en `src/main/live/scaling.test.ts`, fuera del alcance
+  de frontend. En `e2e/strategies-backtest.spec.ts:502` la expectativa del aviso
+  provisional pasa al estado real del corto desactivado. Capturas:
+  `corto-real-ajustes-limites.png` y `corto-real-ficha-permitido.png`. No se ha
+  hecho auditoría axe ni prueba manual con lector de pantalla.
