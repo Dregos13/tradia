@@ -185,6 +185,8 @@ El aviso de error es `role="alert"` únicamente en la transición desde `ok`. Si
 
 Enviar una sola notificación al pasar de `ok` a un estado de fallo. Fallos repetidos con el mismo estado, incluida una sucesión de titulares, no vuelven a notificar. Si cambia el motivo mientras ya está fallando, se actualiza la interfaz pero no se envía otra notificación. Solo una recuperación a `ok` rearma el aviso.
 
+Al arrancar, si el proveedor guardado es «Suscripción (Claude Code)», está activado y no se encuentra la CLI, se envía también una sola notificación de fallo (motivo «CLI no encontrada»): Tradia trabaja en segundo plano y es la única señal que se ve sin abrir la ventana. Con el analizador local o con la suscripción desactivada no se avisa. Las reevaluaciones posteriores en el mismo fallo no repiten el aviso, y cambiar el proveedor a mano en Ajustes no notifica.
+
 Título de fallo para todos los motivos:
 
 > `Tradia usa el analizador local`

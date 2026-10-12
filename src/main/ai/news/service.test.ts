@@ -592,19 +592,128 @@ describe('estado de la suscripción y notificación única', () => {
     });
   });
 
-  it('la CLI no encontrada se refleja como cli-no-encontrada sin notificar en el arranque', async () => {
+  it('la CLI no encontrada se refleja como cli-no-encontrada y el arranque notifica UNA vez', async () => {
     const sub = subStub({ available: false });
+    const { db, service, store, broadcast, notify } = setup({ sub });
+    enable(store);
+    await service.start();
+    // Llamar otra vez a start() no repite el aviso del arranque.
+    await service.start();
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]![0]).toEqual({
+      level: 'alerta',
+      title: 'Tradia usa el analizador local',
+      body: 'No se encontró Claude Code. Abre Ajustes › Análisis de noticias para resolverlo.',
+      navigateTo: 'ajustes',
+    });
+    expect(broadcast).toHaveBeenCalledWith(
+      'ai:news-status-changed',
+      expect.objectContaining({ provider: 'suscripcion', state: 'cli-no-encontrada' }),
+    );
+
+    // Los titulares posteriores en el mismo fallo no vuelven a notificar.
+    for (let i = 0; i < 3; i += 1) {
+      service.enqueueItem({
+        id: insertItem(db, { confirmed: true, assets: ['AAPL'] }),
+        confirmed: true,
+      });
+    }
+    await service.drain();
+    const status = await service.getNewsStatus();
+    expect(status.state).toBe('cli-no-encontrada');
+    expect(status.message).toContain('Claude Code');
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('tras el aviso del arranque, volver a ok y una nueva caída notifican una vez cada uno', async () => {
+    let available = false;
+    const sub = Object.assign(analyzerStub(undefined, 'suscripcion'), {
+      available: vi.fn(() => available),
+      ping: vi.fn(async () => 120),
+    });
     const { db, service, store, notify } = setup({ sub });
     enable(store);
+    await service.start();
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    // La CLI aparece: un titular analizado con ella devuelve el estado a ok.
+    available = true;
     service.enqueueItem({
       id: insertItem(db, { confirmed: true, assets: ['AAPL'] }),
       confirmed: true,
     });
     await service.drain();
-    const status = await service.getNewsStatus();
-    expect(status.state).toBe('cli-no-encontrada');
-    expect(status.message).toContain('Claude Code');
-    // La CLI nunca estuvo bien en esta sesión: no hay caída que anunciar.
+    expect((await service.getNewsStatus()).state).toBe('ok');
+    expect(notify).toHaveBeenCalledTimes(2);
+    expect(notify.mock.calls[1]![0]).toMatchObject({ title: 'Suscripción de Claude recuperada' });
+
+    // Una nueva caída notifica una vez, aunque sigan llegando titulares.
+    available = false;
+    for (let i = 0; i < 3; i += 1) {
+      service.enqueueItem({
+        id: insertItem(db, { confirmed: true, assets: ['MSFT'] }),
+        confirmed: true,
+      });
+    }
+    await service.drain();
+    expect(await service.testLlm()).toMatchObject({ ok: false });
+    expect(notify).toHaveBeenCalledTimes(3);
+    expect(notify.mock.calls[2]![0]).toMatchObject({
+      level: 'alerta',
+      body: 'No se encontró Claude Code. Abre Ajustes › Análisis de noticias para resolverlo.',
+    });
+  });
+
+  it('el arranque no notifica con el analizador local ni con la suscripción desactivada', async () => {
+    const local = setup({ sub: subStub({ available: false }) });
+    local.store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'local');
+    local.store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'false');
+    await local.service.start();
+    expect((await local.service.getNewsStatus()).state).toBe('ok');
+    expect(local.notify).not.toHaveBeenCalled();
+
+    const off = setup({ sub: subStub({ available: false }) });
+    off.store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+    off.store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'false');
+    await off.service.start();
+    expect((await off.service.getNewsStatus()).state).toBe('ok');
+    expect(off.notify).not.toHaveBeenCalled();
+  });
+
+  it('el arranque con la suscripción sana no notifica', async () => {
+    const { service, store, notify } = setup({ sub: subStub() });
+    enable(store);
+    await service.start();
+    expect((await service.getNewsStatus()).state).toBe('ok');
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('en E2E el arranque no notifica aunque falte la CLI', async () => {
+    const { service, store, notify } = setup({
+      sub: subStub({ available: false }),
+      useSimulated: true,
+      simulated: analyzerStub(),
+    });
+    enable(store);
+    await service.start();
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('cambiar el proveedor a mano en Ajustes sigue sin notificar', async () => {
+    const sub = subStub({ available: false });
+    const { service, store, broadcast, notify } = setup({ sub });
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'local');
+    store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'false');
+    await service.start();
+
+    await service.setLlmSettings({ provider: 'suscripcion' });
+    expect((await service.getNewsStatus()).state).toBe('cli-no-encontrada');
+    await service.setLlmSettings({ provider: 'local' });
+    await service.setLlmSettings({ provider: 'suscripcion' });
+    expect(broadcast).toHaveBeenCalledWith(
+      'ai:news-status-changed',
+      expect.objectContaining({ state: 'cli-no-encontrada' }),
+    );
     expect(notify).not.toHaveBeenCalled();
   });
 

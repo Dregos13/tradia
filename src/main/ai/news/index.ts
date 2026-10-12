@@ -9,7 +9,8 @@
  * `ai:changed` ('noticias') tras persistir cada análisis y
  * `ai:news-status-changed` cuando cambia la salud del proveedor —
  * además de UNA notificación del sistema al caer de 'ok' y otra al
- * recuperarla (cablea `notifications.notify`).
+ * recuperarla (cablea `notifications.notify`). Al arrancar, `start()`
+ * avisa una vez si la suscripción activada no encuentra la CLI.
  *
  * Con `TRADIA_E2E` (app sin empaquetar) el servicio usa el analizador
  * simulado determinista: ningún titular sale hacia la CLI y los
@@ -131,6 +132,10 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     broadcast: ctx.broadcast,
     logger: console,
   });
+
+  // Estado del arranque antes de registrar los canales: si la suscripción
+  // guardada no encuentra la CLI, llega UNA notificación del sistema.
+  void service.start();
 
   // El lector entrega titulares de cada pasada; la cola descarta los no
   // confirmados en `enqueueItem` y relee `confirmada` antes de analizar.

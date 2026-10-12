@@ -21,7 +21,8 @@
  *   `ai:news-status-changed`): 'ok', 'cli-no-encontrada', 'sin-sesion',
  *   'tope-diario' o 'error', con el motivo y el paso para resolverlo. Al
  *   caer de 'ok' se envía UNA notificación del sistema (no una por
- *   titular) y otra cuando vuelve a 'ok'.
+ *   titular) y otra cuando vuelve a 'ok'. Al arrancar (`start()`) se
+ *   avisa una vez si la suscripción activada no encuentra la CLI.
  * - Persistencia: una fila por activo en `news_analysis`, solo para los
  *   tickers que aún no tienen análisis (UNIQUE noticia × ticker).
  * - Filtro de salida (en el servicio: vale con cualquier proveedor): un
@@ -156,6 +157,12 @@ export interface NewsAiService {
   pendingCount(): number;
   /** Resuelve cuando la cola queda vacía (pruebas). */
   drain(): Promise<void>;
+  /**
+   * Evaluación del arranque (una vez por proceso): fija el estado base y,
+   * si la suscripción guardada y activada no encuentra la CLI, emite
+   * `ai:news-status-changed` y UNA notificación del sistema.
+   */
+  start(): Promise<void>;
 }
 
 const memoryStore = (): KeyValueStore => {
@@ -240,10 +247,14 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
 
   // -- Estado del proveedor (ai:news-status) -----------------------------------
   //
-  // `status` empieza en null: la primera evaluación lo fija a su estado
-  // base SIN notificar (una CLI que nunca estuvo bien no «cae»). Después,
-  // cada transición fuera de 'ok' emite el evento y UNA notificación, y
-  // la vuelta a 'ok' emite otra.
+  // `status` empieza en null. `start()` (lo llama `registerNewsAi` al
+  // arrancar) lo fija a su estado base y, si el proveedor guardado es la
+  // suscripción activada y no se encuentra la CLI, avisa con el evento y
+  // UNA notificación: la app corre en segundo plano y es la única señal
+  // que el usuario ve sin abrir la ventana. Después, cada transición
+  // fuera de 'ok' emite el evento y UNA notificación, y la vuelta a 'ok'
+  // emite otra. Sin `start()` (o si Ajustes se adelanta) la primera
+  // evaluación fija el estado base sin notificar.
 
   let status: NewsStatus | null = null;
 
@@ -267,6 +278,14 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       logger.warn(`[news-ai] no se pudo enviar la notificación de estado: ${String(error)}`);
     }
   };
+
+  const notifyFailure = (state: Exclude<NewsSubscriptionState, 'ok'>): void =>
+    notify({
+      level: 'alerta',
+      title: 'Tradia usa el analizador local',
+      body: NOTIFY_BODY[state],
+      navigateTo: 'ajustes',
+    });
 
   /**
    * Fija el estado del proveedor y anuncia el cambio por
@@ -292,12 +311,7 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     deps.broadcast?.(IPC_CHANNELS.ai.newsStatusChanged, status);
     if (options.silent) return;
     if (prev.state === 'ok' && state !== 'ok') {
-      notify({
-        level: 'alerta',
-        title: 'Tradia usa el analizador local',
-        body: NOTIFY_BODY[state],
-        navigateTo: 'ajustes',
-      });
+      notifyFailure(state);
     } else if (prev.state !== 'ok' && state === 'ok') {
       notify({
         level: 'info',
@@ -568,6 +582,20 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     return { ...status };
   };
 
+  let started: Promise<void> | null = null;
+  const start = (): Promise<void> =>
+    (started ??= (async () => {
+      await ensureMigrated();
+      // Ajustes u otra evaluación ya fijaron el estado: nada que anunciar.
+      if (status !== null) return;
+      status = baselineStatus();
+      // En E2E se usa siempre el simulado: no hay CLI que vigilar.
+      if (status.state === 'ok' || deps.useSimulated) return;
+      deps.broadcast?.(IPC_CHANNELS.ai.newsStatusChanged, status);
+      notifyFailure(status.state);
+      logger.warn('[news-ai] arranque: la suscripción de Claude Code no encuentra la CLI');
+    })());
+
   return {
     listAnalyses: (query) => deps.repo.list(query ?? {}),
     getNewsStatus,
@@ -579,5 +607,6 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     drain: async () => {
       while (running) await running;
     },
+    start,
   };
 }

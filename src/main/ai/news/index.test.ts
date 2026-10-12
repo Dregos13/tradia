@@ -31,7 +31,8 @@ import type { StorageService } from '../../services/storage';
 import type { SettingsService } from '../../services/settings';
 import type { SecretsService } from '../../services/secrets';
 import type { NewsPollerService, NewsItemsStoredEvent } from '../../news/poller';
-import { registerNewsAi } from './index';
+import type { NotificationsService } from '../../services/notifications';
+import { NEWS_LLM_SETTINGS_KEYS, registerNewsAi } from './index';
 
 const NOW_ISO = '2026-10-10T10:00:00.000Z';
 
@@ -63,13 +64,21 @@ function insertItem(input: { title: string; confirmed: boolean; assets?: string[
   };
 }
 
-function setup(options: { packaged?: boolean; e2e?: boolean; hasKey?: boolean } = {}) {
+function setup(
+  options: {
+    packaged?: boolean;
+    e2e?: boolean;
+    hasKey?: boolean;
+    settings?: Record<string, string>;
+  } = {},
+) {
   os.isPackaged = options.packaged ?? false;
   if (options.e2e) process.env.TRADIA_E2E = '1';
   else delete process.env.TRADIA_E2E;
 
   const hasKey = options.hasKey ?? false;
-  const settingsMap = new Map<string, string>();
+  const settingsMap = new Map<string, string>(Object.entries(options.settings ?? {}));
+  const notify = vi.fn();
   const pollerListener: { current: ((event: NewsItemsStoredEvent) => void) | null } = {
     current: null,
   };
@@ -112,10 +121,11 @@ function setup(options: { packaged?: boolean; e2e?: boolean; hasKey?: boolean } 
           return () => undefined;
         },
       } as unknown as NewsPollerService,
+      notifications: { notify } as unknown as NotificationsService,
     },
   };
   const service = registerNewsAi(ctx);
-  return { ctx, service, pollerListener, settingsMap };
+  return { ctx, service, pollerListener, settingsMap, notify };
 }
 
 beforeEach(() => {
@@ -157,6 +167,39 @@ describe('canales IPC propios', () => {
     setup();
     const status = await os.handlers.get(IPC_CHANNELS.ai.newsStatus)!(null);
     expect(status).toMatchObject({ provider: expect.any(String), state: expect.any(String) });
+  });
+
+  it('al arrancar con la suscripción activada y sin CLI llega UNA notificación', async () => {
+    const { service, notify, ctx } = setup({
+      settings: {
+        [NEWS_LLM_SETTINGS_KEYS.provider]: 'suscripcion',
+        [NEWS_LLM_SETTINGS_KEYS.enabled]: 'true',
+        // Una ruta configurada que no existe: la CLI no se encuentra en
+        // ningún equipo, tenga o no Claude Code instalado.
+        [NEWS_LLM_SETTINGS_KEYS.cliPath]: '/ruta/que/no/existe/claude',
+      },
+    });
+    await service.start();
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]![0]).toMatchObject({
+      level: 'alerta',
+      body: 'No se encontró Claude Code. Abre Ajustes › Análisis de noticias para resolverlo.',
+    });
+    expect(ctx.broadcast).toHaveBeenCalledWith(
+      IPC_CHANNELS.ai.newsStatusChanged,
+      expect.objectContaining({ state: 'cli-no-encontrada' }),
+    );
+  });
+
+  it('al arrancar con el analizador local no notifica', async () => {
+    const { service, notify } = setup({
+      settings: {
+        [NEWS_LLM_SETTINGS_KEYS.provider]: 'local',
+        [NEWS_LLM_SETTINGS_KEYS.enabled]: 'false',
+      },
+    });
+    await service.start();
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('setLlmSettings persiste y devuelve el estado sin presupuesto de API', async () => {
