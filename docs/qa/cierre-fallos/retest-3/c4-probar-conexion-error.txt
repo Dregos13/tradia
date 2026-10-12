@@ -1,0 +1,257 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Ajustes
+Señales + paper trading
+Parada
+
+Datos al día.
+
+Tu aplicación, bajo tus reglas.
+
+Controla el arranque, las interrupciones y las credenciales locales.
+
+General
+
+Comportamiento de la aplicación y segundo plano.
+
+Iniciar con el sistema
+
+Tradia arrancará oculta en la bandeja al iniciar sesión.
+
+Agentes en segundo plano
+
+El latido continúa aunque cierres la ventana.
+
+Activo
+Notificaciones
+
+Elige qué niveles pueden interrumpirte.
+
+Notificaciones: Información
+
+Conexión recuperada y tareas completadas.
+
+Notificaciones: Alerta
+
+Pérdida de conexión o decisiones pausadas.
+
+Notificaciones: Crítica
+
+Riesgo inmediato o fallo que requiere tu acción.
+
+Información
+Alerta
+Crítica
+Enviar prueba
+Avisos de noticias
+
+Antelación de los avisos de eventos de alto impacto, también en segundo plano.
+
+Minutos de antelación
+15 minutos
+30 minutos
+45 minutos
+60 minutos
+
+Los avisos de noticias críticas siguen el interruptor «Notificaciones: Crítica» de la sección Notificaciones.
+
+Proveedores de datos
+
+Las claves se cifran en el sistema y nunca vuelven a mostrarse.
+
+Tiingo
+
+Precios diarios ajustados de acciones de EE. UU.
+
+Clave de API de Tiingo
+Guardar clave de Tiingo
+
+Guardada y cifrada
+
+Probar conexión
+
+Error del proveedor · Tiingo no ha respondido como esperábamos: El proveedor no respondió como se esperaba (HTTP 503). Vuelve a probar; si se repite, revisa el estado del servicio.
+
+Probar de nuevo
+FRED
+
+Tipos, IPC, curva de tipos y VIX.
+
+Clave de API de FRED
+Guardar clave de FRED
+
+Guardada y cifrada
+
+Probar conexión
+
+Conectado · Conectado. Último dato disponible: 8 oct 2026. Comprobado hoy a las 16:43 (1 ms).
+
+Actualizar datos ahora
+Claves de API
+
+Se cifran con el llavero del sistema y nunca vuelven a mostrarse.
+
+Proveedor
+Clave nueva
+Guardar clave
+Indica un proveedor para gestionar su clave.
+Borrar clave
+Análisis de noticias con LLM
+
+Elige suscripción, análisis local o API opcional. Las noticias nunca crean señales por sí solas.
+
+Proveedor de análisis
+Suscripción (Claude Code)
+Local (sin coste)
+API de Anthropic (opcional)
+
+Para iniciar sesión en Claude Code, ejecuta claude y después /login con tu suscripción.
+
+Ruta de la CLI (opcional)
+
+Déjala vacía para detectar claude automáticamente. Si falla la suscripción, se usa el análisis local.
+
+Máximo diario de titulares
+
+Hoy: 0 de 200 titulares
+
+Probar guarda estos ajustes y comprueba el proveedor elegido.
+
+Probar
+Guardar ajustes
+Cuenta de broker · Paper
+
+Conecta una cuenta de Alpaca Paper. Esta ranura solo admite claves paper; las claves live se configuran en Dinero real.
+
+Solo paper · sin dinero real
+
+Sin conectar · introduce las claves de tu cuenta paper
+
+Clave de API
+Secreto de API
+
+Las claves se cifran en el llavero del sistema y nunca vuelven a mostrarse.
+
+Probar conexión
+Cuenta de broker · Dinero real
+
+Claves de Alpaca Live en una ranura cifrada separada. Solo disponible con la lista de comprobación cumplida.
+
+ Las órdenes live usan capital real y pueden generar pérdidas.
+
+Completa la lista antes de conectar las claves live.
+Validación fuera de muestra guardada
+Paper continuo durante al menos 3 meses, 30 operaciones y desviación dentro de ±30 %
+Canal externo de alertas activo y prueba correcta
+Claves live sin permiso de retirada
+Plan de contingencia documentado
+Revisión legal y fiscal con profesionales
+Ver lista de comprobación
+Telegram
+
+Señales y resúmenes en un chat opcional.
+
+Canal desactivado
+
+Completa la configuración antes de activarlo o enviar una prueba.
+
+Token del bot
+Chat
+Eventos enviados
+Señal aprobada
+Señal vetada
+Límite alcanzado
+Resúmenes diarios
+Enviar prueba
+Guardar Telegram
+Correo
+
+Entrega por SMTP a una dirección de destino.
+
+Canal desactivado
+
+Completa la configuración antes de activarlo o enviar una prueba.
+
+Contraseña SMTP
+Servidor SMTP
+Puerto
+Usuario SMTP
+Destino
+Seguridad
+STARTTLS
+TLS
+Sin cifrado
+Eventos enviados
+Señal aprobada
+Señal vetada
+Límite alcanzado
+Resúmenes diarios
+Enviar prueba
+Guardar Correo
+Rutina diaria
+
+Horarios del mercado de Nueva York.
+
+Zona horaria: America/New_York. Se adapta automáticamente al horario de verano.
+
+Resumen previo a la apertura
+Revisión al cierre
+Conciliación
+Guardar horarios
+
+No se envía en fines de semana ni festivos de mercado. Si el equipo estaba dormido, se envía al despertar con la marca «Con retraso».
+
+Copias de seguridad
+
+Base local, una copia diaria a las 02:00 y retención de 7.
+
+1 copias disponibles
+
+Destino: carpeta backups del directorio de datos de Tradia. Hora local del equipo.
+
+Crear copia ahora
+12 oct 2026, 16:40 (hora local)
+0,7 MB · Esquema 14
+Integridad verificada
+Restaurar
+Registros
+
+Diagnóstico local con secretos ocultos.
+
+Registros de diagnóstico
+
+Se guardan localmente y se rotan automáticamente (5 archivos de hasta 5 MB). Los secretos se ocultan.
+
+Abrir carpeta de registros
+Ayuda
+
+Conoce las secciones principales de Tradia en 2 minutos.
+
+Ver el tour de nuevo
+Legal
+
+Información siempre accesible.
+
+Tradia no es asesoramiento financiero. El modo predeterminado usa señales informativas y paper trading.
+
+Ver aviso de riesgo, versión 1.0
+En línea
+Agentes activos
+Última comprobación 16:42:56
+Próximo reintento —
+Último latido 16:42:43

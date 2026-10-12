@@ -1,0 +1,6 @@
+Running 2 tests using 1 worker
+(node:84319) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 docs/qa/cierre-fallos/retest-3/regresion.spec.ts:436:5 › B0 · siembra: base al día del viernes 18-sep-2026 (reloj atrasado) (12.8s)
+  ✓  2 docs/qa/cierre-fallos/retest-3/regresion.spec.ts:511:5 › C-largo · más de 60 s sin red con datos viejos y vuelta a la red (2.9m)
+  2 passed (3.1m)

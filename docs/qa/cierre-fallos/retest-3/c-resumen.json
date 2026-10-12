@@ -1,0 +1,29 @@
+{
+  "reconnectMs": 40300,
+  "tiingoRequestsBefore": 4,
+  "tiingoRequestsAfter": 8,
+  "fredRequestsBefore": 6,
+  "fredRequestsAfter": 12,
+  "lastBars": {
+    "SPY": {
+      "source": "tiingo",
+      "count": 1270,
+      "last": "2026-10-09"
+    },
+    "QQQ": {
+      "source": "tiingo",
+      "count": 1270,
+      "last": "2026-10-09"
+    },
+    "AAPL": {
+      "source": "tiingo",
+      "count": 1270,
+      "last": "2026-10-09"
+    },
+    "MSFT": {
+      "source": "tiingo",
+      "count": 1270,
+      "last": "2026-10-09"
+    }
+  }
+}
