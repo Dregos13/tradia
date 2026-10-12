@@ -126,19 +126,25 @@ export function createSecretsService(
         .get(provider) as { ciphertext: string } | undefined;
       if (!row) return null;
       requireRealEncryption();
-      let key: string;
+      let decrypted: string;
       try {
-        key = crypto.decryptString(Buffer.from(row.ciphertext, 'base64'));
+        decrypted = crypto.decryptString(Buffer.from(row.ciphertext, 'base64'));
       } catch {
         throw new SecretsError(
           `no se pudo descifrar la clave de '${provider}': el cifrado del sistema cambió o el dato está corrupto`,
         );
       }
+      // Mismo criterio que `setKey`: se recortan los espacios de los
+      // extremos (una clave guardada antes de la validación podía llevarlos
+      // y funcionaba, porque Headers los quita) y solo se rechaza lo que
+      // queda dentro.
+      const key = decrypted.trim();
       // Claves guardadas antes de la validación de `setKey` (o por otra
-      // vía) pueden llevar controles: devolverlas rompería la cabecera
-      // HTTP y el error de transporte las citaría. Se marcan como no
-      // válidas: hay que volver a pegarlas, no hay «sin conexión».
-      if ([...key].some(isUnsafeKeyChar)) {
+      // vía) pueden llevar controles o espacios dentro: devolverlas
+      // rompería la cabecera HTTP y el error de transporte las citaría. Se
+      // marcan como no válidas: hay que volver a pegarlas, no hay
+      // «sin conexión».
+      if (key === '' || [...key].some(isUnsafeKeyChar)) {
         throw new InvalidStoredKeyError({ provider });
       }
       return key;

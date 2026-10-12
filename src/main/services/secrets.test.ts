@@ -217,6 +217,42 @@ describe('servicio de claves cifradas', () => {
     expect((error as Error).message).not.toContain('SECRETO');
   });
 
+  it.each([['clave '], [' clave'], ['\tclave\n']])(
+    'una clave guardada sin recortar (%j) se devuelve recortada, como en main',
+    async (stored) => {
+      const { db } = fileDb();
+      const crypto = fakeSafeStorage();
+      const secrets = createSecretsService(db, crypto);
+      // Las claves guardadas antes de esta rama iban a la fila sin recortar
+      // (setKey no recortaba) y funcionaban, porque Headers quita los
+      // espacios de los extremos. getKey aplica el mismo criterio que
+      // setKey: recorta y devuelve la clave limpia.
+      const ciphertext = crypto.encryptString(stored).toString('base64');
+      const now = new Date().toISOString();
+      db.prepare(
+        'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      ).run('tiingo', ciphertext, now, now);
+
+      expect(await secrets.getKey('tiingo')).toBe('clave');
+    },
+  );
+
+  it.each([['cla\rve'], ['cla ve']])(
+    'una clave guardada con un control o un espacio dentro (%j) sigue marcada como no válida',
+    async (stored) => {
+      const { db } = fileDb();
+      const crypto = fakeSafeStorage();
+      const secrets = createSecretsService(db, crypto);
+      const ciphertext = crypto.encryptString(stored).toString('base64');
+      const now = new Date().toISOString();
+      db.prepare(
+        'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      ).run('tiingo', ciphertext, now, now);
+
+      await expect(secrets.getKey('tiingo')).rejects.toBeInstanceOf(InvalidStoredKeyError);
+    },
+  );
+
   it('informa si el dato cifrado está corrupto al leerlo (solo main)', async () => {
     const { db } = fileDb();
     const corruptCrypto: SafeStorageLike = {
