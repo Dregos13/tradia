@@ -7,6 +7,10 @@ proveedores simulados y no sustituyen ninguna de estas comprobaciones.
 Cada tarea dice los pasos, el comando y el resultado esperado. Hazlas en
 este orden: las primeras no tienen riesgo y las últimas mueven dinero real.
 
+El análisis de noticias **no usa ninguna API de pago**: funciona con tu
+suscripción de Claude (CLI de Claude Code) o con el analizador local, sin
+coste. No necesitas ninguna clave de Anthropic.
+
 ## Reglas sobre las claves
 
 - **Nunca** pegues una clave en un archivo del repositorio (`.env`,
@@ -34,6 +38,30 @@ este orden: las primeras no tienen riesgo y las últimas mueven dinero real.
 | `npm run qa:alpaca-live-smoke`                          | Muestra el uso y sale sin enviar    | Prueba de humo con dinero real (1 USD)      |
 | `npm run dist` / `dist:mac` / `dist:win` / `dist:linux` | Empaqueta en `release/`             | Instaladores para probar la app empaquetada |
 
+## 0. Actualiza `main` y lanza la CI de la pull request
+
+Tu `main` local va por detrás de `origin/main`. Antes de revisar o fusionar
+la pull request de esta misión:
+
+1. En la carpeta principal del proyecto (no en un worktree de Orquesta):
+
+   ```bash
+   git fetch origin
+   git switch main
+   git merge --ff-only origin/main
+   ```
+
+   Esperado: «Fast-forward» o «Already up to date». Si dice que no puede
+   avanzar sin fusión, tienes commits locales en `main` que no están en
+   `origin/main`: revísalos con `git log origin/main..main` antes de seguir.
+
+2. En Orquesta, abre la pestaña **Git** de la pull request y lanza la CI.
+   Esperado: `typecheck`, `lint`, `format:check`, `npm test` y
+   `npm run test:e2e` en verde en las tres plataformas que tenga
+   configuradas.
+3. Si quieres repetirlo en tu equipo: `npm ci`, y después los mismos
+   comandos uno a uno.
+
 ## 1. Análisis de noticias con tu suscripción de Claude
 
 Antes, revisa que las condiciones de tu suscripción de Claude permiten este
@@ -49,7 +77,8 @@ analizador local en Ajustes y salta esta tarea.
 2. Inicia sesión con tu suscripción: ejecuta `claude`, escribe `/login`,
    sigue el navegador y sal con `/exit`.
 3. En la app, ve a **Ajustes › Análisis de noticias**, en **«Proveedor de análisis»** elige
-   «Suscripción (Claude Code)» y pulsa **«Probar»**.
+   «Suscripción (Claude Code)» y pulsa **«Probar de nuevo»** (el botón se
+   llama así también la primera vez).
    - Esperado: correcto con la latencia.
    - «CLI no encontrada»: indica la ruta de `claude` en el campo de la
      ruta (la da `which claude`).
@@ -66,6 +95,23 @@ analizador local en Ajustes y salta esta tarea.
    umbrales, la línea final «SUPERA los umbrales documentados» y el uso del
    día por debajo del tope diario (`NEWS_LLM_DAILY_CAP`, 200 titulares).
    Como referencia sin coste, `--provider local` debe dar lo mismo.
+
+5. Comprueba el aviso con la app abierta, cerrando la sesión de verdad:
+   1. Deja Tradia abierta con «Suscripción (Claude Code)» elegida y
+      funcionando (paso 3 correcto).
+   2. En una terminal ejecuta `claude`, escribe `/logout` y sal con
+      `/exit`.
+   3. Espera a la siguiente lectura de noticias (o pulsa «Probar de nuevo»
+      en Ajustes para ver el motivo enseguida).
+   - Esperado: **una** notificación del sistema «Tradia usa el analizador
+     local» (no una por titular). En **Noticias** y en **Ajustes** aparece
+     «Suscripción no disponible · sesión no iniciada» con el paso para
+     resolverlo y el texto de que mientras tanto se usa el analizador local.
+   4. Vuelve a iniciar sesión (`claude`, `/login`, `/exit`).
+   - Esperado: otra notificación, «Suscripción de Claude recuperada», y el
+     aviso desaparece de Noticias y de Ajustes.
+   - Si al abrir la app la CLI ya no se encuentra, también llega **una**
+     notificación al arrancar (con el texto de «CLI no encontrada»).
 
 Si la suscripción falla en uso (sesión caducada, CLI no encontrada o tope
 diario), la app te avisa **una vez** con una notificación del sistema y
@@ -158,6 +204,21 @@ En cada sistema:
    onnxruntime-node funciona) y se muestran predicciones por activo.
 4. La pantalla «Dinero real» sigue bloqueada: en la app empaquetada la
    evidencia sembrada de las pruebas no cuenta.
+5. **Solo en Windows: `claude.cmd` sin `spawn EINVAL`.** Si instalaste
+   Claude Code con npm, la CLI es un `claude.cmd`, que Node no deja lanzar
+   directamente.
+   1. En PowerShell, `where.exe claude` debe listar la ruta (por ejemplo,
+      `…\AppData\Roaming\npm\claude.cmd`) y `claude --version` debe
+      responder.
+   2. En la app empaquetada, ve a **Ajustes › Análisis de noticias**,
+      elige «Suscripción (Claude Code)» y pulsa **«Probar de nuevo»**. Si no
+      la encuentra sola, pega esa ruta en «Ruta de Claude Code (opcional)».
+   3. Desde la carpeta del proyecto, ejecuta
+      `npm run eval:news-llm -- --provider suscripcion`.
+   - Esperado: la prueba sale correcta con su latencia y la evaluación
+     termina. En ningún sitio (Ajustes, Noticias ni la terminal) aparece
+     `spawn EINVAL`. Si aparece, anota la ruta exacta de `claude` y la
+     versión de Node (`node --version`) y avísanos.
 
 ## 5. Revisión legal y fiscal, plan de contingencia y paper
 
@@ -210,6 +271,41 @@ Mueve dinero real (1 USD de SPY). Hazla al final, con todo lo anterior.
    (hora, precio pedido, precio ejecutado y slippage).
 6. Escala capital solo si los resultados reales respaldan el backtest
    («Estado del escalado» en `docs/dinero-real.md`).
+
+## 7. Corto con dinero real en Alpaca
+
+Las estrategias, también las propias, pueden abrir cortos con dinero real,
+pero solo si tú lo habilitas. Hazlo después de la prueba de humo (§6) y
+solo si lo quieres: sin estos pasos el corto con dinero real queda
+**desactivado** y las órdenes de entrada en corto se rechazan.
+
+1. **Cuenta de Alpaca preparada para el corto** (en su panel web):
+   - cuenta **de margen** (no de efectivo) con el préstamo de títulos
+     habilitado (el corto activado, `shorting_enabled`);
+   - al menos **2 000 USD** de capital en la cuenta (suelo de margen de
+     EE. UU.);
+   - el título que vayas a vender debe estar disponible para préstamo
+     (`shortable` y `easy_to_borrow`). Si no lo está, la app rechaza la
+     orden con ese motivo.
+2. **Fija los límites del corto** en **Ajustes › Límites de capital real**.
+   Vienen a 0, y con cualquiera a 0 el corto sigue desactivado. Los techos
+   fijos (tu valor debe ser igual o menor) son:
+   - «Máximo por orden en corto»: **100 USD**;
+   - «Exposición corta total máxima»: **200 USD**;
+   - «Posiciones cortas simultáneas»: **1**;
+   - además, cada corto lleva siempre un stop de compra como máximo al
+     **5 %** por encima de la entrada (no se configura: lo exige la app).
+3. Pulsa «Guardar límites» y después **«Confirmar límites y activar dinero
+   real»**, escribiendo la frase que incluye los límites del corto.
+   Esperado: la ficha de una estrategia con reglas de corto pasa a decir
+   que el corto con dinero real está permitido por los límites
+   confirmados, sujeto al motor de riesgo de cada orden.
+4. Ten en cuenta el riesgo: en corto la pérdida no tiene tope natural y un
+   salto de precio puede superar el stop. Empieza con importes por debajo
+   de los techos.
+5. Cuando se ejecute el primer corto, cuadra en el panel de Alpaca la venta
+   de entrada (venta stop, nunca a mercado), el stop de compra y la
+   recompra con lo que muestran **Órdenes** y el **Diario**.
 
 ## Al terminar
 

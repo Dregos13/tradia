@@ -1,20 +1,16 @@
 # Estado de los puntos pendientes del objetivo
 
-_Claude · Predeterminado (Testing, sustituye a Copilot) · 12-10-2026 · rama `orquesta/completa-estas-partes-sin-hacer-y-compru-7d9830` sobre `c3fe7286` (merge de la PR #10). Durante la tarea entró `f139475f` («Limpieza pendiente: sessionDateLabel único y .venv-ml en .prettierignore») y la batería se repitió sobre él_
+_Claude · Predeterminado (Testing) · 12-10-2026 · rama `orquesta/completa-estas-partes-sin-hacer-y-compru-7d9830` sobre `0fdc6eb8` («Notificación del sistema al arrancar sin la CLI de Claude»), con todas las correcciones de código ya en commit. Cada archivo:línea de este documento se ha comprobado con `sed -n` o `grep -n` sobre ese commit_
 
 ## Veredicto
 
-- **Los 14 puntos de la lista están hechos.** Cada uno tiene su código y su prueba de regresión, y esas pruebas pasan en esta rama.
-- Hay **dos matices** que no cambian el estado de la lista, pero sí lo que queda por hacer:
-  - **`.venv-ml` en `.prettierignore`:** en `c3fe7286` no estaba. Lo añadió la tarea de limpieza en `f139475f` (`.prettierignore:12`). Ya está **hecho**.
-  - **`ml/README.md` sigue diciendo que se cree `.venv-ml` dentro del repositorio** (líneas 21-22, 42, 49, 63-64 y 116). Contradice `docs/tareas-del-usuario.md:116` y el objetivo. Lo dejo como hallazgo E1.
-- Fuera de esta lista siguen sin hacer las partes que el plan asigna a otras tareas:
-  - el backtest y las señales de las estrategias propias;
-  - el aviso cuando falla la suscripción;
-  - la retirada de la API de pago. `docs/tareas-del-usuario.md:32` y `:71-76` todavía documentan `--provider api` (criterio 6).
-- **Comandos en verde:** `typecheck`, `lint`, `format:check`, `npm test` (2.510/2.510 en `c3fe7286` y 2.513/2.513 en el árbol) y `test:e2e` (**47 passed**). La única excepción fue un `typecheck` del árbol compartido, que falló una vez a mitad de la edición de otra tarea. Se repitió en `f139475f` con EXIT 0 (ver §2).
-- `git ls-files .venv-ml | wc -l` → **0**. El `grep` de `it.fails`/`.only(`/`fixme`/`.skip(` en `src` y `e2e` → **0**.
-- **Entorno:** `npm ci` hecho. El entorno de ML está en `~/.venvs/tradia-ml`, fuera del repositorio. `make_synthetic.py` y `train.py` terminan, y el `model.onnx` sale con el mismo SHA-256 que el versionado.
+- **Todos los puntos del objetivo están hechos.** Cada uno tiene su código y su prueba de regresión, y esas pruebas pasan en esta rama (§2).
+- **Hecho también lo que antes figuraba como pendiente fuera de la lista:**
+  - **API de pago retirada.** Ajustes › Análisis de noticias solo ofrece «Suscripción (Claude Code)» y «Analizador local» (`src/renderer/src/components/settings/AiSettings.tsx:171-172`). `scripts/eval-news-llm.mjs:16-17` la da por retirada y solo admite `['local', 'suscripcion']` (`:27`). Una clave antigua se borra sola al arrancar (`src/main/ai/__audit__/sin-api.audit.test.ts:184`, `:257`, `:421`).
+  - **Backtest, estrés y señales de las estrategias propias.** La propia con `cruza_arriba(sma(rapida), sma(lenta))` lanza backtest y estrés desde su ficha y el informe queda en el historial (`e2e/strategies-backtest.spec.ts:28`, regla en `:147`). Da las mismas operaciones que la clásica «sma-cross» (`src/main/backtest/strategies/custom.test.ts:73`, `src/main/backtest/service.test.ts:534`).
+  - **Aviso de la suscripción.** Si la suscripción falla, Noticias y Ajustes muestran el motivo y el paso (`src/shared/newsSubscription.ts:9`, `:13`) y llega una sola notificación del sistema, también al arrancar sin la CLI (fila «Notificación al arrancar sin CLI»).
+- **E1 y E2 (§4) están cerrados:** `ml/README.md:21-25` usa `~/.venvs/tradia-ml`, fuera del repositorio, y `.gitignore:12-13` ignora `ml/data/*` salvo `synthetic.csv`.
+- `docs/tareas-del-usuario.md` no tiene ningún paso con la API de pago y ya recoge el corto con dinero real en Alpaca, la prueba con `/logout`, `claude.cmd` en Windows y actualizar `main` y lanzar la CI.
 
 No he tocado código de `src` ni de `e2e`.
 
@@ -27,231 +23,96 @@ Origen de las etiquetas:
 
 | Punto | Estado | Evidencia en el código | Prueba que lo cubre (en verde en esta rama) |
 | --- | --- | --- | --- |
-| **H1** · evidencia sembrada (`live.evidence`) aceptada fuera de E2E | **Hecho** | `src/main/live/service.ts:536`: la evidencia solo se lee si `allowSeededEvidence()`, y si no se usa `{}`. `src/main/live/index.ts:142`: `allowSeededEvidence: () => e2eEnabled` | `src/main/live/__audit__/live.audit.test.ts:370` «HALLAZGO H1 · fuera de E2E, una evidencia «live.evidence» manipulada en la base no cumple los requisitos automáticos»; `:612` «una copia con live.evidence, la lista cumplida y el modo «activo», restaurada en la app empaquetada, no deja el dinero real activo» |
-| **H2** · orden de mercado por encima del techo por orden | **Hecho** | `src/main/live/orderGuard.ts:80` (`LIVE_ORDER_PRICE_MARGIN = 0.05`); `:120-124` (la compra sale limitada a `min(techo/cantidad, referencia × 1,05)`); `:186-199` (la venta que abre posición exige el margen de hueco por debajo del techo) | `live.audit.test.ts:539` «HALLAZGO H2 · una orden de mercado no puede ejecutarse por encima del techo por orden»; `:683` «con una referencia muy desfasada a la baja, la compra sale limitada…»; `:700` «HALLAZGO C4 · una entrada en corto…» |
-| **P7** · cordura de la prueba de humo (−8.278 pb, precio ajeno) | **Hecho** | `src/main/live/smoke.ts:191` (`LIVE_SMOKE_MAX_SLIPPAGE_BPS = 300`); `:488` (límite = referencia × (1 + 300 pb)); `:573-580` (más de 300 pb da la prueba por fallida) | `src/main/live/smoke.test.ts:282` «con un cierre desfasado no se envía ninguna orden al broker»; `:566` «un slippage absurdo frente a la referencia da la prueba por fallida y suspende»; `:598` (nocional por encima del mínimo); `live.audit.test.ts:716` «con el último cierre de SPY de hace semanas no envía ninguna orden real» |
-| **P1** · carrera de `useLiveChecklist` que impide activar el dinero real | **Hecho** | `src/renderer/src/components/live/useLiveChecklist.ts:129-135`: `save()` aplica `setLimits(saved.limits)` antes de la relectura, y un `live:changed` concurrente ya no lo descarta | `src/renderer/src/components/live/ChecklistPage.test.tsx:366` «aplica saved.limits aunque live:changed llegue durante la relectura del guardado»; `:411` «conserva saved.limits si falla la lectura posterior al guardado»; `:394` «…nunca faltan 0 de 7»; E2E `e2e/live-gate.spec.ts:141` «completa la lista, confirma los límites por escrito, activa y pasa la prueba de humo» |
-| **P2** · «Ver ficha del modelo» llevaba a Inicio | **Hecho** | `src/renderer/src/components/ai/PredictionsTable.tsx:40-42`: es un botón que enfoca `#ai-model-card` con `scrollIntoView`, sin `href` ni cambio de hash. `ModelCard.tsx:30`: `id="ai-model-card"` | `src/renderer/src/components/ai/AiPage.test.tsx:326` «abre la ficha con teclado, desplaza y enfoca sin cambiar el hash»; E2E `e2e/ai-regime-prediction.spec.ts:206` «…«Ver ficha del modelo» lleva a la ficha» |
-| **P3** · predicción vigente por activo | **Hecho** | `PredictionsTable.tsx:27-37`: la última por activo según el cierre, luego la hora de cálculo y luego el id. `:193`: tabla vigente. `:195-196`: «Histórico de predicciones (n)» plegado en `<details>` | `AiPage.test.tsx:345` «elige el último cierre por activo aunque el histórico llegue desordenado y se calcule después»; E2E `ai-regime-prediction.spec.ts:206` ««Predicción por activo» destaca la vigente de cada activo…» |
-| **H3** · racha aislada a caballo de fin de mes | **Hecho** | `src/main/ai/drift/service.ts:535-545`: una revisión solo cuenta como mensual con ≥ `DEGRADE_MIN_REVIEW_GAP_DAYS` o con operaciones nuevas (`sinMesReal`) | `src/main/ai/__audit__/ai.audit.test.ts:941` «HALLAZGO H3 · dos revisiones en días consecutivos a caballo de fin de mes no cuentan como dos meses»; `src/main/ai/drift/service.test.ts:595` «dos revisiones a un día a caballo de fin de mes no cuentan como dos meses»; `:631` (con operaciones nuevas sí cuenta) |
-| **H4** · tickers del LLM sin activos ligados | **Hecho** | `src/main/ai/news/service.ts:262-275`: solo se guarda un ticker si está ligado al titular o si `detectAssets` lo encuentra en el texto saneado | `ai.audit.test.ts:316` «HALLAZGO H4 · sin activos ligados, el LLM no debe atribuir sentimiento a un ticker que el titular no menciona»; `:299` «con activos ligados, la respuesta del LLM no puede añadir otro ticker» |
-| **H5** · titular desconfirmado sigue influyendo | **Hecho** | `src/main/ai/news/repository.ts:138`: `list` filtra siempre con `ni.confirmada = 1` | `ai.audit.test.ts:334` «HALLAZGO H5 · un titular desconfirmado después de analizarse deja de influir en las señales»; `:405` «la señal siguiente a la desconfirmación pierde el ajuste de confianza del titular» |
-| **P4** · posponer un reentrenamiento sin rastro en el Diario | **Hecho** | `src/main/ai/drift/service.ts:973-1012`: `posponer` exige una fecha futura y registra en el Diario la fecha y el motivo (`recordJournal`, `:1009`) | `drift/service.test.ts:719` «posponer exige fecha futura y la guarda con el motivo»; `:747` «posponer con un motivo acabado en punto no deja «..» en el Diario»; `ai.audit.test.ts:867` «ai:resolve-retrain: posponer … deja su entrada en el Diario, sin «..»» |
-| **Modo por orden en Órdenes** | **Hecho** | `src/renderer/src/components/orders/OrderModeBadge.tsx:8`: el modo sale de la orden y nunca del modo actual. Sin modo se ve «—» («Modo sin registrar»). `OrdersPage.tsx:165-172` (filtro «Modo»), `:386-391` (columna «Modo») | `src/renderer/src/components/orders/OrdersPage.test.tsx:279` «cada orden conserva su modo histórico recibido y nunca se deduce del modo actual»; `:303` (mismo id en las dos cuentas y filtro de modo); E2E `e2e/orders-live-mode.spec.ts:86` «Órdenes muestra el modo de cada orden y las órdenes reales de la prueba de humo; el Diario las rotula como dinero real» |
-| **`.venv-ml` fuera del repo y en eslint/prettier** | **Hecho** (prettier desde `f139475f`) | `git ls-files .venv-ml \| wc -l` → **0**; `.venv-ml` no existe en el worktree. `.gitignore:9` (`.venv-ml/`). `eslint.config.mjs:18` (`'.venv-ml/**'`). `.prettierignore:12` (`.venv-ml`), añadido en `f139475f` junto a `ml/__pycache__`; en `c3fe7286` faltaba. **Pero** `ml/README.md:21-22,42,49,63-64,116` sigue indicando crear `.venv-ml` dentro del repo (E1) | Comprobación por comando (§2); no hay prueba automática |
-| **Clave de `eval:news-llm` documentada** | **Hecho** (con un matiz para el criterio 6) | `docs/tareas-del-usuario.md:10-24` (reglas de las claves: nunca en archivos y `eval:*` no imprime la clave); `:30-31` y `:61-64` (`--provider local` y `--provider suscripcion`, más `CLAUDE_CLI_PATH`); `scripts/eval-news-llm.mjs:12-19,37-47`. **Matiz:** `:32` y `:71-76` siguen documentando `--provider api` con `ANTHROPIC_API_KEY`, y el script lo acepta y lo elige por defecto si la variable existe (`eval-news-llm.mjs:37`). Lo retira la tarea de la API de pago | Revisión del documento; no hay prueba automática |
-| **Aviso del backtest aplazado en la ficha propia** | **Hecho** (transporte IPC incluido) | `StrategyDetail.tsx`, `ExecutionNotice.tsx` y `ruleValidation.ts`: el analizador compartido comprueba la versión; las reglas válidas habilitan backtest, estrés y comparación. Las antiguas muestran «Estas reglas no se pueden ejecutar: <motivo>» con campo/posición y «Editar reglas». Las tres acciones bloqueadas conservan foco con `aria-disabled` y explicación asociada. `StrategyForm.tsx` y `RuleEditor.tsx` validan en vivo, seleccionan el rango del error e insertan ejemplos por teclado. El adaptador `simulated.ts` compila reglas propias con el motor existente. Transporte del código: `src/main/backtest/service.ts:1578-1597` (`withBacktestErrorCode`: todo `BacktestError` se reenvía como `[<code>] <motivo>` en el mensaje, conservando `code` dentro de main) aplicado a los ocho manejadores `backtest:*`/`stress:*` (`:1636-1693`) | `RuleEditor.test.tsx`: «la ficha explica reglas antiguas antes de pulsar y bloquea las tres acciones enfocables», «valida al escribir, describe el error…» y «ejecuta reglas válidas del adaptador…». `src/main/backtest/service.test.ts` «conserva el code de BacktestError al cruzar el IPC ([code] motivo)»: envoltorio, y los manejadores `backtest:run`, `backtest:run-final-test`, `stress:run` y `backtest:run-regime-comparison` rechazan con `[reglas-invalidas]`. `e2e/strategies-backtest.spec.ts`: creación con cruce de medias, estrés, backtest e informe en historial; «reglas antiguas: motivo previo, acciones bloqueadas y corrección por teclado» con la comprobación `ipcError` (`:373`) exigiendo `reglas-invalidas` en el mensaje |
+| **H1** · evidencia sembrada (`live.evidence`) aceptada fuera de E2E | **Hecho** | `src/main/live/service.ts:551`: la evidencia solo se lee si `allowSeededEvidence()` devuelve `true`; si no, `{}`. `src/main/live/index.ts:142`: `allowSeededEvidence: () => e2eEnabled` | `src/main/live/__audit__/live.audit.test.ts:379` «HALLAZGO H1 · fuera de E2E, una evidencia «live.evidence» manipulada en la base no cumple los requisitos automáticos»; `:630` «una copia con live.evidence, la lista cumplida y el modo «activo», restaurada en la app empaquetada, no deja el dinero real activo» |
+| **H2** · orden de mercado por encima del techo por orden | **Hecho** | `src/main/live/orderGuard.ts:155` (`LIVE_ORDER_PRICE_MARGIN = 0.05`); `:215-216` (la compra sale limitada a `min(techo/cantidad, referencia × 1,05)`); `:317-322` (la entrada en corto con el margen de hueco no puede superar el límite por orden en corto) | `live.audit.test.ts:554` «HALLAZGO H2 · una orden de mercado no puede ejecutarse por encima del techo por orden»; `:704` «con una referencia muy desfasada a la baja, la compra sale limitada…»; `:721` «HALLAZGO C4 · con el corto habilitado la entrada en corto sale como stop a la referencia…» |
+| **P7** · cordura de la prueba de humo (−8.278 pb, precio ajeno) | **Hecho** | `src/main/live/smoke.ts:191` (`LIVE_SMOKE_MAX_SLIPPAGE_BPS = 300`); `:488` (límite = referencia × (1 + 300 pb)); `:575-580` (más de 300 pb da la prueba por fallida) | `src/main/live/smoke.test.ts:303` «con un cierre desfasado no se envía ninguna orden al broker»; `:587` «un slippage absurdo frente a la referencia da la prueba por fallida y suspende»; `:619` «un nocional ejecutado por encima del mínimo con margen…»; `live.audit.test.ts:756` «con el último cierre de SPY de hace semanas no envía ninguna orden real» |
+| **P1** · carrera de `useLiveChecklist` que impide activar el dinero real | **Hecho** | `src/renderer/src/components/live/useLiveChecklist.ts:129-136`: `save()` aplica `setLimits(saved.limits)` (`:134`) antes de la relectura, y un `live:changed` concurrente ya no lo descarta | `src/renderer/src/components/live/ChecklistPage.test.tsx:386` «aplica saved.limits aunque live:changed llegue durante la relectura del guardado»; `:431` «conserva saved.limits si falla la lectura posterior al guardado»; `:414` «…nunca faltan 0 de 7»; E2E `e2e/live-gate.spec.ts:152` «completa la lista, confirma los límites por escrito, activa y pasa la prueba de humo» |
+| **P2** · «Ver ficha del modelo» llevaba a Inicio | **Hecho** | `src/renderer/src/components/ai/PredictionsTable.tsx:40-44`: un botón que enfoca `#ai-model-card` con `scrollIntoView`, sin `href` ni cambio de hash. `ModelCard.tsx:30`: `id="ai-model-card"` | `src/renderer/src/components/ai/AiPage.test.tsx:326` «abre la ficha con teclado, desplaza y enfoca sin cambiar el hash»; E2E `e2e/ai-regime-prediction.spec.ts:206` (el botón en `:268`) |
+| **P3** · predicción vigente por activo | **Hecho** | `PredictionsTable.tsx:28-37`: la última por activo según el cierre, luego la hora de cálculo y luego el id. `:193`: tabla vigente. `:195-196`: «Histórico de predicciones (n)» plegado en `<details>` | `AiPage.test.tsx:345` «elige el último cierre por activo aunque el histórico llegue desordenado y se calcule después»; E2E `ai-regime-prediction.spec.ts:206` ««Predicción por activo» destaca la vigente de cada activo…» |
+| **H3** · racha aislada a caballo de fin de mes | **Hecho** | `src/main/ai/drift/service.ts:536-553`: una revisión solo cuenta como mensual con ≥ `DEGRADE_MIN_REVIEW_GAP_DAYS` (`:551`) o con operaciones nuevas; si no, `sinMesReal` (`:553`) | `src/main/ai/__audit__/ai.audit.test.ts:926` «HALLAZGO H3 · dos revisiones en días consecutivos a caballo de fin de mes no cuentan como dos meses»; `src/main/ai/drift/service.test.ts:595`; `:631` (con operaciones nuevas sí cuenta) |
+| **H4** · tickers del LLM sin activos ligados | **Hecho** | `src/main/ai/news/service.ts:414-428`: solo se guarda un ticker si está ligado al titular (`linked`, `:419`) o si `detectAssets` lo encuentra en el texto saneado (`mentioned`, `:420-422`); el filtro está en `:428` | `ai.audit.test.ts:301` «HALLAZGO H4 · sin activos ligados, el LLM no debe atribuir sentimiento a un ticker que el titular no menciona»; `:284` «con activos ligados, la respuesta del LLM no puede añadir otro ticker» |
+| **H5** · titular desconfirmado sigue influyendo | **Hecho** | `src/main/ai/news/repository.ts:138`: `list` filtra siempre con `ni.confirmada = 1` | `ai.audit.test.ts:319` «HALLAZGO H5 · un titular desconfirmado después de analizarse deja de influir en las señales»; `:390` «la señal siguiente a la desconfirmación pierde el ajuste de confianza del titular» |
+| **P4** · posponer un reentrenamiento sin rastro en el Diario | **Hecho** | `src/main/ai/drift/service.ts:973-981`: `posponer` exige una fecha futura. `:1007-1015`: registra en el Diario la fecha y el motivo sin «..» (`recordJournal`, `:1009`) | `drift/service.test.ts:719` «posponer exige fecha futura y la guarda con el motivo»; `:747` «…no deja «..» en el Diario»; `ai.audit.test.ts:852` «ai:resolve-retrain: posponer … deja su entrada en el Diario, sin «..»»; `:882` (no se pospone al pasado) |
+| **Modo por orden en Órdenes** | **Hecho** | `src/renderer/src/components/orders/OrderModeBadge.tsx:4-8`: el modo sale de la orden y nunca del modo actual; sin modo se ve «—» («Modo sin registrar», `:21`). `OrdersPage.tsx:163-172` (filtro «Modo»), `:386-391` (columna «Modo») | `src/renderer/src/components/orders/OrdersPage.test.tsx:279` «cada orden conserva su modo histórico recibido y nunca se deduce del modo actual»; `:303` (mismo id en las dos cuentas y filtro de modo); E2E `e2e/orders-live-mode.spec.ts:94` |
+| **`.venv-ml` fuera del repositorio y en eslint/prettier** | **Hecho** | `git ls-files .venv-ml \| wc -l` → **0**; `ls .venv-ml` → «No such file or directory». `.gitignore:10` (`.venv-ml/`), `eslint.config.mjs:18` (`'.venv-ml/**'`), `.prettierignore:12` (`.venv-ml`). La guía ya no lo crea dentro: `ml/README.md:21-25` (E1 cerrado) | Comprobación por comando (§2.2) |
+| **Clave de `eval:news-llm` documentada** | **Hecho** | Ya no hay clave de API: `--provider suscripcion` usa la sesión de Claude Code y `--provider local` no necesita nada. `docs/tareas-del-usuario.md:14-28` (reglas de las claves; `eval:*` no imprime ninguna), `:34-35` (los dos proveedores), `:89-92` (`CLAUDE_CLI_PATH` si `claude` no está en el PATH). `scripts/eval-news-llm.mjs:11-17` y `:27` | Revisión del documento y `grep` de §2.2; `sin-api.audit.test.ts:421` «nadie vuelve a leer la clave retirada ni a llamar a la API» |
+| **Aviso del backtest aplazado en la ficha propia** | **Hecho** | `src/renderer/src/components/strategies/StrategyDetail.tsx:87-93` muestra `ExecutionNotice` antes de lanzar nada; `ExecutionNotice.tsx:23` dice «Estas reglas no se pueden ejecutar: <motivo>». La validación sale de `ruleValidation.ts:17` (`strategyExecution`). Las acciones quedan bloqueadas pero enfocables (`StressResults.tsx:188`, `aria-disabled`). El código `reglas-invalidas` cruza el IPC: `src/main/backtest/service.ts:1587` (`withBacktestErrorCode`), aplicado a los ocho manejadores (`:1639-1690`) | `RuleEditor.test.tsx:118` «la ficha explica reglas antiguas antes de pulsar y bloquea las tres acciones enfocables»; `:150` «ejecuta reglas válidas del adaptador…»; `src/main/backtest/service.test.ts:796` «conserva el code de BacktestError al cruzar el IPC ([code] motivo)»; E2E `e2e/strategies-backtest.spec.ts:336` «reglas antiguas: motivo previo, acciones bloqueadas y corrección por teclado» (`ipcError` en `:373`) |
+| **Notificación al arrancar sin CLI** | **Hecho** | `src/main/ai/news/service.ts:586-597` (`start()`, una vez por proceso: si el proveedor guardado es la suscripción, está activada y no hay CLI, emite el estado y llama a `notifyFailure`, `:282-288`). `src/main/ai/news/index.ts:138`: `registerNewsAi` llama a `start()` antes de registrar los canales. En E2E no notifica (`:593`) | `src/main/ai/news/service.test.ts:595` «la CLI no encontrada se refleja como cli-no-encontrada y el arranque notifica UNA vez»; `:628` (volver a ok y una nueva caída notifican una vez cada uno); `:667`, `:683`, `:691` (sin aviso con el analizador local, con la suscripción sana o en E2E); `src/main/ai/news/index.test.ts:172` y `:194` (arranque real por `registerNewsAi`) |
 
 Para lanzar solo las regresiones de la tabla:
 
 ```bash
 npx vitest run src/main/live/__audit__/live.audit.test.ts src/main/live/smoke.test.ts \
   src/renderer/src/components/live/ChecklistPage.test.tsx src/renderer/src/components/ai/AiPage.test.tsx \
-  src/main/ai/__audit__/ai.audit.test.ts src/main/ai/drift/service.test.ts \
-  src/renderer/src/components/orders/OrdersPage.test.tsx \
-  src/renderer/src/components/backtest/Backtest.test.tsx src/renderer/src/components/strategies/StressResults.test.tsx
+  src/main/ai/__audit__/ai.audit.test.ts src/main/ai/__audit__/sin-api.audit.test.ts \
+  src/main/ai/drift/service.test.ts src/renderer/src/components/orders/OrdersPage.test.tsx \
+  src/renderer/src/components/strategies/RuleEditor.test.tsx src/main/backtest/service.test.ts \
+  src/main/backtest/strategies/custom.test.ts src/main/ai/news/service.test.ts src/main/ai/news/index.test.ts
 ```
-
-Resultado: ver §2.3.
 
 ## 2. Resultado de los comandos
 
-### 2.1 Sobre `HEAD` limpio (`c3fe7286`, worktree temporal `/tmp/ep/head` con los mismos `node_modules`)
+### 2.1 Batería
 
-| Comando | Resultado | Duración |
-| --- | --- | --- |
-| `npm ci` (en el worktree de la tarea) | **EXIT 0**: 529 paquetes. Avisa de que 6 paquetes tienen scripts de instalación sin aprobar en `allowScripts` (better-sqlite3, onnxruntime-node, esbuild…). Aun así cargan: better-sqlite3 usa su `prebuilds/darwin-arm64.node`, y `require('onnxruntime-node')` y `esbuild` 0.25.12 funcionan | 4 s |
-| `npm run typecheck` | **EXIT 0** | ≈5 s |
-| `npm run lint` | **EXIT 0** | ≈5 s |
-| `npm run format:check` | **EXIT 0** («All matched files use Prettier code style!») | ≈5 s |
-| `npm test` | **EXIT 0**: 183 archivos, **2.510/2.510** | ≈55 s |
+Sobre `0fdc6eb8`, con el árbol limpio salvo los dos documentos de esta tarea:
 
-`test:e2e` no se repitió en `c3fe7286`: se ejecutó sobre el árbol de §2.2.
+| Comando | Resultado |
+| --- | --- |
+| Regresiones de la tabla (comando de §1) | **EXIT 0**: 13 archivos, **270/270** |
+| `npm run typecheck` | **EXIT 0** |
+| `npm run lint` | **EXIT 0** |
+| `npm run format:check` | **EXIT 0** («All matched files use Prettier code style!») |
+| `npm test` | **EXIT 0**: 192 archivos, **2.709/2.709** |
+| `grep -rnE '\b(it\|test\|describe)\.(only\|skip\|fails)\(\|\.fixme\(' src e2e \| wc -l` | **0** |
 
-### 2.2 Sobre el árbol compartido de la tarea (con cambios sin commit de otras tareas)
+`npm run test:e2e` no lo he lanzado en esta tarea: solo cambia documentación y lo ejecuta la verificación final.
 
-En la carpeta de la misión trabajan a la vez otras tareas. Durante mi batería, la de limpieza tenía sin commit `.prettierignore`, `DataFreshness.tsx` y `DataFreshness.test.tsx` (el `sessionDateLabel` único). El E2E regeneró además 36 capturas de `docs/qa/capturas/*.png`, como en entregas anteriores; esos cambios quedan en el árbol.
-
-| Comando | Resultado | Duración |
-| --- | --- | --- |
-| `npm run typecheck` | **EXIT 2** (transitorio): `TS2459: Module '"./DataFreshness"' declares 'sessionDateLabel' locally, but it is not exported` en `PredictionsTable.tsx:2`, `RegimePanel.tsx:2`, `ConnectionBlock.tsx:2`, `SignalsBlock.tsx:2`, `ProviderBanner.tsx:2` y `ProviderConnectionResult.tsx:3`. Lo provoca la edición a medias de la tarea de limpieza. En el `typecheck` que lanza `npm run build`, un minuto después, ya pasó | 5 s |
-| `npm run lint` | **EXIT 0** | 5 s |
-| `npm run format:check` | **EXIT 0** | 5 s |
-| `npm test` | **EXIT 0**: 183 archivos, **2.513/2.513** | 54 s |
-| `npm run test:e2e` (incluye `npm run build` → `typecheck`) | **EXIT 0**: **47 passed** (4,5 min); `typecheck` del build en verde | 278 s |
-| Repetición sobre `f139475f`, con la limpieza ya en commit: `typecheck`, `lint` y `format:check` | **EXIT 0** los tres | — |
-
-### 2.3 Comprobaciones estáticas y regresiones
+### 2.2 Comprobaciones estáticas
 
 | Comando | Resultado |
 | --- | --- |
 | `git ls-files .venv-ml \| wc -l` | **0** |
-| `grep -rn 'it.fails\|\.only(\|fixme' src e2e` | **0 líneas** |
-| `grep -rn '\.skip(' src e2e` | **0 líneas**. Solo quedan `describe.skipIf`/`it.skipIf(ON_WINDOWS)` en `src/main/ai/news/claudeCli.test.ts`, que en macOS se ejecutan |
-| Regresiones de la tabla (comando de §1) | **EXIT 0**: 9 archivos, **177/177** |
+| `git check-ignore -v ml/data/velas.csv` | `.gitignore:12:ml/data/*` (ignorado; E2 cerrado) |
+| `grep -n 'venv' ml/README.md` | Solo `~/.venvs/tradia-ml` (`:21-25`, `:43`, `:50`, `:64-65`, `:117`); ningún `.venv-ml` (E1 cerrado) |
+| `grep -niE 'api de pago\|ANTHROPIC_API_KEY\|clave de la API' docs/tareas-del-usuario.md` | Una sola línea (`:10`), que dice que **no** se usa ninguna API de pago |
+| `grep -niE 'corto\|logout\|claude.cmd\|EINVAL\|origin/main' docs/tareas-del-usuario.md` | Resultados en §0 (`origin/main`), §1 paso 5 (`/logout`), §4 paso 5 (`claude.cmd`, `spawn EINVAL`) y §7 (corto con dinero real) |
 
-## 3. Entorno
-
-Instalado:
-
-- **npm:** `npm ci` en el worktree de la tarea (Node v24.21.0, npm 11.19.0). Electron se descarga en el `postinstall` (`install-electron`, `node_modules/electron/dist/Electron.app`).
-- **Entorno de ML:** `~/.venvs/tradia-ml`, fuera del repositorio.
-  - Creado con `/usr/bin/python3` (Python 3.9.6 del sistema) y `pip install -r ml/requirements.txt`.
-  - Quedan lightgbm 4.6.0, scikit-learn 1.6.1, onnxmltools 1.16.0, onnx 1.19.1, onnxruntime 1.19.2, numpy 2.0.2 y packaging 26.3.
-  - Por dependencia transitiva entra también skl2onnx 1.20.0, que no está fijado en `requirements.txt`.
-- **libomp:** ya estaba instalado con Homebrew (`libomp 23.1.3`). No hace falta nada más.
-
-Comprobación del pipeline sobre datos sintéticos. Las salidas van a `/tmp` para no pisar `resources/models/` ni `ml/data/`, que están versionados:
-
-```bash
-~/.venvs/tradia-ml/bin/python ml/make_synthetic.py --out /tmp/ep/synthetic.csv
-#   → EXIT 0 · 5400 filas (6 activos × 900 velas); byte a byte igual que ml/data/synthetic.csv
-~/.venvs/tradia-ml/bin/python ml/train.py --data /tmp/ep/synthetic.csv --origin sintetico \
-    --out /tmp/ep/models --no-activate --trained-at 2026-01-01T00:00:00Z
-#   → EXIT 0 · train=2916 calibración=1050 prueba=1050
-#     brier=0.196686 referencia=0.249797 logLoss=0.736175
-#     apto para señales: False (Datos sintéticos · no apto)
-#     model.onnx sha256=0cfda4e5…c906b6 (idéntico a resources/models/0.1.0/model.onnx)
-```
-
-El pipeline es reproducible: el `model.onnx` entrenado coincide byte a byte con el versionado.
-
-No se ha creado ningún entorno virtual dentro del repositorio: `ls .venv-ml` → «No such file or directory».
-
-## 4. Sesiones por perfil
+## 3. Sesiones por perfil
 
 ### Profesional independiente que organiza varios proyectos
 
-Prepara el equipo y comprueba si puede retomar el trabajo.
+Retoma el proyecto y quiere saber qué le queda por hacer a él.
 
-1. `npm ci` y la batería completa.
-2. Sigue `docs/tareas-del-usuario.md` §3 para el entorno de ML: `~/.venvs/tradia-ml`, `make_synthetic.py` y `train.py`.
-3. Repasa en la app (E2E) la predicción vigente por activo, «Ver ficha del modelo» y el aviso de la estrategia propia (`strategies-library.spec.ts`).
+1. Lee el Veredicto y `docs/tareas-del-usuario.md` de arriba abajo.
+2. Sigue §3 de tareas para el entorno de ML y comprueba que `ml/README.md` dice lo mismo.
+3. Busca en tareas qué hacer para operar en corto con dinero real.
 
-- **Esperado:** el entorno queda listo fuera del repositorio y las guías coinciden entre sí.
-- **Observado:** el entorno queda listo. Pero `ml/README.md` sigue diciendo que se cree `.venv-ml` en la raíz del repositorio (E1). Además, el paso 2 de `docs/tareas-del-usuario.md` §3 exporta las velas reales a `ml/data/velas.csv`, que no está en `.gitignore` (E2): con commits automáticos acabaría en el repositorio.
-- **Evidencia:** `/tmp/ep/pip.log`, `/tmp/ep/train.log`; `git check-ignore -v ml/data/velas.csv` → código 1 (no ignorado).
+- **Esperado:** las dos guías coinciden, el entorno va fuera del repositorio y el corto real tiene sus pasos y sus techos.
+- **Observado:** coinciden (`~/.venvs/tradia-ml` en las dos; `ml/data/*` ignorado). §7 de tareas da la cuenta de margen de Alpaca con préstamo habilitado y ≥ 2 000 USD, los techos de 100 USD por orden, 200 USD de exposición, 1 posición y stop máximo del 5 %, que coinciden con `src/shared/live.ts:151-163` y con `LimitsForm.tsx:10-12`, `:66-74`.
+- **Evidencia:** `grep` de §2.2; `sed -n 151,163p src/shared/live.ts`.
 
 ### Responsable de equipo que revisa entregas
 
-Revisa que cada fallo del objetivo tiene su cierre comprobable.
+Revisa que cada punto del objetivo tiene su cierre comprobable.
 
-1. Localiza cada etiqueta en su informe de origen.
-2. Busca el código y la prueba de cada una.
-3. Ejecuta la batería sobre `HEAD` limpio y sobre el árbol compartido.
+1. Abre cada archivo:línea de la tabla con `sed -n`.
+2. Lanza las regresiones citadas.
+3. Comprueba que tareas del usuario no tiene ningún paso con la API de pago y que el botón se cita con su nombre real.
 
-- **Esperado:** las 14 filas con archivo:línea y prueba, y la batería en verde.
-- **Observado:** las 14 filas están cerradas, con `.prettierignore` desde `f139475f`. `--provider api` sigue documentado (lo retira otra tarea). El único rojo fue el `typecheck` transitorio del árbol compartido, que no es de la rama.
-- **Evidencia:** §1 y §2; registros en `/tmp/ep/*.log`.
+- **Esperado:** cada referencia apunta al arreglo y las pruebas pasan.
+- **Observado:** las referencias apuntan al arreglo; 270/270 en verde. El botón se cita como «Probar de nuevo» (`AiSettings.tsx:257`) en §1 paso 3 y en §4 paso 5.
+- **Evidencia:** §1 y §2.
 
-## 5. Hallazgos
+## 4. Hallazgos anteriores
 
-### E1 · Baja · Backend (documentación de ML): `ml/README.md` sigue diciendo que se cree `.venv-ml` dentro del repositorio
+### E1 · Cerrado · `ml/README.md` decía que se creara `.venv-ml` dentro del repositorio
 
-- **Pasos:** abrir `ml/README.md` y seguir «Requisitos».
-- **Esperado:** el mismo entorno que `docs/tareas-del-usuario.md:116`, es decir `python3 -m venv ~/.venvs/tradia-ml`, y comandos con `~/.venvs/tradia-ml/bin/python`.
-- **Observado:** `python3 -m venv .venv-ml` y `.venv-ml/bin/...` en las líneas 21-22, 42, 49, 63-64 y 116. Es justo lo que el objetivo pide sacar del repositorio. El `.gitignore` lo protege, pero la guía contradice la otra y la tarea del usuario.
-- **Evidencia:** `grep -n '.venv-ml' ml/README.md`.
+Corregido en «Guía de ML con el entorno fuera del repositorio y velas reales ignoradas»: `ml/README.md:21-25` crea el entorno en `~/.venvs/tradia-ml` y explica que vive fuera del repositorio. Coincide con `docs/tareas-del-usuario.md` §3.
 
-### E2 · Baja · Backend (repositorio): las velas reales exportadas para reentrenar no están ignoradas por git
+### E2 · Cerrado · las velas reales exportadas no estaban ignoradas
 
-- **Pasos:** seguir `docs/tareas-del-usuario.md` §3, paso 2: `export_candles.py --out ml/data/velas.csv`. Después, `git status`.
-- **Esperado:** `ml/data/velas.csv` (o cualquier exportación real) ignorado, como `.venv-ml/`. Solo debería versionarse `ml/data/synthetic.csv`.
-- **Observado:** `git check-ignore -v ml/data/velas.csv` devuelve 1 (no ignorado). En un worktree de Orquesta, donde los commits son automáticos, los datos de mercado del usuario acabarían en el repositorio.
-- **Evidencia:** `.gitignore` solo tiene `.venv-ml/` y `ml/__pycache__/` en la parte de ML.
+Corregido en la misma entrega: `.gitignore:12-13` (`ml/data/*` y `!ml/data/synthetic.csv`). `git check-ignore -v ml/data/velas.csv` → `.gitignore:12:ml/data/*`.
 
-## Verificación de fe-editor-reglas (12-10-2026)
+### P-3 y P-4 de `docs/qa/perfiles-reglas-noticias.md` · Cerrados
 
-- `npm run typecheck`, `npm run lint` y `npm run format:check`: correctos.
-- `npm test`: 187 archivos, 2.610 pruebas aprobadas.
-- `npx vitest run src/renderer/src/components/strategies src/renderer/src/components/backtest`: 46 pruebas aprobadas. Cubren posición/selección del error, ejemplos por teclado, foco, `aria-describedby`, `aria-live`, acciones bloqueadas, guardado y versiones, ejecución del adaptador simulado y tratamiento de `reglas-invalidas`.
-- `npm run test:e2e`: 48 aprobadas de 49. El recorrido de creación con `cruza_arriba(sma(rapida), sma(lenta))`, estrés, backtest e informe en historial pasa. La regresión «reglas antiguas: motivo previo, acciones bloqueadas y corrección por teclado» detecta que Electron pierde la propiedad `code`: el mensaje de `backtest:run` contiene el motivo del analizador pero no `reglas-invalidas`.
-
-**Corrección pendiente de backend:** preservar `reglas-invalidas` en el mensaje transportado por IPC (o en un envoltorio tipado). El renderer reconoce tanto `cause.code` como el código en `cause.message`. No se ha cambiado `src/main` en esta tarea ni se ha marcado la regresión como omitida o fallo esperado. El caso está comunicado a `be-backtest-propias`; la evidencia reproducible es `e2e/strategies-backtest.spec.ts`, comprobación `ipcError`.
-
-**Actualización (Backend, 12-10-2026):** resuelto. `src/main/backtest/service.ts:1578-1597` envuelve los ocho manejadores `backtest:*`/`stress:*` con `withBacktestErrorCode`, que reenvía cualquier `BacktestError` como `[<code>] <motivo>` dentro del mensaje (Electron solo transporta `name`+`message`). Prueba: `service.test.ts` «conserva el code de BacktestError al cruzar el IPC ([code] motivo)» y la comprobación `ipcError` de `e2e/strategies-backtest.spec.ts:373`.
-
-## Editor y ficha propia con reglas de corto · Frontend
-
-- **Hecho:** `RuleEditor.tsx:13` añade Entrada en corto y Salida del corto,
-  opcionales, con ejemplos insertables por teclado. El error en la pareja vacía
-  se conserva en `StrategyForm.tsx:254`; cada campo enlaza ayuda, error y posición
-  con `aria-describedby` y anuncia cambios con `aria-live="polite"`.
-- **Hecho:** `StrategyDetail.tsx:46` usa `strategySide` (clásicas solo en largo),
-  muestra la dirección y las reglas de corto. `fe-corto-real` ha sustituido el aviso
-  provisional por `LiveShortStatus`: desactivado sin límites confirmados o con un
-  límite a 0; permitido por los límites confirmados, sujeto a la guarda de cada orden.
-- **Hecho:** `TradesTable.tsx:25` muestra el lado de cada operación y conserva la
-  paginación y los rótulos de la vista estrecha.
-- **Pruebas:** `RuleEditor.test.tsx:257` cubre error y posición en ambos campos,
-  anuncio y selección por teclado; `:293` cubre pareja opcional y guardado;
-  `:349` ejecuta y persiste cortos mediante el adaptador simulado ya existente.
-  `Backtest.test.tsx` comprueba el lado antes y después de paginar.
-- **E2E:** `e2e/strategies-backtest.spec.ts:439` crea una propia con
-  `cruza_abajo(sma(rapida), sma(lenta))`, comprueba el error de pareja y de
-  parámetro, ejecuta el backtest y consulta el informe desde el historial;
-  todas sus operaciones son de lado corto. El largo usa `0 > 1` en este caso
-  para aislar las operaciones de corto sin cambiar la gramática compartida.
-- **Accesibilidad:** pruebas de Testing Library y Electron para nombres,
-  descripciones, región viva, foco y teclado; vista de 700 px sin desbordamiento
-  horizontal en temas claro y oscuro. Reutiliza los tokens AA documentados en
-  `docs/diseno-reglas-propias.md`; no añade colores ni estilos. No se ha realizado
-  una prueba manual con lector de pantalla ni una auditoría axe.
-- **Verificación:** typecheck, lint y format:check en verde; `npm test` en verde:
-  **2.619 pruebas, 187 archivos**. `npm run test:e2e` completo en verde:
-  **50/50**, incluido el nuevo recorrido de corto y la regresión IPC. No quedan
-  pruebas omitidas en `src` ni `e2e`; `git ls-files .venv-ml` sigue vacío.
-
-### Corrección de la verificación del frontend de corto
-
-- `App.tsx` pasa su estado de dinero real a `LiveBanner.tsx`: franja,
-  cabecera y clase `has-banner` se actualizan con la misma lectura y los mismos
-  eventos, sin una segunda suscripción que pueda adelantar la franja.
-- `App.test.tsx` mantiene la aserción estricta de `has-banner` y añade una
-  regresión con consultas demoradas. También comprueba un evento recibido
-  mientras la lectura inicial está pendiente y la limpieza de suscripciones.
-- `npm install` y `npm test` pasan: **2.658 pruebas en 187 archivos**;
-  `typecheck` y `lint` pasan. Las 66 pruebas de App y LiveBanner pasan.
-- `npm run test:e2e` pasa: **50/50**, incluido el recorrido de la propia
-  con cortos, la validación accesible y las operaciones en el historial.
-- `format:check` detecta únicamente `src/main/live/scaling.test.ts`, fuera
-  del alcance de esta tarea de frontend; Backend debe formatearlo. Se han
-  formateado los fixtures de límites de renderer y E2E sin alterar su contenido.
-
-
-## Límites del corto con dinero real · Frontend
-
-- **Hecho:** `src/renderer/src/components/live/LimitsForm.tsx` expone los tres
-  límites, inicialmente a 0, y valida contra `LIVE_FIXED_SHORT_CAPS`. Cada error
-  aparece junto al campo con `aria-invalid`, `aria-describedby` y `role="alert"`.
-  Conserva los tokens de dinero real y el foco visible del proyecto.
-- **Hecho:** `LiveLimitsSettings.tsx`, integrado en `SettingsPage.tsx`, permite
-  guardar y confirmar desde Ajustes mediante el mismo diálogo de activación;
-  `ChecklistPage` conserva también el formulario completo. Confirmar activa
-  dinero real, con la lista completa y las claves verificadas. Guardar no activa.
-  El diálogo muestra los siete límites y exige la frase compartida que incluye el corto.
-- **Hecho:** `strategies/LiveShortStatus.tsx` y `StrategyDetail.tsx` consultan
-  `live:state` y sus eventos, muestran carga/error/reintento y distinguen el permiso
-  de los límites del permiso de cada orden: el motor de riesgo, Alpaca y el stop
-  siguen siendo obligatorios. No queda el aviso provisional de corto bloqueado.
-- **Ya hecho, verificado:** `adapters/simulated.ts:2983` normaliza los límites
-  del corto a 0 cuando faltan, los valida y cambia la frase al guardarlos.
-  `orders/OrderRow.tsx:19` presenta el `rejectReason` del backend en español.
-- **Pruebas:** `ChecklistPage.test.tsx` cubre los tres techos y su anuncio accesible;
-  `LiveLimitsSettings.test.tsx` cubre guardado, frase, foco, Escape, tabulación y
-  error de guardado sin perder el borrador; `LiveShortStatus.test.tsx` cubre
-  permitido/desactivado/carga/error; `OrdersPage.test.tsx` verifica el motivo de
-  rechazo de una venta de entrada real. `e2e/live-short-limits.spec.ts` recorre
-  Ajustes → error en los tres techos → guardar → confirmar frase → ficha permitida.
-- **Verificación de esta entrega:** `npm install`, typecheck y lint pasan;
-  `npm test` acaba con **2 698 aprobadas de 2 698** (191 archivos) y **los 51 E2E
-  pasan**. El hallazgo R1 de la auditoría (`reglas.audit.test.ts:293`, un nivel
-  con escalar no finito se aceptaba) queda cerrado en `src/shared/strategyRules.ts`:
-  `evalScalar` devuelve `null` ante un valor no finito y `parseLevel` comprueba
-  además `Number.isFinite` en el porcentaje y en el multiplicador de `atr`; el
-  error sale en su campo.
-  `format:check` solo falla en `src/main/live/scaling.test.ts`, fuera del alcance
-  de frontend. En `e2e/strategies-backtest.spec.ts:502` la expectativa del aviso
-  provisional pasa al estado real del corto desactivado. Capturas:
-  `corto-real-ajustes-limites.png` y `corto-real-ficha-permitido.png`. No se ha
-  hecho auditoría axe ni prueba manual con lector de pantalla.
+Este documento y `docs/tareas-del-usuario.md` se han reescrito sobre el código final. Las verificaciones anteriores de las tareas de frontend y de backend (editor de reglas, transporte del código `reglas-invalidas`, corto en la ficha, límites del corto) quedan en el historial de git de este archivo; su estado actual está en la tabla de §1.
