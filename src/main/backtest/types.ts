@@ -230,9 +230,9 @@ export interface Strategy {
  *
  * El régimen lo calcula el motor sesión a sesión sobre la serie de la
  * referencia —solo con las velas disponibles hasta ese cierre (sin
- * look-ahead)— y solo bloquea `buy`: las ventas, los stops y los cierres
- * por fin de datos siempre se ejecutan (una posición abierta nunca queda
- * atrapada por el filtro).
+ * look-ahead)— y solo bloquea las entradas (`buy` y `short`): las
+ * salidas, los stops y los cierres por fin de datos siempre se ejecutan
+ * (una posición abierta nunca queda atrapada por el filtro).
  */
 export interface RegimeFilterOptions {
   /**
@@ -355,7 +355,7 @@ export interface BacktestInput {
   endDate?: SessionDate;
   /**
    * Filtro de régimen (fase 6). Ausente, el motor reproduce exactamente el
-   * comportamiento de la fase 2; presente, las compras de las sesiones en
+   * comportamiento de la fase 2; presente, las entradas de las sesiones en
    * que la ficha queda desactivada por régimen se descartan (la señal se
    * evalúa con el régimen del cierre de esa misma sesión).
    */

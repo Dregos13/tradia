@@ -18,9 +18,9 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     expect(appliedMigrations(db).map((m) => m.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
     ]);
     db.close();
   });
@@ -30,7 +30,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(14);
+    expect(appliedMigrations(db)).toHaveLength(15);
     db.close();
   });
 
@@ -108,6 +108,10 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(15);
+    expect(tableNames(db)).toContain('journal_entries');
+    expect(tableNames(db)).toContain('news_analysis');
+
     expect(rollbackLast(db, MIGRATIONS)).toBe(14);
     expect(tableNames(db)).toContain('journal_entries');
     expect(tableNames(db)).toContain('news_analysis');
@@ -173,7 +177,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([14]);
+    expect(migrate(db, MIGRATIONS)).toEqual([15]);
     expect(tableNames(db)).toContain('broker_orders_live');
     expect(tableNames(db)).toContain('regimes');
     expect(tableNames(db)).toContain('live_mode');

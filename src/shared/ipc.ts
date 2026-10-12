@@ -2255,14 +2255,21 @@ export function isStrategyNote(value: unknown): value is string {
 export function isStrategyRules(value: unknown): value is StrategyRules {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'entry' && k !== 'exit' && k !== 'stop' && k !== 'target')) {
+  const RULE_KEYS = ['entry', 'exit', 'stop', 'target', 'entryShort', 'exitShort'];
+  if (Object.keys(v).some((k) => !RULE_KEYS.includes(k))) {
     return false;
   }
+  // Los campos de corto son opcionales: ausentes o en blanco valen
+  // («sin corto»); la pareja incompleta la detecta parseStrategyRules.
+  const isOptionalRuleText = (x: unknown): boolean =>
+    x === undefined || (typeof x === 'string' && x.length <= STRATEGY_TEXT_MAX_LENGTH);
   return (
     isStrategyText(v.entry) &&
     isStrategyText(v.exit) &&
     isStrategyText(v.stop) &&
-    isStrategyText(v.target)
+    isStrategyText(v.target) &&
+    isOptionalRuleText(v.entryShort) &&
+    isOptionalRuleText(v.exitShort)
   );
 }
 

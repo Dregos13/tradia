@@ -9,9 +9,7 @@
  */
 import {
   accessSync,
-  chmodSync,
   constants as fsConstants,
-  copyFileSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -20,11 +18,11 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { openDatabase } from '../../db/database';
+import { installFakeClaudeCli } from './__fixtures__/installFakeCli';
 import { createClaudeCliAnalyzer } from './claudeCli';
 import { createNewsAnalysisRepository } from './repository';
 import { createNewsAiService, NEWS_LLM_SETTINGS_KEYS } from './service';
@@ -629,10 +627,7 @@ describe('estado de la suscripción y notificación única', () => {
 
 // -- Estado con la CLI falsa de verdad (proceso de Node con spawn) -----
 
-const CLI_FIXTURE = fileURLToPath(new URL('./__fixtures__/fake-claude-cli.mjs', import.meta.url));
-const ON_WINDOWS = process.platform === 'win32';
-
-describe.skipIf(ON_WINDOWS)('estado de la suscripción con la CLI falsa', () => {
+describe('estado de la suscripción con la CLI falsa', () => {
   let root: string;
 
   afterEach(() => {
@@ -643,11 +638,11 @@ describe.skipIf(ON_WINDOWS)('estado de la suscripción con la CLI falsa', () => 
     root = mkdtempSync(join(tmpdir(), 'tradia-news-status-'));
     const binDir = join(root, 'bin');
     const home = join(root, 'home');
-    mkdirSync(binDir, { recursive: true });
     mkdirSync(home, { recursive: true });
-    const cliPath = join(binDir, 'claude');
-    copyFileSync(CLI_FIXTURE, cliPath);
-    chmodSync(cliPath, 0o755);
+    // La CLI falsa se instala como en el SO anfitrión: `claude` con
+    // shebang en POSIX; en Windows, el `claude.cmd` de npm con el
+    // `cli.js` del paquete (la rama que `spawnPlan` prefiere).
+    const cliPath = installFakeClaudeCli(binDir);
     // La CLI falsa lee su modo de ${TMPDIR}/tradia-fake-claude.json.
     const configPath = join(root, 'tradia-fake-claude.json');
     writeFileSync(configPath, JSON.stringify({ mode: 'noauth' }));
@@ -668,6 +663,7 @@ describe.skipIf(ON_WINDOWS)('estado de la suscripción con la CLI falsa', () => 
       // El PATH lleva la CLI falsa y el directorio de node (el shebang).
       env: {
         HOME: home,
+        USERPROFILE: home,
         TMPDIR: root,
         PATH: `${binDir}${delimiter}${dirname(process.execPath)}`,
       },

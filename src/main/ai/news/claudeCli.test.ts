@@ -26,10 +26,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { FAKE_CLAUDE_CLI_FIXTURE, installFakeClaudeCli } from './__fixtures__/installFakeCli';
 import {
   CLAUDE_CLI_ARGS,
   createClaudeCliAnalyzer,
@@ -38,7 +38,7 @@ import {
 } from './claudeCli';
 import { createMemoryUsageStore, isNewsLlmError, type NewsLlmUsageStore } from './types';
 
-const FIXTURE = fileURLToPath(new URL('./__fixtures__/fake-claude-cli.mjs', import.meta.url));
+const FIXTURE = FAKE_CLAUDE_CLI_FIXTURE;
 const ON_WINDOWS = process.platform === 'win32';
 
 /** Raíz temporal del escenario (CLI falsa, HOME, config y registro). */
@@ -126,25 +126,12 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'tradia-claude-cli-'));
   binDir = join(root, 'bin');
   home = join(root, 'home');
-  mkdirSync(binDir, { recursive: true });
   mkdirSync(home, { recursive: true });
-  if (ON_WINDOWS) {
-    // Como una instalación de npm real: `claude.cmd` es el shim que
-    // lanza `node` con el fixture y el paquete trae su `cli.js` junto
-    // al shim (la rama que `spawnPlan` prefiere, así no hace falta
-    // cmd.exe y los argumentos llegan intactos).
-    cliPath = join(binDir, 'claude.cmd');
-    copyFileSync(FIXTURE, join(binDir, 'fake-claude-cli.mjs'));
-    writeFileSync(cliPath, `@echo off\r\n"${process.execPath}" "%~dp0fake-claude-cli.mjs" %*\r\n`);
-    const packageDir = join(binDir, 'node_modules', '@anthropic-ai', 'claude-code');
-    mkdirSync(packageDir, { recursive: true });
-    copyFileSync(FIXTURE, join(packageDir, 'cli.js'));
-    writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ type: 'module' }));
-  } else {
-    cliPath = join(binDir, 'claude');
-    copyFileSync(FIXTURE, cliPath);
-    chmodSync(cliPath, 0o755);
-  }
+  // Como una instalación real en el SO anfitrión: `claude` con shebang
+  // en POSIX; en Windows, el `claude.cmd` de npm con el `cli.js` del
+  // paquete (la rama que `spawnPlan` prefiere, así no hace falta
+  // cmd.exe y los argumentos llegan intactos).
+  cliPath = installFakeClaudeCli(binDir);
   configPath = join(root, 'tradia-fake-claude.json');
   recordPath = join(root, 'calls.jsonl');
   writeConfig({ mode: 'ok', recordTo: recordPath });

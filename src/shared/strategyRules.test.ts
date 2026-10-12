@@ -13,6 +13,7 @@ import {
   parseStrategyRules,
   RULES_FIELD_MAX_LENGTH,
   RULES_MAX_DEPTH,
+  strategySide,
   type StrategyProgram,
   type StrategyRulesError,
 } from './strategyRules';
@@ -38,7 +39,10 @@ function rules(over: Partial<StrategyRules> = {}): StrategyRules {
   };
 }
 
-function parseOk(over: Partial<StrategyRules> = {}, params = PARAMS): StrategyProgram {
+function parseOk(
+  over: Partial<StrategyRules> = {},
+  params: Record<string, number> = PARAMS,
+): StrategyProgram {
   const result = parseStrategyRules(rules(over), params);
   if (!result.ok) {
     throw new Error(`se esperaba ok y llegaron errores: ${JSON.stringify(result.errors)}`);
@@ -46,7 +50,10 @@ function parseOk(over: Partial<StrategyRules> = {}, params = PARAMS): StrategyPr
   return result.program;
 }
 
-function parseErrors(over: Partial<StrategyRules>, params = PARAMS): StrategyRulesError[] {
+function parseErrors(
+  over: Partial<StrategyRules>,
+  params: Record<string, number> = PARAMS,
+): StrategyRulesError[] {
   const result = parseStrategyRules(rules(over), params);
   if (result.ok) {
     throw new Error('se esperaban errores y el análisis devolvió ok');
@@ -258,6 +265,88 @@ describe('límites', () => {
   it('rechaza una cadena de «no» más larga que el tope de profundidad', () => {
     const errors = parseErrors({ entry: `${'no '.repeat(RULES_MAX_DEPTH + 10)}cierre > 3` });
     expect(errors[0]!.message).toMatch(/anidada|niveles/);
+  });
+});
+
+describe('reglas de corto (entryShort/exitShort)', () => {
+  it('las fichas sin campos de corto siguen validando y no traen programa corto', () => {
+    const program = parseOk();
+    expect(program.entryShort).toBeNull();
+    expect(program.exitShort).toBeNull();
+    // Lo mismo con los campos presentes pero vacíos: no se opera en corto.
+    const blank = parseOk({ entryShort: '', exitShort: '   ' });
+    expect(blank.entryShort).toBeNull();
+    expect(blank.exitShort).toBeNull();
+  });
+
+  it('compila las reglas de corto con la misma gramática y recoge sus parámetros', () => {
+    const program = parseOk(
+      {
+        entryShort: 'cruza_abajo(sma(rapida), sma(lenta)) y corto_umbral < rsi(corto_rsi)',
+        exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+      },
+      { ...PARAMS, corto_umbral: 30, corto_rsi: 10 },
+    );
+    expect(program.entryShort).toMatchObject({
+      kind: 'logic',
+      op: 'y',
+      left: { kind: 'cross', direction: 'down' },
+      right: { kind: 'cmp', op: '<' },
+    });
+    expect(program.exitShort).toMatchObject({ kind: 'cross', direction: 'up' });
+    expect(program.parameters).toEqual(
+      expect.arrayContaining(['corto_umbral', 'corto_rsi', 'rapida', 'lenta']),
+    );
+  });
+
+  it('la pareja incompleta es un error en el campo que falta', () => {
+    const sinSalida = parseErrors({ entryShort: 'cruza_abajo(sma(3), sma(8))' });
+    expect(sinSalida).toHaveLength(1);
+    expect(sinSalida[0]).toMatchObject({ field: 'exitShort', start: 0, end: 0 });
+    expect(sinSalida[0]!.message).toMatch(/pareja/);
+
+    const sinEntrada = parseErrors({ exitShort: 'cruza_arriba(sma(3), sma(8))' });
+    expect(sinEntrada).toHaveLength(1);
+    expect(sinEntrada[0]).toMatchObject({ field: 'entryShort', start: 0, end: 0 });
+    expect(sinEntrada[0]!.message).toMatch(/pareja/);
+  });
+
+  it('los errores de los campos de corto llevan su field, mensaje y posición', () => {
+    const errors = parseErrors({
+      entryShort: 'cierre > )',
+      exitShort: 'cruza_arriba(sma(3), sma(8))',
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.field).toBe('entryShort');
+    expect(errors[0]!.message.length).toBeGreaterThan(0);
+    expect(Number.isInteger(errors[0]!.start)).toBe(true);
+    expect(Number.isInteger(errors[0]!.end)).toBe(true);
+
+    const malaSalida = parseErrors({
+      entryShort: 'cruza_abajo(sma(3), sma(8))',
+      exitShort: 'frena(',
+    });
+    expect(malaSalida[0]!.field).toBe('exitShort');
+
+    // Un valor que no es texto tampoco pasa.
+    const noTexto = parseErrors({
+      entryShort: 42 as unknown as string,
+      exitShort: 'cruza_arriba(sma(3), sma(8))',
+    });
+    expect(noTexto[0]).toMatchObject({ field: 'entryShort' });
+    expect(noTexto[0]!.message).toMatch(/texto/);
+  });
+
+  it('strategySide dice largo, corto o ambos según los campos escritos', () => {
+    expect(strategySide(rules())).toBe('largo');
+    expect(
+      strategySide(rules({ entryShort: 'cierre < sma(8)', exitShort: 'cierre > sma(8)' })),
+    ).toBe('ambos');
+    // Resumen de lectura, no validación: la pareja rota también cuenta como corto.
+    expect(strategySide(rules({ entryShort: 'cierre < sma(8)' }))).toBe('ambos');
+    expect(strategySide(rules({ entry: '', entryShort: 'cierre < sma(8)', exitShort: 'x' }))).toBe(
+      'corto',
+    );
   });
 });
 

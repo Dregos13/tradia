@@ -8,23 +8,29 @@
  * ninguna parte; cada regla solo puede leer campos de la vela, indicadores
  * rodantes y los parámetros de la ficha.
  *
- * Modelo de ejecución (igual que las clásicas):
- * - Solo largo: la señal se evalúa al cierre y la orden llena en la
+ * Modelo de ejecución (igual que las clásicas, y en corto al revés):
+ * - Largo y corto: la señal se evalúa al cierre y la orden llena en la
  *   apertura siguiente; la `BarWindow` garantiza que nunca se ve el
- *   futuro.
+ *   futuro. Con `entryShort`/`exitShort` la ficha abre y cierra cortos
+ *   (`ctx.short`/`ctx.cover`); sin ellas opera solo en largo.
  * - Los indicadores `sma`/`ema`/`rsi`/`atr` se calculan sobre las últimas
  *   n velas incluida la actual; `maximo(n)`/`minimo(n)` son los canales de
  *   las n velas anteriores, sin la actual (convención Donchian).
  * - `cruza_arriba`/`cruza_abajo` son cruces estrictos entre la vela
  *   anterior y la actual, como el cruce de medias clásico.
- * - Stop `K * atr(n)`: trailing — se recalcula cada cierre como
- *   `cierre − K × ATR(n)` y solo puede subir, nunca bajar (el stop
- *   dinámico del cruce de medias clásico). Stop `N%`: fijo a un N % bajo
- *   el cierre de la señal. `ninguno`: sin protección.
- * - Objetivo `N%` o `K * atr(n)`: fijo sobre el cierre de la señal.
+ * - Stop `K * atr(n)`: trailing — en largo se recalcula cada cierre como
+ *   `cierre − K × ATR(n)` y solo puede subir; en corto como
+ *   `cierre + K × ATR(n)` y solo puede bajar (el stop dinámico del cruce
+ *   de medias clásico, espejado). Stop `N%`: fijo a un N % bajo el cierre
+ *   de la señal en largo, sobre él en corto. `ninguno`: sin protección.
+ * - Objetivo `N%` o `K * atr(n)`: fijo sobre el cierre de la señal en
+ *   largo, por debajo en corto.
  * - Si un nivel declarado no se puede calcular (ATR aún sin valor,
  *   resultado no positivo) la entrada se descarta, igual que las clásicas
  *   esperan a su ATR antes de comprar.
+ * - Nunca hay largo y corto a la vez ni cambio de lado: con posición
+ *   abierta solo se evalúa su salida, y si las reglas de entrada de largo
+ *   y de corto se cumplen en la misma vela no se entra.
  * - Un operando sin dato (indicador en calentamiento, volumen ausente)
  *   hace falsa la comparación y el cruce: nunca inventa valores.
  */
@@ -38,7 +44,15 @@ import {
   type RulesPeriod,
   type StrategyProgram,
 } from '../../../shared/strategyRules';
-import type { BuyOptions, EngineBar, Strategy, StrategyContext, StrategyParams } from '../types';
+import type {
+  BuyOptions,
+  EngineBar,
+  PositionSide,
+  ShortOptions,
+  Strategy,
+  StrategyContext,
+  StrategyParams,
+} from '../types';
 import { resolveParams } from './params';
 import {
   RollingEma,
@@ -189,6 +203,8 @@ export function createCustomStrategy(
   };
   walkBool(program.entry, visitBool, visitNum);
   walkBool(program.exit, visitBool, visitNum);
+  if (program.entryShort !== null) walkBool(program.entryShort, visitBool, visitNum);
+  if (program.exitShort !== null) walkBool(program.exitShort, visitBool, visitNum);
   for (const level of [program.stop, program.target]) {
     if (level.kind === 'atr') {
       periodRefs.push({ name: 'atr', period: level.period });
@@ -347,19 +363,30 @@ export function createCustomStrategy(
     }
   };
 
-  const levelPrice = (level: ResolvedLevel, env: EvalEnv, side: 'stop' | 'target'): LevelPrice => {
+  /**
+   * Precio de un nivel con la regla aplicada al lado: en largo el stop va
+   * bajo el cierre y el objetivo encima; en corto, al revés.
+   */
+  const levelPrice = (
+    level: ResolvedLevel,
+    env: EvalEnv,
+    side: 'stop' | 'target',
+    direction: PositionSide,
+  ): LevelPrice => {
+    // -1 el nivel queda bajo el cierre (stop en largo, objetivo en corto);
+    // +1 por encima (objetivo en largo, stop en corto).
+    const sign = (side === 'stop') === (direction === 'largo') ? -1 : 1;
     switch (level.kind) {
       case 'none':
         return null;
       case 'pct': {
-        const price =
-          env.bar.close * (side === 'stop' ? 1 - level.value / 100 : 1 + level.value / 100);
+        const price = env.bar.close * (1 + (sign * level.value) / 100);
         return Number.isFinite(price) ? price : INVALID_LEVEL;
       }
       case 'atr': {
         const atr = env.feeds.get(feedKey('atr', level.period))?.value() ?? null;
         if (atr === null) return INVALID_LEVEL;
-        const price = env.bar.close + (side === 'stop' ? -level.mult : level.mult) * atr;
+        const price = env.bar.close + sign * level.mult * atr;
         return Number.isFinite(price) ? price : INVALID_LEVEL;
       }
     }
@@ -374,11 +401,15 @@ export function createCustomStrategy(
     const env: EvalEnv = { bar, params, feeds: st.feeds };
     const position = ctx.position(ticker);
     if (position === null) {
-      if (!evalBool(program.entry, env, st)) return;
-      const stop = levelPrice(stopSpec, env, 'stop');
-      const target = levelPrice(targetSpec, env, 'target');
+      const wantLong = evalBool(program.entry, env, st);
+      const wantShort = program.entryShort !== null && evalBool(program.entryShort, env, st);
+      // Las dos entradas cumplidas en la misma vela: no se entra.
+      if (wantLong === wantShort) return;
+      const direction: PositionSide = wantLong ? 'largo' : 'corto';
+      const stop = levelPrice(stopSpec, env, 'stop', direction);
+      const target = levelPrice(targetSpec, env, 'target', direction);
       if (stop === INVALID_LEVEL || target === INVALID_LEVEL) return;
-      const options: BuyOptions = {};
+      const options: BuyOptions | ShortOptions = {};
       if (stop !== null) {
         if (stop <= 0) return;
         options.stop = stop;
@@ -387,19 +418,41 @@ export function createCustomStrategy(
         if (target <= 0) return;
         options.target = target;
       }
-      ctx.buy(ticker, options);
+      if (wantLong) {
+        ctx.buy(ticker, options);
+      } else {
+        ctx.short(ticker, options);
+      }
       return;
     }
-    if (evalBool(program.exit, env, st)) {
-      ctx.sell(ticker);
+    if (position.side === 'largo') {
+      if (evalBool(program.exit, env, st)) {
+        ctx.sell(ticker);
+        return;
+      }
+      // Stop ATR dinámico: solo sube, como el del cruce de medias clásico.
+      if (stopSpec.kind === 'atr') {
+        const atr = st.feeds.get(feedKey('atr', stopSpec.period))?.value() ?? null;
+        if (atr !== null) {
+          const trail = bar.close - stopSpec.mult * atr;
+          if (trail > 0 && (position.stopPrice === null || trail > position.stopPrice)) {
+            ctx.setStop(ticker, trail);
+          }
+        }
+      }
       return;
     }
-    // Stop ATR dinámico: solo sube, como el del cruce de medias clásico.
+    // Posición en corto: solo se evalúa su salida (no hay cambio de lado).
+    if (program.exitShort !== null && evalBool(program.exitShort, env, st)) {
+      ctx.cover(ticker);
+      return;
+    }
+    // Stop ATR dinámico del corto: solo baja, espejo del largo.
     if (stopSpec.kind === 'atr') {
       const atr = st.feeds.get(feedKey('atr', stopSpec.period))?.value() ?? null;
       if (atr !== null) {
-        const trail = bar.close - stopSpec.mult * atr;
-        if (trail > 0 && (position.stopPrice === null || trail > position.stopPrice)) {
+        const trail = bar.close + stopSpec.mult * atr;
+        if (trail > 0 && (position.stopPrice === null || trail < position.stopPrice)) {
           ctx.setStop(ticker, trail);
         }
       }

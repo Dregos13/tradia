@@ -99,7 +99,7 @@ it('permite reintentar si falla la lectura del estado', async () => {
   render(<NewsSubscriptionNotice />);
   await screen.findByText(/No se pudo consultar el estado/);
   await userEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
-  await screen.findByText(/Suscripción recuperada/);
+  await screen.findByText('Analizador local seleccionado');
 });
 
 it('reintenta desde Ajustes guardando antes, mantiene una sola acción y conserva el foco', async () => {

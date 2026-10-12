@@ -73,6 +73,10 @@ interface VersionRow {
   regla_salida: string;
   regla_stop: string;
   regla_objetivo: string;
+  // Reglas de corto (migración 015): NULL en ambas = la versión no opera
+  // en corto; van en pareja por el CHECK de la columna de salida.
+  regla_entrada_corto: string | null;
+  regla_salida_corto: string | null;
   parametros: string;
   rangos_parametros: string;
   mercados: string;
@@ -104,7 +108,8 @@ interface ChangelogRow {
 
 const VERSION_COLUMNS =
   'strategy_id, version, nombre, hipotesis, regla_entrada, regla_salida, ' +
-  'regla_stop, regla_objetivo, parametros, rangos_parametros, mercados, ' +
+  'regla_stop, regla_objetivo, regla_entrada_corto, regla_salida_corto, ' +
+  'parametros, rangos_parametros, mercados, ' +
   'entrenamiento_desde, entrenamiento_hasta, fuera_muestra_desde, ' +
   'fuera_muestra_hasta, metricas_resumen, regimen, ' +
   'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en';
@@ -162,6 +167,8 @@ function toStrategy(strategy: StrategyRow, row: VersionRow, executable: boolean)
       exit: row.regla_salida,
       stop: row.regla_stop,
       target: row.regla_objetivo,
+      ...(row.regla_entrada_corto === null ? {} : { entryShort: row.regla_entrada_corto }),
+      ...(row.regla_salida_corto === null ? {} : { exitShort: row.regla_salida_corto }),
     },
     parameters: parseJsonObject<Record<string, number>>(row.parametros, {}, 'parametros', ref),
     parameterRanges: parseJsonObject<Record<string, StrategyParameterRange>>(
@@ -245,7 +252,15 @@ function assertStatus(value: unknown): asserts value is StrategyStatus {
 interface ResolvedDraft {
   name: string;
   hypothesis: string;
-  rules: { entry: string; exit: string; stop: string; target: string };
+  rules: {
+    entry: string;
+    exit: string;
+    stop: string;
+    target: string;
+    /** Reglas de corto normalizadas: null = la versión no opera en corto. */
+    entryShort: string | null;
+    exitShort: string | null;
+  };
   parameters: Record<string, number>;
   parameterRanges: Record<string, StrategyParameterRange>;
   markets: string[];
@@ -260,8 +275,14 @@ interface ResolvedDraft {
 function assertDraft(draft: ResolvedDraft): void {
   assertNonEmpty(draft.name, 'nombre');
   assertNonEmpty(draft.hypothesis, 'hipotesis');
-  for (const [field, text] of Object.entries(draft.rules)) {
-    assertNonEmpty(text, `reglas.${field}`);
+  for (const field of ['entry', 'exit', 'stop', 'target'] as const) {
+    assertNonEmpty(draft.rules[field], `reglas.${field}`);
+  }
+  if ((draft.rules.entryShort === null) !== (draft.rules.exitShort === null)) {
+    throw new StrategiesError(
+      'invalid-input',
+      'las reglas de corto van en pareja: entrada y salida en corto, o ninguna',
+    );
   }
   for (const [key, value] of Object.entries(draft.parameters)) {
     assertNonEmpty(key, 'nombre de parámetro');
@@ -323,11 +344,35 @@ function assertDraft(draft: ResolvedDraft): void {
   }
 }
 
+/** Regla de corto presente solo si trae texto; en blanco cuenta como ausente. */
+function normalizeShortRule(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+/** Reglas del borrador con los campos de corto normalizados (o null). */
+function normalizeRules(rules: {
+  entry: string;
+  exit: string;
+  stop: string;
+  target: string;
+  entryShort?: string | null;
+  exitShort?: string | null;
+}): ResolvedDraft['rules'] {
+  return {
+    entry: rules.entry,
+    exit: rules.exit,
+    stop: rules.stop,
+    target: rules.target,
+    entryShort: normalizeShortRule(rules.entryShort),
+    exitShort: normalizeShortRule(rules.exitShort),
+  };
+}
+
 function draftFromCreate(request: CreateStrategyRequest): ResolvedDraft {
   return {
     name: request.name,
     hypothesis: request.hypothesis,
-    rules: request.rules,
+    rules: normalizeRules(request.rules),
     parameters: request.parameters ?? {},
     parameterRanges: request.parameterRanges ?? {},
     markets: request.markets,
@@ -350,6 +395,8 @@ function draftFromRow(row: VersionRow): ResolvedDraft {
       exit: row.regla_salida,
       stop: row.regla_stop,
       target: row.regla_objetivo,
+      entryShort: row.regla_entrada_corto,
+      exitShort: row.regla_salida_corto,
     },
     parameters: parseJsonObject(row.parametros, {}, 'parametros', ref),
     parameterRanges: parseJsonObject(row.rangos_parametros, {}, 'rangos_parametros', ref),
@@ -409,11 +456,12 @@ export function createStrategiesRepository(
     `INSERT INTO strategy_versions (
        strategy_id, version, nombre, hipotesis,
        regla_entrada, regla_salida, regla_stop, regla_objetivo,
+       regla_entrada_corto, regla_salida_corto,
        parametros, rangos_parametros, mercados,
        entrenamiento_desde, entrenamiento_hasta,
        fuera_muestra_desde, fuera_muestra_hasta,
        regimen, regimen_funciona_en, regimen_falla_en, costes, nota
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertChangelog = db.prepare(
     `INSERT INTO strategy_changelog
@@ -447,6 +495,8 @@ export function createStrategiesRepository(
       draft.rules.exit.trim(),
       draft.rules.stop.trim(),
       draft.rules.target.trim(),
+      draft.rules.entryShort?.trim() ?? null,
+      draft.rules.exitShort?.trim() ?? null,
       JSON.stringify(draft.parameters),
       JSON.stringify(draft.parameterRanges),
       JSON.stringify(draft.markets.map((market) => market.trim())),
@@ -586,6 +636,9 @@ export function createStrategiesRepository(
       for (const [key, value] of changed) {
         (merged as Record<string, unknown>)[key] = value;
       }
+      // `rules` se sustituye entera; los campos de corto quedan
+      // normalizados (en blanco = sin corto) antes de validar.
+      merged.rules = normalizeRules(merged.rules);
       if (request.parameterRanges === undefined) {
         // Si cambian los parámetros sin tocar los rangos, los rangos que ya
         // no apuntan a un parámetro se descartan en la nueva versión.

@@ -148,6 +148,24 @@ describe('liveOrderBlockReason — puerta de los techos reales', () => {
     expect(reason).toContain('10');
   });
 
+  it('una entrada en corto con dinero real se bloquea siempre (hasta la tarea del corto real)', () => {
+    // El corto de las propias solo corre en backtest y en paper: con dinero
+    // real la puerta lo rechaza aunque la orden entre dentro de los techos.
+    const blocked = liveOrderBlockReason(snapshot(), request({ side: 'sell', quantity: 1 }), {
+      leg: 'entrada',
+      requestedPrice: 50,
+    });
+    expect(blocked).toContain('corto');
+    // Vender una posición abierta sí pasa por esta regla (cierra el largo).
+    expect(
+      liveOrderBlockReason(
+        snapshot({ openTickers: ['SPY'] }),
+        request({ side: 'sell', quantity: 1 }),
+        { leg: 'entrada', requestedPrice: 50 },
+      ),
+    ).toBeNull();
+  });
+
   it('los techos fijos de la fase son los del contrato (los límites no pueden excederlos)', () => {
     // Coherencia con shared/live.ts: si los techos cambiaran, esta prueba avisa.
     expect(LIVE_FIXED_CAPS).toEqual({

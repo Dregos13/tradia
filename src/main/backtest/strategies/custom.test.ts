@@ -38,6 +38,7 @@ function expectSameTrades(actual: Trade[], expected: Trade[]): void {
     const other = expected[i]!;
     for (const field of [
       'ticker',
+      'side',
       'signalDate',
       'entryDate',
       'exitDate',
@@ -341,6 +342,184 @@ describe('estrategia propia: semántica de los niveles y el canal', () => {
       costs: NO_COSTS,
     });
     expect(result.trades).toHaveLength(0);
+  });
+});
+
+describe('estrategia propia: cortos', () => {
+  it('entryShort abre un corto en la próxima apertura por debajo y el objetivo N % queda bajo la señal', () => {
+    const program = compile(
+      {
+        // La regla de largo no se cumple nunca en esta serie en descenso.
+        entry: 'cierre > 999',
+        exit: 'cierre < 0',
+        entryShort: 'cierre < minimo(3)',
+        exitShort: 'cierre > maximo(3)',
+        stop: '10%',
+        target: '5%',
+      },
+      {},
+    );
+    // La vela de la salida toca el objetivo con el mínimo pero cierra en
+    // 94: su cierre no vuelve a cumplir «cierre < minimo(3)», así que no
+    // se reabre el corto.
+    const closes = [100, 100, 100, 98, 96, 94];
+    const dates = sessionDates(closes.length + 2, '2024-03-01');
+    const bars = [
+      ...seriesFromCloses(dates.slice(0, closes.length), closes),
+      bar(dates[6]!, 94, { open: 94, high: 94.5, low: 93 }),
+      bar(dates[7]!, 94),
+    ];
+    const result = runBacktest({
+      strategy: createCustomStrategy(program, {}),
+      bars: { AAA: bars },
+      initialCash: 10_000,
+      riskPerTrade: 0.01,
+      costs: { commissionPct: 0.001, commissionMin: 0, slippageBp: 10, spreadBp: 0 },
+    });
+
+    expect(result.trades).toHaveLength(1);
+    const trade = result.trades[0]!;
+    expect(trade.side).toBe('corto');
+    // Señal al cierre de la primera vela que rompe a la baja (98);
+    // la venta en corto llena en la apertura siguiente (96) por debajo:
+    // 96 × (1 − 0,001) = 95,904.
+    expect(trade.signalDate).toBe(dates[3]);
+    expect(trade.entryDate).toBe(dates[4]);
+    expect(trade.entryPrice).toBeCloseTo(96 * 0.999, 8);
+    expect(trade.entryPrice).toBeLessThan(96);
+    // Objetivo del corto: 98 × 0,95 = 93,1 (por debajo); la vela lo toca
+    // con su mínimo (93) sin hueco bajo él, así que ejecuta al nivel y
+    // recompra por encima: 93,1 × 1,001 = 93,1931.
+    expect(trade.exitReason).toBe('target');
+    expect(trade.exitDate).toBe(dates[6]);
+    expect(trade.exitPrice).toBeCloseTo(93.1 * 1.001, 8);
+    // Gana cuando el precio baja: P&L invertido y costes descontados.
+    expect(trade.grossPnl).toBeCloseTo((trade.entryPrice - trade.exitPrice) * trade.shares, 8);
+    expect(trade.grossPnl).toBeGreaterThan(0);
+    expect(trade.commission).toBeGreaterThan(0);
+    expect(trade.slippage).toBeGreaterThan(0);
+    expect(trade.pnl).toBeCloseTo(trade.grossPnl - trade.commission, 8);
+  });
+
+  it('el stop del corto queda por encima de la señal y un repunte lo toca', () => {
+    const program = compile(
+      {
+        entry: 'cierre > 999',
+        exit: 'cierre < 0',
+        entryShort: 'cierre < minimo(3)',
+        exitShort: 'cierre > 999',
+        stop: '3%',
+        target: 'ninguno',
+      },
+      {},
+    );
+    const closes = [100, 100, 100, 100, 98, 95, 93, 97, 110];
+    const dates = sessionDates(closes.length, '2024-03-01');
+    const result = runBacktest({
+      strategy: createCustomStrategy(program, {}),
+      bars: { AAA: seriesFromCloses(dates, closes) },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(result.trades).toHaveLength(1);
+    const trade = result.trades[0]!;
+    expect(trade.side).toBe('corto');
+    // Señal en el cierre 98 → stop 98 × 1,03 = 100,94; entra a 95 y el
+    // repunte a 110 lo toca: ejecuta a la apertura (hueco sobre el nivel).
+    expect(trade.entryDate).toBe(dates[5]);
+    expect(trade.entryPrice).toBeCloseTo(95, 8);
+    expect(trade.exitReason).toBe('stop');
+    expect(trade.exitDate).toBe(dates[8]);
+    expect(trade.exitPrice).toBeCloseTo(110, 8);
+    expect(trade.grossPnl).toBeLessThan(0);
+  });
+
+  it('la salida del corto es exitShort, no la regla de salida del largo', () => {
+    const program = compile(
+      {
+        entry: 'cierre > 999',
+        exit: 'cierre < 0', // nunca: si cerrara con esta, la prueba fallaría
+        entryShort: 'cierre < minimo(3)',
+        exitShort: 'cierre > maximo(3)',
+        stop: 'ninguno',
+        target: 'ninguno',
+      },
+      {},
+    );
+    const closes = [100, 100, 100, 100, 98, 96, 94, 95, 100, 99];
+    const dates = sessionDates(closes.length, '2024-03-01');
+    const result = runBacktest({
+      strategy: createCustomStrategy(program, {}),
+      bars: { AAA: seriesFromCloses(dates, closes) },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(result.trades).toHaveLength(1);
+    const trade = result.trades[0]!;
+    expect(trade.side).toBe('corto');
+    // exitShort se cumple al cierre del cierre 100 (supera el canal 96/94/95)
+    // y la recompra llena en la apertura siguiente (99).
+    expect(trade.exitReason).toBe('signal');
+    expect(trade.exitDate).toBe(dates[9]);
+    expect(trade.exitPrice).toBeCloseTo(99, 8);
+  });
+
+  it('si las reglas de entrada en largo y en corto se cumplen a la vez, no se entra', () => {
+    const program = compile(
+      {
+        entry: 'cierre < minimo(3)', // verdadera en toda la bajada…
+        exit: 'cierre > maximo(3)',
+        entryShort: 'cierre < minimo(3)', // …igual que la del corto
+        exitShort: 'cierre > maximo(3)',
+        stop: 'ninguno',
+        target: 'ninguno',
+      },
+      {},
+    );
+    const closes = [100, 100, 100, 100, 98, 96, 94, 92, 90];
+    const result = runBacktest({
+      strategy: createCustomStrategy(program, {}),
+      bars: { AAA: seriesFromCloses(sessionDates(closes.length, '2024-03-01'), closes) },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(result.trades).toHaveLength(0);
+  });
+
+  it('el corto también pasa la prueba anti look-ahead del motor', () => {
+    const program = compile(
+      {
+        entry: 'cruza_arriba(sma(rapida), sma(lenta))',
+        exit: 'cruza_abajo(sma(rapida), sma(lenta))',
+        entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+        exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+        stop: 'ninguno',
+        target: 'ninguno',
+      },
+      { rapida: 3, lenta: 8 },
+    );
+    const params = { rapida: 3, lenta: 8 };
+    // Zigzag: las bajadas abren cortos y las subidas los cierran.
+    const zigCloses: number[] = [];
+    let price = 100;
+    for (let cycle = 0; cycle < 8; cycle++) {
+      for (let i = 0; i < 5; i++) zigCloses.push((price += 3));
+      for (let i = 0; i < 5; i++) zigCloses.push((price -= 3));
+    }
+    const zigDates = sessionDates(zigCloses.length, '2024-01-02');
+    const { original } = assertNoLookAhead(
+      () => createCustomStrategy(program, params),
+      {
+        bars: { AAA: seriesFromCloses(zigDates, zigCloses) },
+        params,
+        initialCash: 10_000,
+        costs: NO_COSTS,
+      },
+      zigDates[45]!,
+    );
+    const closed = original.trades.filter((t) => t.exitDate <= zigDates[45]!);
+    expect(closed.length).toBeGreaterThan(0);
+    expect(closed.some((t) => t.side === 'corto')).toBe(true);
   });
 });
 

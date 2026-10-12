@@ -213,6 +213,8 @@ export interface EquityPointDto {
 /** Una operación cerrada del backtest. */
 export interface TradeDto {
   ticker: string;
+  /** Lado de la posición; ausente en los runs guardados antes del corto. */
+  side?: 'largo' | 'corto';
   signalDate: string;
   entryDate: string;
   entryPrice: number;

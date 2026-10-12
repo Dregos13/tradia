@@ -49,7 +49,9 @@ export function SubscriptionNotice({
             ? 'Comprobando la suscripción…'
             : error ||
               copy?.title ||
-              'Suscripción recuperada · los nuevos titulares volverán a analizarse con Claude Code.'}
+              (status?.provider === 'suscripcion'
+                ? 'Suscripción recuperada · los nuevos titulares volverán a analizarse con Claude Code.'
+                : 'Analizador local seleccionado')}
         </strong>
         {busy ? (
           <p>

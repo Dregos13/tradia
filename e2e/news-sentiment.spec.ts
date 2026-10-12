@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   capturePhaseScreenshot,
@@ -207,6 +209,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
 test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mover el foco', async () => {
   const { app, page } = context!;
+  await page.evaluate(() =>
+    window.tradia.ai.setLlmSettings({ provider: 'suscripcion', enabled: true }),
+  );
   // Doble del contrato IPC: recorre preload y eventos reales de Electron,
   // sin CLI externa ni cambios en el proceso principal de producción.
   await app.evaluate(({ ipcMain }) => {
@@ -255,15 +260,16 @@ test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mo
   await expect(notice).toContainText('claude y después /login');
   await expect(notice).toContainText('las noticias se analizan con el analizador local');
   await expect(search).toBeFocused();
-  await page.screenshot({ path: '/tmp/tradia-news-notice-desktop.png' });
+  await page.screenshot({ path: join(tmpdir(), 'tradia-news-notice-desktop.png') });
   await page.setViewportSize({ width: 700, height: 900 });
   await app.evaluate(({ nativeTheme }) => {
     nativeTheme.themeSource = 'dark';
   });
+  await page.emulateMedia({ colorScheme: 'dark' });
   await expect
     .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
     .toBe('rgb(75, 28, 38)');
-  await page.screenshot({ path: '/tmp/tradia-news-notice-dark-700.png' });
+  await page.screenshot({ path: join(tmpdir(), 'tradia-news-notice-dark-700.png') });
   await force('ok');
   await expect(notice).toHaveCount(0);
   await expect(search).toBeFocused();
@@ -278,15 +284,20 @@ test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mo
       .getByLabel(/Clave de API/),
   ).toHaveCount(0);
   await expect(notice).toContainText('Vuelve aquí y prueba de nuevo.');
-  await page.screenshot({ path: '/tmp/tradia-settings-notice-dark-700.png' });
+  await page
+    .getByRole('region', { name: 'Análisis de noticias', exact: true })
+    .screenshot({ path: join(tmpdir(), 'tradia-settings-notice-dark-700.png') });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await app.evaluate(({ nativeTheme }) => {
     nativeTheme.themeSource = 'light';
   });
+  await page.emulateMedia({ colorScheme: 'light' });
   await expect
     .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
     .toBe('rgb(251, 228, 231)');
-  await page.screenshot({ path: '/tmp/tradia-settings-notice-desktop.png' });
+  await page
+    .getByRole('region', { name: 'Análisis de noticias', exact: true })
+    .screenshot({ path: join(tmpdir(), 'tradia-settings-notice-desktop.png') });
   const retry = notice.getByRole('button', { name: 'Probar de nuevo' });
   await retry.focus();
   await force('ok');
