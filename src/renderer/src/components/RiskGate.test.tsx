@@ -23,7 +23,8 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   const save = vi.spyOn(window.tradia.settings, 'set');
   render(<App />);
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(await screen.findByRole('heading', { name: 'Antes de empezar' })).toHaveFocus();
+  const heading = await screen.findByRole('heading', { name: 'Antes de empezar' });
+  await waitFor(() => expect(heading).toHaveFocus());
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(document.querySelector('.onboarding-root')).not.toBeInTheDocument();
   const button = screen.getByRole('button', { name: 'Continuar' });

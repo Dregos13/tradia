@@ -4,6 +4,8 @@ _Claude · Predeterminado · 12-10-2026 (00:20–00:45 CEST)_
 
 ## Ronda de correcciones de Frontend · 12-10-2026
 
+**Verificación final V1 y V2 corregidos:** `RiskGate.test.tsx` espera el foco con `waitFor` sin cambiar `RiskDisclaimer`; `SmokeProgress.tsx` muestra `buyExecutedAt`, con regresión en `live.test.tsx` para fecha presente y `null`. Los dos archivos de pruebas pasan 5 veces seguidas (41/41); `npm run typecheck` y `npm run lint` pasan. La batería completa `npm test -- --maxWorkers=2` pasa 5 veces seguidas (181 archivos, 2.479/2.479 cada vez), incluido RiskGate. `npm test` sin argumentos falla por un timeout ajeno a esta corrección en `src/main/backtest/service.test.ts:190` (120.000 ms; 2.478 aprobadas y 1 fallo); queda pendiente revalidar ese comando sin límite de workers. Registros: `/tmp/tradia-vfinal-target-{1..5}.log`, `/tmp/tradia-vfinal-full-1.log` y `/tmp/tradia-vfinal-full-limited-{1..5}.log`.
+
 Los textos «Observado» y las capturas inferiores documentan la sesión original. Estado tras la corrección:
 
 | Hallazgo | Estado de Frontend | Regresión |

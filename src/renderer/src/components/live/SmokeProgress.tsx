@@ -24,7 +24,7 @@ export function SmokeProgress({
     {
       label: 'Ejecución de compra',
       complete: filled,
-      at: null,
+      at: result?.buyExecutedAt ?? null,
       failed: result?.failedStep === 'compra-enviada' && !!purchase,
     },
     {

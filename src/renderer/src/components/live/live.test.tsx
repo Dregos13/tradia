@@ -573,3 +573,26 @@ it('N5: el precio enviado en la prueba de humo se rotula como límite, separado 
   expect(screen.getByText(/El límite de protección no es la referencia/)).toBeVisible();
   expect(screen.queryByText('Precio pedido compra')).not.toBeInTheDocument();
 });
+
+it.each(['2026-10-10T14:02:30Z', null])(
+  'V2: la ejecución de compra muestra su hora solo si llega buyExecutedAt (%s)',
+  async (buyExecutedAt) => {
+    vi.spyOn(adapter.api.live, 'state').mockResolvedValue({
+      ...active(),
+      smokeTest: { ...smoke, buyExecutedAt },
+    });
+    render(<SmokeTestPanel />);
+    const label = await screen.findByText('Ejecución de compra');
+    const step = label.closest('li')!;
+    expect(await within(step).findByText('Completado')).toBeVisible();
+    const timestamp = step.querySelector('time');
+    if (buyExecutedAt) {
+      expect(timestamp).toHaveAttribute('dateTime', buyExecutedAt);
+      expect(timestamp).toHaveTextContent(
+        new Date(buyExecutedAt).toLocaleString('es-ES', { timeZoneName: 'short' }),
+      );
+    } else {
+      expect(timestamp).not.toBeInTheDocument();
+    }
+  },
+);
