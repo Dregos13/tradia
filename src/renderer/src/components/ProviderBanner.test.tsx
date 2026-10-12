@@ -3,18 +3,27 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../adapters/simulated';
-import { ProviderBanner, lastCorrectDate } from './ProviderBanner';
+import { ProviderBanner, sessionDateLabel } from './ProviderBanner';
 import { MarketDataPage } from './MarketDataPage';
 
 let simulation: ReturnType<typeof createSimulatedAdapter>;
-const failure = {
-  key: 'provider:simulated',
-  state: 'no-fiable' as const,
+const staleTicker = {
+  key: 'ticker:AAPL',
+  state: 'desactualizado' as const,
   lastOkAt: '2026-10-07T20:00:00Z',
-  consecutiveFailures: 3,
-  reason: 'Proveedor caído',
+  consecutiveFailures: 1,
+  reason: `falta la vela del ${sessionDateLabel('2026-10-08')} (+2 más); último dato: ${sessionDateLabel('2026-10-06')}`,
   updatedAt: '2026-10-08T20:00:00Z',
 };
+const staleFred = {
+  key: 'macro:DGS10',
+  state: 'desactualizado' as const,
+  lastOkAt: '2026-10-07T20:00:00Z',
+  consecutiveFailures: 2,
+  reason: `falta la observación esperada; último dato: ${sessionDateLabel('2026-10-06')}`,
+  updatedAt: '2026-10-08T20:00:00Z',
+};
+
 beforeEach(() => {
   simulation = createSimulatedAdapter();
   window.tradia = simulation.api;
@@ -24,84 +33,100 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
-it('muestra banner y tarjeta no fiable al emitir cambios y los recupera', async () => {
-  const refresh = vi.spyOn(simulation.api.market, 'refreshNow');
-  render(
-    <>
-      <ProviderBanner />
-      <MarketDataPage kind="macro" />
-    </>,
+
+it('muestra un único aviso «desactualizado desde …» y lo retira al recuperarse', async () => {
+  render(<ProviderBanner />);
+  act(() => simulation.emitDataStatus(staleTicker));
+
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+  expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
+  expect(within(banner).getByText(/falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
+  expect(within(banner).getByText(/en pausa hasta ponerse al día/)).toBeTruthy();
+
+  act(() =>
+    simulation.emitDataStatus({
+      ...staleTicker,
+      state: 'fiable',
+      reason: null,
+      consecutiveFailures: 0,
+    }),
   );
+  await waitFor(() =>
+    expect(screen.queryByRole('region', { name: 'Estado de los datos' })).toBeNull(),
+  );
+});
+
+it('«Actualizar ahora» refresca mercado cuando fallan tickers y macro cuando falla FRED', async () => {
+  const marketRefresh = vi.spyOn(simulation.api.market, 'refreshNow');
+  const macroRefresh = vi.spyOn(simulation.api.macro, 'refreshNow');
+  render(<ProviderBanner />);
+
+  act(() => simulation.emitDataStatus(staleTicker));
+  await screen.findByRole('region', { name: 'Estado de los datos' });
+  await userEvent.click(screen.getByRole('button', { name: 'Actualizar ahora' }));
+  expect(marketRefresh).toHaveBeenCalledTimes(1);
+  expect(macroRefresh).not.toHaveBeenCalled();
+  expect(screen.getByText(/Actualización solicitada/)).toBeTruthy();
+
+  act(() => simulation.emitDataStatus(staleFred));
+  await userEvent.click(screen.getByRole('button', { name: 'Actualizar ahora' }));
+  await waitFor(() => expect(macroRefresh).toHaveBeenCalledTimes(1));
+});
+
+it('un estado no fiable muestra «Datos no fiables desde …»', async () => {
+  render(<ProviderBanner />);
+  act(() =>
+    simulation.emitDataStatus({
+      ...staleTicker,
+      state: 'no-fiable',
+      consecutiveFailures: 0,
+      reason: 'valor anómalo grave en el último lote',
+    }),
+  );
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+  expect(within(banner).getByText(/Datos no fiables desde el/)).toBeTruthy();
+  expect(within(banner).getByText(/valor anómalo grave/, { selector: 'p' })).toBeTruthy();
+});
+
+it('las tarjetas de Datos siguen marcando su propio estado', async () => {
+  render(<MarketDataPage kind="macro" />);
   const card = await screen.findByRole('article', { name: 'Tipo efectivo federal' });
   act(() => {
-    simulation.emitDataStatus(failure);
-    simulation.emitDataStatus({ ...failure, key: 'macro:DFF' });
+    simulation.emitDataStatus({
+      key: 'macro:DFF',
+      state: 'no-fiable',
+      lastOkAt: '2026-10-07T20:00:00Z',
+      consecutiveFailures: 3,
+      reason: 'Proveedor caído',
+      updatedAt: '2026-10-08T20:00:00Z',
+    });
   });
-  const banner = await screen.findByRole('alert', { name: 'Estado de Proveedor simulado' });
-  expect(within(banner).getByText('Proveedor caído')).toBeTruthy();
-  expect(within(banner).getByText(/Último dato correcto/).textContent).toContain('22:00 (Madrid)');
   expect(within(card).getByText('No fiable')).toBeTruthy();
   expect(card.classList.contains('data-unreliable')).toBe(true);
-  expect(within(card).getByText(/Datos simulados/)).toBeTruthy();
-  await userEvent.click(within(banner).getByRole('button', { name: 'Reintentar' }));
-  expect(refresh).toHaveBeenCalledTimes(1);
-  expect(screen.getByText(/Actualización solicitada/)).toBeTruthy();
-  expect(screen.getByRole('alert', { name: 'Estado de Proveedor simulado' })).toBeTruthy();
-  act(() => {
-    simulation.emitDataStatus({
-      ...failure,
-      state: 'fiable',
-      reason: null,
-      consecutiveFailures: 0,
-    });
-    simulation.emitDataStatus({
-      ...failure,
-      key: 'macro:DFF',
-      state: 'fiable',
-      reason: null,
-      consecutiveFailures: 0,
-    });
-  });
-  await waitFor(() =>
-    expect(screen.queryByRole('alert', { name: 'Estado de Proveedor simulado' })).toBeNull(),
-  );
-  expect(within(card).getByText('Fiable')).toBeTruthy();
-  expect(card.classList.contains('data-unreliable')).toBe(false);
 });
-it('lee fallos iniciales, conserva otros proveedores y limpia la suscripción', async () => {
-  simulation.emitDataStatus(failure);
-  simulation.emitDataStatus({
-    ...failure,
-    key: 'provider:fred',
-    state: 'desactualizado',
-    lastOkAt: null,
+
+it('explica el rechazo del refresco sin ocultar el aviso', async () => {
+  simulation.emitDataStatus(staleTicker);
+  vi.spyOn(simulation.api.market, 'refreshNow').mockResolvedValueOnce({
+    accepted: false,
+    reason: 'en-curso',
   });
+  render(<ProviderBanner />);
+  const button = await screen.findByRole('button', { name: 'Actualizar ahora' });
+  await userEvent.click(button);
+  expect(screen.getByText('Actualización ya en curso.')).toBeTruthy();
+  expect(screen.getByRole('region', { name: 'Estado de los datos' })).toBeTruthy();
+});
+
+it('limpia la suscripción al desmontar', async () => {
   const { unmount } = render(<ProviderBanner />);
-  await screen.findByRole('alert', { name: 'Estado de FRED' });
-  expect(screen.getByText(/No hay un dato correcto registrado/)).toBeTruthy();
-  act(() => simulation.emitDataStatus({ ...failure, state: 'fiable' }));
-  await waitFor(() =>
-    expect(screen.queryByRole('alert', { name: 'Estado de Proveedor simulado' })).toBeNull(),
-  );
-  expect(screen.getByRole('alert', { name: 'Estado de FRED' })).toBeTruthy();
+  await waitFor(() => expect(simulation.listenerCount()).toBe(1));
   unmount();
   expect(simulation.listenerCount()).toBe(0);
 });
-it('explica el rechazo y el error de reintento sin ocultar la alerta', async () => {
-  simulation.emitDataStatus(failure);
-  const refresh = vi
-    .spyOn(simulation.api.market, 'refreshNow')
-    .mockResolvedValueOnce({ accepted: false, reason: 'en-curso' })
-    .mockRejectedValueOnce(new Error('detalle privado'));
-  render(<ProviderBanner />);
-  const button = await screen.findByRole('button', { name: 'Reintentar' });
-  await userEvent.click(button);
-  expect(screen.getByText('Ya hay una actualización en curso.')).toBeTruthy();
-  await userEvent.click(button);
-  expect(screen.getByText(/No pudimos iniciar/)).toBeTruthy();
-  expect(refresh).toHaveBeenCalledTimes(2);
-  expect(screen.queryByText('detalle privado')).toBeNull();
-});
-it('no presenta una fecha inválida como dato correcto', () => {
-  expect(lastCorrectDate('fecha inválida')).toBe('No hay un dato correcto registrado.');
+
+it('formatea la fecha de sesión en corto español', () => {
+  expect(sessionDateLabel('2026-10-06')).toContain('oct');
+  expect(sessionDateLabel(null)).toBe('sin datos');
+  expect(sessionDateLabel('no-es-fecha')).toBe('no-es-fecha');
 });

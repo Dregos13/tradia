@@ -4,7 +4,9 @@ import {
   allIpcChannels,
   ALERT_LEAD_MINUTES,
   BACKUP_FILE_PATTERN,
+  BROKER_ORDER_MODES,
   CALENDAR_EVENT_KINDS,
+  DATA_PROVIDER_IDS,
   DELIVERY_EVENT_KINDS,
   IMPACT_LEVELS,
   INITIAL_UNIVERSE_TICKERS,
@@ -16,6 +18,7 @@ import {
   isBrokerConnectRequest,
   isBrokerDiscrepancyRequest,
   isBrokerFailNextRequest,
+  isBrokerOrderMode,
   isBrokerOrdersQuery,
   isBrokerSeedWeeksRequest,
   isBrokerTestRequest,
@@ -55,6 +58,26 @@ import {
   isSignalsListQuery,
   isSimulateCalendarEventRequest,
   isKillSwitchCause,
+  isLiveActivateRequest,
+  isLiveConnectRequest,
+  isLiveDeclareRequest,
+  isLiveLimitsInput,
+  isLiveSeedProgressRequest,
+  isLiveSimulatedBrokerRequest,
+  isLiveSmokeTestRequest,
+  isNewsAnalysisQuery,
+  isNewsAnalyzer,
+  isNewsLlmSettingsInput,
+  isPredictionsQuery,
+  isProviderSimulateTestRequest,
+  isProviderTestRequest,
+  isProviderTestStatus,
+  isRegimeComparisonRequest,
+  isRegimeLabelList,
+  isRetrainResolveRequest,
+  isSignalAiContext,
+  isSimulateDriftRequest,
+  isSimulateRegimeRequest,
   isVetoReasonCode,
   isSettingsPatch,
   isSourceConnector,
@@ -81,9 +104,11 @@ import {
   isUpdateStrategyRequest,
   JOURNAL_ENTRY_TYPES,
   JOURNAL_LIST_MAX_LIMIT,
+  NEWS_ANALYZERS,
   NEWS_LIST_MAX_LIMIT,
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
+  ONBOARDING_TOUR_VERSION,
   RELIABILITY_LEVELS,
   RISK_DEFAULTS,
   RISK_VETOES_MAX_LIMIT,
@@ -92,6 +117,7 @@ import {
   SOURCE_KINDS,
   WATCHLIST_MAX_ITEMS,
 } from './ipc';
+import type { ProviderTestResult } from './ipc';
 
 describe('contrato IPC', () => {
   it('los nombres de canal son únicos', () => {
@@ -106,9 +132,10 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, reconcile, deviation y logs', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, providers, reconcile, deviation, logs, ai y live', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
+      'ai',
       'alerts',
       'backtest',
       'backup',
@@ -119,12 +146,14 @@ describe('contrato IPC', () => {
       'delivery',
       'deviation',
       'journal',
+      'live',
       'logs',
       'macro',
       'market',
       'news',
       'notifications',
       'orders',
+      'providers',
       'reconcile',
       'risk',
       'routine',
@@ -151,9 +180,13 @@ describe('contrato IPC', () => {
       updated: 'market:updated',
       advanceClock: 'market:advance-clock',
     });
-    expect(IPC_CHANNELS.macro.getSeries).toBe('macro:get-series');
+    expect(IPC_CHANNELS.macro).toEqual({
+      getSeries: 'macro:get-series',
+      refreshNow: 'macro:refresh-now',
+    });
     expect(IPC_CHANNELS.dataStatus).toEqual({
       get: 'data-status:get',
+      freshness: 'data-status:freshness',
       simulateProviderFailure: 'data-status:simulate-provider-failure',
       changed: 'data-status:changed',
     });
@@ -202,6 +235,8 @@ describe('contrato IPC', () => {
       get: 'backtest:get',
       runFinalTest: 'backtest:run-final-test',
       progress: 'backtest:progress',
+      regimeComparison: 'backtest:regime-comparison',
+      runRegimeComparison: 'backtest:run-regime-comparison',
     });
     expect(IPC_CHANNELS.stress).toEqual({ get: 'stress:get', run: 'stress:run' });
   });
@@ -298,6 +333,48 @@ describe('contrato IPC', () => {
     expect(IPC_CHANNELS.broker.seedWeeks).toBe('broker:seed-weeks');
   });
 
+  it('incluye los canales de la IA predictiva y del modo real (fases 6-7)', () => {
+    expect(IPC_CHANNELS.ai).toEqual({
+      regimeOverview: 'ai:regime-overview',
+      predictions: 'ai:predictions',
+      modelCard: 'ai:model-card',
+      newsAnalysis: 'ai:news-analysis',
+      getLlmSettings: 'ai:get-llm-settings',
+      setLlmSettings: 'ai:set-llm-settings',
+      testLlm: 'ai:test-llm',
+      health: 'ai:health',
+      retrainProposals: 'ai:retrain-proposals',
+      resolveRetrain: 'ai:resolve-retrain',
+      changed: 'ai:changed',
+      simulateRegime: 'ai:simulate-regime',
+      simulateDrift: 'ai:simulate-drift',
+    });
+    expect(IPC_CHANNELS.live).toEqual({
+      checklist: 'live:checklist',
+      state: 'live:state',
+      declare: 'live:declare',
+      setLimits: 'live:set-limits',
+      connect: 'live:connect',
+      activate: 'live:activate',
+      deactivate: 'live:deactivate',
+      testKillSwitch: 'live:test-kill-switch',
+      smokeTest: 'live:smoke-test',
+      scaling: 'live:scaling',
+      changed: 'live:changed',
+      seedProgress: 'live:seed-progress',
+      useSimulatedBroker: 'live:use-simulated-broker',
+    });
+    expect(IPC_CHANNELS.backtest.regimeComparison).toBe('backtest:regime-comparison');
+    expect(IPC_CHANNELS.backtest.runRegimeComparison).toBe('backtest:run-regime-comparison');
+  });
+
+  it('los ganchos E2E de las fases 6-7 son canales marcados como solo desarrollo', () => {
+    expect(IPC_CHANNELS.ai.simulateRegime).toBe('ai:simulate-regime');
+    expect(IPC_CHANNELS.ai.simulateDrift).toBe('ai:simulate-drift');
+    expect(IPC_CHANNELS.live.seedProgress).toBe('live:seed-progress');
+    expect(IPC_CHANNELS.live.useSimulatedBroker).toBe('live:use-simulated-broker');
+  });
+
   it('el universo inicial cabe en el límite de la lista', () => {
     expect(INITIAL_UNIVERSE_TICKERS.length).toBeLessThanOrEqual(WATCHLIST_MAX_ITEMS);
     expect(new Set(INITIAL_UNIVERSE_TICKERS).size).toBe(INITIAL_UNIVERSE_TICKERS.length);
@@ -305,7 +382,14 @@ describe('contrato IPC', () => {
 
   it('secrets no expone ningún canal de lectura', () => {
     const secretChannels = Object.values(IPC_CHANNELS.secrets);
-    expect(secretChannels).toHaveLength(3);
+    expect(secretChannels).toHaveLength(4);
+    // secrets:changed solo notifica el nombre del proveedor, nunca lee claves.
+    expect(secretChannels).toEqual([
+      'secrets:set-key',
+      'secrets:has-key',
+      'secrets:delete-key',
+      'secrets:changed',
+    ]);
     for (const channel of secretChannels) {
       expect(channel).not.toContain('get');
     }
@@ -1134,9 +1218,9 @@ describe('guardas del broker en modo paper (fase 5)', () => {
     expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123' })).toBe(false);
     expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'con espacios' })).toBe(false);
     expect(isBrokerConnectRequest({ apiKeyId: 'short', apiSecret: 'sk-test' })).toBe(false);
-    expect(
-      isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'sk-test', extra: 1 }),
-    ).toBe(false);
+    expect(isBrokerConnectRequest({ apiKeyId: 'PKABC123', apiSecret: 'sk-test', extra: 1 })).toBe(
+      false,
+    );
     expect(isBrokerConnectRequest(null)).toBe(false);
     expect(isBrokerConnectRequest('PKABC123:sk-test')).toBe(false);
   });
@@ -1155,7 +1239,9 @@ describe('guardas del broker en modo paper (fase 5)', () => {
     expect(isBrokerOrdersQuery({})).toBe(true);
     expect(isBrokerOrdersQuery({ status: 'enviada' })).toBe(true);
     expect(isBrokerOrdersQuery({ status: 'abierta' })).toBe(false);
-    expect(isBrokerOrdersQuery({ strategyId: 3, ticker: 'aapl', limit: 50, offset: 10 })).toBe(true);
+    expect(isBrokerOrdersQuery({ strategyId: 3, ticker: 'aapl', limit: 50, offset: 10 })).toBe(
+      true,
+    );
     expect(isBrokerOrdersQuery({ strategyId: 1.5 })).toBe(false);
     expect(isBrokerOrdersQuery({ ticker: '***' })).toBe(false);
     expect(isBrokerOrdersQuery({ limit: 0 })).toBe(false);
@@ -1226,6 +1312,248 @@ describe('guardas del broker en modo paper (fase 5)', () => {
   });
 });
 
+describe('guardas de las fases 6-7 (IA predictiva y dinero real)', () => {
+  it('valida las listas de etiquetas de régimen de la ficha', () => {
+    expect(isRegimeLabelList(['tendencia'])).toBe(true);
+    expect(isRegimeLabelList(['lateral', 'volatilidad-alta'])).toBe(true);
+    expect(isRegimeLabelList([])).toBe(true);
+    expect(isRegimeLabelList(['tendencia', 'tendencia'])).toBe(false);
+    expect(isRegimeLabelList(['alcista'])).toBe(false);
+    expect(isRegimeLabelList('tendencia')).toBe(false);
+    expect(isRegimeLabelList(null)).toBe(false);
+
+    // Una etiqueta no puede estar a la vez en «funciona en» y «falla en».
+    const ficha = {
+      name: 'Estrategia',
+      hypothesis: 'hipótesis',
+      rules: { entry: 'e', exit: 's', stop: 't', target: 'o' },
+      parameters: {},
+      markets: ['SPY'],
+      regime: 'texto',
+    };
+    expect(
+      isCreateStrategyRequest({ ...ficha, worksIn: ['tendencia'], failsIn: ['lateral'] }),
+    ).toBe(true);
+    expect(
+      isCreateStrategyRequest({ ...ficha, worksIn: ['tendencia'], failsIn: ['tendencia'] }),
+    ).toBe(false);
+    expect(isCreateStrategyRequest({ ...ficha, worksIn: ['alcista'] })).toBe(false);
+    expect(isCreateStrategyRequest({ ...ficha, failsIn: 'lateral' })).toBe(false);
+  });
+
+  it('valida el contexto de IA de una señal (opcional en la intención)', () => {
+    const ai = {
+      regime: { direction: 'tendencia', volatility: 'volatilidad-alta' },
+      probability: 0.62,
+      horizonDays: 5,
+      modelVersion: '0.1.0',
+      modelHash: 'a'.repeat(64),
+      newsItemIds: [3, 7],
+    };
+    expect(isSignalAiContext(ai)).toBe(true);
+    expect(isSignalAiContext({ ...ai, regime: null })).toBe(true);
+    expect(isSignalAiContext({ ...ai, probability: null })).toBe(true);
+    expect(isSignalAiContext({ ...ai, probability: 1.2 })).toBe(false);
+    expect(isSignalAiContext({ ...ai, regime: { direction: 'alza' } })).toBe(false);
+    expect(isSignalAiContext({ ...ai, newsItemIds: [0] })).toBe(false);
+    expect(isSignalAiContext({ ...ai, extra: 1 })).toBe(false);
+    expect(isSignalAiContext('ia')).toBe(false);
+    expect(isSignalAiContext(null)).toBe(false);
+
+    // La intención de señal lo admite como campo opcional.
+    const senal = {
+      ticker: 'AAPL',
+      direction: 'largo',
+      entry: 200,
+      stop: 190,
+      target: 220,
+      confidence: 0.8,
+      origin: 'estrategia',
+    };
+    expect(isSignalIntent({ ...senal, ai })).toBe(true);
+    expect(isSignalIntent({ ...senal, ai: { probability: 2 } })).toBe(false);
+  });
+
+  it('valida las consultas de predicciones y de análisis de noticias', () => {
+    expect(isPredictionsQuery(undefined)).toBe(true);
+    expect(isPredictionsQuery({})).toBe(true);
+    expect(isPredictionsQuery({ ticker: 'AAPL', limit: 20 })).toBe(true);
+    expect(isPredictionsQuery({ ticker: '***' })).toBe(false);
+    expect(isPredictionsQuery({ limit: 0 })).toBe(false);
+    expect(isPredictionsQuery({ limit: 10_000 })).toBe(false);
+    expect(isPredictionsQuery({ extra: 1 })).toBe(false);
+    expect(isPredictionsQuery(null)).toBe(false);
+
+    expect(isNewsAnalysisQuery(undefined)).toBe(true);
+    expect(isNewsAnalysisQuery({ newsItemId: 3, ticker: 'AAPL' })).toBe(true);
+    expect(isNewsAnalysisQuery({ newsItemId: 0 })).toBe(false);
+    expect(isNewsAnalysisQuery({ newsItemId: 1.5 })).toBe(false);
+    expect(isNewsAnalysisQuery({ ticker: 'DROP TABLE' })).toBe(false);
+    expect(isNewsAnalysisQuery({ limit: 201 })).toBe(false);
+    expect(isNewsAnalysisQuery(null)).toBe(false);
+  });
+
+  it('valida los ajustes del LLM: campos parciales dentro de márgenes', () => {
+    expect(isNewsLlmSettingsInput({ enabled: true })).toBe(true);
+    expect(isNewsLlmSettingsInput({ dailyCap: 50 })).toBe(true);
+    expect(isNewsLlmSettingsInput({ monthlyBudgetEur: 10 })).toBe(true);
+    expect(isNewsLlmSettingsInput({ monthlyBudgetEur: 0 })).toBe(true);
+    expect(isNewsLlmSettingsInput({ enabled: 'sí' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ dailyCap: 0 })).toBe(false);
+    expect(isNewsLlmSettingsInput({ dailyCap: 20_001 })).toBe(false);
+    expect(isNewsLlmSettingsInput({ monthlyBudgetEur: -1 })).toBe(false);
+    expect(isNewsLlmSettingsInput({ monthlyBudgetEur: 31 })).toBe(false);
+    expect(isNewsLlmSettingsInput({ apiKey: 'sk-…' })).toBe(false);
+    expect(isNewsLlmSettingsInput({})).toBe(false);
+    expect(isNewsLlmSettingsInput(null)).toBe(false);
+  });
+
+  it('valida la resolución de propuestas de reentrenamiento', () => {
+    expect(isRetrainResolveRequest({ id: 1, action: 'aprobar' })).toBe(true);
+    expect(
+      isRetrainResolveRequest({ id: 1, action: 'posponer', postponeUntil: '2026-12-31' }),
+    ).toBe(true);
+    expect(
+      isRetrainResolveRequest({
+        id: 1,
+        action: 'posponer',
+        postponeUntil: '2026-12-31',
+        note: 'ok',
+      }),
+    ).toBe(true);
+    // Posponer exige la fecha; aprobar no la necesita.
+    expect(isRetrainResolveRequest({ id: 1, action: 'posponer' })).toBe(false);
+    expect(isRetrainResolveRequest({ id: 1, action: 'ejecutar' })).toBe(false);
+    expect(isRetrainResolveRequest({ id: 0, action: 'aprobar' })).toBe(false);
+    expect(isRetrainResolveRequest({ id: 1, action: 'aprobar', extra: 1 })).toBe(false);
+    expect(isRetrainResolveRequest(null)).toBe(false);
+  });
+
+  it('valida la comparación de régimen del backtest', () => {
+    expect(isRegimeComparisonRequest({ strategyId: 1 })).toBe(true);
+    expect(isRegimeComparisonRequest({ strategyId: 1, version: 2 })).toBe(true);
+    expect(isRegimeComparisonRequest({ strategyId: 'x' })).toBe(false);
+    expect(isRegimeComparisonRequest({ strategyId: 1, version: 0 })).toBe(false);
+    expect(isRegimeComparisonRequest({ strategyId: 1, desde: '2020-01-01' })).toBe(false);
+    expect(isRegimeComparisonRequest(null)).toBe(false);
+  });
+
+  it('valida las declaraciones manuales de la lista de dinero real', () => {
+    expect(isLiveDeclareRequest({ requirement: 'revision-legal', confirmed: true })).toBe(true);
+    expect(
+      isLiveDeclareRequest({
+        requirement: 'plan-contingencia',
+        confirmed: true,
+        detail: 'docs/contingencia.md',
+      }),
+    ).toBe(true);
+    expect(isLiveDeclareRequest({ requirement: 'revision-legal', confirmed: false })).toBe(true);
+    // Los requisitos automáticos no aceptan declaración manual.
+    expect(isLiveDeclareRequest({ requirement: 'paper-continuo', confirmed: true })).toBe(false);
+    expect(isLiveDeclareRequest({ requirement: 'inventado', confirmed: true })).toBe(false);
+    expect(isLiveDeclareRequest({ requirement: 'revision-legal', confirmed: 'sí' })).toBe(false);
+    expect(isLiveDeclareRequest({ requirement: 'revision-legal' })).toBe(false);
+    expect(isLiveDeclareRequest({ requirement: 'revision-legal', confirmed: true, extra: 1 })).toBe(
+      false,
+    );
+    expect(isLiveDeclareRequest(null)).toBe(false);
+  });
+
+  it('los límites escritos nunca superan los techos fijos', () => {
+    const limits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+    expect(isLiveLimitsInput(limits)).toBe(true);
+    expect(
+      isLiveLimitsInput({ capitalUsd: 1_000, orderUsd: 200, dailyLossUsd: 20, openPositions: 2 }),
+    ).toBe(true);
+    expect(isLiveLimitsInput({ ...limits, capitalUsd: 1_001 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, orderUsd: 201 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, dailyLossUsd: 21 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, openPositions: 3 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, openPositions: 0 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, capitalUsd: 0 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, orderUsd: -5 })).toBe(false);
+    expect(isLiveLimitsInput({ capitalUsd: 500, orderUsd: 100 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, extra: 1 })).toBe(false);
+    expect(isLiveLimitsInput(null)).toBe(false);
+  });
+
+  it('la activación exige una frase escrita; el humo, confirmación', () => {
+    expect(isLiveActivateRequest({ phrase: 'ACTIVO DINERO REAL CON 500 USD…' })).toBe(true);
+    expect(isLiveActivateRequest({ phrase: '  ' })).toBe(false);
+    expect(isLiveActivateRequest({ phrase: 42 })).toBe(false);
+    expect(isLiveActivateRequest({})).toBe(false);
+    expect(isLiveActivateRequest({ phrase: 'x', confirm: true })).toBe(false);
+    expect(isLiveActivateRequest(null)).toBe(false);
+
+    expect(isLiveSmokeTestRequest({ confirm: true })).toBe(true);
+    expect(isLiveSmokeTestRequest({ confirm: false })).toBe(false);
+    expect(isLiveSmokeTestRequest({})).toBe(false);
+    expect(isLiveSmokeTestRequest(null)).toBe(false);
+  });
+
+  it('las claves live usan el mismo formato que las del broker paper', () => {
+    expect(isLiveConnectRequest({ apiKeyId: 'AKFAKE123', apiSecret: 'super-secret-1' })).toBe(true);
+    expect(isLiveConnectRequest({ apiKeyId: 'PK12', apiSecret: 'x' })).toBe(false);
+    expect(isLiveConnectRequest({ apiKeyId: 'AKFAKE123' })).toBe(false);
+    expect(isLiveConnectRequest({ apiKeyId: 'AKFAKE123', apiSecret: 'x', extra: 1 })).toBe(false);
+    expect(isLiveConnectRequest(null)).toBe(false);
+  });
+
+  it('los ganchos E2E de régimen, drift y siembra live validan su forma', () => {
+    expect(isSimulateRegimeRequest({ scope: 'mercado', direction: 'lateral' })).toBe(true);
+    expect(
+      isSimulateRegimeRequest({
+        ticker: 'AAPL',
+        direction: 'lateral',
+        volatility: 'volatilidad-baja',
+      }),
+    ).toBe(true);
+    expect(
+      isSimulateRegimeRequest({
+        ticker: 'AAPL',
+        volatility: 'volatilidad-baja',
+        sessionDate: '2026-10-09',
+      }),
+    ).toBe(true);
+    expect(isSimulateRegimeRequest({ ticker: 'AAPL' })).toBe(false);
+    expect(isSimulateRegimeRequest({ scope: 'activo', direction: 'lateral' })).toBe(false);
+    expect(isSimulateRegimeRequest({ scope: 'mercado', direction: 'alza' })).toBe(false);
+    expect(isSimulateRegimeRequest({ scope: 'mercado', direction: 'lateral', extra: 1 })).toBe(
+      false,
+    );
+    expect(isSimulateRegimeRequest(null)).toBe(false);
+
+    expect(isSimulateDriftRequest({ kind: 'datos', streak: 20 })).toBe(true);
+    expect(isSimulateDriftRequest({ kind: 'rendimiento', subjectId: 2 })).toBe(true);
+    expect(isSimulateDriftRequest({ kind: 'inventado' })).toBe(false);
+    expect(isSimulateDriftRequest({ kind: 'datos', streak: 0 })).toBe(false);
+    expect(isSimulateDriftRequest({ kind: 'datos', streak: 1.5 })).toBe(false);
+    expect(isSimulateDriftRequest(null)).toBe(false);
+
+    expect(isLiveSeedProgressRequest(undefined)).toBe(true);
+    expect(isLiveSeedProgressRequest({})).toBe(true);
+    expect(
+      isLiveSeedProgressRequest({
+        paperMonths: 4,
+        paperTrades: 36,
+        deviationPct: -4,
+        finalTestDone: true,
+        killSwitchTested: true,
+        alertsTested: true,
+      }),
+    ).toBe(true);
+    expect(isLiveSeedProgressRequest({ paperMonths: -1 })).toBe(false);
+    expect(isLiveSeedProgressRequest({ paperTrades: 2.5 })).toBe(false);
+    expect(isLiveSeedProgressRequest({ finalTestDone: 'sí' })).toBe(false);
+    expect(isLiveSeedProgressRequest({ extra: 1 })).toBe(false);
+    expect(isLiveSeedProgressRequest(null)).toBe(false);
+
+    expect(isLiveSimulatedBrokerRequest({ enabled: true })).toBe(true);
+    expect(isLiveSimulatedBrokerRequest({ enabled: 'sí' })).toBe(false);
+    expect(isLiveSimulatedBrokerRequest({})).toBe(false);
+  });
+});
+
 describe('ganchos E2E', () => {
   it('isE2eEnabled exige la variable y una ejecución no empaquetada', () => {
     expect(isE2eEnabled(false, '1')).toBe(true);
@@ -1233,5 +1561,101 @@ describe('ganchos E2E', () => {
     expect(isE2eEnabled(false, '0')).toBe(false);
     expect(isE2eEnabled(false, 'true')).toBe(false);
     expect(isE2eEnabled(false, undefined)).toBe(false);
+  });
+});
+
+describe('contrato de la continuación (modo por orden, proveedores, tour, LLM)', () => {
+  it('registra los canales de proveedores (prueba de conexión y gancho E2E)', () => {
+    expect(IPC_CHANNELS.providers.testConnection).toBe('providers:test-connection');
+    expect(IPC_CHANNELS.providers.simulateTest).toBe('providers:simulate-test');
+    expect(allIpcChannels()).toContain('providers:test-connection');
+    expect(allIpcChannels()).toContain('providers:simulate-test');
+  });
+
+  it('ProviderTestResult no tiene ningún campo de clave ni secreto', () => {
+    const result: ProviderTestResult = {
+      provider: 'tiingo',
+      status: 'ok',
+      message: 'Conectado · último dato 2026-10-09',
+      latestDataDate: '2026-10-09',
+      checkedAt: '2026-10-10T12:00:00.000Z',
+      latencyMs: 120,
+    };
+    expect(Object.keys(result).sort()).toEqual([
+      'checkedAt',
+      'latencyMs',
+      'latestDataDate',
+      'message',
+      'provider',
+      'status',
+    ]);
+    // Ningún campo puede transportar la clave ni fragmentos de ella.
+    for (const key of Object.keys(result)) {
+      expect(key).not.toMatch(/key|secret|token|clave/i);
+    }
+  });
+
+  it('solo Tiingo y FRED son proveedores de datos del contrato', () => {
+    expect(DATA_PROVIDER_IDS).toEqual(['tiingo', 'fred']);
+    expect(isProviderTestRequest({ provider: 'tiingo' })).toBe(true);
+    expect(isProviderTestRequest({ provider: 'fred' })).toBe(true);
+    expect(isProviderTestRequest({ provider: 'alpaca' })).toBe(false);
+    expect(isProviderTestRequest({ provider: 'tiingo', apiKey: 'x' })).toBe(false);
+    expect(isProviderTestRequest({})).toBe(false);
+    expect(isProviderTestRequest(null)).toBe(false);
+    expect(isProviderTestRequest('tiingo')).toBe(false);
+  });
+
+  it('los estados de la prueba son los del contrato y el gancho los valida', () => {
+    expect(isProviderTestStatus('ok')).toBe(true);
+    expect(isProviderTestStatus('sin-clave')).toBe(true);
+    expect(isProviderTestStatus('clave-rechazada')).toBe(true);
+    expect(isProviderTestStatus('cuota')).toBe(true);
+    expect(isProviderTestStatus('sin-red')).toBe(true);
+    expect(isProviderTestStatus('error')).toBe(true);
+    expect(isProviderTestStatus('otro')).toBe(false);
+    expect(isProviderSimulateTestRequest({ provider: 'fred', status: 'cuota' })).toBe(true);
+    expect(isProviderSimulateTestRequest({ provider: 'fred', status: 'otro' })).toBe(false);
+    expect(isProviderSimulateTestRequest({ status: 'ok' })).toBe(false);
+    expect(isProviderSimulateTestRequest(null)).toBe(false);
+  });
+
+  it('BrokerOrder.mode distingue paper y live, y orders:list lo filtra', () => {
+    expect(BROKER_ORDER_MODES).toEqual(['paper', 'live']);
+    expect(isBrokerOrderMode('paper')).toBe(true);
+    expect(isBrokerOrderMode('live')).toBe(true);
+    expect(isBrokerOrderMode('demo')).toBe(false);
+    expect(isBrokerOrdersQuery({ mode: 'live' })).toBe(true);
+    expect(isBrokerOrdersQuery({ status: 'ejecutada', mode: 'paper', limit: 10 })).toBe(true);
+    expect(isBrokerOrdersQuery({ mode: 'demo' })).toBe(false);
+    expect(isBrokerOrdersQuery({ mode: 'live', extra: 1 })).toBe(false);
+  });
+
+  it('el tour vive en ajustes: versión escribible, fecha solo de main', () => {
+    expect(typeof ONBOARDING_TOUR_VERSION).toBe('string');
+    expect(ONBOARDING_TOUR_VERSION.length).toBeGreaterThan(0);
+    expect(isSettingsPatch({ onboardingTourVersion: ONBOARDING_TOUR_VERSION })).toBe(true);
+    expect(isSettingsPatch({ onboardingTourVersion: null })).toBe(true);
+    expect(isSettingsPatch({ onboardingTourVersion: 3 })).toBe(false);
+    // La fecha de finalización la fija el proceso principal, no el renderer.
+    expect(isSettingsPatch({ onboardingTourCompletedAt: '2026-10-10T00:00:00Z' })).toBe(false);
+  });
+
+  it('NEWS_ANALYZERS amplía con suscripcion y los ajustes llevan proveedor y cliPath', () => {
+    expect(NEWS_ANALYZERS).toEqual(['llm', 'local', 'suscripcion']);
+    expect(isNewsAnalyzer('suscripcion')).toBe(true);
+    expect(isNewsAnalyzer('api')).toBe(false);
+    expect(isNewsLlmSettingsInput({ provider: 'suscripcion' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ provider: 'local' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ provider: 'otro' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ cliPath: '/usr/local/bin/claude' })).toBe(true);
+    expect(isNewsLlmSettingsInput({ cliPath: null })).toBe(true);
+    expect(isNewsLlmSettingsInput({ cliPath: '' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ cliPath: '  ' })).toBe(false);
+    expect(
+      isNewsLlmSettingsInput({ provider: 'suscripcion', cliPath: '/x/claude', dailyCap: 50 }),
+    ).toBe(true);
+    // Los campos anteriores siguen validando igual (aditivo).
+    expect(isNewsLlmSettingsInput({ enabled: true, monthlyBudgetEur: 5 })).toBe(true);
   });
 });

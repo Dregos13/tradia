@@ -113,7 +113,9 @@ describe('las tres crisis con las cuatro estrategias clásicas (proveedor simula
         expect(result.dataSource).toBe('simulated');
         expect(result.providerId).toBe('simulated');
       }
-    }, 30_000);
+      // 60 s: momentum tarda ~3 s en reposo y el resto menos de 2 s; el
+      // margen cubre la contienda de CPU de la suite con --maxWorkers=2.
+    }, 60_000);
   }
 });
 
@@ -161,7 +163,9 @@ describe('calentamiento previo a cada ventana', () => {
       expect(calls[i]).toEqual({ desde: warmupStartDate(window.desde, 100), hasta: window.hasta });
       expect(calls[i]!.desde < window.desde).toBe(true);
     }
-  });
+    // 30 s: corre las tres crisis con RSI (~0,3 s en reposo) sobre el
+    // proveedor simulado; margen para la contienda de --maxWorkers=2.
+  }, 30_000);
 
   it('ninguna operación ni punto de la curva cae antes del inicio de la ventana', async () => {
     const sim = cachedSimulated();
@@ -218,7 +222,9 @@ describe('calentamiento previo a cada ventana', () => {
       '9999-99-99',
     );
     expect(firstSignal < '2020-03-19').toBe(true);
-  });
+    // 30 s: un backtest de momentum (~1,8 s en reposo) sobre el universo
+    // completo de ETF; margen para la contienda de --maxWorkers=2.
+  }, 30_000);
 });
 
 // ---------------------------------------------------------------------------

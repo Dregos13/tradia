@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 test('añade un ticker, recibe histórico simulado con indicadores y confirma quitarlo', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-chart-'));
@@ -37,6 +38,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await page.getByRole('link', { name: 'Mercado', exact: true }).click();
     await expect(page.getByText('Tu lista está vacía.')).toBeVisible();
     const tickerInput = page.getByLabel('Ticker', { exact: true });
@@ -97,6 +99,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       true,
     );
     const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
+    const liveLink = navigation.getByRole('link', { name: 'Dinero real', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
     const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
     const deviationLink = navigation.getByRole('link', {
@@ -117,7 +120,12 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.keyboard.press('Tab');
     await expect(deviationLink).toBeFocused();
     await page.keyboard.press('Tab');
+    // La fase 7 inserta «Dinero real» entre «Real vs backtest» y Ajustes.
+    await expect(liveLink).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(settingsLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(liveLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(deviationLink).toBeFocused();
     await page.keyboard.press('Shift+Tab');
@@ -161,9 +169,12 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
         )
         .toBeGreaterThanOrEqual(failure);
     }
-    const providerBanner = page.getByRole('alert', { name: /Estado de Proveedor simulado/ });
+    // Franja única de frescura para toda la app (sustituye a la de cada proveedor).
+    const providerBanner = page.getByRole('region', { name: 'Estado de los datos' });
+    await expect(providerBanner).toHaveCount(1);
     await expect(providerBanner).toBeVisible();
-    await expect(providerBanner.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+    await expect(providerBanner).toContainText(/Datos no fiables desde el/);
+    await expect(providerBanner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
     await expect(page.locator('.market-chart-card')).toHaveClass(/data-unreliable/);
     await expect
       .poll(() =>
@@ -181,10 +192,13 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.screenshot({ path: 'test-results/provider-failure-dark.png' });
-    await providerBanner.getByRole('button', { name: 'Reintentar' }).click();
-    await expect(page.locator('.provider-banners').getByRole('status')).toContainText(
-      'Actualización solicitada',
-    );
+    await providerBanner.getByRole('button', { name: 'Actualizar ahora' }).click();
+    // Con el proveedor aún caído, la pasada falla y se explica el motivo real.
+    await expect(
+      providerBanner
+        .getByRole('status')
+        .filter({ hasText: /^No se pudo actualizar: fallo simulado del proveedor \(network\)/ }),
+    ).toBeVisible();
     await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
     await expect(providerBanner).toHaveCount(0);
     await expect(page.locator('.market-chart-card')).not.toHaveClass(/data-unreliable/);

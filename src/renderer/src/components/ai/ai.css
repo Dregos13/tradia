@@ -1,0 +1,283 @@
+.ai-page {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+  color: var(--color-text);
+}
+.ai-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+.ai-top h2 {
+  font-family: var(--font-editorial);
+  font-size: var(--type-2xl);
+  margin: 0;
+}
+.ai-page h3 {
+  font-size: var(--type-lg);
+  margin: 0 0 var(--space-3);
+}
+.ai-page h4 {
+  font-size: var(--type-md);
+  margin: var(--space-6) 0 var(--space-3);
+}
+.ai-top p,
+.ai-hint,
+.ai-model-facts dt,
+.ai-brier dt {
+  color: var(--color-textMuted);
+}
+.ai-notice,
+.ai-warning,
+.ai-error {
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  margin: 0;
+}
+.ai-notice {
+  color: var(--ai-probability-primary);
+  background: var(--ai-probability-primary-surface);
+}
+.ai-warning {
+  color: var(--ai-eligibility-disabled);
+  background: var(--ai-eligibility-disabled-surface);
+}
+.ai-error {
+  color: var(--ai-modelFitness-synthetic);
+  background: var(--ai-modelFitness-synthetic-surface);
+}
+.ai-section {
+  min-width: 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-6);
+}
+.ai-regime-summary {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+}
+.ai-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.ai-table-wrap table {
+  width: 100%;
+  min-width: var(--ai-table-min);
+  border-collapse: collapse;
+}
+.ai-table-wrap caption {
+  text-align: left;
+  padding: var(--space-3);
+  color: var(--color-textMuted);
+}
+.ai-table-wrap th,
+.ai-table-wrap td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.ai-table-wrap thead {
+  background: var(--color-surfaceSubtle);
+  font-size: var(--type-xs);
+}
+.ai-page small {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--type-xs);
+}
+.ai-hint {
+  font-size: var(--type-xs);
+}
+.ai-numeric,
+.ai-page time,
+.ai-model-facts dd,
+.ai-brier dd,
+.ai-calibration text {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.ai-filter {
+  display: grid;
+  gap: var(--space-2);
+  max-width: var(--ai-filter-max);
+}
+.ai-filter select {
+  font: inherit;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-borderStrong);
+  border-radius: var(--radius-sm);
+  min-height: var(--size-controlMin);
+  padding: var(--space-2);
+}
+.ai-probability {
+  display: block;
+  width: 100%;
+  height: var(--ai-track-height);
+  margin-top: var(--space-3);
+}
+.ai-prob-up {
+  fill: var(--ai-probability-primary);
+}
+.ai-prob-down {
+  fill: var(--ai-probability-complement-surface);
+}
+.ai-model-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.ai-model-facts dd,
+.ai-brier dd {
+  margin: var(--space-2) 0;
+}
+.ai-hash {
+  overflow-wrap: anywhere;
+}
+.ai-model-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-6);
+}
+.ai-brier {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+.ai-brier dd {
+  font-size: var(--type-xl);
+}
+.ai-calibration {
+  width: 100%;
+  min-height: var(--ai-chart-height);
+  height: auto;
+  display: block;
+}
+.ai-calibration text {
+  fill: var(--color-textMuted);
+  font-size: var(--type-xs);
+}
+.ai-chart-grid {
+  stroke: var(--ai-chart-grid);
+}
+.ai-chart-ideal {
+  stroke: var(--ai-chart-calibrationIdeal);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+.ai-chart-model {
+  fill: none;
+  stroke: var(--ai-chart-calibrationObserved);
+  stroke-width: 3;
+}
+.ai-chart-point {
+  fill: var(--color-surface);
+  stroke: var(--ai-chart-calibrationObserved);
+  stroke-width: 2;
+}
+.ai-chart-legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--type-xs);
+}
+.ai-chart-legend span:first-child {
+  color: var(--ai-chart-calibrationIdeal);
+}
+.ai-chart-legend span:last-child {
+  color: var(--ai-chart-calibrationObserved);
+}
+.ai-page a {
+  color: var(--color-accent);
+  text-underline-offset: var(--space-1);
+}
+.ai-page :focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.ai-page button:disabled {
+  cursor: not-allowed;
+}
+.ai-skeleton {
+  display: grid;
+  gap: var(--space-6);
+}
+.ai-skeleton div {
+  height: var(--ai-chart-height);
+  background: var(--color-surfaceSubtle);
+  border-radius: var(--radius-md);
+}
+@media (max-width: 1000px) {
+  .ai-model-grid {
+    grid-template-columns: 1fr;
+  }
+  .ai-model-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .ai-model-facts {
+    grid-template-columns: 1fr;
+  }
+  .ai-top {
+    flex-direction: column;
+  }
+}
+.ai-regime-trend {
+  color: var(--ai-regime-trend);
+  background: var(--ai-regime-trend-surface);
+}
+.ai-regime-sideways {
+  color: var(--ai-regime-sideways);
+  background: var(--ai-regime-sideways-surface);
+}
+.ai-regime-highVolatility {
+  color: var(--ai-regime-highVolatility);
+  background: var(--ai-regime-highVolatility-surface);
+}
+.ai-regime-lowVolatility {
+  color: var(--ai-regime-lowVolatility);
+  background: var(--ai-regime-lowVolatility-surface);
+}
+.ai-regime-unknown {
+  color: var(--ai-regime-unknown);
+  background: var(--ai-regime-unknown-surface);
+}
+.ai-eligibility-enabled {
+  color: var(--ai-eligibility-enabled);
+  background: var(--ai-eligibility-enabled-surface);
+}
+.ai-eligibility-disabled {
+  color: var(--ai-eligibility-disabled);
+  background: var(--ai-eligibility-disabled-surface);
+}
+.ai-eligibility-degraded {
+  color: var(--ai-eligibility-degraded);
+  background: var(--ai-eligibility-degraded-surface);
+}
+.ai-modelFitness-eligible {
+  color: var(--ai-modelFitness-eligible);
+  background: var(--ai-modelFitness-eligible-surface);
+}
+.ai-modelFitness-synthetic {
+  color: var(--ai-modelFitness-synthetic);
+  background: var(--ai-modelFitness-synthetic-surface);
+}
+.ai-modelFitness-unrated {
+  color: var(--ai-modelFitness-unrated);
+  background: var(--ai-modelFitness-unrated-surface);
+}

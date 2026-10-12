@@ -1,18 +1,24 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import type { LiveState } from '../../shared/live';
+import { ONBOARDING_TOUR_VERSION } from '../../shared/ipc';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { createSimulatedAdapter } from './adapters/simulated';
 
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 beforeEach(async () => {
   window.location.hash = '';
+  localStorage.clear();
   simulation = createSimulatedAdapter();
   window.tradia = simulation.api;
-  await simulation.api.settings.set({ disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION });
+  await simulation.api.settings.set({
+    disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION,
+    onboardingTourVersion: ONBOARDING_TOUR_VERSION,
+  });
 });
 afterEach(() => {
   cleanup();
@@ -137,7 +143,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(8);
+    expect(simulation.listenerCount()).toBe(16);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });
@@ -160,7 +166,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configurar claves' })).toHaveAttribute(
       'href',
-      '#ajustes',
+      name === 'Macro' ? '#ajustes?provider=fred&focus=key' : '#ajustes?provider=tiingo&focus=key',
     );
   }
   await user.click(screen.getByRole('link', { name: 'Configurar claves' }));
@@ -345,4 +351,261 @@ it('marca Posiciones simuladas solo cuando hay una cuenta paper conectada', asyn
       'Paper conectado',
     ),
   ).toBeVisible();
+});
+
+const createStrategy = () =>
+  simulation.api.strategies.create({
+    name: 'Estrategia de prueba',
+    hypothesis: 'Tendencia persistente',
+    rules: {
+      entry: 'Comprar',
+      exit: 'Vender',
+      stop: 'Cinco por ciento',
+      target: 'Salida por señal',
+    },
+    markets: ['SPY'],
+    parameters: {},
+    regime: 'Tendencia',
+    worksIn: ['tendencia'],
+    failsIn: ['lateral'],
+  });
+const online = () =>
+  simulation.emitConnectivity({
+    status: 'online',
+    attempt: 0,
+    lastCheckedAt: '2026-10-10T14:00:00Z',
+    nextRetryAt: null,
+  });
+
+it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', async () => {
+  online();
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  const nav = within(screen.getByRole('navigation', { name: 'Principal' }));
+  const routes = nav.getAllByRole('link').map((link) => link.getAttribute('href'));
+  expect(routes.slice(1, 4)).toEqual(['#mercado', '#ia', '#salud-modelos']);
+  expect(routes.slice(-2)).toEqual(['#dinero-real', '#ajustes']);
+  for (const name of ['IA', 'Salud de modelos', 'Dinero real']) {
+    const link = nav.getByRole('link', { name });
+    link.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 2, name })).toBeVisible();
+  }
+  expect(screen.getByRole('heading', { name: 'Prueba de humo · 1,00 USD reales' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Estado del escalado' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
+});
+
+it.each([
+  ['ia', 'IA'],
+  ['salud-modelos', 'Salud de modelos'],
+  ['dinero-real', 'Dinero real'],
+])('abre directamente #%s', async (route, name) => {
+  online();
+  window.location.hash = `#${route}`;
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByRole('heading', { level: 1, name })).toBeVisible();
+  expect(screen.getByRole('heading', { level: 2, name })).toBeVisible();
+});
+
+it('conecta la ficha de estrategia desde IA y la evidencia del checklist', async () => {
+  await createStrategy();
+  online();
+  window.location.hash = '#ia';
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  await user.click((await screen.findAllByRole('button', { name: /^Ver ficha de / }))[0]!);
+  expect(window.location.hash).toMatch(/^#estrategias\/\d+$/);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+  await user.click(screen.getByRole('link', { name: 'Dinero real' }));
+  await user.click(await screen.findByRole('button', { name: 'Ver validación' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+});
+
+it('monta los ajustes LLM y la conexión live junto a las preferencias existentes', async () => {
+  online();
+  window.location.hash = '#ajustes';
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByRole('region', { name: 'Análisis de noticias con LLM' })).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Cuenta de broker · Dinero real' })).toBeVisible();
+  expect(await screen.findByRole('region', { name: 'Claves live bloqueadas' })).toBeVisible();
+});
+
+it('conserva una única franja DINERO REAL en todas las páginas y en el aviso legal', async () => {
+  online();
+  const initial = await simulation.api.live.state();
+  const active: LiveState = {
+    ...initial,
+    mode: 'activo',
+    hasCredentials: true,
+    accountMasked: '•••• 4821',
+    limits: { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 },
+    activatedAt: '2026-10-10T14:00:00Z',
+  };
+  vi.spyOn(simulation.api.live, 'state').mockResolvedValue(active);
+  const user = userEvent.setup();
+  const { unmount } = render(<App />);
+  const banner = await screen.findByRole('complementary', { name: 'Aviso de dinero real' });
+  expect(banner).toHaveTextContent('DINERO REAL');
+  expect(banner).toHaveTextContent('•••• 4821');
+  expect(banner).toHaveTextContent('Capital 500,00 USD');
+  expect(banner.closest('.app')).toHaveClass('has-banner');
+  const links = within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link');
+  for (const link of links) {
+    link.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(link).toHaveAttribute('aria-current', 'page'));
+    if (link.textContent !== 'Inicio') {
+      await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus());
+    }
+    expect(screen.getAllByRole('complementary', { name: 'Aviso de dinero real' })).toHaveLength(1);
+    expect(banner).toBeVisible();
+  }
+  await user.click(screen.getByRole('button', { name: /^Ver aviso de riesgo/ }));
+  expect(banner).toBeVisible();
+  await user.click(
+    within(screen.getByRole('navigation', { name: 'Principal' })).getByRole('link', { name: 'IA' }),
+  );
+  expect(await screen.findByRole('heading', { level: 2, name: 'IA' })).toBeVisible();
+  expect(banner).toBeVisible();
+  unmount();
+  expect(simulation.listenerCount()).toBe(0);
+});
+
+it('actualiza franja, cabecera y aviso principal al activar, suspender y volver a paper', async () => {
+  online();
+  const initial = await simulation.api.live.state();
+  let state = initial;
+  vi.spyOn(simulation.api.live, 'state').mockImplementation(async () => state);
+  const listeners = new Set<(value: LiveState) => void>();
+  vi.spyOn(simulation.api.live, 'onChanged').mockImplementation((listener) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  });
+  await act(async () => {
+    render(<App />);
+  });
+  expect(
+    screen.queryByRole('complementary', { name: 'Aviso de dinero real' }),
+  ).not.toBeInTheDocument();
+  act(() => {
+    state = { ...initial, mode: 'activo' };
+    listeners.forEach((listener) => listener(state));
+  });
+  expect(screen.getByRole('complementary', { name: 'Aviso de dinero real' })).toBeVisible();
+  expect(
+    within(screen.getByRole('heading', { level: 1 }).parentElement!).getByText(
+      'Dinero real activo',
+    ),
+  ).toBeVisible();
+  const notices = within(screen.getByRole('region', { name: 'Avisos de IA y dinero real' }));
+  expect(notices.getByRole('alert')).toHaveTextContent('Dinero real activo');
+  act(() => {
+    state = {
+      ...state,
+      mode: 'suspendido',
+      suspension: { reason: 'sin-conexion', detail: 'Conexión perdida' },
+    };
+    listeners.forEach((listener) => listener(state));
+  });
+  expect(screen.getByRole('complementary', { name: 'Aviso de dinero real' })).toHaveTextContent(
+    'DINERO REAL SUSPENDIDO',
+  );
+  expect(notices.getByRole('alert')).toHaveTextContent('Conexión perdida');
+  act(() => {
+    listeners.forEach((listener) => listener(initial));
+  });
+  expect(
+    screen.queryByRole('complementary', { name: 'Aviso de dinero real' }),
+  ).not.toBeInTheDocument();
+  expect(notices.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByText('Señales + paper trading')).toBeVisible();
+});
+
+it('anuncia degradación recibida por evento en Inicio y abre Salud de modelos', async () => {
+  await createStrategy();
+  online();
+  const original = await simulation.api.ai.health();
+  const health = vi.spyOn(simulation.api.ai, 'health').mockResolvedValue(original);
+  const user = userEvent.setup();
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.queryByRole('heading', { name: 'Degradación detectada' })).not.toBeInTheDocument();
+  health.mockResolvedValue({
+    ...original,
+    subjects: original.subjects.map((row) =>
+      row.subject === 'estrategia'
+        ? { ...row, state: 'degradada', reason: 'Drift sostenido verificado' }
+        : row,
+    ),
+  });
+  await act(async () => {
+    simulation.emitAiChanged('salud');
+  });
+  const alert = screen
+    .getByRole('heading', { name: 'Degradación detectada' })
+    .closest('[role="alert"]') as HTMLElement;
+  expect(alert).toHaveTextContent('Drift sostenido verificado');
+  await user.click(
+    within(alert).getByRole('link', { name: 'Ver degradación y propuestas de reentrenamiento' }),
+  );
+  expect(await screen.findByRole('heading', { level: 1, name: 'Salud de modelos' })).toHaveFocus();
+});
+
+it('muestra carga, error recuperable y desconexión sin afirmar que los modelos están sanos', async () => {
+  online();
+  let reject!: (cause: Error) => void;
+  vi.spyOn(simulation.api.ai, 'health').mockReturnValueOnce(
+    new Promise((_, fail) => {
+      reject = fail;
+    }),
+  );
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByText('Comprobando degradación de modelos y estrategias…')).toBeVisible();
+  await act(async () => {
+    reject(new Error('IPC'));
+  });
+  expect(screen.getByText(/No se pudo verificar la degradación/)).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Revisar salud de modelos' })).toHaveAttribute(
+    'href',
+    '#salud-modelos',
+  );
+  act(() => {
+    simulation.emitConnectivity({
+      status: 'offline',
+      attempt: 1,
+      lastCheckedAt: null,
+      nextRetryAt: null,
+    });
+  });
+  expect(screen.getByText(/Sin conexión · revisión de salud pausada/)).toBeVisible();
+});
+
+it('mantiene visible la franja aunque la consulta de modo de la cabecera siga pendiente', async () => {
+  const initial = await simulation.api.live.state();
+  vi.spyOn(simulation.api.live, 'state')
+    .mockResolvedValueOnce({ ...initial, mode: 'activo' })
+    .mockReturnValue(new Promise(() => {}));
+  await act(async () => {
+    render(<App />);
+  });
+  expect(screen.getByText('Comprobando modo…')).toBeVisible();
+  const banner = await screen.findByRole('complementary', { name: 'Aviso de dinero real' });
+  expect(banner).toBeVisible();
+  expect(banner.closest('.app-banner-stack')).not.toHaveAttribute('hidden');
 });

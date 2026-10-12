@@ -44,6 +44,7 @@ const fakeOrder = (patch: Partial<BrokerOrder> = {}): BrokerOrder => {
     ticker: 'AAPL',
     type: 'market',
     side: 'buy',
+    mode: 'paper',
     quantity: 10,
     filledQuantity: 10,
     limitPrice: null,

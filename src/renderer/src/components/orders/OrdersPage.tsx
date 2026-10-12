@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
   BrokerOrder,
+  BrokerOrderMode,
   BrokerOrderSide,
   BrokerOrderStatus,
 } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES, BROKER_ORDER_STATUSES } from '../../../../shared/broker';
-import { useOrders, useReconciliation } from '../../hooks/useOrders';
+import { orderKey, useOrders, useReconciliation } from '../../hooks/useOrders';
 import { useStrategies } from '../../hooks/useStrategies';
 import { useSystemState } from '../../hooks/useSystemState';
 import { ReconcileStatus } from './ReconcileStatus';
 import {
-  number,
+  quantity,
   orderStatuses,
   orderTypes,
   ordersTokenStylesheet,
@@ -18,19 +19,21 @@ import {
   time,
 } from './orderPresentation';
 import { OrderRow } from './OrderRow';
+import { liveTokens } from '../live/presentation';
 import './orders.css';
 const cancelable = (order: BrokerOrder) =>
-  BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
+  order.mode === 'paper' && BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
 export function OrdersPage() {
   const state = useOrders();
   const reconciliation = useReconciliation();
   const strategies = useStrategies();
   const system = useSystemState();
   const offline = system.connectivity?.status === 'offline';
+  const [mode, setMode] = useState<BrokerOrderMode | ''>('');
   const [status, setStatus] = useState<BrokerOrderStatus | ''>('');
   const [strategy, setStrategy] = useState('');
   const [ticker, setTicker] = useState('');
-  const [confirmation, setConfirmation] = useState<number | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -50,12 +53,13 @@ export function OrdersPage() {
   const rows = state.orders
     .filter(
       (row) =>
+        (!mode || row.mode === mode) &&
         (!status || row.status === status) &&
         (!strategy || row.strategyId === Number(strategy)) &&
         row.ticker.toUpperCase().includes(ticker.trim().toUpperCase()),
     )
     .sort((a, b) => b.execution.requestedAt.localeCompare(a.execution.requestedAt) || b.id - a.id);
-  const selected = state.orders.find((order) => order.id === confirmation);
+  const selected = state.orders.find((order) => orderKey(order) === confirmation);
   useEffect(() => {
     if (confirmation !== null) keep.current?.focus();
   }, [confirmation]);
@@ -76,13 +80,7 @@ export function OrdersPage() {
     const quantity = Number(formQty);
     const limitPrice = Number(formPrice);
     const symbol = formTicker.trim().toUpperCase();
-    if (
-      createBusy.current ||
-      offline ||
-      symbol === '' ||
-      !(quantity > 0) ||
-      !(limitPrice > 0)
-    ) {
+    if (createBusy.current || offline || symbol === '' || !(quantity > 0) || !(limitPrice > 0)) {
       return;
     }
     createBusy.current = true;
@@ -118,7 +116,7 @@ export function OrdersPage() {
     setCanceling(true);
     setCancelError(null);
     try {
-      const updated = await window.tradia.orders.cancel({ id: selected.id });
+      const updated = await window.tradia.orders.cancel({ id: selected.id, mode: selected.mode });
       state.update(updated);
       setAnnouncement(
         `Orden ${orderTypes[selected.type].toLowerCase()} de ${selected.ticker}: ${orderStatuses[updated.status].label.toLowerCase()}`,
@@ -132,6 +130,7 @@ export function OrdersPage() {
     }
   };
   const clear = () => {
+    setMode('');
     setStatus('');
     setStrategy('');
     setTicker('');
@@ -139,20 +138,19 @@ export function OrdersPage() {
   const names = new Map(strategies.strategies.map((value) => [value.id, value.name]));
   const groups = new Map<string, BrokerOrder[]>();
   rows.forEach((row) => {
-    const key = row.ocoGroupId ? `oco:${row.ocoGroupId}` : `order:${row.id}`;
+    const key = row.ocoGroupId ? `oco:${row.mode}:${row.ocoGroupId}` : `order:${orderKey(row)}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
   });
 
   return (
-    <div className="orders-page orders-surface">
-      <style>{ordersTokenStylesheet()}</style>
+    <div className="orders-page orders-surface live-surface">
+      <style>{ordersTokenStylesheet() + liveTokens()}</style>
       <div className="orders-top">
         <header>
           <div className="orders-title">
             <h2>Órdenes</h2>
-            <span className="orders-paper">♢ Solo paper · sin dinero real</span>
           </div>
-          <p>Ejecuciones simuladas enviadas por Tradia</p>
+          <p>Órdenes enviadas por Tradia · modo indicado en cada orden</p>
           {state.updatedAt && (
             <small>
               {offline ? 'Datos congelados desde' : state.error ? 'Datos de' : 'Actualizado'}{' '}
@@ -163,6 +161,17 @@ export function OrdersPage() {
         <ReconcileStatus state={reconciliation} />
       </div>
       <section className="orders-filters" aria-label="Filtros de órdenes">
+        <label>
+          Modo
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value as BrokerOrderMode | '')}
+          >
+            <option value="">Todos los modos</option>
+            <option value="paper">Paper</option>
+            <option value="live">Dinero real</option>
+          </select>
+        </label>
         <label>
           Estado
           <select
@@ -331,7 +340,7 @@ export function OrdersPage() {
         >
           <h2 id="cancel-order-title">
             Cancelar la orden {orderTypes[selected.type].toLowerCase()} de{' '}
-            {number(selected.quantity - selected.filledQuantity)} {selected.ticker}
+            {quantity(selected.quantity - selected.filledQuantity)} {selected.ticker}
             {selected.execution.requestedPrice !== null
               ? ` a ${price(selected.execution.requestedPrice)}`
               : ''}
@@ -359,7 +368,7 @@ export function OrdersPage() {
         </section>
       )}
       <p>
-        {status || strategy || ticker
+        {mode || status || strategy || ticker
           ? `${rows.length} de ${state.orders.length}`
           : state.orders.length}{' '}
         órdenes · Hora local
@@ -367,17 +376,19 @@ export function OrdersPage() {
       <p className="orders-scroll-hint">Desplázate horizontalmente para ver todas las columnas.</p>
       <div
         className="orders-table-wrap"
+        data-tour="ordenes-paper"
         role="region"
-        aria-label="Órdenes paper, desplazamiento horizontal"
+        aria-label="Órdenes, desplazamiento horizontal"
         tabIndex={0}
         aria-busy={state.loading}
       >
         <table className={state.error || offline ? 'orders-frozen' : undefined}>
-          <caption className="sr-only">Órdenes paper y precios de ejecución</caption>
+          <caption className="sr-only">Modo de cada orden y precios de ejecución</caption>
           <thead>
             <tr>
               {[
                 'Hora',
+                'Modo',
                 'Activo',
                 'Tipo',
                 'Lado',
@@ -399,7 +410,7 @@ export function OrdersPage() {
             <tbody>
               {Array.from({ length: 5 }, (_, index) => (
                 <tr key={index}>
-                  <td colSpan={11}>
+                  <td colSpan={12}>
                     {index === 0 ? (
                       <span role="status">Cargando órdenes…</span>
                     ) : (
@@ -419,8 +430,8 @@ export function OrdersPage() {
               >
                 {key.startsWith('oco:') && (
                   <tr className="orders-oco-parent">
-                    <th scope="rowgroup" colSpan={11}>
-                      Protección OCO · {group[0]?.ticker} · {number(group[0]?.quantity ?? 0)} ·{' '}
+                    <th scope="rowgroup" colSpan={12}>
+                      Protección OCO · {group[0]?.ticker} · {quantity(group[0]?.quantity ?? 0)} ·{' '}
                       {group.length} {group.length === 1 ? 'orden vinculada' : 'órdenes vinculadas'}{' '}
                       ·{' '}
                       {group.some(cancelable)
@@ -433,7 +444,7 @@ export function OrdersPage() {
                 )}
                 {group.map((row) => (
                   <OrderRow
-                    key={row.id}
+                    key={orderKey(row)}
                     order={row}
                     grouped={key.startsWith('oco:')}
                     names={names}
@@ -442,7 +453,7 @@ export function OrdersPage() {
                     onCancel={(order, button) => {
                       trigger.current = button;
                       setCancelError(null);
-                      setConfirmation(order.id);
+                      setConfirmation(orderKey(order));
                     }}
                   />
                 ))}
@@ -454,9 +465,7 @@ export function OrdersPage() {
       {!state.loading && !state.error && !rows.length && (
         <section className="orders-empty">
           <h2>
-            {state.orders.length
-              ? 'No hay órdenes con estos filtros'
-              : 'Todavía no hay órdenes paper'}
+            {state.orders.length ? 'No hay órdenes con estos filtros' : 'Todavía no hay órdenes'}
           </h2>
           {state.orders.length ? (
             <button className="button" onClick={clear}>

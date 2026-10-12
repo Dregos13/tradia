@@ -131,7 +131,7 @@ export function Watchlist({
           <HistoricalProgress ticker={pendingTicker} active={busy} />
         </div>
       )}
-      <aside className="market-watch" aria-label="Lista de seguimiento">
+      <aside className="market-watch" data-tour="mercado-lista" aria-label="Lista de seguimiento">
         <div className="market-watch-heading">
           <h3>Lista de seguimiento</h3>
           <span>

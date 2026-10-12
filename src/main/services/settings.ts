@@ -22,9 +22,11 @@ import { applyOsAutostart, readOsAutostart } from './tray';
  *
  * Claves conocidas: `autostart`, `disclaimerAcceptedVersion`,
  * `notifications.prefs`, `broker.execution.enabled`,
- * `deviation.margin.pp` y `deviation.slippage.bps`. `getValue`/`setValue`
- * quedan para uso interno del proceso principal (p. ej. el servicio de
- * notificaciones); el IPC solo acepta `SettingsPatch` validado.
+ * `deviation.margin.pp`, `deviation.slippage.bps`,
+ * `onboarding.tour.version` y `onboarding.tour.completedAt`.
+ * `getValue`/`setValue` quedan para uso interno del proceso principal
+ * (p. ej. el servicio de notificaciones); el IPC solo acepta
+ * `SettingsPatch` validado.
  */
 export interface SettingsService {
   get(): AppSettings;
@@ -50,6 +52,8 @@ const KEYS = {
   brokerExecutionEnabled: 'broker.execution.enabled',
   deviationMarginPp: 'deviation.margin.pp',
   deviationSlippageBps: 'deviation.slippage.bps',
+  onboardingTourVersion: 'onboarding.tour.version',
+  onboardingTourCompletedAt: 'onboarding.tour.completedAt',
 } as const;
 
 interface KeyValueStore {
@@ -105,10 +109,9 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
       disclaimerAcceptedAt: store.getValue(KEYS.disclaimerAcceptedAt) || null,
       brokerExecutionEnabled: store.getValue(KEYS.brokerExecutionEnabled) !== 'false',
       deviationMarginPp: getNumber(KEYS.deviationMarginPp, DEVIATION_MARGIN_PP_DEFAULT),
-      deviationSlippageBps: getNumber(
-        KEYS.deviationSlippageBps,
-        DEVIATION_SLIPPAGE_BPS_DEFAULT,
-      ),
+      deviationSlippageBps: getNumber(KEYS.deviationSlippageBps, DEVIATION_SLIPPAGE_BPS_DEFAULT),
+      onboardingTourVersion: store.getValue(KEYS.onboardingTourVersion) || null,
+      onboardingTourCompletedAt: store.getValue(KEYS.onboardingTourCompletedAt) || null,
     }),
     set: (patch) => {
       if (patch.autostart !== undefined) {
@@ -135,6 +138,19 @@ export function createSettingsService(db: Database.Database | null): SettingsSer
       }
       if (patch.deviationSlippageBps !== undefined) {
         store.setValue(KEYS.deviationSlippageBps, String(patch.deviationSlippageBps));
+      }
+      if (patch.onboardingTourVersion !== undefined) {
+        // Mismo patrón que el aviso de riesgo: la fecha la fija main; con
+        // null el tour vuelve a ofrecerse y la fecha se limpia.
+        const saveTour = () => {
+          store.setValue(KEYS.onboardingTourVersion, patch.onboardingTourVersion ?? '');
+          store.setValue(
+            KEYS.onboardingTourCompletedAt,
+            patch.onboardingTourVersion ? new Date().toISOString() : '',
+          );
+        };
+        if (db) db.transaction(saveTour)();
+        else saveTour();
       }
       return service.get();
     },

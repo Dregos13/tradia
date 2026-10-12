@@ -1,0 +1,315 @@
+{
+  "now": "2026-10-11T09:18:00.959Z",
+  "connectivity": {
+    "status": "online",
+    "lastCheckedAt": "2026-10-11T09:18:00.635Z",
+    "nextRetryAt": null,
+    "attempt": 0
+  },
+  "dataStatus": [
+    {
+      "key": "modelo:0.1.0",
+      "state": "fiable",
+      "lastOkAt": "2026-10-11T09:17:45.807Z",
+      "consecutiveFailures": 0,
+      "reason": null,
+      "updatedAt": "2026-10-11T09:17:45.807Z"
+    }
+  ],
+  "lastBars": {},
+  "regime": {
+    "market": null,
+    "assets": [],
+    "strategies": [
+      {
+        "strategyId": 1,
+        "name": "Cruce de medias",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": ["tendencia"],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
+      },
+      {
+        "strategyId": 2,
+        "name": "Reversión RSI/Bollinger",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": ["lateral"],
+        "failsIn": ["tendencia"],
+        "regimeState": "habilitada",
+        "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
+      },
+      {
+        "strategyId": 3,
+        "name": "Ruptura de rangos",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": ["tendencia"],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
+      },
+      {
+        "strategyId": 4,
+        "name": "Momentum entre activos",
+        "version": 1,
+        "status": "investigacion",
+        "worksIn": ["tendencia"],
+        "failsIn": [],
+        "regimeState": "habilitada",
+        "reason": "Todavía no hay régimen calculado del mercado: faltan cierres."
+      }
+    ],
+    "computedAt": null
+  },
+  "predictions": [],
+  "modelCard": {
+    "version": "0.1.0"
+  },
+  "health": {
+    "subjects": [
+      {
+        "subject": "modelo",
+        "subjectId": 1,
+        "name": "Modelo de dirección y volatilidad v0.1.0",
+        "state": "saludable",
+        "dataDrift": {
+          "drifted": false,
+          "sessions": 0,
+          "features": [
+            {
+              "name": "ret_1",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "ret_5",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "ret_10",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "ret_21",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "sma_ratio_10",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "sma_ratio_20",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "sma_ratio_50",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "ema_ratio_12_26",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "rsi_14",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "atr_14_pct",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "vol_5",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "vol_20",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "range_pct",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "close_pos",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "gap_pct",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            },
+            {
+              "name": "vol_rel_20",
+              "psi": 0,
+              "overThreshold": false,
+              "overThresholdSince": null
+            }
+          ],
+          "driftedFeatures": 0,
+          "driftSince": null
+        },
+        "resultsDrift": {
+          "drifted": false,
+          "resolvedCount": 0,
+          "rollingBrier": null,
+          "cardBrier": 0.1966856234489903,
+          "delta": null,
+          "driftSince": null
+        },
+        "strategyEval": null,
+        "reason": null,
+        "lastReviewedAt": "2026-10-11T09:17:45.187Z"
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 1,
+        "name": "Cruce de medias · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 5
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 2,
+        "name": "Reversión RSI/Bollinger · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 6
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 3,
+        "name": "Ruptura de rangos · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": 7
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      },
+      {
+        "subject": "estrategia",
+        "subjectId": 4,
+        "name": "Momentum entre activos · v1",
+        "state": "insuficiente",
+        "dataDrift": null,
+        "resultsDrift": null,
+        "strategyEval": {
+          "trades": 0,
+          "deviationPct": null,
+          "consecutiveReviews": 0,
+          "losingStreak": null,
+          "maxLosingStreakBacktest": null
+        },
+        "reason": "Sin revisiones todavía.",
+        "lastReviewedAt": null
+      }
+    ],
+    "counts": {
+      "saludable": 1,
+      "observacion": 0,
+      "degradada": 0,
+      "insuficiente": 4
+    },
+    "proposals": [],
+    "evaluatedAt": "2026-10-11T09:17:45.187Z"
+  },
+  "signals": [],
+  "signalStrategies": [
+    {
+      "strategyId": 1,
+      "name": "Cruce de medias",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 2,
+      "name": "Reversión RSI/Bollinger",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 3,
+      "name": "Ruptura de rangos",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    },
+    {
+      "strategyId": 4,
+      "name": "Momentum entre activos",
+      "version": 1,
+      "status": "investigacion",
+      "lastBarDate": null,
+      "lastEvaluatedAt": null,
+      "lastOutcome": null,
+      "lastSignalId": null
+    }
+  ]
+}

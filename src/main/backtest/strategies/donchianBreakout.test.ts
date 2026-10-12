@@ -9,10 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { runBacktest } from '../engine';
 import type { EngineBar } from '../types';
-import {
-  createDonchianBreakoutStrategy,
-  DONCHIAN_BREAKOUT_SEED,
-} from './donchianBreakout';
+import { createDonchianBreakoutStrategy, DONCHIAN_BREAKOUT_SEED } from './donchianBreakout';
 import { assertNoLookAhead, NO_COSTS, seriesFromCloses, sessionDates } from './testKit';
 
 const PARAMS = { entryPeriod: 5, exitPeriod: 3, atrPeriod: 4, stopAtr: 2 };
@@ -53,9 +50,7 @@ describe('ruptura de rangos (canal de Donchian)', () => {
   // 8 sesiones planas, ruptura al alza, continuación y descenso que perfora
   // el canal inferior de salida.
   const closes = [
-    100, 100, 100, 100, 100, 100, 100, 100,
-    103, 104, 105, 106,
-    103, 99, 96, 93,
+    100, 100, 100, 100, 100, 100, 100, 100, 103, 104, 105, 106, 103, 99, 96, 93,
   ] as number[];
   const dates = sessionDates(closes.length, '2024-01-02');
   const bars = seriesFromCloses(dates, closes);

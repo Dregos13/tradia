@@ -34,6 +34,8 @@ const strategy: Strategy = {
   outOfSamplePeriod: { desde: '2021-01-01', hasta: '2022-12-31' },
   metricsSummary: null,
   regime: 'Tendencia',
+  worksIn: ['tendencia'],
+  failsIn: [],
   assumedCosts: report.costs,
   status: 'investigacion',
   changeNote: 'Alta',

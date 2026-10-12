@@ -86,8 +86,25 @@ export function useDashboard(offline = false) {
             .slice(0, 20) as DashboardData[K];
         }
         setState((previous) =>
-          offlineRef.current && key !== 'stop' && previous[key].data !== null
-            ? previous
+          offlineRef.current && key !== 'stop' && key !== 'statuses' && previous[key].data !== null
+            ? key === 'macro'
+              ? {
+                  ...previous,
+                  macro: {
+                    ...previous.macro,
+                    data: previous.macro.data!.map((series) => ({
+                      ...series,
+                      status:
+                        statusEvents.current.get(`macro:${series.id}`) ??
+                        (data as MacroSeriesSnapshot[]).find((row) => row.id === series.id)
+                          ?.status ??
+                        series.status,
+                    })),
+                    loading: false,
+                    error: false,
+                  },
+                }
+              : previous
             : { ...previous, [key]: { data, loading: false, error: false } },
         );
       } catch {
@@ -149,8 +166,22 @@ export function useDashboard(offline = false) {
       api.risk.onVetoed(refresh),
       api.market.onUpdated(refresh),
       api.dataStatus.onChanged((entry) => {
-        if (offlineRef.current) return;
         statusEvents.current.set(entry.key, entry);
+        setState((previous) => ({
+          ...previous,
+          statuses: {
+            data: [...(previous.statuses.data ?? []).filter((row) => row.key !== entry.key), entry],
+            loading: false,
+            error: false,
+          },
+          macro: {
+            ...previous.macro,
+            data:
+              previous.macro.data?.map((series) =>
+                entry.key === `macro:${series.id}` ? { ...series, status: entry } : series,
+              ) ?? null,
+          },
+        }));
         refresh();
       }),
       api.news.onUpdated(refresh),

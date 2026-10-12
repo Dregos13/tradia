@@ -14,6 +14,8 @@
  * volver a tocar los archivos comunes.
  */
 
+import type { BrokerOrderMode } from './broker';
+
 // ---------------------------------------------------------------------------
 // Entradas del diario
 // ---------------------------------------------------------------------------
@@ -88,6 +90,14 @@ export interface JournalEntry {
   type: JournalEntryType;
   /** ISO 8601. */
   createdAt: string;
+  /**
+   * Cuenta a la que pertenece la entrada ('paper' | 'live'), fija desde
+   * su creación: la prueba de humo y las órdenes reales llevan 'live' y
+   * el diario las rotula «Dinero real». Falta en las entradas sin cuenta
+   * (señales, vetos, resúmenes de la rutina) y en las anteriores al
+   * campo; nunca se deduce del modo vigente de la app.
+   */
+  mode?: BrokerOrderMode;
   /** Activo relacionado; null en resúmenes y errores generales. */
   ticker: string | null;
   /** Estrategias relacionadas con su versión; [] si no aplica. */
@@ -115,6 +125,8 @@ export interface JournalEntry {
  */
 export interface JournalRecordInput {
   type: JournalEntryType;
+  /** Cuenta a la que pertenece la entrada ('paper' | 'live'); sin ella no lleva cuenta. */
+  mode?: BrokerOrderMode;
   ticker?: string | null;
   strategies?: JournalStrategyRef[];
   reason: string;

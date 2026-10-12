@@ -378,6 +378,83 @@ export function expectedSessionsBetween(desde: InstantInput, hasta: InstantInput
   return sessions;
 }
 
+// --- Calendario del mercado de bonos (SIFMA / Reserva Federal) ---------------
+//
+// Las series del Tesoro y de la Reserva Federal en FRED (DGS2, DGS10,
+// T10Y2Y, DFF…) no siguen el calendario de NYSE: el mercado de bonos y la
+// Fed cierran además en Columbus Day (2.º lunes de octubre) y Veterans Day
+// (11 de noviembre, observado), días en que la bolsa sí abre. `bondCalendar`
+// ofrece la misma superficie que el calendario de NYSE para la vigilancia
+// de frescura, con esos dos festivos extra.
+
+/** Festivos del mercado de bonos añadidos a los de NYSE, por año. */
+function bondExtraHolidaysOfYear(year: number): Set<string> {
+  const set = new Set<string>();
+  // Columbus Day: segundo lunes de octubre.
+  set.add(isoDay(Date.UTC(year, 9, nthWeekdayOfMonth(year, 10, 1, 2))));
+  // Veterans Day: 11 de noviembre, observado (sábado → viernes, domingo → lunes).
+  set.add(observedFixed(year, 11, 11));
+  return set;
+}
+
+const bondYearCache = new Map<number, Set<string>>();
+
+function bondExtraHolidays(year: number): Set<string> {
+  let days = bondYearCache.get(year);
+  if (!days) {
+    days = bondExtraHolidaysOfYear(year);
+    bondYearCache.set(year, days);
+  }
+  return days;
+}
+
+/** Sesión del día civil `date` en el mercado de bonos, o null si es festivo de bonos. */
+function bondSessionForDate(date: string): MarketSession | null {
+  const parsed = sessionDateParts(date);
+  if (parsed === null || bondExtraHolidays(parsed.year).has(date)) return null;
+  return sessionForDate(date);
+}
+
+/** true si el día civil de `fecha` en Nueva York es día hábil del mercado de bonos. */
+export function isBondBusinessDay(fecha: InstantInput): boolean {
+  return bondSessionForDate(toSessionDate(fecha)) !== null;
+}
+
+/** Último día hábil del mercado de bonos cuyo cierre ya pasó a las `ahora`. */
+export function bondLastExpectedSession(ahora: InstantInput): MarketSession | null {
+  const nowMs = toInstantMs(ahora);
+  const start = sessionDateParts(nySessionDate(nowMs))!;
+  let dayMs = Date.UTC(start.year, start.month - 1, start.day);
+  for (let i = 0; i < MAX_SESSION_SEARCH_DAYS; i += 1, dayMs -= DAY_MS) {
+    const session = bondSessionForDate(isoDay(dayMs));
+    if (session && Date.parse(session.closesAtUtc) <= nowMs) return session;
+  }
+  return null;
+}
+
+/** Días hábiles del mercado de bonos entre `desde` y `hasta` (ambos inclusive). */
+export function bondExpectedSessionsBetween(
+  desde: InstantInput,
+  hasta: InstantInput,
+): MarketSession[] {
+  const from = sessionDateParts(toSessionDate(desde))!;
+  const to = sessionDateParts(toSessionDate(hasta))!;
+  let dayMs = Date.UTC(from.year, from.month - 1, from.day);
+  const endMs = Date.UTC(to.year, to.month - 1, to.day);
+  const sessions: MarketSession[] = [];
+  for (; dayMs <= endMs; dayMs += DAY_MS) {
+    const session = bondSessionForDate(isoDay(dayMs));
+    if (session) sessions.push(session);
+  }
+  return sessions;
+}
+
+/** Superficie de calendario del mercado de bonos para `HealthCalendar` (market/health). */
+export const bondCalendar = {
+  lastExpectedSession: bondLastExpectedSession,
+  expectedSessionsBetween: bondExpectedSessionsBetween,
+};
+
 /** Instante en hora de Madrid como ISO 8601 con desplazamiento ('+01:00' / '+02:00'). */
 function madridIso(instantMs: number): string {
   const p = zonedParts(instantMs, MADRID_ZONE);

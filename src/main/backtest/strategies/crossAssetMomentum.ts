@@ -18,10 +18,7 @@
  * Durante el calentamiento no se consume el mes: la primera sesión real
  * siempre evalúa la rotación, aunque caiga a mitad de mes.
  */
-import {
-  DEFAULT_STRATEGY_COSTS,
-  type CreateStrategyRequest,
-} from '../../../shared/strategy';
+import { DEFAULT_STRATEGY_COSTS, type CreateStrategyRequest } from '../../../shared/strategy';
 import type { Strategy } from '../types';
 import { requireIntegerParam, resolveParams } from './params';
 
@@ -32,18 +29,7 @@ export const CROSS_ASSET_MOMENTUM_DEFAULTS = {
 };
 
 /** ETF del universo inicial de Tradia (docs/alcance.md): índice y sectoriales. */
-export const ETF_UNIVERSE = [
-  'SPY',
-  'QQQ',
-  'DIA',
-  'IWM',
-  'VTI',
-  'XLF',
-  'XLK',
-  'XLE',
-  'XLV',
-  'TLT',
-];
+export const ETF_UNIVERSE = ['SPY', 'QQQ', 'DIA', 'IWM', 'VTI', 'XLF', 'XLK', 'XLE', 'XLV', 'TLT'];
 
 export function createCrossAssetMomentumStrategy(): Strategy {
   let params = { ...CROSS_ASSET_MOMENTUM_DEFAULTS };
@@ -90,10 +76,8 @@ export const CROSS_ASSET_MOMENTUM_SEED: CreateStrategyRequest = {
   rules: {
     entry:
       'En la primera sesión de cada mes se ordena el universo por rentabilidad de los últimos lookbackSessions (126) cierres y se compran los topN (3) mejores; la orden se ejecuta en la apertura siguiente.',
-    exit:
-      'En la misma rotación mensual se vende cualquier posición que haya salido del top topN; ejecución en la apertura siguiente.',
-    stop:
-      'Sin stop por activo: el riesgo lo limita la diversificación del top N y la propia rotación mensual (lanzar el backtest con maxPositions = topN reparte el capital entre los elegidos).',
+    exit: 'En la misma rotación mensual se vende cualquier posición que haya salido del top topN; ejecución en la apertura siguiente.',
+    stop: 'Sin stop por activo: el riesgo lo limita la diversificación del top N y la propia rotación mensual (lanzar el backtest con maxPositions = topN reparte el capital entre los elegidos).',
     target:
       'Sin objetivo fijo: la posición se mantiene mientras el activo siga clasificado entre los topN.',
   },
@@ -107,6 +91,7 @@ export const CROSS_ASSET_MOMENTUM_SEED: CreateStrategyRequest = {
   outOfSamplePeriod: { desde: '2015-01-02', hasta: '2024-12-31' },
   regime:
     'Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas.',
+  worksIn: ['tendencia'],
   assumedCosts: DEFAULT_STRATEGY_COSTS,
   note: 'Semilla de la fase 2: rotación mensual al top 3 por momentum de 6 meses sobre el universo de ETF.',
 };

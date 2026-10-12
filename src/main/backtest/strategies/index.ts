@@ -16,22 +16,10 @@
  */
 import type { CreateStrategyRequest } from '../../../shared/strategy';
 import type { Strategy } from '../types';
-import {
-  createCrossAssetMomentumStrategy,
-  CROSS_ASSET_MOMENTUM_SEED,
-} from './crossAssetMomentum';
-import {
-  createDonchianBreakoutStrategy,
-  DONCHIAN_BREAKOUT_SEED,
-} from './donchianBreakout';
-import {
-  createMeanReversionRsiStrategy,
-  MEAN_REVERSION_RSI_SEED,
-} from './meanReversionRsi';
-import {
-  createTrendSmaCrossStrategy,
-  TREND_SMA_CROSS_SEED,
-} from './trendSmaCross';
+import { createCrossAssetMomentumStrategy, CROSS_ASSET_MOMENTUM_SEED } from './crossAssetMomentum';
+import { createDonchianBreakoutStrategy, DONCHIAN_BREAKOUT_SEED } from './donchianBreakout';
+import { createMeanReversionRsiStrategy, MEAN_REVERSION_RSI_SEED } from './meanReversionRsi';
+import { createTrendSmaCrossStrategy, TREND_SMA_CROSS_SEED } from './trendSmaCross';
 
 export interface ClassicStrategyDefinition {
   /** Clave estable de la implementación. */

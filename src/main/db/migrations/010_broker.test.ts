@@ -129,10 +129,15 @@ describe('migración 010 · dominio del broker en modo paper', () => {
     insertOrder(db);
     expect(() => insertOrder(db)).toThrowError();
     // Otro client_order_id sí entra (pata distinta del plan).
-    insertOrder(db, { clientOrderId: 'tradia-1-salida', tipo: 'oco', oco: 'oco-1', pata: 'salida' });
-    expect(
-      (db.prepare('SELECT COUNT(*) AS n FROM broker_orders').get() as { n: number }).n,
-    ).toBe(2);
+    insertOrder(db, {
+      clientOrderId: 'tradia-1-salida',
+      tipo: 'oco',
+      oco: 'oco-1',
+      pata: 'salida',
+    });
+    expect((db.prepare('SELECT COUNT(*) AS n FROM broker_orders').get() as { n: number }).n).toBe(
+      2,
+    );
     db.close();
   });
 

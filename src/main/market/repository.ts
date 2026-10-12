@@ -364,6 +364,12 @@ export interface MarketRepository {
   listDataStatus(): DataStatusEntry[];
   /** Fusiona el parche con la fila existente; `actualizado_en` se pone a ahora. */
   setDataStatus(patch: DataStatusPatch): DataStatusEntry;
+  /**
+   * Borra la fila de una clave (uso interno: p. ej. el proveedor vuelve a
+   * «sin configurar» al quitar su credencial). Sin evento: el estado
+   * agregado de frescura la ve ausente en la siguiente lectura.
+   */
+  deleteDataStatus(key: string): void;
 }
 
 export interface StoredCorporateActionInput {
@@ -921,6 +927,10 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
         return merged;
       });
       return toDataStatus(write());
+    },
+
+    deleteDataStatus: (key) => {
+      db.prepare('DELETE FROM data_status WHERE clave = ?').run(key);
     },
   };
 

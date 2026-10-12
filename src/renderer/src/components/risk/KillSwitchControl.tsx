@@ -85,6 +85,7 @@ export function KillSwitchControl({
     <>
       <button
         ref={stopButton}
+        data-tour="parada"
         className={`risk-stop${state?.active ? ' is-active' : ''}${pending === 'resume' ? ' is-resuming' : ''}`}
         aria-pressed={state?.active ?? false}
         aria-busy={pending !== null}

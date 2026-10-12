@@ -5,11 +5,11 @@
 `routine:get-config`/`routine:set-config`; por defecto
 `ROUTINE_DEFAULTS`):
 
-| Rutina | Hora por defecto | Contenido |
-| --- | --- | --- |
-| `preapertura` | 08:30 | Noticias publicadas desde el cierre de la sesión anterior (ordenadas por prioridad; las 'baja' no cuentan como relevantes), eventos del calendario del día y huecos de apertura de la watchlist (apertura de la última vela frente al cierre previo, ≥ `ROUTINE_GAP_MIN_PCT` = 1 %, valores ajustados si existen). |
-| `cierre` | 16:15 | Señales del día (aprobadas/reducidas), vetos, posiciones simuladas abiertas y drawdown de la cartera. |
-| `conciliacion` | 17:30 | Cuadra señales ↔ posiciones simuladas ↔ diario ↔ curva de capital y anota cada discrepancia como entrada 'error' del diario. |
+| Rutina         | Hora por defecto | Contenido                                                                                                                                                                                                                                                                                                          |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `preapertura`  | 08:30            | Noticias publicadas desde el cierre de la sesión anterior (ordenadas por prioridad; las 'baja' no cuentan como relevantes), eventos del calendario del día y huecos de apertura de la watchlist (apertura de la última vela frente al cierre previo, ≥ `ROUTINE_GAP_MIN_PCT` = 1 %, valores ajustados si existen). |
+| `cierre`       | 16:15            | Señales del día (aprobadas/reducidas), vetos, posiciones simuladas abiertas y drawdown de la cartera.                                                                                                                                                                                                              |
+| `conciliacion` | 17:30            | Cuadra señales ↔ posiciones simuladas ↔ diario ↔ curva de capital y anota cada discrepancia como entrada 'error' del diario.                                                                                                                                                                                       |
 
 Reglas:
 

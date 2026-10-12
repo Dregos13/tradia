@@ -42,6 +42,13 @@
  */
 import { app, ipcMain } from 'electron';
 
+import {
+  REGIME_LABELS,
+  REGIME_MARKET_TICKER,
+  type RegimeComparison,
+  type RegimeComparisonRequest,
+  type RegimeComparisonSide,
+} from '../../shared/ai';
 import type {
   BacktestFinalTestRequest,
   BacktestListQuery,
@@ -60,6 +67,7 @@ import type {
   SensitivityDto,
   StressRequest,
   StressResultDto,
+  TradeDto,
   WalkForwardDto,
   WalkForwardWindowDto,
 } from '../../shared/backtest';
@@ -71,6 +79,7 @@ import {
   isBacktestRunId,
   isBacktestRunRequest,
   isE2eEnabled,
+  isRegimeComparisonRequest,
   isStressRequest,
 } from '../../shared/ipc';
 import {
@@ -84,6 +93,7 @@ import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import type { SessionDate } from '../market/providers';
 import { TICKER_PATTERN } from '../market/providers/types';
+import { REGIME_LABEL_TEXT } from '../ai/regime/enablement';
 import { createStrategiesRepository, type StrategiesRepository } from '../strategies/repository';
 import { runBacktest } from './engine';
 import { computeMetrics, type BacktestMetrics } from './metrics';
@@ -188,10 +198,23 @@ export interface BacktestService {
    */
   seedFichas(): number;
   /**
-   * Semilla en segundo plano: un backtest y las tres pruebas de estrés
-   * por cada estrategia clásica que aún no los tenga. Idempotente.
+   * Semilla en segundo plano: un backtest, las tres pruebas de estrés y la
+   * comparación con y sin filtro por cada estrategia clásica que aún no
+   * los tenga. Idempotente.
    */
   seedResults(): Promise<void>;
+  /**
+   * Comparación emparejada con y sin filtro de régimen guardada para la
+   * versión (`regime_comparisons`); null si nunca se corrió.
+   */
+  getRegimeComparison(request: RegimeComparisonRequest): RegimeComparison | null;
+  /**
+   * Ejecuta el par emparejado (mismo periodo, universo y costes): el lado
+   * sin filtro es el último run 'completo' no filtrado si existe —si no,
+   * se corre también— y el lado con filtro se corre con la ficha vigente.
+   * Guarda ambos runs y la comparación (UPSERT por versión).
+   */
+  runRegimeComparison(request: RegimeComparisonRequest): Promise<RegimeComparison>;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +239,8 @@ interface ResolvedRunConfig {
   walkForward: false | (WalkForwardWindowOptions & { objective?: ObjectiveMetric });
   sensitivity: false | { xParam: string; yParam: string };
   monteCarlo: false | { seed: number; simulations: number; method: 'permutation' | 'bootstrap' };
+  /** Filtro de régimen activo (fase 6): las entradas se gobiernan por la ficha. */
+  regimeFilter: boolean;
 }
 
 /** Mismo día del mes hace `years` años (29 de febrero → 28). */
@@ -291,6 +316,7 @@ function toStoredConfig(
     walkForward: cfg.walkForward === false ? null : cfg.walkForward,
     sensitivity: cfg.sensitivity === false ? null : cfg.sensitivity,
     monteCarlo: cfg.monteCarlo === false ? null : cfg.monteCarlo,
+    ...(cfg.regimeFilter ? { regimeFilter: true } : {}),
   };
 }
 
@@ -444,6 +470,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
               simulations: request.monteCarlo?.simulations ?? DEFAULT_MONTE_CARLO_SIMULATIONS,
               method: request.monteCarlo?.method ?? 'permutation',
             },
+      regimeFilter: request.regimeFilter === true,
     };
   };
 
@@ -489,6 +516,33 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     return { bars, missing };
   };
 
+  /**
+   * Añade la serie de la referencia de mercado (SPY) a las velas del run
+   * cuando no forma parte del universo: el motor la usa para el filtro de
+   * régimen sin permitir operarla. La línea temporal y la división se
+   * calculan siempre sobre las velas del universo, sin la referencia.
+   */
+  const withRegimeReference = async (
+    cfg: ResolvedRunConfig,
+    source: StressDataSource,
+    bars: Record<string, EngineBar[]>,
+  ): Promise<Record<string, EngineBar[]>> => {
+    if (REGIME_MARKET_TICKER in bars) return bars;
+    const ref = await source.getBars(
+      REGIME_MARKET_TICKER,
+      warmupStartDate(cfg.desde, cfg.warmupSessions),
+      cfg.hasta,
+    );
+    if (ref.length === 0) {
+      throw new BacktestError(
+        'sin-datos',
+        `el filtro de régimen necesita velas de la referencia '${REGIME_MARKET_TICKER}' ` +
+          `y la fuente '${source.id}' no las tiene`,
+      );
+    }
+    return { ...bars, [REGIME_MARKET_TICKER]: ref };
+  };
+
   /** Entrada del motor con los parámetros dados (el resto sale de la config). */
   const engineInput = (
     cfg: ResolvedRunConfig,
@@ -507,6 +561,15 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     maxPositions: cfg.maxPositions,
     startDate,
     endDate,
+    ...(cfg.regimeFilter
+      ? {
+          regimeFilter: {
+            worksIn: cfg.strategy.worksIn,
+            failsIn: cfg.strategy.failsIn,
+            referenceTicker: REGIME_MARKET_TICKER,
+          },
+        }
+      : {}),
   });
 
   const runAndMeasure = (
@@ -787,7 +850,9 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   const persistRun = (run: NewBacktestRun): BacktestReport => {
     const id = runs.saveRun(run);
-    if (run.kind === 'completo') {
+    // El resumen de la ficha solo lo escribe el run canónico sin filtrar:
+    // un run con filtro es una variante de la comparación, no la referencia.
+    if (run.kind === 'completo' && run.config.regimeFilter !== true) {
       strategies.setVersionMetrics(run.strategyId, toMetricsSummary(run.metrics), run.version);
     }
     const report = runs.getRun(id);
@@ -808,6 +873,10 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       emit('descargando', 0);
       const source = await deps.resolveSource();
       const { bars, missing } = await fetchUniverse(cfg, source, emit);
+      // Con filtro, la referencia de mercado viaja en las velas aunque no
+      // forme parte del universo; la división sigue saliendo solo del
+      // universo para que coincida con la ejecución sin filtro.
+      const engineBars = cfg.regimeFilter ? await withRegimeReference(cfg, source, bars) : bars;
 
       // División: el tramo de prueba queda bloqueado, sin ejecutar.
       const dates = operativeDates(bars, cfg.desde, cfg.hasta);
@@ -821,7 +890,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       const ejecutadoHasta = split.validation.endDate;
 
       emit('backtest', 18);
-      const main = runAndMeasure(cfg, bars, cfg.params, {
+      const main = runAndMeasure(cfg, engineBars, cfg.params, {
         startDate: cfg.desde,
         endDate: ejecutadoHasta,
       });
@@ -832,23 +901,23 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
       // Sharpe por segmento: alimenta la regla «Sharpe OOS < 50 % IS»
       // cuando el walk-forward no aporta medias (u objetivo ≠ sharpe).
-      const trainMetrics = runAndMeasure(cfg, bars, cfg.params, split.train).metrics;
-      const valMetrics = runAndMeasure(cfg, bars, cfg.params, split.validation).metrics;
+      const trainMetrics = runAndMeasure(cfg, engineBars, cfg.params, split.train).metrics;
+      const valMetrics = runAndMeasure(cfg, engineBars, cfg.params, split.validation).metrics;
       await yieldToEventLoop();
 
-      const benchmark = await benchmarkCurve(cfg, source, bars, cfg.desde, ejecutadoHasta);
+      const benchmark = await benchmarkCurve(cfg, source, engineBars, cfg.desde, ejecutadoHasta);
 
       const wfDates = dates.filter((d) => d <= ejecutadoHasta);
       const wf =
         cfg.walkForward === false
           ? null
-          : await walkForwardChunked(cfg, bars, wfDates, emit, 32, 30);
+          : await walkForwardChunked(cfg, engineBars, wfDates, emit, 32, 30);
       const sens =
         cfg.sensitivity === false
           ? null
           : await sensitivityChunked(
               cfg,
-              bars,
+              engineBars,
               { startDate: cfg.desde, endDate: ejecutadoHasta },
               emit,
               62,
@@ -875,6 +944,16 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
         valMetrics.sharpe;
 
       emit('guardando', 94);
+      const warnings = buildWarnings(
+        source,
+        metrics,
+        sens,
+        mc,
+        inSampleSharpe,
+        outOfSampleSharpe,
+        missing,
+      );
+      if (cfg.regimeFilter) warnings.push(regimeFilterNotice(cfg.strategy));
       const report = persistRun({
         strategyId: cfg.strategy.id,
         version: cfg.strategy.version,
@@ -889,15 +968,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
         sensitivity: sens,
         monteCarlo: mc,
         benchmark,
-        warnings: buildWarnings(
-          source,
-          metrics,
-          sens,
-          mc,
-          inSampleSharpe,
-          outOfSampleSharpe,
-          missing,
-        ),
+        warnings,
         dataSource: source.kind,
         providerId: source.id,
         durationMs: now() - started,
@@ -932,7 +1003,10 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       emit('descargando', 0);
       // Si hay un run 'completo' previo se reutiliza su configuración para
       // que la prueba final se ejecute sobre la misma división de datos.
-      const reference = runs.latestRun(strategy.id, strategy.version, 'completo');
+      // La referencia es siempre el run canónico sin filtrar.
+      const reference = runs.latestRun(strategy.id, strategy.version, 'completo', {
+        regimeFilter: false,
+      });
       const cfg = resolveConfig({ strategyId: strategy.id, version: strategy.version });
       if (reference !== null) {
         cfg.desde = reference.config.desde;
@@ -1021,6 +1095,310 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     }
   };
 
+  // -- Comparación con y sin filtro de régimen (fase 6) ------------------------
+
+  /** Aviso que llevan los runs filtrados: con qué ficha se gobernaron. */
+  const regimeFilterNotice = (strategy: Strategy): BacktestNotice => {
+    const labels = (list: readonly (typeof REGIME_LABELS)[number][], empty: string): string =>
+      list.length === 0 ? empty : list.map((label) => REGIME_LABEL_TEXT[label]).join(' · ');
+    return {
+      rule: 'filtro-regimen',
+      severity: 'info',
+      message:
+        `Este run se ejecutó con el filtro de régimen: solo abre operaciones cuando ` +
+        `el régimen de ${REGIME_MARKET_TICKER} encaja con la ficha (funciona en: ` +
+        `${labels(strategy.worksIn, 'sin preferencia declarada')}; falla en: ` +
+        `${labels(strategy.failsIn, 'ninguno declarado')}).`,
+    };
+  };
+
+  /**
+   * Avisos de los runs del par emparejado: los permanentes del informe
+   * más «pocas operaciones» y «mercados sin datos».
+   */
+  const comparisonWarnings = (
+    source: StressDataSource,
+    metrics: BacktestMetricsDto,
+    missing: string[],
+  ): BacktestNotice[] => {
+    const warnings: BacktestNotice[] = [];
+    if (metrics.tradeCount > 0 && metrics.tradeCount < MIN_TRADES_FOR_METRICS) {
+      warnings.push({
+        rule: 'pocas-operaciones',
+        severity: 'method',
+        message:
+          `El run cerró ${metrics.tradeCount} operaciones; el plan pide al menos ` +
+          `${MIN_TRADES_FOR_METRICS} para que las métricas sean representativas.`,
+      });
+    }
+    if (missing.length > 0) {
+      warnings.push({
+        rule: 'mercados-sin-datos',
+        severity: 'method',
+        message: `Sin datos para ${missing.join(', ')}; se excluyeron del universo ejecutado.`,
+      });
+    }
+    warnings.push({
+      rule: 'rendimientos-pasados',
+      severity: 'method',
+      message:
+        'Los rendimientos pasados no garantizan resultados futuros; esta comparación ' +
+        'es una evaluación estadística del pasado, no una promesa.',
+    });
+    warnings.push({
+      rule: source.kind === 'simulated' ? 'datos-simulados' : 'datos-reales',
+      severity: 'info',
+      message:
+        source.kind === 'simulated'
+          ? `Datos simulados (proveedor '${source.id}').`
+          : `Datos reales del proveedor '${source.id}'.`,
+    });
+    return warnings;
+  };
+
+  /** Config efectiva de un run guardado: la comparación repite exactamente su base. */
+  const configFromRun = (
+    strategy: Strategy,
+    impl: ClassicStrategyDefinition,
+    base: BacktestReport,
+  ): ResolvedRunConfig => ({
+    strategy,
+    impl,
+    params: { ...base.config.parameters },
+    markets: [...base.config.markets],
+    costs: { ...base.costs },
+    engineCosts: costConfigFromAssumed(base.costs),
+    initialCash: base.config.initialCash,
+    riskPerTrade: base.config.riskPerTrade,
+    maxPositions: base.config.maxPositions,
+    desde: base.config.desde,
+    hasta: base.config.hasta,
+    warmupSessions: base.config.warmupSessions,
+    split: { ...base.config.split },
+    walkForward: false,
+    sensitivity: false,
+    monteCarlo: false,
+    regimeFilter: false,
+  });
+
+  /**
+   * «Misma base» de la comparación: mismo periodo ejecutado, universo,
+   * parámetros, costes, tamaños y fuente de datos. Es la misma lista que
+   * verifica la ficha antes de mostrar diferencias.
+   */
+  const sameBase = (a: BacktestReport, b: BacktestReport): boolean => {
+    const sameList = (x: readonly string[], y: readonly string[]): boolean =>
+      JSON.stringify([...x].sort()) === JSON.stringify([...y].sort());
+    const sameParams = (x: Record<string, number>, y: Record<string, number>): boolean =>
+      JSON.stringify(Object.entries(x).sort()) === JSON.stringify(Object.entries(y).sort());
+    const costKeys = ['commissionPct', 'commissionMin', 'slippageBps', 'spreadBps'] as const;
+    return (
+      a.config.desde === b.config.desde &&
+      (a.config.ejecutadoHasta ?? a.config.hasta) === (b.config.ejecutadoHasta ?? b.config.hasta) &&
+      a.config.initialCash === b.config.initialCash &&
+      a.config.riskPerTrade === b.config.riskPerTrade &&
+      a.config.maxPositions === b.config.maxPositions &&
+      a.dataSource === b.dataSource &&
+      a.providerId === b.providerId &&
+      sameList(a.config.markets, b.config.markets) &&
+      sameParams(a.config.parameters, b.config.parameters) &&
+      costKeys.every((key) => a.costs[key] === b.costs[key])
+    );
+  };
+
+  const toComparisonSide = (run: BacktestReport | null): RegimeComparisonSide => ({
+    runId: run?.id ?? null,
+    totalReturnPct:
+      run?.metrics.totalReturn === null || run?.metrics.totalReturn === undefined
+        ? null
+        : run.metrics.totalReturn * 100,
+    maxDrawdownPct:
+      run?.metrics.maxDrawdown === null || run?.metrics.maxDrawdown === undefined
+        ? null
+        : run.metrics.maxDrawdown.pct * 100,
+    sharpe: run?.metrics.sharpe ?? null,
+    trades: run?.metrics.tradeCount ?? 0,
+    winRatePct:
+      run?.metrics.winRate === null || run?.metrics.winRate === undefined
+        ? null
+        : run.metrics.winRate * 100,
+  });
+
+  /** DTO del contrato: fila de `regime_comparisons` + los dos informes enlazados. */
+  const getRegimeComparisonDto = (request: RegimeComparisonRequest): RegimeComparison | null => {
+    const strategy = resolveStrategy(request.strategyId, request.version);
+    const row = runs.getRegimeComparison(strategy.id, strategy.version);
+    if (row === null) return null;
+    const without = row.runSinFiltro === null ? null : runs.getRun(row.runSinFiltro);
+    const withFilter = row.runConFiltro === null ? null : runs.getRun(row.runConFiltro);
+    const base = without ?? withFilter;
+    return {
+      strategyId: strategy.id,
+      version: strategy.version,
+      period: {
+        desde: base?.config.desde ?? '',
+        hasta: base === null ? '' : (base.config.ejecutadoHasta ?? base.config.hasta),
+      },
+      markets: base?.config.markets ?? [],
+      withoutFilter: toComparisonSide(without),
+      withFilter: toComparisonSide(withFilter),
+      comparable:
+        without !== null &&
+        withFilter !== null &&
+        without.config.regimeFilter !== true &&
+        withFilter.config.regimeFilter === true &&
+        sameBase(without, withFilter),
+      createdAt: row.creadoEn,
+    };
+  };
+
+  /** Cuerpo `NewBacktestRun` común a los dos lados del par emparejado. */
+  const comparisonRunBody = (
+    cfgSide: ResolvedRunConfig,
+    split: DataSplitDto,
+    ejecutadoHasta: SessionDate,
+    measured: {
+      result: { equityCurve: EquityPointDto[]; trades: TradeDto[] };
+      metrics: BacktestMetrics;
+    },
+    benchmark: BenchmarkDto | null,
+    warnings: BacktestNotice[],
+    source: StressDataSource,
+    durationMs: number,
+  ): NewBacktestRun => ({
+    strategyId: cfgSide.strategy.id,
+    version: cfgSide.strategy.version,
+    kind: 'completo',
+    config: toStoredConfig(cfgSide, ejecutadoHasta),
+    costs: cfgSide.costs,
+    split,
+    metrics: toMetricsDto(measured.metrics),
+    equityCurve: measured.result.equityCurve,
+    trades: measured.result.trades,
+    walkForward: null,
+    sensitivity: null,
+    monteCarlo: null,
+    benchmark,
+    warnings,
+    dataSource: source.kind,
+    providerId: source.id,
+    durationMs,
+  });
+
+  const runRegimeComparisonPipeline = async (
+    request: RegimeComparisonRequest,
+  ): Promise<RegimeComparison> => {
+    const started = now();
+    const strategy = resolveStrategy(request.strategyId, request.version);
+    const impl = resolveImpl(strategy.id);
+    const emit = makeEmitter(strategy.id);
+
+    try {
+      emit('descargando', 0);
+      const source = await deps.resolveSource();
+
+      // Base emparejada: el último run 'completo' sin filtro aporta su
+      // periodo, universo, parámetros y costes exactos; si no existe se
+      // ejecuta también el lado sin filtro sobre la ficha vigente. El
+      // tramo de prueba queda fuera en ambos lados (misma división).
+      const base = runs.latestRun(strategy.id, strategy.version, 'completo', {
+        regimeFilter: false,
+      });
+      const useBase = base !== null && base.config.ejecutadoHasta !== null && base.split !== null;
+      const cfg = useBase
+        ? configFromRun(strategy, impl, base)
+        : resolveConfig({ strategyId: strategy.id, version: strategy.version });
+
+      const { bars, missing } = await fetchUniverse(cfg, source, emit);
+      // La referencia del régimen viaja en las velas aunque no forme parte
+      // del universo; no altera la línea temporal ni la división.
+      const engineBars = await withRegimeReference(cfg, source, bars);
+
+      let split: DataSplitDto;
+      let ejecutadoHasta: SessionDate;
+      let reportWithout: BacktestReport;
+      if (useBase) {
+        split = base.split!;
+        ejecutadoHasta = base.config.ejecutadoHasta!;
+        reportWithout = base;
+      } else {
+        const dates = operativeDates(bars, cfg.desde, cfg.hasta);
+        if (dates.length < 3) {
+          throw new BacktestError(
+            'sin-datos',
+            `solo ${dates.length} sesiones en [${cfg.desde}, ${cfg.hasta}]; se necesitan al menos 3`,
+          );
+        }
+        split = splitTimeline(dates, cfg.split) as DataSplitDto;
+        ejecutadoHasta = split.validation.endDate;
+        emit('backtest', 30, 'sin filtro');
+        const unfiltered = runAndMeasure(cfg, engineBars, cfg.params, {
+          startDate: cfg.desde,
+          endDate: ejecutadoHasta,
+        });
+        const unfilteredMetrics = toMetricsDto(unfiltered.metrics);
+        await yieldToEventLoop();
+        reportWithout = persistRun(
+          comparisonRunBody(
+            cfg,
+            split,
+            ejecutadoHasta,
+            unfiltered,
+            await benchmarkCurve(cfg, source, engineBars, cfg.desde, ejecutadoHasta),
+            comparisonWarnings(source, unfilteredMetrics, missing),
+            source,
+            now() - started,
+          ),
+        );
+      }
+
+      emit('backtest', 60, 'con filtro');
+      const filteredCfg: ResolvedRunConfig = { ...cfg, regimeFilter: true };
+      const filtered = runAndMeasure(filteredCfg, engineBars, cfg.params, {
+        startDate: cfg.desde,
+        endDate: ejecutadoHasta,
+      });
+      const filteredMetrics = toMetricsDto(filtered.metrics);
+      await yieldToEventLoop();
+
+      emit('guardando', 85);
+      const reportWith = persistRun(
+        comparisonRunBody(
+          filteredCfg,
+          split,
+          ejecutadoHasta,
+          filtered,
+          await benchmarkCurve(filteredCfg, source, engineBars, cfg.desde, ejecutadoHasta),
+          [...comparisonWarnings(source, filteredMetrics, missing), regimeFilterNotice(strategy)],
+          source,
+          now() - started,
+        ),
+      );
+
+      runs.saveRegimeComparison(strategy.id, strategy.version, reportWithout.id, reportWith.id);
+      try {
+        deps.broadcast?.(IPC_CHANNELS.ai.changed, {
+          kind: 'regimen',
+          at: new Date(now()).toISOString(),
+        });
+      } catch (error: unknown) {
+        logger.warn?.(`[backtest] no se pudo difundir ai:changed: ${String(error)}`);
+      }
+      emit('completado', 100);
+      const comparison = getRegimeComparisonDto({
+        strategyId: strategy.id,
+        version: strategy.version,
+      });
+      if (comparison === null) {
+        throw new BacktestError('not-found', 'no se pudo releer la comparación recién guardada');
+      }
+      return comparison;
+    } catch (error: unknown) {
+      emit('error', 100, error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  };
+
   // -- Pruebas de estrés --------------------------------------------------------
 
   const runStressPipeline = async (request: StressRequest): Promise<StressResultDto[]> => {
@@ -1097,6 +1475,10 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
     runStress: (request) => runStressPipeline(request),
 
+    getRegimeComparison: (request) => getRegimeComparisonDto(request),
+
+    runRegimeComparison: (request) => runRegimeComparisonPipeline(request),
+
     seedFichas: () => {
       let created = 0;
       for (const impl of impls) {
@@ -1115,7 +1497,11 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
         const strategy = strategies.get(strategyId);
         if (strategy === null) continue;
         try {
-          if (runs.latestRun(strategyId, strategy.version, 'completo') === null) {
+          if (
+            runs.latestRun(strategyId, strategy.version, 'completo', {
+              regimeFilter: false,
+            }) === null
+          ) {
             await runPipeline({
               strategyId,
               version: strategy.version,
@@ -1128,6 +1514,11 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
           }
           if (runs.listStress(strategyId, strategy.version).length < 3) {
             await runStressPipeline({ strategyId, version: strategy.version });
+          }
+          // El par emparejado de la ficha: reutiliza el run semilla como
+          // lado sin filtro, así que solo corre el lado con filtro.
+          if (runs.getRegimeComparison(strategyId, strategy.version) === null) {
+            await runRegimeComparisonPipeline({ strategyId, version: strategy.version });
           }
         } catch (error: unknown) {
           // La semilla de una estrategia no debe impedir las demás.
@@ -1224,6 +1615,24 @@ export function registerBacktest(
       throw new IpcValidationError(IPC_CHANNELS.stress.run, 'petición de estrés inválida');
     }
     return service.runStress(request);
+  });
+  ipcMain.handle(IPC_CHANNELS.backtest.regimeComparison, (_event, request: unknown) => {
+    if (!isRegimeComparisonRequest(request)) {
+      throw new IpcValidationError(
+        IPC_CHANNELS.backtest.regimeComparison,
+        'consulta de comparación inválida',
+      );
+    }
+    return service.getRegimeComparison(request);
+  });
+  ipcMain.handle(IPC_CHANNELS.backtest.runRegimeComparison, (_event, request: unknown) => {
+    if (!isRegimeComparisonRequest(request)) {
+      throw new IpcValidationError(
+        IPC_CHANNELS.backtest.runRegimeComparison,
+        'petición de comparación inválida',
+      );
+    }
+    return service.runRegimeComparison(request);
   });
 
   // Semilla del primer arranque: fichas síncronas, resultados en segundo

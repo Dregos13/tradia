@@ -1,0 +1,16 @@
+
+> tradia@0.0.1 test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/dregos/Library/Application Support/orquesta/worktrees/6e127493/e43b6d0f
+
+
+ Test Files  183 passed (183)
+      Tests  2491 passed (2491)
+   Start at  15:46:04
+   Duration  37.84s (tests 74%, environment 10%, setup 7%, transform 5%, import 4%)
+
+    Isolate  183 workers spawned · ~237ms startup each (spawn + environment, per file)
+             at least ~4.59s faster with isolate: false — reuses workers across files instead of one per file
+

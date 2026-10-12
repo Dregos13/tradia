@@ -12,11 +12,11 @@ No se anidan tarjetas. Cada grupo usa una sección de papel con cabecera y divis
 
 `Parada` permanece visible en la cabecera, a la derecha de las acciones y antes del estado de conexión. Área mínima: 44 × 44 px. Usa un octógono con cuadrado interior, texto y color; el color nunca comunica el estado por sí solo.
 
-| Estado | Etiqueta | Presentación | Acción |
-| --- | --- | --- | --- |
-| Normal | `Parada` | contorno crítico, icono stop | Un clic activa inmediatamente, sin confirmación. |
-| Activa | `Parada activa` | fondo crítico, icono stop, `aria-pressed="true"` | Abre el flujo de reanudación; nunca reactiva directamente. |
-| Reanudando | `Reanudando…` | cobalto, indicador giratorio más texto | Deshabilitado, `aria-busy="true"`. |
+| Estado     | Etiqueta        | Presentación                                     | Acción                                                     |
+| ---------- | --------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| Normal     | `Parada`        | contorno crítico, icono stop                     | Un clic activa inmediatamente, sin confirmación.           |
+| Activa     | `Parada activa` | fondo crítico, icono stop, `aria-pressed="true"` | Abre el flujo de reanudación; nunca reactiva directamente. |
+| Reanudando | `Reanudando…`   | cobalto, indicador giratorio más texto           | Deshabilitado, `aria-busy="true"`.                         |
 
 Al activarse aparece bajo la cabecera un banner global con `role="alert"`: **“Parada activa: {causa} · {hora local con zona} · Activada por {persona/sistema}”**. Incluye `Ver en Riesgo` y `Reanudar`. Permanece visible tras reiniciar la app mientras siga activa. No se cierra.
 
@@ -30,18 +30,18 @@ Encabezado: `Límites de riesgo`, estado de guardado y la nota persistente con i
 
 Valores prudentes y márgenes:
 
-| Grupo | Regla | Predeterminado | Margen duro / condición |
-| --- | --- | ---: | --- |
-| Por operación | Riesgo por operación | 0,5 % | 0,5–2 % |
-| Por operación | Stop | Obligatorio | no editable |
-| Por operación | Beneficio/riesgo mínimo | 1:2 | mínimo 1:2 |
-| Pérdidas | Diaria / semanal / mensual | 2 % / 4 % / 6 % | mayores que 0; los límites derivados del contrato mandan |
-| Pérdidas | Drawdown máximo | 10 % | activa la parada al alcanzarse |
-| Exposición | Posiciones abiertas | 5 | entero positivo |
-| Exposición | Por activo / sector / divisa no USD | 20 % / 30 % / 25 % | 0–100 % |
-| Exposición | Correlación a 60 días | 0,7 | −1 a 1 |
-| Exposición | Apalancamiento | 1× | fijo, no editable |
-| Exposición | Volumen medio de 20 días | 1 % | máximo por posición |
+| Grupo         | Regla                               |     Predeterminado | Margen duro / condición                                  |
+| ------------- | ----------------------------------- | -----------------: | -------------------------------------------------------- |
+| Por operación | Riesgo por operación                |              0,5 % | 0,5–2 %                                                  |
+| Por operación | Stop                                |        Obligatorio | no editable                                              |
+| Por operación | Beneficio/riesgo mínimo             |                1:2 | mínimo 1:2                                               |
+| Pérdidas      | Diaria / semanal / mensual          |    2 % / 4 % / 6 % | mayores que 0; los límites derivados del contrato mandan |
+| Pérdidas      | Drawdown máximo                     |               10 % | activa la parada al alcanzarse                           |
+| Exposición    | Posiciones abiertas                 |                  5 | entero positivo                                          |
+| Exposición    | Por activo / sector / divisa no USD | 20 % / 30 % / 25 % | 0–100 %                                                  |
+| Exposición    | Correlación a 60 días               |                0,7 | −1 a 1                                                   |
+| Exposición    | Apalancamiento                      |                 1× | fijo, no editable                                        |
+| Exposición    | Volumen medio de 20 días            |                1 % | máximo por posición                                      |
 
 El frontend puede anticipar la validación, pero el error del proceso principal se muestra literalmente. El campo inválido usa `aria-invalid`, se enlaza por `aria-describedby` y conserva el valor para corregirlo. Ejemplos: `Introduce un riesgo entre 0,5 % y 2 %.` y `El ratio mínimo no puede ser inferior a 1:2.` El error añade icono, texto y borde; no depende del rojo. `Guardar límites` queda disponible para que el servidor sea la autoridad. Tras éxito: `Límites guardados · {hora}` con `role="status"`. Si la carga inicial falla, se conserva la última instantánea cuando exista y se muestra `No se pudieron actualizar los límites` con `Reintentar`.
 

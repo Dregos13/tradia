@@ -43,7 +43,7 @@ export function BrokerSettings() {
   return (
     <SettingsSection
       title="Cuenta de broker · Paper"
-      description="Conecta una cuenta de Alpaca Paper. Tradia no admite cuentas live ni puede retirar fondos."
+      description="Conecta una cuenta de Alpaca Paper. Esta ranura solo admite claves paper; las claves live se configuran en Dinero real."
     >
       <div className="broker-settings" aria-busy={broker.loading || broker.busy}>
         <span className="broker-paper-badge">

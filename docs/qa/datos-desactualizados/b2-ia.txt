@@ -1,0 +1,2148 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+IA
+Señales + paper trading
+Parada
+IA
+
+Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
+
+Instantánea calculada 11 oct 2026, 11:18 CEST
+
+Actualizar
+
+Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el motor de riesgo.
+
+Régimen del mercado
+
+Referencia SPY · cierre 9 oct 2026
+
+Tendencia
+Volatilidad baja
+
+Dirección: ADX(14) 34,7 · pendiente SMA50 0,8458
+
+Volatilidad realizada 20 sesiones: 0,3 % · mediana de 252: 0,7 %
+
+El régimen se recalcula al cierre; no predice por sí solo.
+
+Régimen por activo
+
+Desplázate horizontalmente para ver todas las columnas.
+
+Régimen por activo
+Activo	Dirección	Volatilidad	Calculado con datos hasta	Cambio anterior
+SPY	Tendencia	Volatilidad baja	9 oct 2026	Lateral → Tendencia · 28 sept 2026
+QQQ	Tendencia	Volatilidad alta	9 oct 2026	Lateral → Tendencia · 18 feb 2026
+AAPL	Tendencia	Volatilidad baja	9 oct 2026	Lateral → Tendencia · 4 ago 2026
+MSFT	Tendencia	Volatilidad baja	9 oct 2026	Lateral → Tendencia · 28 ene 2026
+Estrategias según el régimen
+
+Desplázate horizontalmente para ver todas las columnas.
+
+Decisión por régimen de cada estrategia
+Estrategia	Estado por régimen	Funciona en	Falla en	Motivo
+Cruce de medias
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo.
+Reversión RSI/Bollinger
+v1 · investigacion
+Ver ficha	Desactivada por régimen	Lateral	Tendencia	El mercado está en Tendencia · Volatilidad baja y la estrategia declara que falla en Tendencia.
+Ruptura de rangos
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo.
+Momentum entre activos
+v1 · investigacion
+Ver ficha	Activa por régimen	Tendencia	Ninguno declarado	Coincide: Tendencia · Volatilidad baja. No coincide con ningún régimen de fallo.
+Predicción por activo
+
+No crea señales por sí solo · Riesgo conserva el veto.
+
+Activo
+Todos los activos
+MSFT
+AAPL
+QQQ
+SPY
+
+Desplázate horizontalmente para ver todas las columnas.
+
+Probabilidades estimadas al cierre diario
+Activo y horizonte	Probabilidad de subida	Probabilidad de bajada	Volatilidad esperada	Modelo y aptitud	Calculado
+MSFT
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	42,3 %
+	57,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 oct 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	27,1 %
+	72,9 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 oct 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 oct 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 oct 2026
+
+SPY
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 oct 2026
+
+SPY
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	26,4 %
+	73,6 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 oct 2026
+
+SPY
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 oct 2026
+
+AAPL
+Próximas 5 sesiones
+	63,5 %
+	36,5 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 oct 2026
+
+QQQ
+Próximas 5 sesiones
+	9,5 %
+	90,5 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 oct 2026
+
+SPY
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 oct 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 30 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	73,7 %
+	26,3 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 30 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 30 sept 2026
+
+SPY
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 30 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 29 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	42,3 %
+	57,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 29 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 29 sept 2026
+
+SPY
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 29 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 sept 2026
+
+SPY
+Próximas 5 sesiones
+	26,4 %
+	73,6 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	38,9 %
+	61,1 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 sept 2026
+
+SPY
+Próximas 5 sesiones
+	9,5 %
+	90,5 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 sept 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	9,5 %
+	90,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 23 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 23 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 23 sept 2026
+
+SPY
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 23 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 22 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 22 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 22 sept 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 22 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,7 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	90,5 %
+	9,5 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 sept 2026
+
+SPY
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	90,5 %
+	9,5 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 sept 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 sept 2026
+
+SPY
+Próximas 5 sesiones
+	9,5 %
+	90,5 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 16 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 16 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,3 %
+	14,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 16 sept 2026
+
+SPY
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 16 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 15 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 15 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 15 sept 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 15 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 sept 2026
+
+SPY
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 sept 2026
+
+SPY
+Próximas 5 sesiones
+	90,5 %
+	9,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 sept 2026
+
+SPY
+Próximas 5 sesiones
+	100 %
+	0 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	9,2 %
+	90,8 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	42,3 %
+	57,7 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 sept 2026
+
+SPY
+Próximas 5 sesiones
+	100 %
+	0 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 9 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	50 %
+	50 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 sept 2026
+
+SPY
+Próximas 5 sesiones
+	100 %
+	0 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 8 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	9,5 %
+	90,5 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 sept 2026
+
+SPY
+Próximas 5 sesiones
+	85,1 %
+	14,9 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 sept 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 sept 2026
+
+SPY
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 2 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 sept 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 sept 2026
+
+QQQ
+Próximas 5 sesiones
+	26,5 %
+	73,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 sept 2026
+
+SPY
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 1 sept 2026
+
+MSFT
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 ago 2026
+
+SPY
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	63,5 %
+	36,5 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 ago 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 28 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	0,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 27 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 27 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 27 ago 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 27 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 26 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,7 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 26 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 26 ago 2026
+
+SPY
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 26 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 ago 2026
+
+SPY
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 25 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 ago 2026
+
+SPY
+Próximas 5 sesiones
+	16,7 %
+	83,3 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 24 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 ago 2026
+
+SPY
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 21 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	38,9 %
+	61,1 %	1,8 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 20 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 20 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 20 ago 2026
+
+SPY
+Próximas 5 sesiones
+	39,1 %
+	60,9 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 20 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	16,7 %
+	83,3 %	1,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 19 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 19 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 19 ago 2026
+
+SPY
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 19 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,9 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 ago 2026
+
+SPY
+Próximas 5 sesiones
+	90,5 %
+	9,5 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 18 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,8 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 ago 2026
+
+SPY
+Próximas 5 sesiones
+	90,5 %
+	9,5 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 17 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 ago 2026
+
+SPY
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 14 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 13 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 13 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 13 ago 2026
+
+SPY
+Próximas 5 sesiones
+	85,4 %
+	14,6 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 13 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 12 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 12 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 12 ago 2026
+
+SPY
+Próximas 5 sesiones
+	85,1 %
+	14,9 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 12 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 ago 2026
+
+SPY
+Próximas 5 sesiones
+	63,5 %
+	36,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 11 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,4 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 ago 2026
+
+SPY
+Próximas 5 sesiones
+	63,5 %
+	36,5 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 10 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	1,9 %
+	98,1 %	1,7 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 ago 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 7 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	8,7 %
+	91,3 %	1,8 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	7,8 %
+	92,2 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 ago 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 6 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	27,3 %
+	72,7 %	1,8 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 ago 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 5 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	1,5 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 ago 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 4 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,8 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 ago 2026
+
+AAPL
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,3 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 ago 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,7 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 ago 2026
+
+SPY
+Próximas 5 sesiones
+	51,3 %
+	48,7 %	1,1 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 3 ago 2026
+
+MSFT
+Próximas 5 sesiones
+	38,3 %
+	61,7 %	2,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 jul 2026
+
+AAPL
+Próximas 5 sesiones
+	50 %
+	50 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 jul 2026
+
+QQQ
+Próximas 5 sesiones
+	26,3 %
+	73,7 %	1,6 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 jul 2026
+
+SPY
+Próximas 5 sesiones
+	42,3 %
+	57,7 %	1,2 %
+5 sesiones
+	v0.1.0 · 0cfda4e5424f
+Datos sintéticos · no apto
+Ver ficha del modelo	11 oct 2026, 11:18 CEST
+Cierre 31 jul 2026
+
+Una probabilidad no significa que el precio vaya a subir. Expresa la frecuencia estimada para este horizonte según este modelo.
+
+Solo los modelos aptos pueden confirmar o reducir una señal existente. No pueden crearla.
+
+Ficha del modelo · dirección y volatilidad
+Datos sintéticos · no apto
+Versión
+v0.1.0
+SHA-256 del archivo
+0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6
+Copiar hash
+Horizonte
+5 sesiones
+Origen
+Datos sintéticos
+Entrenamiento
+11 mar 2022 – 19 ene 2024 · 60 %
+Calibración
+29 ene 2024 – 27 sept 2024 · 20 %
+Prueba final intacta
+7 oct 2024 – 6 jun 2025 · 20 %
+Entrenado
+10 oct 2026, 22:40 CEST
+Registrado
+19 sept 2026, 12:00 CEST
+Evaluación fuera de muestra
+
+En Brier, menos es mejor. 0 indica probabilidades perfectas; la comparación solo usa la prueba final fuera de muestra.
+
+Brier del modelo
+0,197
+Brier de referencia
+0,25
+Diferencia
+-0,053
+
+Mejor que la referencia
+
+La mejora no elimina el bloqueo: el origen es sintético. Solo información. Este modelo no puede influir en señales porque usa datos sintéticos.
+
+Calibración fuera de muestra
+
+Cuanto más cerca esté la línea del modelo de la diagonal, mejor corresponden sus porcentajes con lo observado.
+
+0 %
+0 %
+50 %
+50 %
+100 %
+100 %
+Probabilidad estimada
+Frecuencia observada
+
+Calibración ideal · línea discontinua
+Modelo · línea sólida
+
+Ver datos del gráfico
+En línea
+Agentes activos
+Última comprobación 11:19:05
+Próximo reintento —
+Último latido Pendiente

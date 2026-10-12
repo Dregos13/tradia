@@ -1,0 +1,179 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estado del sistema
+Señales + paper trading
+Parada
+Aún no hay datos de mercado
+
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
+
+Situación del mercado
+
+Seguridad, señales y cartera simulada de un vistazo.
+
+Actualizado 11:17:45 CEST
+
+Conexión y fuentes
+Ver fuentes
+
+En línea
+
+Precios · Sin configurar
+
+Sin actualización
+
+Sin configurar
+Macro · Sin configurar
+
+Sin actualización
+
+Sin configurar
+Noticias · Reserva Federal — comunicados y FOMC
+
+11 oct 2026, 11:17 CEST
+
+Disponible
+Noticias · BCE — notas de prensa
+
+Sin actualización
+
+Sin evaluar
+Noticias · BLS — nóminas no agrícolas e IPC
+
+Sin actualización
+
+Sin evaluar
+Noticias · BEA — comunicados (PIB, PCE…)
+
+Sin actualización
+
+Sin evaluar
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+Sin actualización
+
+Sin evaluar
+Noticias · CNMV — información privilegiada y relevante
+
+Sin actualización
+
+Sin evaluar
+Contexto macro
+Ver macro
+
+Régimen · Sin clasificar · Fuente FRED
+
+VIXCLS
+— Sin evaluar
+Volatilidad VIX
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato diario
+Sin fecha de observación
+DGS10
+— Sin evaluar
+Treasury · 10 años
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato diario
+Sin fecha de observación
+CPIAUCSL
+— Sin evaluar
+IPC de EE. UU. · interanual
+Sin dato
+
+Histórico insuficiente para comparar.
+
+Histórico insuficiente para el minigráfico.
+
+Dato mensual
+Sin fecha de observación
+Señales vivas
+Ver en Diario
+
+Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 11 oct 2026, 11:17 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Reversión RSI/Bollinger
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Ruptura de rangos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Momentum entre activos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
+En línea
+Agentes activos
+Última comprobación 11:17:45
+Próximo reintento —
+Último latido Pendiente

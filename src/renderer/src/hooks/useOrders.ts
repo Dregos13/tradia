@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrokerOrder, ReconcileStatusResult } from '../../../shared/broker';
 
+/** Local ids can overlap between the paper and live order tables. */
+export const orderKey = (order: BrokerOrder) => `${order.mode ?? 'unknown'}:${order.id}`;
+
 export function useOrders() {
   const [orders, setOrders] = useState<BrokerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const generation = useRef(0);
-  const updates = useRef(new Map<number, BrokerOrder>());
+  const updates = useRef(new Map<string, BrokerOrder>());
   const update = useCallback((order: BrokerOrder) => {
-    updates.current.set(order.id, order);
-    setOrders((previous) => [order, ...previous.filter((row) => row.id !== order.id)]);
+    updates.current.set(orderKey(order), order);
+    setOrders((previous) => [
+      order,
+      ...previous.filter((row) => orderKey(row) !== orderKey(order)),
+    ]);
     setUpdatedAt(new Date().toISOString());
   }, []);
   const reload = useCallback(async () => {
@@ -26,8 +32,8 @@ export function useOrders() {
         rows.push(...page);
       } while (page.length === 500 && version === generation.current);
       if (version !== generation.current) return;
-      const merged = new Map(rows.map((row) => [row.id, row]));
-      updates.current.forEach((row) => merged.set(row.id, row));
+      const merged = new Map(rows.map((row) => [orderKey(row), row]));
+      updates.current.forEach((row) => merged.set(orderKey(row), row));
       setOrders([...merged.values()]);
       setUpdatedAt(new Date().toISOString());
     } catch {
@@ -39,10 +45,12 @@ export function useOrders() {
   }, []);
   useEffect(() => {
     const off = window.tradia.broker.onOrderUpdated(update);
+    const offLive = window.tradia.live.onChanged(() => void reload());
     void reload();
     return () => {
       generation.current++;
       off();
+      offLive();
     };
   }, [reload, update]);
   return { orders, loading, error, updatedAt, reload, update };

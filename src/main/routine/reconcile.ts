@@ -91,7 +91,12 @@ export function reconcileDay(input: ReconcileInput): ReconcileResult {
   const closedToday = input.positions.filter(
     (p) => p.closedAt !== null && nySessionDate(p.closedAt) === input.dia,
   );
-  const opsToday = input.operations.filter((e) => nySessionDate(e.createdAt) === input.dia);
+  // Las 'operacion' de dinero real (prueba de humo y órdenes live) no
+  // son simuladas: no cierran ninguna posición paper y no deben
+  // descuadrar la conciliación diaria.
+  const opsToday = input.operations.filter(
+    (e) => e.mode !== 'live' && nySessionDate(e.createdAt) === input.dia,
+  );
   const opsByPosition = new Map<number, JournalEntry>();
   for (const entry of opsToday) {
     const pid = positionIdOf(entry);

@@ -148,6 +148,31 @@ export function isMarketDataError(error: unknown, kind?: MarketDataErrorKind): b
   return error instanceof MarketDataError && (kind === undefined || error.kind === kind);
 }
 
+/**
+ * Motivo fijo de «la clave guardada no es válida»: pide volver a pegarla
+ * y nunca la contiene (la clave no aparece en ningún texto).
+ */
+export const INVALID_STORED_KEY_MESSAGE =
+  'La clave guardada tiene caracteres no válidos; vuelve a pegarla en Ajustes';
+
+/**
+ * La clave guardada no sirve como credencial (controles o espacios dentro,
+ * p. ej. pegada desde un documento antes de la validación de `setKey`).
+ * Sigue siendo 'auth' —quien la clasifica la trata como problema de
+ * clave—, pero se distingue por la clase: no es «sin clave», no es un 401
+ * remoto y nunca llegó a la red.
+ */
+export class InvalidStoredKeyError extends MarketDataError {
+  constructor(details: MarketDataErrorDetails) {
+    super('auth', `[${details.provider}] ${INVALID_STORED_KEY_MESSAGE}`, details);
+    this.name = 'InvalidStoredKeyError';
+  }
+}
+
+export function isInvalidStoredKeyError(error: unknown): error is InvalidStoredKeyError {
+  return error instanceof InvalidStoredKeyError;
+}
+
 // ---------------------------------------------------------------------------
 // Validación de entrada (los adaptadores la aplican antes de llamar a la API)
 // ---------------------------------------------------------------------------

@@ -18,6 +18,15 @@
  *   vota 'corto'. Si las estrategias se contradicen no hay señal: va al
  *   diario como 'contradiccion'. Si coinciden, una señal con la confianza
  *   media de los votos.
+ * - Fase 6 (`deps.ai`): la habilitación por régimen de cada ficha se
+ *   resuelve contra el régimen del mercado (referencia SPY) — la
+ *   desactivada no vota y queda en el Diario. La confianza combinada es
+ *   votos × probabilidad calibrada del modelo apto en la dirección
+ *   (×2·p sobre el 0,5 neutral) × ajuste del sentimiento confirmado
+ *   (±`SIGNAL_NEWS_SENTIMENT_ADJUST`): si el modelo contradice la
+ *   dirección o la combinada queda por debajo de `SIGNAL_MIN_CONFIDENCE`
+ *   cuando la IA participó, no se opera y queda en el Diario. La IA solo
+ *   confirma o rebaja: jamás crea la señal ni esquiva la pasarela.
  * - Confianza de cada voto: la tasa de acierto del backtest
  *   representativo de la versión (`winRatePct` / 100, acotada a 0–1) o
  *   `SIGNAL_DEFAULT_CONFIDENCE` cuando la versión aún no tiene métricas.
@@ -39,6 +48,13 @@ import type { Strategy as ExecutableStrategy } from '../backtest/types';
 import { DEFAULT_MAX_POSITIONS } from '../backtest/types';
 import type { SessionDate } from '../market/providers/types';
 import { TICKER_PATTERN } from '../market/providers/types';
+import { resolveStrategyRegime, type ActiveRegime } from '../ai/regime/enablement';
+import {
+  SIGNAL_MIN_CONFIDENCE,
+  SIGNAL_NEWS_SENTIMENT_ADJUST,
+  type NewsSentiment,
+  type SignalAiContext,
+} from '../../shared/ai';
 import type {
   JournalRecordInput,
   JournalRuleCheck,
@@ -71,6 +87,13 @@ export const SIGNAL_DEFAULT_CONFIDENCE = 0.5;
 export const SIGNAL_PROCESSED_MARKS_LIMIT = 2_000;
 /** Tope de caracteres del motivo por voto y del motivo agregado. */
 export const SIGNAL_REASON_MAX_LENGTH = 400;
+/**
+ * Ventana de frescura del sentimiento de noticias que ajusta la confianza
+ * (5 días desde `analizado_en`): un análisis más viejo no participa.
+ */
+export const SIGNAL_NEWS_WINDOW_MS = 5 * 24 * 60 * 60 * 1_000;
+/** Tope de análisis por activo que pueden ajustar una señal. */
+export const SIGNAL_NEWS_MAX_ITEMS = 10;
 
 /** Estrategia evaluable: ficha vigente + factoría de su implementación. */
 export interface EvaluableStrategy {
@@ -97,6 +120,77 @@ export interface SignalEngineLogger {
   info(message: string): void;
   warn(message: string): void;
   error(message: string): void;
+}
+
+/** Identidad del modelo apto para apoyar señales (ficha 'real' que mejora el Brier de referencia). */
+export interface EligibleModelRef {
+  version: string;
+  hash: string;
+  horizonDays: number;
+}
+
+/** Lo mínimo de una predicción guardada que necesita la combinación. */
+export interface SignalPredictionRef {
+  /** Probabilidad calibrada de subida (0–1). */
+  probUp: number;
+  modelVersion: string;
+  modelHash: string;
+  horizonDays: number;
+  /**
+   * Sesión del cierre sobre el que se calculó ('YYYY-MM-DD'). Solo
+   * ajusta la señal si es la de la vela evaluada o la inmediatamente
+   * anterior: una predicción de una sesión ya pasada (p. ej. la que
+   * quedó mientras la serie estuvo atrasada semanas) no toca la
+   * confianza. Ausente solo en pruebas que no la conocen.
+   */
+  sessionDate?: SessionDate;
+}
+
+/** Análisis de un titular confirmado ligado al activo (`news_analysis`). */
+export interface SignalNewsRef {
+  /** Titular analizado (`news_items.id`), para la trazabilidad de la señal. */
+  newsItemId: number;
+  sentiment: NewsSentiment;
+  /** ISO 8601 del análisis; fuera de `SIGNAL_NEWS_WINDOW_MS` no participa. */
+  analyzedAt: string;
+  /**
+   * ISO 8601 de publicación del titular (`news_items.publicado`). Cuando
+   * existe es la fecha que gobierna la ventana de frescura: un análisis
+   * reciente de un titular viejo no rejuvenece la noticia.
+   */
+  publishedAt?: string | null;
+}
+
+/**
+ * Fuentes de IA de la fase 6 (todas opcionales). Si `deps.ai` está ausente
+ * el motor conserva exactamente el comportamiento de la fase 4; si está
+ * presente pero una fuente no responde, ese factor no participa. Reglas:
+ *
+ * - Régimen: `resolveStrategyRegime` sobre el régimen del mercado (la misma
+ *   referencia que la página «IA» y el filtro del backtest) decide qué
+ *   estrategias votan; las desactivadas quedan en el Diario.
+ * - Probabilidad: solo la usa si el modelo es apto y la predicción casa
+ *   con su versión y hash. En la dirección de la señal multiplica por
+ *   `2 · p` (p > 0,5 confirma); por debajo de 0,5 contradice y no se opera.
+ * - Sentimiento: media de los análisis confirmados frescos alineada con la
+ *   dirección, acotada a ±`SIGNAL_NEWS_SENTIMENT_ADJUST`.
+ * - La confianza combinada (votos × modelo × noticias) exige
+ *   `SIGNAL_MIN_CONFIDENCE` cuando la IA participó; por debajo no se opera
+ *   y queda como 'confianza baja' en el Diario.
+ */
+export interface SignalAiSources {
+  /** Régimen del mercado vigente (referencia SPY); null si aún no hay. */
+  marketRegime?(): ActiveRegime | null;
+  /** Modelo apto vigente; null si no hay servible o la ficha no lo es. */
+  eligibleModel?(): EligibleModelRef | null;
+  /**
+   * Última predicción guardada del ticker (de cualquier sesión): el
+   * motor solo la aplica si su `sessionDate` es la sesión evaluada o la
+   * inmediatamente anterior.
+   */
+  latestPrediction?(ticker: string): SignalPredictionRef | null;
+  /** Análisis de titulares confirmados del activo, más recientes primero. */
+  newsAnalysesFor?(ticker: string): SignalNewsRef[];
 }
 
 export interface SignalEngineDeps {
@@ -129,6 +223,28 @@ export interface SignalEngineDeps {
   /** Marcas persistentes de «vela ya evaluada» (deduplicación). */
   wasProcessed(ticker: string, barDate: SessionDate): boolean;
   markProcessed(ticker: string, barDate: SessionDate): void;
+  /**
+   * Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'),
+   * al instante dado. Una vela anterior no se evalúa: llega de una puesta
+   * al día atrasada y una señal sobre ella sería una decisión con datos
+   * viejos. Sin la dependencia el motor no aplica la guarda de frescura.
+   */
+  expectedSessionDate?(nowMs: number): SessionDate | null;
+  /**
+   * Sesión de negociación inmediatamente anterior a `barDate`
+   * ('YYYY-MM-DD'), según el calendario de mercado. Es la frescura
+   * mínima exigible a una predicción: al evaluar la vela de `barDate` la
+   * última predicción disponible es la del cierre previo (el cálculo de
+   * la sesión en curso es asíncrono); una más vieja llega de una serie
+   * que estuvo atrasada y no debe ajustar la confianza. Sin la
+   * dependencia se exige la sesión exacta de la vela.
+   */
+  previousExpectedSession?(barDate: SessionDate): SessionDate | null;
+  /**
+   * Fuentes de IA de la fase 6 (régimen, modelo apto y noticias
+   * confirmadas). Sin el bloque el motor replica la fase 4 a la letra.
+   */
+  ai?: SignalAiSources;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   logger?: Partial<SignalEngineLogger>;
@@ -139,7 +255,14 @@ export interface SignalEngineDeps {
 // ---------------------------------------------------------------------------
 
 export type TickerEvaluationOutcome =
-  'emitted' | 'contradiction' | 'no-votes' | 'error' | 'already-processed' | 'blocked';
+  | 'emitted'
+  | 'contradiction'
+  | 'no-votes'
+  | 'low-confidence'
+  | 'error'
+  | 'already-processed'
+  | 'stale-data'
+  | 'blocked';
 
 export interface SignalEngine {
   /** Entrada del evento interno «vela guardada» de market/ingestion. */
@@ -224,6 +347,36 @@ const toStrategyRef = (vote: SignalStrategyVote): JournalStrategyRef => ({
   version: vote.version,
 });
 
+/** Puntuación del sentimiento: 'positivo' +1, 'negativo' −1, el resto 0. */
+const sentimentScore = (sentiment: NewsSentiment): number =>
+  sentiment === 'positivo' ? 1 : sentiment === 'negativo' ? -1 : 0;
+
+/**
+ * Factor del modelo apto: la probabilidad calibrada en la dirección de la
+ * señal normalizada sobre el 0,5 neutral (0,6 → ×1,2; 0,5 → ×1). Devuelve
+ * null cuando el modelo contradice la dirección: en ese caso no se opera.
+ */
+const modelDirectionFactor = (probUp: number, direction: SignalDirection): number | null => {
+  const probDir = direction === 'largo' ? probUp : 1 - probUp;
+  return probDir < 0.5 ? null : 2 * probDir;
+};
+
+/**
+ * Factor del sentimiento confirmado: media de los análisis alineada con la
+ * dirección, acotada a ±SIGNAL_NEWS_SENTIMENT_ADJUST. Lista vacía → ×1.
+ */
+const newsSentimentFactor = (
+  analyses: readonly SignalNewsRef[],
+  direction: SignalDirection,
+): number => {
+  if (analyses.length === 0) return 1;
+  const sign = direction === 'largo' ? 1 : -1;
+  const mean =
+    analyses.reduce((acc, item) => acc + sign * sentimentScore(item.sentiment), 0) /
+    analyses.length;
+  return 1 + SIGNAL_NEWS_SENTIMENT_ADJUST * mean;
+};
+
 /** Las reglas incumplidas de la decisión, como cumplimiento del diario. */
 function riskRuleChecks(decision: RiskDecision): JournalRuleCheck[] {
   return decision.reasons.map((reason) => {
@@ -280,6 +433,24 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
 
   const blocked = (): boolean =>
     deps.isAgentsPaused() || deps.isOffline() || deps.isKillSwitchActive();
+
+  /**
+   * Frescura de la predicción que ajusta la señal de `barDate`: solo
+   * cuenta una predicción calculada sobre el cierre de esa sesión o de
+   * la inmediatamente anterior (al evaluar la vela nueva el recálculo de
+   * su propia sesión aún está encolado). Una predicción de sesiones ya
+   * pasadas —la que quedó mientras la serie estuvo atrasada— se
+   * descarta. Sin `sessionDate` no se puede acotar: el llamador que la
+   * sirve sin fecha (pruebas) la trata como vigente.
+   */
+  const predictionIsCurrent = (prediction: SignalPredictionRef, barDate: SessionDate): boolean => {
+    const session = prediction.sessionDate;
+    if (session === undefined) return true;
+    if (session === barDate) return true;
+    if (session > barDate) return false;
+    const previous = deps.previousExpectedSession?.(barDate) ?? null;
+    return previous !== null && session >= previous;
+  };
 
   const recordJournal = (input: JournalRecordInput): void => {
     try {
@@ -365,6 +536,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     votes: readonly SignalStrategyVote[],
     dataUsed: SignalDataUsed,
     barDate: SessionDate,
+    reason: string,
   ): Signal | null => {
     const decision = deps.submitSignal(intent);
     const input: NewSignal = {
@@ -374,7 +546,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       stop: intent.stop,
       target: intent.target,
       confidence: intent.confidence,
-      reason: aggregateReason(votes),
+      reason,
       strategies: [...votes],
       dataUsed,
       decision,
@@ -411,6 +583,18 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
   ): TickerEvaluationOutcome => {
     if (stopped || blocked()) return 'blocked';
     const ticker = rawTicker.trim().toUpperCase();
+    // Guarda de frescura: una vela anterior a la última sesión esperada
+    // no se evalúa (llega de una puesta al día atrasada). Solo la sesión
+    // vigente puede emitir una señal; la vela vieja tampoco queda marcada
+    // como procesada, no era evaluable.
+    const expectedSession = deps.expectedSessionDate?.(now());
+    if (expectedSession != null && barDate < expectedSession) {
+      logger.info?.(
+        `[signals] ${ticker} ${barDate}: vela anterior a la sesión esperada ` +
+          `${expectedSession}; no se evalúa`,
+      );
+      return 'stale-data';
+    }
     if (deps.wasProcessed(ticker, barDate) || deps.repo.signalExists(ticker, barDate)) {
       return 'already-processed';
     }
@@ -419,9 +603,44 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       .listEvaluables()
       .filter((evaluable) => executableMarkets(evaluable.ficha.markets).includes(ticker));
 
+    // Fase 6: la habilitación por régimen se resuelve contra el mercado
+    // (referencia SPY), mismo criterio que la página «IA» y el filtro del
+    // backtest. Una estrategia desactivada no vota y queda en el Diario
+    // con el motivo de su ficha; con régimen desconocido solo votan las
+    // que no declaran `failsIn` (regla de cierre de enablement).
+    const ai = deps.ai;
+    const marketRegime = ai?.marketRegime?.() ?? null;
+
     const proposals: VoteWithOrder[] = [];
     let evalErrors = 0;
     for (const evaluable of evaluables) {
+      if (ai !== undefined) {
+        const resolution = resolveStrategyRegime(
+          { worksIn: evaluable.ficha.worksIn, failsIn: evaluable.ficha.failsIn },
+          evaluable.ficha.status,
+          marketRegime,
+        );
+        if (resolution.regimeState !== 'habilitada') {
+          markState(evaluable.ficha.id, barDate, 'sin-senal', null);
+          recordJournal({
+            type: 'resumen',
+            ticker,
+            strategies: [
+              {
+                strategyId: evaluable.ficha.id,
+                name: evaluable.ficha.name,
+                version: evaluable.ficha.version,
+              },
+            ],
+            reason:
+              `'${evaluable.ficha.name}' v${evaluable.ficha.version} no vota en ` +
+              `${ticker} (régimen: ${resolution.regimeState}): ${resolution.reason}`,
+            dataUsed: { barDate, regimen: marketRegime },
+            result: 'sin-senal',
+          });
+          continue;
+        }
+      }
       try {
         const own = collectVotes(evaluable, ticker, barDate, preferSource);
         if (own.length === 0) {
@@ -500,6 +719,136 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
 
     const direction = votes[0]!.direction;
     const entry = lastBar?.close ?? 0;
+    if (!(entry > 0)) {
+      // La señal exige entrada > 0 (CHECK de la tabla y guarda de riesgo).
+      // Sin marca: una corrección de la serie puede completarla después.
+      logger.warn?.(`[signals] ${ticker} ${barDate}: sin precio de referencia; no se emite`);
+      for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
+      return 'error';
+    }
+
+    // -- Combinación con la IA (fase 6) ------------------------------------
+    // La predicción del modelo apto y el sentimiento de titulares
+    // confirmados solo confirman o rebajan la confianza de la señal que ya
+    // generaron las estrategias: nunca crean la señal ni evitan la
+    // pasarela. Sin `deps.ai` se conserva la confianza media de los votos.
+    const votesConfidence = votes.reduce((acc, vote) => acc + vote.confidence, 0) / votes.length;
+    const aiContext: SignalAiContext | null =
+      ai === undefined
+        ? null
+        : {
+            regime:
+              marketRegime === null
+                ? null
+                : { direction: marketRegime.direction, volatility: marketRegime.volatility },
+            probability: null,
+            horizonDays: null,
+            modelVersion: null,
+            modelHash: null,
+            newsItemIds: [],
+          };
+    const aiNotes: string[] = [];
+    let probFactor = 1;
+    let newsFactor = 1;
+
+    if (ai !== undefined) {
+      const eligible = ai.eligibleModel?.() ?? null;
+      const prediction = eligible === null ? null : (ai.latestPrediction?.(ticker) ?? null);
+      // La predicción solo cuenta si la emitió el modelo apto vigente
+      // (misma versión y hash) y es de la sesión evaluada o la
+      // inmediatamente anterior —una más vieja quedó de una serie
+      // atrasada y no toca la confianza—.
+      const usable =
+        eligible !== null &&
+        prediction !== null &&
+        prediction.modelVersion === eligible.version &&
+        prediction.modelHash === eligible.hash &&
+        predictionIsCurrent(prediction, barDate);
+      if (usable) {
+        const factor = modelDirectionFactor(prediction!.probUp, direction);
+        if (factor === null) {
+          // El modelo contradice la dirección: no se opera. Resultado
+          // definitivo (los mismos datos darían lo mismo): vela marcada.
+          deps.markProcessed(ticker, barDate);
+          for (const vote of votes) markState(vote.strategyId, barDate, 'sin-senal', null);
+          recordJournal({
+            type: 'contradiccion',
+            ticker,
+            strategies: votes.map(toStrategyRef),
+            reason:
+              `El modelo ${eligible!.version} contradice la señal ${direction} de ` +
+              `${ticker}: probabilidad calibrada de subida ` +
+              `${prediction!.probUp.toFixed(2)} (< 0,5); no se opera`,
+            dataUsed: {
+              ...(dataUsed as unknown as Record<string, unknown>),
+              propuestas: votes,
+              ai: aiContext === null ? null : { ...aiContext, probability: prediction!.probUp },
+            },
+            result: 'sin-senal',
+          });
+          logger.info?.(
+            `[signals] ${ticker} ${barDate}: el modelo contradice la señal ${direction} ` +
+              `(prob. subida ${prediction!.probUp.toFixed(2)}); no se emite`,
+          );
+          return 'contradiction';
+        }
+        probFactor = factor;
+        aiContext!.probability = prediction!.probUp;
+        aiContext!.horizonDays = eligible!.horizonDays;
+        aiContext!.modelVersion = eligible!.version;
+        aiContext!.modelHash = eligible!.hash;
+        aiNotes.push(
+          `modelo ${eligible!.version}: prob. subida ${prediction!.probUp.toFixed(2)} ` +
+            `(×${probFactor.toFixed(2)})`,
+        );
+      }
+
+      // Titulares confirmados frescos que ajustan la confianza; un
+      // análisis nunca crea la señal, solo modula la de los votos. La
+      // ventana la gobierna la publicación del titular (un análisis
+      // reciente de una noticia vieja no la rejuvenece); `analyzedAt`
+      // queda como respaldo cuando la fuente no da fecha.
+      const newsCutoff = now() - SIGNAL_NEWS_WINDOW_MS;
+      const analyses = (ai.newsAnalysesFor?.(ticker) ?? [])
+        .filter((item) => Date.parse(item.publishedAt ?? item.analyzedAt) >= newsCutoff)
+        .slice(0, SIGNAL_NEWS_MAX_ITEMS);
+      if (analyses.length > 0) {
+        newsFactor = newsSentimentFactor(analyses, direction);
+        aiContext!.newsItemIds = analyses.map((item) => item.newsItemId);
+        aiNotes.push(`noticias: ${analyses.length} análisis (×${newsFactor.toFixed(2)})`);
+      }
+    }
+
+    const aiParticipated =
+      aiContext !== null && (aiContext.probability !== null || aiContext.newsItemIds.length > 0);
+    const confidence = clampConfidence(votesConfidence * probFactor * newsFactor);
+    if (aiParticipated && confidence < SIGNAL_MIN_CONFIDENCE) {
+      // Confianza combinada por debajo del umbral: no se opera. Resultado
+      // definitivo: la vela queda marcada y la rebaja en el Diario.
+      deps.markProcessed(ticker, barDate);
+      for (const vote of votes) markState(vote.strategyId, barDate, 'sin-senal', null);
+      recordJournal({
+        type: 'resumen',
+        ticker,
+        strategies: votes.map(toStrategyRef),
+        reason:
+          `Confianza baja en ${ticker}: combinada ${confidence.toFixed(2)} < ` +
+          `${SIGNAL_MIN_CONFIDENCE} (votos ${votesConfidence.toFixed(2)} × modelo ` +
+          `${probFactor.toFixed(2)} × noticias ${newsFactor.toFixed(2)}); no se opera`,
+        dataUsed: {
+          ...(dataUsed as unknown as Record<string, unknown>),
+          propuestas: votes,
+          ai: aiContext,
+        },
+        result: 'sin-senal',
+      });
+      logger.info?.(
+        `[signals] ${ticker} ${barDate}: confianza combinada ${confidence.toFixed(2)} ` +
+          `< ${SIGNAL_MIN_CONFIDENCE}; no se emite`,
+      );
+      return 'low-confidence';
+    }
+
     const intent: SignalIntent = {
       ticker,
       direction,
@@ -512,21 +861,22 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         direction,
         proposals.flatMap((p) => (p.order.target === null ? [] : [p.order.target])),
       ),
-      confidence: votes.reduce((acc, vote) => acc + vote.confidence, 0) / votes.length,
+      confidence,
       origin: 'estrategia',
+      ...(aiContext === null ? {} : { ai: aiContext }),
     };
-
-    if (!(entry > 0)) {
-      // La señal exige entrada > 0 (CHECK de la tabla y guarda de riesgo).
-      // Sin marca: una corrección de la serie puede completarla después.
-      logger.warn?.(`[signals] ${ticker} ${barDate}: sin precio de referencia; no se emite`);
-      for (const vote of votes) markState(vote.strategyId, barDate, 'error', null);
-      return 'error';
-    }
+    if (aiContext !== null) dataUsed.ai = aiContext;
+    const reason =
+      aiNotes.length === 0
+        ? aggregateReason(votes)
+        : truncate(
+            `${aggregateReason(votes)} · IA: ${aiNotes.join(' · ')}`,
+            SIGNAL_REASON_MAX_LENGTH * 2,
+          );
 
     let signal: Signal | null;
     try {
-      signal = emitSignal(intent, votes, dataUsed, barDate);
+      signal = emitSignal(intent, votes, dataUsed, barDate, reason);
     } catch (error: unknown) {
       // La pasarela o la persistencia fallaron sin dejar decisión
       // guardada: queda como error en el diario y la vela NO se marca,
@@ -582,7 +932,8 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         if (barDate === null) continue;
         const outcome = evaluateTicker(ticker, barDate, null);
         if (outcome === 'blocked') break;
-        if (outcome === 'already-processed') continue;
+        // 'stale-data' tampoco cuenta: la vela vieja no se evaluó.
+        if (outcome === 'already-processed' || outcome === 'stale-data') continue;
         result.tickers += 1;
         if (outcome === 'emitted') result.emitted += 1;
         if (outcome === 'contradiction') result.contradictions += 1;

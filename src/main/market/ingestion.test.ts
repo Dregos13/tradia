@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { dataStatusKey, IPC_CHANNELS, type MarketUpdatedEvent } from '../../shared/ipc';
+import { sessionDateLabel } from '../../shared/dates';
 import { MIGRATIONS } from '../db/migrations';
 import { migrate } from '../db/migrator';
 import * as nyseCalendar from './calendar';
@@ -16,7 +17,7 @@ import {
   type MarketPowerMonitorLike,
 } from './ingestion';
 import { createSimulatedProvider, type SimulatedProvider } from './providers/simulated';
-import type { MarketDataProvider } from './providers/types';
+import { InvalidStoredKeyError, type MarketDataProvider } from './providers/types';
 import { createMarketRepository, type MarketRepository } from './repository';
 
 /**
@@ -241,7 +242,53 @@ describe('actualización diaria programada', () => {
 
     expect(repo.lastBarDate('AAPL')).toBe(LAST_SESSION);
     expect(getBarsSpy).toHaveBeenCalled();
-    expect(tickerStatus('AAPL')!.reason).toContain(NEW_SESSION);
+    expect(tickerStatus('AAPL')!.reason).toContain(sessionDateLabel(NEW_SESSION));
+    expect(tickerStatus('AAPL')!.reason).not.toContain(NEW_SESSION);
+  });
+
+  it('los motivos de «actualizando» escriben las fechas en formato local, nunca AAAA-MM-DD', async () => {
+    await service.addTicker('AAPL');
+    await service.start();
+    // La segunda pasada deja la vela esperada pendiente: además del motivo
+    // «descargando velas del … al …» se publica «esperando la vela del …».
+    provider.injectGap('AAPL', NEW_SESSION);
+
+    await vi.advanceTimersByTimeAsync(msToNextUpdate());
+    await flushAsync();
+
+    const actualizando = sent
+      .filter((s) => s.channel === IPC_CHANNELS.dataStatus.changed)
+      .map((s) => s.payload as { state: string; reason?: string | null })
+      .filter((entry) => entry.state === 'actualizando');
+    expect(actualizando.length).toBeGreaterThanOrEqual(2);
+    for (const entry of actualizando) {
+      expect(entry.reason ?? '').not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    }
+    const reasons = actualizando.map((entry) => entry.reason ?? '');
+    expect(reasons.some((reason) => reason.includes('descargando velas'))).toBe(true);
+    expect(reasons.some((reason) => reason.includes(sessionDateLabel(NEW_SESSION)))).toBe(true);
+  });
+
+  it('una clave guardada no válida marca el activo con el motivo de clave, no «sin conexión»', async () => {
+    // El proveedor rechaza la clave guardada antes de la petición (R1):
+    // la ingesta lo refleja como problema de clave, reintento inútil fuera.
+    provider = {
+      id: 'tiingo',
+      rateLimits: { perHour: 50, perDay: 1000 },
+      getBars: async () => {
+        throw new InvalidStoredKeyError({ provider: 'tiingo', ticker: 'AAPL' });
+      },
+      getQuote: async () => {
+        throw new InvalidStoredKeyError({ provider: 'tiingo' });
+      },
+      getCorporateActions: async () => [],
+    } as unknown as SimulatedProvider;
+
+    await service.addTicker('AAPL');
+
+    expect(tickerStatus('AAPL')).toMatchObject({ state: 'desactualizado' });
+    expect(tickerStatus('AAPL')!.reason).toContain('vuelve a pegarla');
+    expect(tickerStatus('AAPL')!.reason).not.toContain('Sin conexión');
   });
 
   it('no llama al proveedor sin conexión y retoma al volver', async () => {
@@ -351,7 +398,19 @@ describe('actualización incremental', () => {
     const first = slowService.refreshNow();
     expect(await slowService.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
     release();
-    expect(await first).toEqual({ accepted: true, reason: null });
+    expect(await first).toEqual({ accepted: true, reason: null, ok: true, detail: null });
+  });
+
+  it('refreshNow con la pasada fallida devuelve ok:false y el motivo real, no un «solicitado»', async () => {
+    await service.addTicker('AAPL');
+    provider.setFailing('network');
+    // Ya hay una sesión nueva esperada (viernes 09): la pasada intenta traerla.
+    vi.setSystemTime('2026-10-10T12:00:00.000Z');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('fallo simulado del proveedor');
   });
 
   it('getBars devuelve las velas guardadas con su fuente y filtra por rango', async () => {
@@ -417,6 +476,33 @@ describe('salud del dato', () => {
     expect(providerStatus).toMatchObject({ consecutiveFailures: 1 });
     const changes = sent.filter((s) => s.channel === IPC_CHANNELS.dataStatus.changed);
     expect(changes.length).toBeGreaterThan(0);
+  });
+
+  it('una sola caída del proveedor cuenta una vez por pasada, no por activo', async () => {
+    await service.addTicker('AAPL');
+    await service.addTicker('MSFT');
+    await service.addTicker('NVDA');
+    await service.addTicker('JNJ');
+    await service.start();
+    provider.setFailing('network');
+
+    // Una pasada con los 4 activos fallando suma 1 fallo del proveedor,
+    // no 4: una sola caída de red no puede llegar a «no fiable».
+    vi.setSystemTime('2026-10-10T12:00:00.000Z');
+    await service.refreshNow();
+    const firstPass = repo.getDataStatus(dataStatusKey.provider('simulated'));
+    expect(firstPass).toMatchObject({ state: 'desactualizado', consecutiveFailures: 1 });
+    for (const ticker of ['AAPL', 'MSFT', 'NVDA', 'JNJ']) {
+      expect(tickerStatus(ticker)!.consecutiveFailures).toBe(1);
+    }
+
+    // La regla de los 3 fallos sigue midiendo pasadas, no activos.
+    await service.refreshNow();
+    await service.refreshNow();
+    expect(repo.getDataStatus(dataStatusKey.provider('simulated'))).toMatchObject({
+      state: 'no-fiable',
+      consecutiveFailures: 3,
+    });
   });
 
   it('watchlist remove quita el ticker de la lista', async () => {

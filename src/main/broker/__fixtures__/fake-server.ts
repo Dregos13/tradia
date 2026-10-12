@@ -25,10 +25,20 @@ export interface AlpacaFakeServerOptions {
   now?: () => number;
   /** Precio de referencia por ticker para ejecutar las de mercado. */
   prices?: Record<string, number>;
+  /**
+   * Precio de referencia consultado en cada ejecución (p. ej. el último
+   * cierre ingerido); tiene prioridad sobre `prices`.
+   */
+  priceFor?: (ticker: string) => number | undefined;
   /** Respuesta de `GET /v2/account`; por defecto el fixture grabado. */
   account?: JsonObject;
   /** Respuesta de `GET /v2/positions`; por defecto el fixture grabado. */
   positions?: unknown[];
+  /**
+   * Prefijo obligatorio de `APCA-API-KEY-ID` (p. ej. 'AK' en el servidor
+   * live): cualquier otra clave recibe 401, como en el endpoint real.
+   */
+  keyPrefix?: string;
 }
 
 const FIXED_NOW = Date.parse('2026-10-08T15:00:00.000Z');
@@ -64,7 +74,8 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
   let seq = 0;
 
   const isoNow = (): string => new Date(now()).toISOString();
-  const refPrice = (ticker: string): number => options.prices?.[ticker] ?? DEFAULT_PRICE;
+  const refPrice = (ticker: string): number =>
+    options.priceFor?.(ticker) ?? options.prices?.[ticker] ?? DEFAULT_PRICE;
   const nextId = (): string => `fake-order-${++seq}`;
 
   const fill = (order: JsonObject, price: number): void => {
@@ -151,6 +162,15 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
       ];
     } else if (order['type'] === 'market') {
       fill(order, refPrice(symbol));
+    } else if (order['type'] === 'limit' && orderClass === 'simple') {
+      // Una limitada cruzable ejecuta enseguida al precio de referencia:
+      // compra con límite >= mercado, venta con límite <= mercado.
+      const limit = Number(order['limit_price']);
+      const ref = refPrice(symbol);
+      const marketable =
+        Number.isFinite(limit) &&
+        ((order['side'] === 'buy' && limit >= ref) || (order['side'] === 'sell' && limit <= ref));
+      if (marketable) fill(order, ref);
     }
 
     orders.set(order['id'] as string, order);
@@ -183,7 +203,12 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
     const path = url.pathname;
     const method = (init?.method ?? 'GET').toUpperCase();
     const headers = new Headers(init?.headers);
-    if (!headers.get('apca-api-key-id') || !headers.get('apca-api-secret-key')) {
+    const keyId = headers.get('apca-api-key-id');
+    if (
+      !keyId ||
+      !headers.get('apca-api-secret-key') ||
+      (options.keyPrefix !== undefined && !keyId.startsWith(options.keyPrefix))
+    ) {
       return json(error401, 401);
     }
 
@@ -227,4 +252,16 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
   };
 
   return fetch;
+}
+
+/**
+ * Servidor falso de la API LIVE de Alpaca (`api.alpaca.markets`): la
+ * misma API REST v2 que el paper, pero exige que `APCA-API-KEY-ID`
+ * empiece por 'AK' —la convención de las claves live— y responde 401 a
+ * cualquier otra, igual que el endpoint real. Lo usa el adaptador live
+ * (`alpacaLive.ts`) en las pruebas de contrato y en el modo E2E
+ * (`live:use-simulated-broker`).
+ */
+export function createAlpacaLiveFakeFetch(options: AlpacaFakeServerOptions = {}): typeof fetch {
+  return createAlpacaFakeFetch({ ...options, keyPrefix: 'AK' });
 }

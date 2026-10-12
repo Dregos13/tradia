@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase } from '../db/database';
 import {
+  createBrokerOrdersListing,
   createBrokerRepository,
   type BrokerRepository,
   type NewBrokerOrder,
@@ -115,7 +116,9 @@ describe('repositorio de órdenes del broker', () => {
     );
     expect(rejected.status).toBe('rechazada');
     expect(rejected.rejectReason).toBe('fondos insuficientes');
-    expect(() => repo.updateOrder(999, { status: 'enviada' }, '2026-10-08T20:00:00.000Z')).toThrow();
+    expect(() =>
+      repo.updateOrder(999, { status: 'enviada' }, '2026-10-08T20:00:00.000Z'),
+    ).toThrow();
   });
 
   it('lista con filtros por estado, estrategia y ticker, más recientes primero', () => {
@@ -133,6 +136,84 @@ describe('repositorio de órdenes del broker', () => {
     expect(repo.listOrders({ offset: 2 })).toHaveLength(1);
     const ids = repo.listOrders().map((o) => o.clientOrderId);
     expect(ids).toEqual(['a-3', 'a-2', 'a-1']);
+  });
+
+  it('cada repositorio declara el modo de su tabla', () => {
+    expect(repo.orderMode).toBe('paper');
+    expect(createBrokerRepository(db, { ordersTable: 'broker_orders_live' }).orderMode).toBe(
+      'live',
+    );
+  });
+});
+
+describe('listado unido de órdenes (orders:list)', () => {
+  let liveRepo: BrokerRepository;
+  let listing: Pick<BrokerRepository, 'listOrders'>;
+
+  beforeEach(() => {
+    liveRepo = createBrokerRepository(db, { ordersTable: 'broker_orders_live' });
+    listing = createBrokerOrdersListing(db);
+  });
+
+  it('devuelve paper y reales con su modo, en orden cronológico inverso', () => {
+    repo.insertOrder(newOrder({ clientOrderId: 'paper-1', ticker: 'AAPL' }));
+    liveRepo.insertOrder(newOrder({ clientOrderId: 'live-1', ticker: 'SPY', leg: null }));
+    repo.insertOrder(newOrder({ clientOrderId: 'paper-2', ticker: 'MSFT' }));
+    // Fechas de creación explícitas: el orden del listado es cronológico
+    // sobre el conjunto unido, no por tabla ni por id.
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:00:00.000Z',
+      'paper-1',
+    );
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:10:00.000Z',
+      'paper-2',
+    );
+    db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:05:00.000Z',
+      'live-1',
+    );
+
+    const all = listing.listOrders();
+    expect(all.map((o) => [o.clientOrderId, o.mode])).toEqual([
+      ['paper-2', 'paper'],
+      ['live-1', 'live'],
+      ['paper-1', 'paper'],
+    ]);
+  });
+
+  it('el filtro por modo selecciona una sola tabla', () => {
+    repo.insertOrder(newOrder({ clientOrderId: 'paper-1' }));
+    liveRepo.insertOrder(newOrder({ clientOrderId: 'live-1', leg: null }));
+
+    expect(listing.listOrders({ mode: 'paper' }).map((o) => o.clientOrderId)).toEqual(['paper-1']);
+    expect(listing.listOrders({ mode: 'live' }).map((o) => o.clientOrderId)).toEqual(['live-1']);
+    expect(listing.listOrders({ mode: 'live', ticker: 'SPY' })).toEqual([]);
+  });
+
+  it('pagina sobre el conjunto mezclado, no tabla a tabla', () => {
+    for (let i = 0; i < 3; i += 1) {
+      repo.insertOrder(newOrder({ clientOrderId: `paper-${i}` }));
+      liveRepo.insertOrder(newOrder({ clientOrderId: `live-${i}`, leg: null }));
+      db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+        `2026-10-08T20:0${i}:00.000Z`,
+        `paper-${i}`,
+      );
+      db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`).run(
+        `2026-10-08T21:0${i}:00.000Z`,
+        `live-${i}`,
+      );
+    }
+    // Las live son todas más recientes: la página 2 acaba las live y
+    // empiezan las paper; la 3 sigue con las paper en su orden.
+    expect(listing.listOrders({ limit: 2, offset: 2 }).map((o) => o.clientOrderId)).toEqual([
+      'live-0',
+      'paper-2',
+    ]);
+    expect(listing.listOrders({ limit: 2, offset: 4 }).map((o) => o.clientOrderId)).toEqual([
+      'paper-1',
+      'paper-0',
+    ]);
   });
 });
 

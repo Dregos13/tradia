@@ -3,16 +3,35 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { IPC_CHANNELS } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
+import { InvalidStoredKeyError } from '../market/providers/types';
 import {
   createSecretsService,
   ERR_ENCRYPTION_UNAVAILABLE,
   ERR_STORAGE_UNAVAILABLE,
+  registerSecrets,
   SecretsError,
   type SafeStorageLike,
 } from './secrets';
+
+const electron = vi.hoisted(() => ({
+  handlers: new Map<string, (...args: unknown[]) => unknown>(),
+}));
+
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
+      electron.handlers.set(channel, handler),
+  },
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (plain: string) => Buffer.from([...plain].reverse().join(''), 'utf8'),
+    decryptString: (encrypted: Buffer) => [...encrypted.toString('utf8')].reverse().join(''),
+  },
+}));
 
 const SAMPLE_KEY = 'sk-test-CLAVE-SECRETA-0123456789';
 
@@ -159,6 +178,81 @@ describe('servicio de claves cifradas', () => {
     await expect(secrets.getKey('p')).rejects.toThrowError(ERR_STORAGE_UNAVAILABLE);
   });
 
+  it('recorta espacios de los bordes y rechaza controles o espacios dentro de la clave', async () => {
+    const { db } = fileDb();
+    const secrets = createSecretsService(db, fakeSafeStorage());
+
+    // El copiado con espacios o un salto al final se guarda limpio.
+    await secrets.setKey('proveedor', `  ${SAMPLE_KEY}\n`);
+    expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+
+    // Un control dentro (p. ej. «clave\rparte») rompería la cabecera
+    // HTTP y su mensaje de error la citaría: no se guarda así.
+    await expect(
+      secrets.setKey('proveedor', 'tk9f8e7d6c5b4a3SECRETO\rtiingo'),
+    ).rejects.toBeInstanceOf(SecretsError);
+    await expect(secrets.setKey('proveedor', 'parte1 parte2')).rejects.toBeInstanceOf(SecretsError);
+    // Nada se guardó: la clave limpia anterior sigue intacta.
+    expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+  });
+
+  it('marca como no válida una clave guardada con caracteres de control (anterior a setKey)', async () => {
+    const { db } = fileDb();
+    const crypto = fakeSafeStorage();
+    const secrets = createSecretsService(db, crypto);
+    // Una clave guardada antes de la validación de setKey (fila escrita a
+    // mano, como la del fallo R1) puede llevar un control dentro: getKey
+    // la marca como no válida en vez de entregarla a una cabecera HTTP.
+    const dirty = 'tk-SECRETO\rtiingo';
+    const ciphertext = crypto.encryptString(dirty).toString('base64');
+    const now = new Date().toISOString();
+    db.prepare(
+      'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    ).run('tiingo', ciphertext, now, now);
+
+    const error = await secrets.getKey('tiingo').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(InvalidStoredKeyError);
+    expect((error as Error).message).toContain('vuelve a pegarla');
+    // Ni el mensaje ni el tipo de error llevan la clave.
+    expect((error as Error).message).not.toContain('SECRETO');
+  });
+
+  it.each([['clave '], [' clave'], ['\tclave\n']])(
+    'una clave guardada sin recortar (%j) se devuelve recortada, como en main',
+    async (stored) => {
+      const { db } = fileDb();
+      const crypto = fakeSafeStorage();
+      const secrets = createSecretsService(db, crypto);
+      // Las claves guardadas antes de esta rama iban a la fila sin recortar
+      // (setKey no recortaba) y funcionaban, porque Headers quita los
+      // espacios de los extremos. getKey aplica el mismo criterio que
+      // setKey: recorta y devuelve la clave limpia.
+      const ciphertext = crypto.encryptString(stored).toString('base64');
+      const now = new Date().toISOString();
+      db.prepare(
+        'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      ).run('tiingo', ciphertext, now, now);
+
+      expect(await secrets.getKey('tiingo')).toBe('clave');
+    },
+  );
+
+  it.each([['cla\rve'], ['cla ve']])(
+    'una clave guardada con un control o un espacio dentro (%j) sigue marcada como no válida',
+    async (stored) => {
+      const { db } = fileDb();
+      const crypto = fakeSafeStorage();
+      const secrets = createSecretsService(db, crypto);
+      const ciphertext = crypto.encryptString(stored).toString('base64');
+      const now = new Date().toISOString();
+      db.prepare(
+        'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      ).run('tiingo', ciphertext, now, now);
+
+      await expect(secrets.getKey('tiingo')).rejects.toBeInstanceOf(InvalidStoredKeyError);
+    },
+  );
+
   it('informa si el dato cifrado está corrupto al leerlo (solo main)', async () => {
     const { db } = fileDb();
     const corruptCrypto: SafeStorageLike = {
@@ -171,5 +265,31 @@ describe('servicio de claves cifradas', () => {
     await secrets.setKey('proveedor', SAMPLE_KEY);
 
     await expect(secrets.getKey('proveedor')).rejects.toThrowError(SecretsError);
+  });
+});
+
+describe('registro IPC', () => {
+  it('emite secrets:changed con solo el proveedor al guardar y al borrar', async () => {
+    electron.handlers.clear();
+    const { db } = fileDb();
+    const sent: { channel: string; payload: unknown }[] = [];
+    const ctx = {
+      services: { storage: { getDb: () => db } },
+      broadcast: (channel: string, payload: unknown) => sent.push({ channel, payload }),
+    };
+    const service = registerSecrets(ctx as never);
+
+    const setKey = electron.handlers.get(IPC_CHANNELS.secrets.setKey)!;
+    const deleteKey = electron.handlers.get(IPC_CHANNELS.secrets.deleteKey)!;
+    await setKey(null, 'fred', SAMPLE_KEY);
+    await deleteKey(null, 'fred');
+
+    expect(sent).toEqual([
+      { channel: IPC_CHANNELS.secrets.changed, payload: { provider: 'fred' } },
+      { channel: IPC_CHANNELS.secrets.changed, payload: { provider: 'fred' } },
+    ]);
+    // El evento nunca lleva la clave.
+    expect(JSON.stringify(sent)).not.toContain(SAMPLE_KEY);
+    expect(await service.hasKey('fred')).toBe(false);
   });
 });

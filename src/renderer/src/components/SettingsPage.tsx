@@ -1,3 +1,6 @@
+import { TourHelp } from './onboarding/TourHelp';
+import { AiSettings } from './settings/AiSettings';
+import { LiveBrokerSettings } from './live/LiveBrokerSettings';
 import { BrokerSettings } from './settings/BrokerSettings';
 import { DataProvidersSettings } from './DataProvidersSettings';
 import { useEffect, useState } from 'react';
@@ -455,11 +458,14 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <NewsAlertSettings />
       <DataProvidersSettings />
       <ApiKeys />
+      <AiSettings />
       <BrokerSettings />
+      <LiveBrokerSettings />
       <DeliverySettings />
       <RoutineSettings />
       <BackupSettings />
       <LogSettings />
+      <TourHelp />
     </section>
   );
 }

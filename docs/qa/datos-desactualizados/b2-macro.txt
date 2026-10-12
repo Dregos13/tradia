@@ -1,0 +1,86 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Contexto macro
+Señales + paper trading
+Parada
+El contexto detrás del precio.
+
+Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.
+
+DFF
+✓ Fiable
+Tipo efectivo federal
+3,87 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+CPIAUCSL
+✓ Fiable
+IPC de EE. UU. · interanual
+2,44 %
+
+▼ -1,82 pp respecto al dato mensual anterior
+
+Dato mensual
+1 ago 2026
+DGS2
+✓ Fiable
+Treasury · 2 años
+2,26 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+DGS10
+✓ Fiable
+Treasury · 10 años
+3,42 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+T10Y2Y
+✓ Fiable
+Diferencial 10–2
+4,94 pp
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+VIXCLS
+✓ Fiable
+Volatilidad VIX
+2,26 puntos
+
+= 0,00 puntos respecto al dato diario anterior
+
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
+
+Dato diario
+8 oct 2026
+En línea
+Agentes activos
+Última comprobación 11:19:05
+Próximo reintento —
+Último latido Pendiente

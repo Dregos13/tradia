@@ -18,6 +18,7 @@
  */
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
 import {
+  InvalidStoredKeyError,
   ISO_DATE_PATTERN,
   MarketDataError,
   assertValidDateRange,
@@ -65,10 +66,23 @@ interface TiingoPriceRow {
   splitFactor?: unknown;
 }
 
+/** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
+const isUnsafeKeyChar = (char: string): boolean => {
+  const code = char.codePointAt(0)!;
+  return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
+};
+
 /** Quita la clave de cualquier texto externo antes de meterla en un error. */
 function redact(text: string, apiKey: string | null): string {
   if (!apiKey) return text;
-  return text.split(apiKey).join('***');
+  let out = text.split(apiKey).join('***');
+  // La capa de transporte puede citar la cabecera ya normalizada (sin
+  // espacios ni controles): también se cubre la variante saneada.
+  const sanitized = [...apiKey].filter((char) => !isUnsafeKeyChar(char)).join('');
+  if (sanitized !== '' && sanitized !== apiKey) {
+    out = out.split(sanitized).join('***');
+  }
+  return out;
 }
 
 const truncate = (text: string, max = 300): string =>
@@ -167,6 +181,13 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     if (!apiKey) {
       throw fail('auth', `sin clave de API guardada (secrets['${TIINGO_SECRETS_KEY}'])`, ticker);
     }
+    // Una clave con controles o espacios dentro (guardada antes de la
+    // validación de setKey, o inyectada) rompería la cabecera
+    // Authorization y el TypeError de fetch la citaría: se rechaza antes
+    // de la petición como clave no válida, no como fallo de red.
+    if ([...apiKey].some(isUnsafeKeyChar)) {
+      throw new InvalidStoredKeyError({ provider: TIINGO_PROVIDER_ID, ticker });
+    }
 
     await limiter.acquire();
 
@@ -179,7 +200,16 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      throw fail('network', `fallo de transporte: ${String(error)}`, ticker, undefined, undefined);
+      // El mensaje de Node puede citar la cabecera entera (con la clave)
+      // —p. ej. «Headers.append: "Token …" is an invalid header value»—:
+      // se redacta siempre antes de que llegue a data_status o al log.
+      throw fail(
+        'network',
+        `fallo de transporte: ${redact(String(error), apiKey)}`,
+        ticker,
+        undefined,
+        undefined,
+      );
     }
 
     if (!response.ok) {
@@ -230,10 +260,11 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     const payload = await request(path, ticker);
 
     if (!Array.isArray(payload)) {
-      // Tiingo a veces responde 200 con {"detail":"…"} en vez de lista.
+      // Tiingo a veces responde 200 con {"detail":"…"} en vez de lista, y
+      // ese detalle puede repetir la clave: se redacta con la clave real.
       const detail =
         typeof payload === 'object' && payload !== null && 'detail' in payload
-          ? redact(String((payload as { detail: unknown }).detail), null)
+          ? redact(String((payload as { detail: unknown }).detail), await deps.getApiKey())
           : '';
       throw fail('bad-data', `respuesta sin lista de precios: ${truncate(detail)}`, ticker);
     }

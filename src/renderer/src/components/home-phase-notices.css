@@ -1,0 +1,15 @@
+.home-phase-notices {
+  margin-bottom: var(--space-6);
+}
+.home-phase-notices h2 {
+  font-size: var(--type-lg);
+  margin: 0;
+}
+.home-phase-notices p {
+  color: inherit;
+}
+.home-phase-notices .ai-error a,
+.home-phase-notices .ai-warning a,
+.home-phase-notices .live-warning a {
+  color: inherit;
+}

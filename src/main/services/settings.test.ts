@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { openDatabase } from '../db/database';
 import { createSettingsService, DEFAULT_NOTIFICATION_PREFS } from './settings';
+import { ONBOARDING_TOUR_VERSION } from '../../shared/ipc';
 
 const dirs: string[] = [];
 const dbs: Database.Database[] = [];
@@ -38,6 +39,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(settings.getNotificationPrefs()).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
@@ -54,6 +57,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(Number.isNaN(Date.parse(updated.disclaimerAcceptedAt!))).toBe(false);
     expect(createSettingsService(db).get().disclaimerAcceptedAt).toBe(updated.disclaimerAcceptedAt);
@@ -84,6 +89,28 @@ describe('servicio de ajustes', () => {
     expect(reset.disclaimerAcceptedAt).toBeNull();
   });
 
+  it('persiste la finalización del tour entre arranques y permite reiniciarlo sin alterar el aviso', () => {
+    const { db, file } = fileDb();
+    const settings = createSettingsService(db);
+    const accepted = settings.set({ disclaimerAcceptedVersion: '2026-10' });
+    const completed = settings.set({ onboardingTourVersion: ONBOARDING_TOUR_VERSION });
+    expect(completed.onboardingTourVersion).toBe(ONBOARDING_TOUR_VERSION);
+    expect(Number.isNaN(Date.parse(completed.onboardingTourCompletedAt!))).toBe(false);
+
+    db.close();
+    const reopened = openDatabase(file);
+    dbs.push(reopened);
+    const reloaded = createSettingsService(reopened);
+    expect(reloaded.get().onboardingTourCompletedAt).toBe(completed.onboardingTourCompletedAt);
+    expect(reloaded.get().onboardingTourVersion).toBe(ONBOARDING_TOUR_VERSION);
+    const reset = reloaded.set({ onboardingTourVersion: null });
+    expect(reset.onboardingTourVersion).toBeNull();
+    expect(reset.onboardingTourCompletedAt).toBeNull();
+    expect(reset.disclaimerAcceptedVersion).toBe(accepted.disclaimerAcceptedVersion);
+    expect(reset.disclaimerAcceptedAt).toBe(accepted.disclaimerAcceptedAt);
+    expect(createSettingsService(reopened).get().onboardingTourCompletedAt).toBeNull();
+  });
+
   it('persiste el interruptor de ejecución y los márgenes de desviación', () => {
     const { db } = fileDb();
     const settings = createSettingsService(db);
@@ -110,6 +137,8 @@ describe('servicio de ajustes', () => {
       brokerExecutionEnabled: true,
       deviationMarginPp: 2,
       deviationSlippageBps: 10,
+      onboardingTourVersion: null,
+      onboardingTourCompletedAt: null,
     });
     expect(settings.set({ autostart: true }).autostart).toBe(true);
     expect(settings.get().autostart).toBe(true);

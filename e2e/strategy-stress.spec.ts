@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 test('las cuatro fichas muestran crisis, fuente y capital sin desbordamiento', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-stress-'));
@@ -15,6 +16,7 @@ test('las cuatro fichas muestran crisis, fuente y capital sin desbordamiento', a
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await page.getByRole('link', { name: 'Estrategias', exact: true }).click();
     for (const name of [
       'Cruce de medias',

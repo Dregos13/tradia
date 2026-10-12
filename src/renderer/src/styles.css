@@ -30,10 +30,16 @@ button:focus-visible,
   height: 100dvh;
   display: grid;
   grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.app-banner-stack {
+  grid-column: 2;
+  min-width: 0;
 }
 .side {
-  grid-row: 1 / 4;
+  grid-row: 1 / 5;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--space-8) var(--space-4);
   background: var(--color-text);
   color: var(--color-canvas);
@@ -209,9 +215,12 @@ h3 {
   }
 }
 @media (max-width: 760px) {
+  .app-banner-stack {
+    grid-column: 1;
+  }
   .app {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
   .side {
     grid-row: auto;
@@ -659,11 +668,26 @@ input:focus-visible {
   gap: var(--space-4);
   padding: var(--space-4);
   margin-bottom: var(--space-3);
-  border: 1px solid var(--dataStatus-unreliable);
+  border: 1px solid var(--color-borderStrong);
   border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  overflow-wrap: anywhere;
+}
+.provider-banner--unreliable {
+  border-color: var(--dataStatus-unreliable);
   color: var(--dataStatus-unreliable);
   background: var(--dataStatus-unreliable-surface);
-  overflow-wrap: anywhere;
+}
+.provider-banner--stale {
+  border-color: var(--dataStatus-stale);
+  color: var(--dataStatus-stale);
+  background: var(--dataStatus-stale-surface);
+}
+.provider-banner--updating {
+  border-color: var(--dataStatus-updating);
+  color: var(--dataStatus-updating);
+  background: var(--dataStatus-updating-surface);
 }
 .provider-banner p {
   color: inherit;
@@ -694,4 +718,17 @@ input:focus-visible {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* Utilidad global para anuncios y etiquetas accesibles. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

@@ -58,7 +58,7 @@ export function JournalFilters({ apply }: { apply: (query: JournalListQuery) => 
           <option value="">Todos</option>
           {JOURNAL_ENTRY_TYPES.map((type) => (
             <option key={type} value={type}>
-              {typeLabel[type]}
+              {type === 'operacion' ? 'Operación (paper o dinero real)' : typeLabel[type]}
             </option>
           ))}
         </select>

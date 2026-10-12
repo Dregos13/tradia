@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
+import { skipGuidedTour } from './onboarding.helpers';
 
 test('lanzador, informe, prueba final y ancho de 700 px', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-backtest-'));
@@ -15,6 +16,7 @@ test('lanzador, informe, prueba final y ancho de 700 px', async () => {
     const page = await app.firstWindow();
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await skipGuidedTour(page);
     await page.getByRole('link', { name: 'Estrategias', exact: true }).click();
     await page.getByRole('link', { name: 'Reversión RSI/Bollinger', exact: true }).click();
     await page.setViewportSize({ width: 700, height: 900 });

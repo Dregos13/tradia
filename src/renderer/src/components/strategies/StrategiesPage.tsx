@@ -8,6 +8,7 @@ import { strategyTokenStylesheet } from './strategyTokens';
 import './strategies.css';
 export function StrategiesPage() {
   const [route, setRoute] = useState(window.location.hash);
+  const [savedRoute, setSavedRoute] = useState<string | null>(null);
   const heading = useRef<HTMLDivElement>(null);
   const currentRoute = useRef(route);
   const library = useStrategies();
@@ -25,8 +26,9 @@ export function StrategiesPage() {
   const reportMatch = /^#estrategias\/(\d+)\/backtest\/(\d+)$/.exec(route);
   const match = /^#estrategias\/(\d+)(?:\/(v[1-9]\d*|editar))?$/.exec(route);
   return (
-    <div className="strategies-page" ref={heading} tabIndex={-1}>
+    <div className="strategies-page" data-tour="estrategias-lista" ref={heading} tabIndex={-1}>
       <style>{strategyTokenStylesheet()}</style>
+      {savedRoute === route && <p role="status">Régimen de la estrategia guardado.</p>}
       {reportMatch ? (
         <BacktestReportPage
           key={route}
@@ -37,6 +39,7 @@ export function StrategiesPage() {
         <StrategyForm
           save={async (draft) => {
             const result = await library.create(draft);
+            setSavedRoute(`#estrategias/${result.id}`);
             window.location.hash = `estrategias/${result.id}`;
           }}
         />
@@ -46,6 +49,7 @@ export function StrategiesPage() {
           id={Number(match[1])}
           version={match[2]?.startsWith('v') ? Number(match[2].slice(1)) : undefined}
           edit={match[2] === 'editar'}
+          onSaved={setSavedRoute}
         />
       ) : route !== '#estrategias' ? (
         <p role="alert">
@@ -65,7 +69,17 @@ export function StrategiesPage() {
     </div>
   );
 }
-function StrategyRoute({ id, version, edit }: { id: number; version?: number; edit: boolean }) {
+function StrategyRoute({
+  id,
+  version,
+  edit,
+  onSaved,
+}: {
+  id: number;
+  version?: number;
+  edit: boolean;
+  onSaved: (route: string) => void;
+}) {
   const detail = useStrategy(id, version);
   const actions = useStrategies();
   if (detail.loading)
@@ -92,6 +106,7 @@ function StrategyRoute({ id, version, edit }: { id: number; version?: number; ed
         strategy={detail.latest}
         save={async (draft, note) => {
           const result = await actions.update({ ...draft, id, note });
+          onSaved(`#estrategias/${id}/v${result.version}`);
           window.location.hash = `estrategias/${id}/v${result.version}`;
         }}
       />

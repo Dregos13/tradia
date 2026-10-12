@@ -112,6 +112,16 @@ const RUN_COLUMNS =
   'operaciones, walk_forward, sensibilidad, monte_carlo, benchmark, avisos, ' +
   'fuente, proveedor, duracion_ms, creado_en';
 
+/** Fila de `regime_comparisons` (migración 011): el par emparejado de una versión. */
+export interface RegimeComparisonRow {
+  id: number;
+  /** Run sin filtro (`backtest_runs.id`); null si se borró. */
+  runSinFiltro: number | null;
+  /** Run con filtro (`backtest_runs.id`); null si se borró. */
+  runConFiltro: number | null;
+  creadoEn: string;
+}
+
 // ---------------------------------------------------------------------------
 // JSON defensivo (mismo criterio que strategies/repository.ts)
 // ---------------------------------------------------------------------------
@@ -160,8 +170,31 @@ export interface BacktestRepository {
   listRuns(query?: { strategyId?: number; version?: number; limit?: number }): BacktestRunSummary[];
   /** Estado de la prueba final de una versión (disponible/ejecutada + run). */
   finalTestState(strategyId: number, version: number): FinalTestState;
-  /** Último run de un tipo para una versión (p. ej. el 'completo' de referencia). */
-  latestRun(strategyId: number, version: number, kind?: BacktestRunKind): BacktestReport | null;
+  /**
+   * Último run de un tipo para una versión (p. ej. el 'completo' de
+   * referencia). `options.regimeFilter` limita por la marca
+   * `regimen_filtro` de la migración 011: con `false` solo devuelve runs
+   * sin filtrar (la base canónica de la comparación y de la prueba final).
+   */
+  latestRun(
+    strategyId: number,
+    version: number,
+    kind?: BacktestRunKind,
+    options?: { regimeFilter?: boolean },
+  ): BacktestReport | null;
+
+  /**
+   * UPSERT de la comparación emparejada con y sin filtro de una versión
+   * (`regime_comparisons`, a lo sumo una fila por versión).
+   */
+  saveRegimeComparison(
+    strategyId: number,
+    version: number,
+    runSinFiltro: number,
+    runConFiltro: number,
+  ): void;
+  /** Comparación guardada de la versión; null si nunca se corrió. */
+  getRegimeComparison(strategyId: number, version: number): RegimeComparisonRow | null;
 
   /** UPSERT de los resultados de una ventana de crisis para una versión. */
   saveStressResults(
@@ -190,8 +223,8 @@ export function createBacktestRepository(db: Database.Database): BacktestReposit
     `INSERT INTO backtest_runs (
        strategy_id, version, kind, config, costes, division, metricas, curva,
        operaciones, walk_forward, sensibilidad, monte_carlo, benchmark, avisos,
-       fuente, proveedor, duracion_ms
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       fuente, proveedor, duracion_ms, regimen_filtro
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const upsertStress = db.prepare(
     `INSERT INTO stress_results (
@@ -217,12 +250,7 @@ export function createBacktestRepository(db: Database.Database): BacktestReposit
 
   const toSummary = (row: RunRow): BacktestRunSummary => {
     const ref = `run ${row.id}`;
-    const metrics = parseJson<BacktestMetricsDto | null>(
-      row.metricas,
-      null,
-      'metricas',
-      ref,
-    );
+    const metrics = parseJson<BacktestMetricsDto | null>(row.metricas, null, 'metricas', ref);
     return {
       id: row.id,
       strategyId: row.strategy_id,
@@ -314,6 +342,7 @@ export function createBacktestRepository(db: Database.Database): BacktestReposit
           run.dataSource,
           run.providerId,
           Math.round(run.durationMs),
+          run.config.regimeFilter === true ? 1 : 0,
         );
         return Number(result.lastInsertRowid);
       })();
@@ -345,22 +374,61 @@ export function createBacktestRepository(db: Database.Database): BacktestReposit
 
     finalTestState: (strategyId, version) => {
       const row = selectFinalTest.get(strategyId, version) as
-        | { id: number; creado_en: string }
-        | undefined;
+        { id: number; creado_en: string } | undefined;
       return row === undefined
         ? { status: 'disponible', runId: null, executedAt: null }
         : { status: 'ejecutada', runId: row.id, executedAt: row.creado_en };
     },
 
-    latestRun: (strategyId, version, kind = 'completo') => {
+    latestRun: (strategyId, version, kind = 'completo', options = {}) => {
+      const filterClause = options.regimeFilter === undefined ? '' : ' AND regimen_filtro = ?';
+      const params: unknown[] = [strategyId, version, kind];
+      if (options.regimeFilter !== undefined) {
+        params.push(options.regimeFilter ? 1 : 0);
+      }
       const row = db
         .prepare(
           `SELECT ${RUN_COLUMNS} FROM backtest_runs
-           WHERE strategy_id = ? AND version = ? AND kind = ?
+           WHERE strategy_id = ? AND version = ? AND kind = ?${filterClause}
            ORDER BY id DESC LIMIT 1`,
         )
-        .get(strategyId, version, kind) as RunRow | undefined;
+        .get(...params) as RunRow | undefined;
       return row === undefined ? null : toReport(row);
+    },
+
+    saveRegimeComparison: (strategyId, version, runSinFiltro, runConFiltro) => {
+      db.prepare(
+        `INSERT INTO regime_comparisons (strategy_id, version, run_sin_filtro, run_con_filtro)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (strategy_id, version) DO UPDATE SET
+           run_sin_filtro = excluded.run_sin_filtro,
+           run_con_filtro = excluded.run_con_filtro,
+           creado_en = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      ).run(strategyId, version, runSinFiltro, runConFiltro);
+    },
+
+    getRegimeComparison: (strategyId, version) => {
+      const row = db
+        .prepare(
+          `SELECT id, run_sin_filtro, run_con_filtro, creado_en
+           FROM regime_comparisons WHERE strategy_id = ? AND version = ?`,
+        )
+        .get(strategyId, version) as
+        | {
+            id: number;
+            run_sin_filtro: number | null;
+            run_con_filtro: number | null;
+            creado_en: string;
+          }
+        | undefined;
+      return row === undefined
+        ? null
+        : {
+            id: row.id,
+            runSinFiltro: row.run_sin_filtro,
+            runConFiltro: row.run_con_filtro,
+            creadoEn: row.creado_en,
+          };
     },
 
     saveStressResults: (strategyId, version, results) => {

@@ -1,0 +1,241 @@
+.onboarding-root {
+  position: relative;
+  z-index: var(--onboarding-scrimZ);
+}
+.tour-veil {
+  position: fixed;
+  inset: 0;
+  background: var(--onboarding-scrim);
+  z-index: var(--onboarding-scrimZ);
+}
+.tour-veil.has-spotlight {
+  background: transparent;
+}
+.tour-spotlight {
+  position: fixed;
+  pointer-events: none;
+  border-radius: var(--onboarding-spotlight);
+  border: var(--onboarding-ringWidth) solid var(--onboarding-ring);
+  box-shadow:
+    0 0 0 var(--onboarding-haloWidth) var(--onboarding-halo),
+    0 0 0 100vmax var(--onboarding-scrim);
+  z-index: var(--onboarding-spotlightZ);
+  transition:
+    left var(--onboarding-spotlightMove) var(--onboarding-easeOut),
+    top var(--onboarding-spotlightMove) var(--onboarding-easeOut),
+    width var(--onboarding-spotlightMove) var(--onboarding-easeOut),
+    height var(--onboarding-spotlightMove) var(--onboarding-easeOut);
+}
+.tour-popover {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--onboarding-popoverWidth);
+  max-width: var(--onboarding-popoverMaxWidth);
+  max-height: calc(100dvh - 2 * var(--onboarding-viewportMargin));
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--onboarding-popover-color);
+  color: var(--onboarding-title);
+  border: 1px solid var(--onboarding-border);
+  border-radius: var(--onboarding-popover);
+  box-shadow: var(--onboarding-shadow);
+  z-index: var(--onboarding-popoverZ);
+  animation: tour-enter var(--onboarding-popoverEnter) var(--onboarding-easeOut);
+}
+.tour-header,
+.tour-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.tour-header {
+  justify-content: space-between;
+}
+.tour-label {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--onboarding-chip);
+  color: var(--onboarding-label);
+  background: var(--onboarding-label-surface);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+}
+.tour-close {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--onboarding-body);
+  width: var(--onboarding-controlMin);
+  min-height: var(--onboarding-controlMin);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.tour-close svg {
+  width: var(--space-6);
+  height: var(--space-6);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.tour-close:hover {
+  background: var(--color-surfaceSubtle);
+}
+.tour-popover h2 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
+  font-weight: var(--weight-semibold);
+}
+.tour-popover p {
+  margin: 0;
+  color: var(--onboarding-body);
+  font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
+}
+.tour-progress {
+  display: flex;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+.tour-progress span {
+  width: var(--onboarding-progressSegment);
+  height: var(--onboarding-progressSegmentHeight);
+  border-radius: var(--space-1);
+  background: var(--onboarding-pending);
+}
+.tour-progress .is-done {
+  background: var(--onboarding-done);
+}
+.tour-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tour-actions .button,
+.tour-skip {
+  min-height: var(--onboarding-controlMin);
+  font-size: var(--type-sm);
+}
+.tour-skip {
+  margin-right: auto;
+  border: 0;
+  padding: var(--space-2) 0;
+  background: transparent;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  cursor: pointer;
+}
+.first-steps {
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--onboarding-card);
+}
+.first-steps-header {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  align-items: baseline;
+}
+.first-steps h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-editorial);
+  font-size: var(--type-xl);
+}
+.first-steps-header > span {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-textMuted);
+}
+.first-steps ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.first-steps-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+.first-steps-row p {
+  margin: 0;
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+}
+.first-steps-badge {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--onboarding-chip);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.first-steps-badge svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.first-steps-badge.pending {
+  color: var(--onboarding-first-pending);
+  background: var(--onboarding-first-pending-surface);
+}
+.first-steps-badge.done,
+.first-steps-complete {
+  color: var(--onboarding-first-done);
+  background: var(--onboarding-first-done-surface);
+}
+.first-steps-badge.attention {
+  color: var(--onboarding-first-attention);
+  background: var(--onboarding-first-attention-surface);
+}
+.first-steps-complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.first-steps-footer {
+  margin-top: var(--space-3);
+}
+@keyframes tour-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 760px) {
+  .tour-popover {
+    left: var(--onboarding-viewportMargin) !important;
+    right: var(--onboarding-viewportMargin);
+    bottom: var(--onboarding-viewportMargin);
+    top: auto !important;
+    transform: none !important;
+    width: auto;
+  }
+  .first-steps-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .first-steps-row .button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-popover {
+    animation: none;
+  }
+  .tour-spotlight {
+    transition: none;
+  }
+}

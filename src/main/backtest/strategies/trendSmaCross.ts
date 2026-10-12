@@ -18,16 +18,8 @@
  * anterior y la actual. Si la serie arranca ya cruzada (p. ej. datos que
  * empiezan en plena tendencia) no se compra hasta el siguiente cruce.
  */
-import {
-  DEFAULT_STRATEGY_COSTS,
-  type CreateStrategyRequest,
-} from '../../../shared/strategy';
-import type {
-  EngineBar,
-  Strategy,
-  StrategyContext,
-  StrategyParams,
-} from '../types';
+import { DEFAULT_STRATEGY_COSTS, type CreateStrategyRequest } from '../../../shared/strategy';
+import type { EngineBar, Strategy, StrategyContext, StrategyParams } from '../types';
 import { requireIntegerParam, requireParamRange, resolveParams } from './params';
 import { RollingSma, WilderAtr } from './rolling';
 
@@ -150,10 +142,8 @@ export const TREND_SMA_CROSS_SEED: CreateStrategyRequest = {
   rules: {
     entry:
       'Compra cuando SMA(fastPeriod) del cierre cruza al alza a SMA(slowPeriod); la señal se confirma al cierre y la orden se ejecuta en la apertura de la sesión siguiente.',
-    exit:
-      'Vende cuando SMA(fastPeriod) cruza a la baja a SMA(slowPeriod), o antes si salta el stop dinámico; ejecución en la apertura siguiente.',
-    stop:
-      'Stop de protección a stopAtr (3) × ATR(atrPeriod) bajo el cierre de la señal; cada sesión se arrastra al alza hasta cierre − stopAtr × ATR y nunca retrocede.',
+    exit: 'Vende cuando SMA(fastPeriod) cruza a la baja a SMA(slowPeriod), o antes si salta el stop dinámico; ejecución en la apertura siguiente.',
+    stop: 'Stop de protección a stopAtr (3) × ATR(atrPeriod) bajo el cierre de la señal; cada sesión se arrastra al alza hasta cierre − stopAtr × ATR y nunca retrocede.',
     target:
       'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el cruce contrario o el stop.',
   },
@@ -170,6 +160,7 @@ export const TREND_SMA_CROSS_SEED: CreateStrategyRequest = {
   outOfSamplePeriod: { desde: '2015-01-02', hasta: '2024-12-31' },
   regime:
     'Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados.',
+  worksIn: ['tendencia'],
   assumedCosts: DEFAULT_STRATEGY_COSTS,
   note: 'Semilla de la fase 2: seguimiento de tendencia clásico (SMA 50/200 con stop ATR).',
 };

@@ -93,6 +93,7 @@ import type {
 import {
   BROKER_E2E_DISCREPANCIES,
   BROKER_E2E_FAILURES,
+  BROKER_ORDER_MODES,
   BROKER_ORDERS_MAX_LIMIT,
   BROKER_ORDER_SIDES,
   BROKER_ORDER_STATUSES,
@@ -110,6 +111,7 @@ import type {
   BrokerFailNextRequest,
   BrokerFailNextResult,
   BrokerOrder,
+  BrokerOrderMode,
   BrokerOrdersQuery,
   BrokerOrderStatus,
   BrokerSeedWeeksRequest,
@@ -160,19 +162,80 @@ import type {
   RoutineClockAdvanceResult,
   RoutineConfig,
 } from './journal';
+import {
+  DRIFT_CHECK_KINDS,
+  NEWS_ANALYSIS_MAX_LIMIT,
+  NEWS_ANALYZERS,
+  NEWS_LLM_DAILY_CAP_BOUNDS,
+  NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
+  PREDICTIONS_MAX_LIMIT,
+  REGIME_DIRECTION_LABELS,
+  REGIME_LABELS,
+  REGIME_SCOPES,
+  REGIME_VOLATILITY_LABELS,
+  RETRAIN_ACTIONS,
+} from './ai';
+import type {
+  AiChangedEvent,
+  DriftCheckKind,
+  ModelCard,
+  ModelHealthOverview,
+  NewsAnalysis,
+  NewsAnalysisQuery,
+  NewsAnalyzer,
+  NewsLlmSettings,
+  NewsLlmSettingsInput,
+  NewsLlmTestResult,
+  Prediction,
+  PredictionsQuery,
+  RegimeComparison,
+  RegimeComparisonRequest,
+  RegimeDirectionLabel,
+  RegimeLabel,
+  RegimeOverview,
+  RegimeSnapshot,
+  RegimeVolatilityLabel,
+  RetrainProposal,
+  RetrainResolveRequest,
+  RetrainResolveResult,
+  SignalAiContext,
+  SimulateDriftRequest,
+  SimulateRegimeRequest,
+} from './ai';
+import { LIVE_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
+import type {
+  LiveActivateRequest,
+  LiveActivateResult,
+  LiveChecklist,
+  LiveConnectRequest,
+  LiveDeclarationRequirement,
+  LiveDeclareRequest,
+  LiveKillSwitchTestResult,
+  LiveLimitsInput,
+  LiveLimitsState,
+  LiveScalingStatus,
+  LiveSeedProgressRequest,
+  LiveSimulatedBrokerRequest,
+  LiveSmokeTestRequest,
+  LiveSmokeTestResult,
+  LiveState,
+} from './live';
 
 // El dominio de estrategias y el de backtest (fase 2) viven en ./strategy y
 // ./backtest; se reexportan aquí para que el renderer y el preload sigan
 // importando de un solo sitio. El dominio de riesgo (fase 3) vive en ./risk.
 // El de señales, diario y configuración operativa (fase 4) vive en
 // ./signals y ./journal. El del broker en modo paper (fase 5) vive en
-// ./broker.
+// ./broker. Los de la IA predictiva y del dinero real mínimo (fases 6-7)
+// viven en ./ai y ./live.
 export * from './strategy';
 export * from './backtest';
 export * from './risk';
 export * from './signals';
 export * from './journal';
 export * from './broker';
+export * from './ai';
+export * from './live';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -200,6 +263,13 @@ export const IPC_CHANNELS = {
     setKey: 'secrets:set-key',
     hasKey: 'secrets:has-key',
     deleteKey: 'secrets:delete-key',
+    /**
+     * Evento main → renderer (y observación interna entre servicios):
+     * cambió el conjunto de claves guardadas de un proveedor. Solo lleva
+     * el nombre del proveedor, nunca la clave. Los servicios de datos la
+     * usan para lanzar su primer refresco al guardar la clave.
+     */
+    changed: 'secrets:changed',
     // Sin canal de lectura a propósito.
   },
   agents: {
@@ -233,9 +303,21 @@ export const IPC_CHANNELS = {
   },
   macro: {
     getSeries: 'macro:get-series',
+    /**
+     * Fuerza un refresco de las series macro fuera del horario programado
+     * (el «Reintentar» de la franja de FRED y la puesta al día al
+     * reconectar o al guardar la clave).
+     */
+    refreshNow: 'macro:refresh-now',
   },
   dataStatus: {
     get: 'data-status:get',
+    /**
+     * Resumen único de frescura («Datos desactualizados desde …») que
+     * agrega los estados «ticker:*», «macro:*» y «provider:*» con la
+     * fecha real del último dato de cada uno.
+     */
+    freshness: 'data-status:freshness',
     /**
      * Solo desarrollo (TRADIA_E2E y sin empaquetar): activa o desactiva el
      * fallo persistente de los proveedores simulados y fuerza una pasada.
@@ -302,6 +384,16 @@ export const IPC_CHANNELS = {
      * La segunda llamada para la misma versión se rechaza.
      */
     runFinalTest: 'backtest:run-final-test',
+    /**
+     * Comparación emparejada con y sin filtro de régimen guardada para la
+     * versión (`{strategyId, version?}`); null si no existe.
+     */
+    regimeComparison: 'backtest:regime-comparison',
+    /**
+     * Ejecuta el par emparejado (mismo periodo, universo y costes) con y
+     * sin filtro de régimen y devuelve la comparación guardada.
+     */
+    runRegimeComparison: 'backtest:run-regime-comparison',
     /** Evento main → renderer: progreso de una ejecución en curso. */
     progress: 'backtest:progress',
   },
@@ -436,7 +528,10 @@ export const IPC_CHANNELS = {
     orderUpdated: 'broker:order-updated',
   },
   orders: {
-    /** Órdenes paper registradas, más recientes primero (BrokerOrdersQuery). */
+    /**
+     * Órdenes registradas, más recientes primero (BrokerOrdersQuery);
+     * `mode` filtra por la cuenta origen ('paper' | 'live').
+     */
     list: 'orders:list',
     /**
      * Crea una orden limitada manual (`{ticker, side, quantity,
@@ -446,6 +541,19 @@ export const IPC_CHANNELS = {
     create: 'orders:create',
     /** Cancela una orden abierta por su id local (`{id}`). */
     cancel: 'orders:cancel',
+  },
+  providers: {
+    /**
+     * «Probar conexión» de un proveedor de datos (Tiingo, FRED): una
+     * petición mínima real con la clave guardada. Devuelve el estado y la
+     * fecha del último dato, nunca la clave (`ProviderTestResult`).
+     */
+    testConnection: 'providers:test-connection',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fuerza el estado que
+     * devolverá la próxima prueba de conexión del proveedor.
+     */
+    simulateTest: 'providers:simulate-test',
   },
   reconcile: {
     /** «Conciliar ahora»: ejecuta la conciliación con el broker. */
@@ -462,6 +570,86 @@ export const IPC_CHANNELS = {
   logs: {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder: 'logs:open-folder',
+  },
+  ai: {
+    /**
+     * Vista de la página «IA»: régimen del mercado (SPY) y de cada activo,
+     * con las estrategias habilitadas o desactivadas por régimen.
+     */
+    regimeOverview: 'ai:regime-overview',
+    /** Predicciones guardadas, más recientes primero (`{ticker?, limit?}`). */
+    predictions: 'ai:predictions',
+    /** Ficha del modelo vigente (métricas, calibración, aptitud); null sin modelo. */
+    modelCard: 'ai:model-card',
+    /** Análisis de noticias confirmadas por activo (`{newsItemId?, ticker?, limit?}`). */
+    newsAnalysis: 'ai:news-analysis',
+    /** Ajustes del LLM de noticias (nunca la clave: solo `hasKey`). */
+    getLlmSettings: 'ai:get-llm-settings',
+    setLlmSettings: 'ai:set-llm-settings',
+    /** «Probar conexión» del LLM; no revela la clave ni cuesta llamadas de análisis. */
+    testLlm: 'ai:test-llm',
+    /** Salud de modelos: drift, estrategias degradadas y propuestas. */
+    health: 'ai:health',
+    /** Historial de propuestas de reentrenamiento (una por trimestre a lo sumo). */
+    retrainProposals: 'ai:retrain-proposals',
+    /** Resuelve una propuesta: `{id, action: 'aprobar'|'posponer', ...}`. */
+    resolveRetrain: 'ai:resolve-retrain',
+    /** Evento main → renderer: cambió el régimen, una predicción o la salud. */
+    changed: 'ai:changed',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): fija el régimen de un
+     * activo o del mercado como si el clasificador lo hubiera calculado.
+     */
+    simulateRegime: 'ai:simulate-regime',
+    /**
+     * Solo desarrollo: inyecta una revisión de drift (datos, resultados o
+     * rendimiento) con la persistencia indicada.
+     */
+    simulateDrift: 'ai:simulate-drift',
+  },
+  live: {
+    /** Lista de comprobación del modo real, evaluada en el proceso principal. */
+    checklist: 'live:checklist',
+    /** Estado completo del modo real (franja global incluida). */
+    state: 'live:state',
+    /** Suscribe o retira una declaración manual (`{requirement, confirmed, detail?}`). */
+    declare: 'live:declare',
+    /** Guarda los límites escritos (≤ techos fijos); devuelve la frase generada. */
+    setLimits: 'live:set-limits',
+    /**
+     * Claves live (prefijo AK) a su ranura cifrada separada de la paper:
+     * se validan contra la cuenta antes de guardarse y nunca se leen.
+     */
+    connect: 'live:connect',
+    /**
+     * Activa el modo real: vuelve a comprobar toda la lista en el proceso
+     * principal y exige la frase exacta generada con los límites.
+     */
+    activate: 'live:activate',
+    /** Vuelve a paper al instante; el historial y los límites se conservan. */
+    deactivate: 'live:deactivate',
+    /**
+     * «Probar parada»: activa y reanuda la parada en paper y deja el
+     * registro que computa para el requisito 'parada-probada'.
+     */
+    testKillSwitch: 'live:test-kill-switch',
+    /**
+     * Prueba de humo real: compra 1 USD nocional de SPY, cierra la
+     * posición y concilia, dejando todo en el Diario (`{confirm: true}`).
+     */
+    smokeTest: 'live:smoke-test',
+    /** Estado del escalado (informativo; esta fase nunca sube techos). */
+    scaling: 'live:scaling',
+    /** Evento main → renderer: cambió el modo real (LiveState). */
+    changed: 'live:changed',
+    /**
+     * Solo desarrollo (TRADIA_E2E y sin empaquetar): siembra la evidencia
+     * que evalúan los requisitos automáticos (meses de paper, operaciones,
+     * prueba final, parada y alertas); nunca toca las declaraciones.
+     */
+    seedProgress: 'live:seed-progress',
+    /** Solo desarrollo: conmuta el adaptador live al broker real simulado. */
+    useSimulatedBroker: 'live:use-simulated-broker',
   },
 } as const;
 
@@ -495,7 +683,8 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
  * resúmenes de la fase 4, el Diario o el panel de Inicio, el descuadre de
  * la conciliación, Órdenes, y la alerta de desviación, Real vs backtest.
  * Son las rutas por hash del renderer (`#noticias`, `#calendario`,
- * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`).
+ * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`,
+ * `#ia`, `#salud-modelos` y `#dinero-real` de las fases 6-7).
  */
 export const NOTIFICATION_ROUTES = [
   'noticias',
@@ -505,6 +694,9 @@ export const NOTIFICATION_ROUTES = [
   'inicio',
   'ordenes',
   'real-vs-backtest',
+  'ia',
+  'salud-modelos',
+  'dinero-real',
 ] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
@@ -527,6 +719,15 @@ export interface NotificationPrefs {
 // Dominio: ajustes
 // ---------------------------------------------------------------------------
 
+/**
+ * Versión del tour guiado de incorporación que ofrece la app. Se guarda
+ * en `AppSettings.onboardingTourVersion` cuando el usuario termina o
+ * descarta el recorrido: si en el futuro cambia esta constante, el tour
+ * vuelve a ofrecerse aunque ya se hubiera completado. Nunca sustituye ni
+ * salta el aviso de riesgo, que va antes.
+ */
+export const ONBOARDING_TOUR_VERSION = '1';
+
 export interface AppSettings {
   /** Iniciar Tradia con el sistema operativo. */
   autostart: boolean;
@@ -540,6 +741,14 @@ export interface AppSettings {
   deviationMarginPp: number;
   /** Slippage medio máximo admitido en el informe (puntos básicos). */
   deviationSlippageBps: number;
+  /**
+   * Versión del tour de incorporación ya vista o descartada; null si el
+   * tour aún debe ofrecerse. Distinta de ONBOARDING_TOUR_VERSION también
+   * vuelve a ofrecerlo.
+   */
+  onboardingTourVersion: string | null;
+  /** Fecha ISO 8601 generada por main; el renderer no puede escribirla. */
+  onboardingTourCompletedAt: string | null;
 }
 
 /** Solo estas claves son escribibles desde el renderer. */
@@ -551,6 +760,11 @@ export interface SettingsPatch {
   deviationMarginPp?: number;
   /** Debe quedar dentro de DEVIATION_SLIPPAGE_BPS_BOUNDS. */
   deviationSlippageBps?: number;
+  /**
+   * Marca el tour como visto (escribe la versión vigente) o lo reinicia
+   * con null para volver a ofrecerlo desde Ajustes.
+   */
+  onboardingTourVersion?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -664,6 +878,41 @@ export interface MarketRefreshResult {
   accepted: boolean;
   /** Motivo del rechazo, o null si el refresco quedó encolado. */
   reason: MarketRefreshRejection | null;
+  /**
+   * false cuando la pasada aceptada terminó con activos pendientes o
+   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar).
+   * Ausente/true si todos quedaron al día.
+   */
+  ok?: boolean;
+  /** Motivo legible del primer fallo de la pasada; null si ok. */
+  detail?: string | null;
+}
+
+/** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
+export const MACRO_REFRESH_REJECTIONS = ['sin-proveedor', 'sin-conexion', 'en-curso'] as const;
+export type MacroRefreshRejection = (typeof MACRO_REFRESH_REJECTIONS)[number];
+
+export interface MacroRefreshResult {
+  accepted: boolean;
+  /** Motivo del rechazo, o null si el refresco quedó encolado. */
+  reason: MacroRefreshRejection | null;
+  /**
+   * false cuando la pasada aceptada terminó con alguna serie fallida
+   * (proveedor caído, cuota, red). Ausente/true si todas quedaron al día.
+   */
+  ok?: boolean;
+  /** Motivo legible del fallo (el error, o «N de M series fallaron»); null si ok. */
+  detail?: string | null;
+}
+
+/**
+ * Evento `secrets:changed`: solo lleva el nombre del proveedor cuyas
+ * claves cambiaron ('tiingo', 'fred', 'anthropic', 'alpaca-paper'…),
+ * nunca la clave. Los servicios de datos lo usan para lanzar su primer
+ * refresco al guardar su clave.
+ */
+export interface SecretsChangedEvent {
+  provider: string;
 }
 
 /** Evento `market:updated`: llegaron velas nuevas de un ticker. */
@@ -692,7 +941,7 @@ export const DATA_STATUS_STATES = [
 export type DataStatusState = (typeof DATA_STATUS_STATES)[number];
 
 export interface DataStatusEntry {
-  /** 'ticker:AAPL', 'macro:DFF' o 'provider:tiingo' (ver `dataStatusKey`). */
+  /** 'ticker:AAPL', 'macro:DFF', 'provider:tiingo' o 'modelo:0.1.0' (ver `dataStatusKey`). */
   key: string;
   state: DataStatusState;
   /** Último dato correcto conocido (ISO 8601), o null si nunca lo hubo. */
@@ -709,7 +958,86 @@ export const dataStatusKey = {
   ticker: (ticker: string) => `ticker:${ticker}`,
   macro: (seriesId: string) => `macro:${seriesId}`,
   provider: (providerId: string) => `provider:${providerId}`,
+  /** Modelo predictivo servido ('modelo:0.1.0'): su carga o degradación. */
+  modelo: (version: string) => `modelo:${version}`,
 } as const;
+
+/**
+ * Estados del resumen único de frescura (`data-status:freshness`), por
+ * orden de prioridad al agregar: 'unreliable' (alguna 'no-fiable') >
+ * 'catching-up' (una puesta al día en curso, con entradas 'actualizando'
+ * recientes o trabajo pendiente de ella) > 'stale' (alguna
+ * 'desactualizado') > 'no-data' (ninguna entrada con dato correcto
+ * registrado) > 'current'. 'offline' lo añade el renderer con el estado
+ * de conectividad, no forma parte de este resumen.
+ */
+export const DATA_FRESHNESS_STATES = [
+  'current',
+  'catching-up',
+  'stale',
+  'unreliable',
+  'no-data',
+] as const;
+export type DataFreshnessState = (typeof DATA_FRESHNESS_STATES)[number];
+
+/** Una entrada mala del resumen de frescura, con la fecha real de su último dato. */
+export interface DataFreshnessItem {
+  /** Clave de `data_status`: 'ticker:AAPL', 'macro:DFF' o 'provider:tiingo'. */
+  key: string;
+  /** Nombre legible: el ticker, el nombre de la serie o el proveedor. */
+  label: string;
+  state: DataStatusState;
+  /**
+   * Fecha del último dato conocido ('YYYY-MM-DD'): la vela más reciente,
+   * la última observación de la serie o, en un proveedor, la fecha más
+   * reciente servida entre sus hijos; null si nunca llegó dato.
+   */
+  lastDataDate: string | null;
+  reason: string | null;
+}
+
+/**
+ * Progreso de la puesta al día en curso dentro del resumen de frescura.
+ * `total` es el número de activos y series que hay que poner al día en
+ * esa pasada; `done`, los que ya han terminado, con éxito o con error.
+ */
+export interface DataFreshnessProgress {
+  done: number;
+  total: number;
+}
+
+/**
+ * Resumen único «Datos desactualizados desde …» (`data-status:freshness`).
+ * Agrega los estados «ticker:*», «macro:*» y «provider:*» con la fecha
+ * real del último dato de cada uno, para que el renderer pinte un solo
+ * aviso coherente en lugar de una franja por proveedor.
+ */
+export interface DataFreshnessSummary {
+  state: DataFreshnessState;
+  /**
+   * La fecha «desde» del aviso: el último dato más antiguo entre las
+   * entradas malas ('YYYY-MM-DD'); null si ninguna tiene dato.
+   */
+  sinceDate: string | null;
+  /** Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'). */
+  expectedSessionDate: string | null;
+  /**
+   * Sesiones de mercado que faltan entre `sinceDate` y
+   * `expectedSessionDate` (aproximación con el calendario de NYSE).
+   */
+  missingSessions: number;
+  /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */
+  items: DataFreshnessItem[];
+  /**
+   * Progreso de la puesta al día: solo se rellena en 'catching-up'; en
+   * el resto de estados vale null. Con él el renderer enseña
+   * «Descargando {done} de {total} activos»; con null, «Poniéndose al
+   * día…».
+   */
+  progress?: DataFreshnessProgress | null;
+  /** Instante del cálculo (ISO 8601). */
+  updatedAt: string;
+}
 
 export interface MacroObservation {
   date: string;
@@ -732,6 +1060,82 @@ export interface MacroSeriesSnapshot {
   observations: MacroObservation[];
   /** Salud del dato de esta serie, o null si aún no se ha evaluado. */
   status: DataStatusEntry | null;
+}
+
+// ---------------------------------------------------------------------------
+// Dominio: proveedores de datos (prueba de conexión en Ajustes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Proveedores de datos con clave propia en `secrets` y «Probar conexión»
+ * en Ajustes: Tiingo (velas diarias) y FRED (series macro).
+ */
+export const DATA_PROVIDER_IDS = ['tiingo', 'fred'] as const;
+export type DataProviderId = (typeof DATA_PROVIDER_IDS)[number];
+
+/**
+ * Estados de `providers:test-connection`: 'ok' devuelve la fecha del
+ * último dato disponible; el resto explica el motivo exacto del fallo —
+ * 'sin-clave' (no hay clave guardada), 'clave-rechazada' (401/403 del
+ * proveedor), 'cuota' (límite de peticiones agotado), 'sin-red' (no hay
+ * conexión) y 'error' (cualquier otro fallo, con el motivo en `message`).
+ */
+export const PROVIDER_TEST_STATUSES = [
+  'ok',
+  'sin-clave',
+  'clave-rechazada',
+  'cuota',
+  'sin-red',
+  'error',
+] as const;
+export type ProviderTestStatus = (typeof PROVIDER_TEST_STATUSES)[number];
+
+/** Petición de `providers:test-connection`. */
+export interface ProviderTestRequest {
+  provider: DataProviderId;
+}
+
+/**
+ * Resultado de `providers:test-connection`. Nunca incluye la clave ni
+ * fragmentos de ella: solo el estado, un mensaje legible en español y la
+ * fecha del último dato disponible del proveedor.
+ */
+export interface ProviderTestResult {
+  provider: DataProviderId;
+  status: ProviderTestStatus;
+  /**
+   * Mensaje legible en español: 'Conectado · último dato 2026-10-09' en
+   * 'ok' o el motivo exacto del fallo en el resto ('Sin clave guardada.',
+   * 'El proveedor rechazó la clave.', 'Cuota agotada por hoy.', 'Sin
+   * conexión a internet.', …). Nunca contiene la clave.
+   */
+  message: string;
+  /**
+   * Último dato disponible del proveedor ('YYYY-MM-DD': la vela más
+   * reciente en Tiingo, la observación más reciente en FRED); null si no
+   * se pudo leer (sin clave, sin red…).
+   */
+  latestDataDate: string | null;
+  /** Instante de la comprobación (ISO 8601). */
+  checkedAt: string;
+  /** Latencia de la llamada al proveedor en ms; null si no llegó a la red. */
+  latencyMs: number | null;
+}
+
+/**
+ * Petición del gancho E2E `providers:simulate-test`: fuerza el estado de
+ * la próxima prueba de conexión del proveedor.
+ */
+export interface ProviderSimulateTestRequest {
+  provider: DataProviderId;
+  status: ProviderTestStatus;
+}
+
+/** Respuesta del gancho `providers:simulate-test`. */
+export interface ProviderSimulateTestResult {
+  provider: DataProviderId;
+  /** Estado que quedó armado para la próxima prueba. */
+  armed: ProviderTestStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -1091,9 +1495,13 @@ export interface TradiaApi {
   };
   macro: {
     getSeries(query?: MacroSeriesQuery): Promise<MacroSeriesSnapshot[]>;
+    /** Fuerza un refresco de las series macro fuera del horario programado. */
+    refreshNow(): Promise<MacroRefreshResult>;
   };
   dataStatus: {
     get(): Promise<DataStatusEntry[]>;
+    /** Resumen único «Datos desactualizados desde …» (agregado de ticker/macro/proveedor). */
+    freshness(): Promise<DataFreshnessSummary>;
     onChanged(listener: (entry: DataStatusEntry) => void): () => void;
   };
   sources: {
@@ -1148,6 +1556,16 @@ export interface TradiaApi {
      * segunda llamada rechaza (la prueba queda «Ejecutada y bloqueada»).
      */
     runFinalTest(request: BacktestFinalTestRequest): Promise<BacktestReport>;
+    /**
+     * Comparación emparejada con y sin filtro de régimen guardada para la
+     * versión; null si todavía no se ha ejecutado.
+     */
+    regimeComparison(request: RegimeComparisonRequest): Promise<RegimeComparison | null>;
+    /**
+     * Ejecuta el par emparejado con y sin filtro sobre la misma base
+     * (periodo, universo y costes) y devuelve la comparación guardada.
+     */
+    runRegimeComparison(request: RegimeComparisonRequest): Promise<RegimeComparison>;
     /** Progreso de las ejecuciones en curso. */
     onProgress(listener: (event: BacktestProgressEvent) => void): () => void;
   };
@@ -1273,6 +1691,14 @@ export interface TradiaApi {
      */
     cancel(request: CancelOrderRequest): Promise<BrokerOrder>;
   };
+  providers: {
+    /**
+     * «Probar conexión» del proveedor de datos: una petición mínima real
+     * con la clave guardada en secrets. Devuelve el estado y la fecha del
+     * último dato; nunca la clave.
+     */
+    testConnection(request: ProviderTestRequest): Promise<ProviderTestResult>;
+  };
   reconcile: {
     /** Ejecuta la conciliación app ↔ broker y devuelve su resultado. */
     run(): Promise<ReconcileRun>;
@@ -1291,6 +1717,77 @@ export interface TradiaApi {
   logs: {
     /** Abre la carpeta de registros rotados en el explorador del SO. */
     openFolder(): Promise<OpenFolderResult>;
+  };
+  ai: {
+    /**
+     * Régimen del mercado (referencia SPY) y de cada activo, con las
+     * estrategias habilitadas o desactivadas y su motivo. `market` y las
+     * predicciones son null hasta que haya cierres y modelo suficientes.
+     */
+    regimeOverview(): Promise<RegimeOverview>;
+    /** Predicciones guardadas, más recientes primero. */
+    predictions(query?: PredictionsQuery): Promise<Prediction[]>;
+    /** Ficha del modelo vigente; null si no hay ninguna registrada. */
+    modelCard(): Promise<ModelCard | null>;
+    /** Análisis de noticias confirmadas por activo. */
+    newsAnalysis(query?: NewsAnalysisQuery): Promise<NewsAnalysis[]>;
+    /**
+     * Ajustes del análisis LLM de noticias. `hasKey` solo indica si hay
+     * clave cifrada guardada; la clave nunca sale del proceso principal.
+     */
+    getLlmSettings(): Promise<NewsLlmSettings>;
+    setLlmSettings(input: NewsLlmSettingsInput): Promise<NewsLlmSettings>;
+    /** «Probar conexión» con el LLM configurado. */
+    testLlm(): Promise<NewsLlmTestResult>;
+    /** Salud de modelos: drift, estrategias degradadas y propuestas. */
+    health(): Promise<ModelHealthOverview>;
+    /** Historial de propuestas de reentrenamiento. */
+    retrainProposals(): Promise<RetrainProposal[]>;
+    /**
+     * Aprueba o pospone una propuesta pendiente. Al aprobar, la respuesta
+     * lleva las instrucciones del pipeline externo; la app nunca
+     * reentrena sola.
+     */
+    resolveRetrain(request: RetrainResolveRequest): Promise<RetrainResolveResult>;
+    /** Cambió el régimen, una predicción, un análisis o la salud. */
+    onChanged(listener: (event: AiChangedEvent) => void): () => void;
+  };
+  live: {
+    /**
+     * Lista de comprobación evaluada por el proceso principal: los
+     * requisitos automáticos nunca los puede marcar la interfaz.
+     */
+    checklist(): Promise<LiveChecklist>;
+    /** Estado del modo real para la franja global y la pantalla. */
+    state(): Promise<LiveState>;
+    /** Suscribe (`confirmed: true`) o retira una declaración manual. */
+    declare(request: LiveDeclareRequest): Promise<LiveChecklist>;
+    /**
+     * Guarda los límites escritos (≤ LIVE_FIXED_CAPS) y devuelve la frase
+     * de confirmación generada con los valores exactos.
+     */
+    setLimits(input: LiveLimitsInput): Promise<LiveLimitsState>;
+    /**
+     * Guarda las claves live en su ranura cifrada separada tras validarlas
+     * contra la cuenta; el renderer nunca las lee de vuelta.
+     */
+    connect(request: LiveConnectRequest): Promise<LiveState>;
+    /**
+     * Activa el modo real: recomprueba toda la lista en el proceso
+     * principal y exige la frase exacta. Si falta algo devuelve los
+     * motivos (no lanza): `activated` queda false.
+     */
+    activate(request: LiveActivateRequest): Promise<LiveActivateResult>;
+    /** Vuelve a paper al instante; conserva límites, checklist e historial. */
+    deactivate(): Promise<LiveState>;
+    /** «Probar parada»: la activa y la reanuda en paper, con registro. */
+    testKillSwitch(): Promise<LiveKillSwitchTestResult>;
+    /** Prueba de humo real: compra 1 USD de SPY, cierra y concilia. */
+    smokeTest(request: LiveSmokeTestRequest): Promise<LiveSmokeTestResult>;
+    /** Evidencia de escalado; esta fase nunca sube los techos. */
+    scaling(): Promise<LiveScalingStatus>;
+    /** Cambió el modo real (activado, suspendido, vuelta a paper). */
+    onChanged(listener: (state: LiveState) => void): () => void;
   };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
@@ -1328,6 +1825,28 @@ export interface TradiaApi {
       createDiscrepancy(request: BrokerDiscrepancyRequest): Promise<BrokerDiscrepancyResult>;
       /** Siembra semanas de operaciones paper cerradas. */
       seedWeeks(request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult>;
+    };
+    /** Ganchos de los proveedores de datos. */
+    providers: {
+      /** Fuerza el estado de la próxima prueba de conexión del proveedor. */
+      simulateTest(request: ProviderSimulateTestRequest): Promise<ProviderSimulateTestResult>;
+    };
+    /** Ganchos de la IA predictiva (fase 6). */
+    ai: {
+      /** Fija el régimen de un activo o del mercado (datos falsos en memoria). */
+      simulateRegime(request: SimulateRegimeRequest): Promise<RegimeSnapshot>;
+      /** Inyecta una revisión de drift con la persistencia indicada. */
+      simulateDrift(request: SimulateDriftRequest): Promise<ModelHealthOverview>;
+    };
+    /** Ganchos del modo real (fase 7). */
+    live: {
+      /**
+       * Siembra la evidencia de los requisitos automáticos (paper,
+       * prueba final, parada y alertas); nunca marca las declaraciones.
+       */
+      seedProgress(request?: LiveSeedProgressRequest): Promise<LiveChecklist>;
+      /** Conmuta el adaptador live al broker real simulado. */
+      useSimulatedBroker(request: LiveSimulatedBrokerRequest): Promise<LiveState>;
     };
   };
 }
@@ -1406,6 +1925,7 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
     'brokerExecutionEnabled',
     'deviationMarginPp',
     'deviationSlippageBps',
+    'onboardingTourVersion',
   ];
   if (keys.some((k) => !allowed.includes(k))) return false;
   if ('autostart' in v && typeof v.autostart !== 'boolean') return false;
@@ -1413,6 +1933,13 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
     'disclaimerAcceptedVersion' in v &&
     v.disclaimerAcceptedVersion !== null &&
     typeof v.disclaimerAcceptedVersion !== 'string'
+  ) {
+    return false;
+  }
+  if (
+    'onboardingTourVersion' in v &&
+    v.onboardingTourVersion !== null &&
+    (typeof v.onboardingTourVersion !== 'string' || v.onboardingTourVersion.length > 64)
   ) {
     return false;
   }
@@ -1812,6 +2339,8 @@ const STRATEGY_DRAFT_KEYS = [
   'trainingPeriod',
   'outOfSamplePeriod',
   'regime',
+  'worksIn',
+  'failsIn',
   'assumedCosts',
 ] as const;
 
@@ -1852,6 +2381,14 @@ function checkStrategyDraftFields(
     return null;
   }
   if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  // Etiquetas de régimen estructuradas (fase 6): arrays sin duplicados del
+  // catálogo de cuatro etiquetas; una etiqueta no puede estar en ambos.
+  if ('worksIn' in v && !isRegimeLabelList(v.worksIn)) return null;
+  if ('failsIn' in v && !isRegimeLabelList(v.failsIn)) return null;
+  if (isRegimeLabelList(v.worksIn) && isRegimeLabelList(v.failsIn)) {
+    const fails = new Set(v.failsIn);
+    if (v.worksIn.some((label) => fails.has(label))) return null;
+  }
   return present;
 }
 
@@ -1999,6 +2536,7 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     'walkForward',
     'sensitivity',
     'monteCarlo',
+    'regimeFilter',
   ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isStrategyId(v.strategyId)) return false;
@@ -2045,6 +2583,8 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     if (key === 'sensitivity' && !isSensitivityAxes(opt)) return false;
     if (key === 'monteCarlo' && !isMonteCarloOptions(opt)) return false;
   }
+  // Filtro de régimen (fase 6): flag booleano; false = regresión idéntica.
+  if ('regimeFilter' in v && typeof v.regimeFilter !== 'boolean') return false;
   return true;
 }
 
@@ -2132,7 +2672,7 @@ export function isIsoTimestamp(value: unknown): value is string {
 export function isSignalIntent(value: unknown): value is SignalIntent {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['ticker', 'direction', 'entry', 'stop', 'target', 'confidence', 'origin'];
+  const allowed = ['ticker', 'direction', 'entry', 'stop', 'target', 'confidence', 'origin', 'ai'];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isTicker(v.ticker)) return false;
   if (!isSignalDirection(v.direction)) return false;
@@ -2142,6 +2682,7 @@ export function isSignalIntent(value: unknown): value is SignalIntent {
   // La confianza fuera de 0–1 es una señal anómala del modelo, no una
   // forma inválida: el motor decide el veto y la posible parada.
   if (typeof v.confidence !== 'number' || !Number.isFinite(v.confidence)) return false;
+  if ('ai' in v && !isSignalAiContext(v.ai)) return false;
   return isSignalOrigin(v.origin);
 }
 
@@ -2567,6 +3108,11 @@ export function isBrokerOrderStatus(value: unknown): value is BrokerOrderStatus 
   return typeof value === 'string' && (BROKER_ORDER_STATUSES as readonly string[]).includes(value);
 }
 
+/** Cuenta origen de una orden ('paper' | 'live'). */
+export function isBrokerOrderMode(value: unknown): value is BrokerOrderMode {
+  return typeof value === 'string' && (BROKER_ORDER_MODES as readonly string[]).includes(value);
+}
+
 /** Id entero positivo de una orden local (`broker_orders.id`). */
 export function isBrokerOrderId(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
@@ -2576,11 +3122,12 @@ export function isBrokerOrdersQuery(value: unknown): value is BrokerOrdersQuery 
   if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['status', 'strategyId', 'ticker', 'limit', 'offset'];
+  const allowed = ['status', 'strategyId', 'ticker', 'mode', 'limit', 'offset'];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if ('status' in v && !isBrokerOrderStatus(v.status)) return false;
   if ('strategyId' in v && !isStrategyId(v.strategyId)) return false;
   if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('mode' in v && !isBrokerOrderMode(v.mode)) return false;
   if (
     'limit' in v &&
     (typeof v.limit !== 'number' ||
@@ -2602,7 +3149,8 @@ export function isBrokerOrdersQuery(value: unknown): value is BrokerOrdersQuery 
 export function isCancelOrderRequest(value: unknown): value is CancelOrderRequest {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'id')) return false;
+  if (Object.keys(v).some((k) => k !== 'id' && k !== 'mode')) return false;
+  if ('mode' in v && !isBrokerOrderMode(v.mode)) return false;
   return isBrokerOrderId(v.id);
 }
 
@@ -2673,6 +3221,405 @@ export function isBrokerSeedWeeksRequest(
     !('weeks' in v) ||
     (typeof v.weeks === 'number' && Number.isInteger(v.weeks) && v.weeks >= 1 && v.weeks <= 52)
   );
+}
+
+// ---------------------------------------------------------------------------
+// Guardas: proveedores de datos
+// ---------------------------------------------------------------------------
+
+export function isDataProviderId(value: unknown): value is DataProviderId {
+  return typeof value === 'string' && (DATA_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+export function isProviderTestStatus(value: unknown): value is ProviderTestStatus {
+  return typeof value === 'string' && (PROVIDER_TEST_STATUSES as readonly string[]).includes(value);
+}
+
+/** Petición de `providers:test-connection`: solo el proveedor, nunca la clave. */
+export function isProviderTestRequest(value: unknown): value is ProviderTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'provider')) return false;
+  return isDataProviderId(v.provider);
+}
+
+/** Petición del gancho E2E `providers:simulate-test`. */
+export function isProviderSimulateTestRequest(
+  value: unknown,
+): value is ProviderSimulateTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'provider' && k !== 'status')) return false;
+  return isDataProviderId(v.provider) && isProviderTestStatus(v.status);
+}
+
+// ---------------------------------------------------------------------------
+// Guardas de la IA predictiva y del dinero real (fases 6-7)
+// ---------------------------------------------------------------------------
+
+export function isRegimeDirectionLabel(value: unknown): value is RegimeDirectionLabel {
+  return (
+    typeof value === 'string' && (REGIME_DIRECTION_LABELS as readonly string[]).includes(value)
+  );
+}
+
+export function isRegimeVolatilityLabel(value: unknown): value is RegimeVolatilityLabel {
+  return (
+    typeof value === 'string' && (REGIME_VOLATILITY_LABELS as readonly string[]).includes(value)
+  );
+}
+
+export function isRegimeLabel(value: unknown): value is RegimeLabel {
+  return typeof value === 'string' && (REGIME_LABELS as readonly string[]).includes(value);
+}
+
+/** Lista de etiquetas de régimen sin duplicados (campos `worksIn`/`failsIn`). */
+export function isRegimeLabelList(value: unknown): value is RegimeLabel[] {
+  return (
+    Array.isArray(value) &&
+    value.every(isRegimeLabel) &&
+    new Set(value as string[]).size === value.length
+  );
+}
+
+/**
+ * Contexto de IA de una señal (campo opcional `ai` de SignalIntent y de
+ * SignalDataUsed): la forma se valida en el borde; sus efectos los decide
+ * el motor (nunca crea la señal ni evita la evaluación de riesgo).
+ */
+export function isSignalAiContext(value: unknown): value is SignalAiContext {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'regime',
+    'probability',
+    'horizonDays',
+    'modelVersion',
+    'modelHash',
+    'newsItemIds',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if ('regime' in v && v.regime !== null) {
+    if (typeof v.regime !== 'object') return false;
+    const r = v.regime as Record<string, unknown>;
+    if (Object.keys(r).some((k) => k !== 'direction' && k !== 'volatility')) return false;
+    if (!isRegimeDirectionLabel(r.direction) || !isRegimeVolatilityLabel(r.volatility)) {
+      return false;
+    }
+  }
+  if (
+    'probability' in v &&
+    v.probability !== null &&
+    (typeof v.probability !== 'number' ||
+      !Number.isFinite(v.probability) ||
+      v.probability < 0 ||
+      v.probability > 1)
+  ) {
+    return false;
+  }
+  if (
+    'horizonDays' in v &&
+    v.horizonDays !== null &&
+    (!Number.isInteger(v.horizonDays) ||
+      (v.horizonDays as number) < 1 ||
+      (v.horizonDays as number) > 250)
+  ) {
+    return false;
+  }
+  for (const key of ['modelVersion', 'modelHash'] as const) {
+    if (
+      key in v &&
+      v[key] !== null &&
+      (typeof v[key] !== 'string' || (v[key] as string).length > 100)
+    ) {
+      return false;
+    }
+  }
+  if ('newsItemIds' in v) {
+    if (
+      !Array.isArray(v.newsItemIds) ||
+      v.newsItemIds.length > 50 ||
+      !v.newsItemIds.every((id) => Number.isInteger(id) && (id as number) >= 1)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Consulta de `ai:predictions`; todos los campos opcionales. */
+export function isPredictionsQuery(value: unknown): value is PredictionsQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'ticker' && k !== 'limit')) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) ||
+      (v.limit as number) < 1 ||
+      (v.limit as number) > PREDICTIONS_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Consulta de `ai:news-analysis`; todos los campos opcionales. */
+export function isNewsAnalysisQuery(value: unknown): value is NewsAnalysisQuery | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'newsItemId' && k !== 'ticker' && k !== 'limit')) {
+    return false;
+  }
+  if ('newsItemId' in v && (!Number.isInteger(v.newsItemId) || (v.newsItemId as number) < 1)) {
+    return false;
+  }
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if (
+    'limit' in v &&
+    (!Number.isInteger(v.limit) ||
+      (v.limit as number) < 1 ||
+      (v.limit as number) > NEWS_ANALYSIS_MAX_LIMIT)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Analizador de titulares registrado ('llm' | 'local' | 'suscripcion'). */
+export function isNewsAnalyzer(value: unknown): value is NewsAnalyzer {
+  return typeof value === 'string' && (NEWS_ANALYZERS as readonly string[]).includes(value);
+}
+
+/** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
+export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettingsInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(v);
+  if (keys.length === 0) return false;
+  const allowed = ['enabled', 'provider', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
+  if (keys.some((k) => !allowed.includes(k))) return false;
+  if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
+  if ('provider' in v && !isNewsAnalyzer(v.provider)) return false;
+  if (
+    'cliPath' in v &&
+    v.cliPath !== null &&
+    (typeof v.cliPath !== 'string' || v.cliPath.trim().length === 0 || v.cliPath.length > 1_024)
+  ) {
+    return false;
+  }
+  if (
+    'dailyCap' in v &&
+    (!Number.isInteger(v.dailyCap) ||
+      (v.dailyCap as number) < NEWS_LLM_DAILY_CAP_BOUNDS.min ||
+      (v.dailyCap as number) > NEWS_LLM_DAILY_CAP_BOUNDS.max)
+  ) {
+    return false;
+  }
+  if (
+    'monthlyBudgetEur' in v &&
+    (typeof v.monthlyBudgetEur !== 'number' ||
+      !Number.isFinite(v.monthlyBudgetEur) ||
+      v.monthlyBudgetEur < NEWS_LLM_MONTHLY_BUDGET_BOUNDS.min ||
+      v.monthlyBudgetEur > NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isDriftCheckKind(value: unknown): value is DriftCheckKind {
+  return typeof value === 'string' && (DRIFT_CHECK_KINDS as readonly string[]).includes(value);
+}
+
+/** Resolución de una propuesta de reentrenamiento (`ai:resolve-retrain`). */
+export function isRetrainResolveRequest(value: unknown): value is RetrainResolveRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['id', 'action', 'postponeUntil', 'note'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!Number.isInteger(v.id) || (v.id as number) < 1) return false;
+  if (!(RETRAIN_ACTIONS as readonly string[]).includes(v.action as string)) return false;
+  if (v.action === 'posponer' && !isIsoDate(v.postponeUntil)) return false;
+  if ('postponeUntil' in v && v.postponeUntil !== undefined && !isIsoDate(v.postponeUntil)) {
+    return false;
+  }
+  if ('note' in v && v.note !== undefined && !isStrategyText(v.note)) return false;
+  return true;
+}
+
+/** Petición de `backtest:regime-comparison` y `backtest:run-regime-comparison`. */
+export function isRegimeComparisonRequest(value: unknown): value is RegimeComparisonRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'strategyId' && k !== 'version')) return false;
+  if (!isStrategyId(v.strategyId)) return false;
+  if ('version' in v && !isStrategyId(v.version)) return false;
+  return true;
+}
+
+/** Gancho E2E `ai:simulate-regime`: al menos una etiqueta a fijar. */
+export function isSimulateRegimeRequest(value: unknown): value is SimulateRegimeRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['scope', 'ticker', 'direction', 'volatility', 'sessionDate'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!('direction' in v) && !('volatility' in v)) return false;
+  if ('scope' in v && !(REGIME_SCOPES as readonly string[]).includes(v.scope as string)) {
+    return false;
+  }
+  // El ámbito 'activo' (o sin ámbito) exige ticker; 'mercado' usa SPY.
+  const scope = 'scope' in v ? v.scope : 'ticker' in v ? 'activo' : 'mercado';
+  if (scope === 'activo' && !isTicker(v.ticker)) return false;
+  if ('ticker' in v && !isTicker(v.ticker)) return false;
+  if ('direction' in v && !isRegimeDirectionLabel(v.direction)) return false;
+  if ('volatility' in v && !isRegimeVolatilityLabel(v.volatility)) return false;
+  if ('sessionDate' in v && !isIsoDate(v.sessionDate)) return false;
+  return true;
+}
+
+/** Gancho E2E `ai:simulate-drift`. */
+export function isSimulateDriftRequest(value: unknown): value is SimulateDriftRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'kind' && k !== 'subjectId' && k !== 'streak')) {
+    return false;
+  }
+  if (!isDriftCheckKind(v.kind)) return false;
+  if ('subjectId' in v && (!Number.isInteger(v.subjectId) || (v.subjectId as number) < 1)) {
+    return false;
+  }
+  if (
+    'streak' in v &&
+    (!Number.isInteger(v.streak) || (v.streak as number) < 1 || (v.streak as number) > 10_000)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Claves de declaración manual de la lista de dinero real. */
+export function isLiveDeclarationRequirement(value: unknown): value is LiveDeclarationRequirement {
+  return (
+    typeof value === 'string' &&
+    (LIVE_DECLARATION_REQUIREMENTS as readonly string[]).includes(value)
+  );
+}
+
+export function isLiveRequirementKey(value: unknown): boolean {
+  return typeof value === 'string' && (LIVE_REQUIREMENTS as readonly string[]).includes(value);
+}
+
+/** Petición de `live:declare`: suscribe o retira una declaración manual. */
+export function isLiveDeclareRequest(value: unknown): value is LiveDeclareRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['requirement', 'confirmed', 'detail'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (!isLiveDeclarationRequirement(v.requirement)) return false;
+  if (typeof v.confirmed !== 'boolean') return false;
+  if ('detail' in v && v.detail !== undefined) {
+    if (typeof v.detail !== 'string' || v.detail.length > 1_000) return false;
+  }
+  return true;
+}
+
+/**
+ * Límites escritos del modo real (`live:set-limits`): los cuatro valores,
+ * todos positivos y sin superar los techos fijos de `LIVE_FIXED_CAPS`.
+ */
+export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  if (allowed.some((k) => !(k in v))) return false;
+  const usdField = (key: 'capitalUsd' | 'orderUsd' | 'dailyLossUsd', cap: number): boolean =>
+    typeof v[key] === 'number' &&
+    Number.isFinite(v[key] as number) &&
+    (v[key] as number) > 0 &&
+    (v[key] as number) <= cap;
+  if (!usdField('capitalUsd', LIVE_FIXED_CAPS.capitalUsd)) return false;
+  if (!usdField('orderUsd', LIVE_FIXED_CAPS.orderUsd)) return false;
+  if (!usdField('dailyLossUsd', LIVE_FIXED_CAPS.dailyLossUsd)) return false;
+  return (
+    Number.isInteger(v.openPositions) &&
+    (v.openPositions as number) >= 1 &&
+    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions
+  );
+}
+
+/** Petición de `live:activate`: la frase de confirmación escrita. */
+export function isLiveActivateRequest(value: unknown): value is LiveActivateRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'phrase')) return false;
+  return typeof v.phrase === 'string' && v.phrase.trim().length > 0 && v.phrase.length <= 500;
+}
+
+/** Petición de `live:connect`: claves de la cuenta live (prefijo AK…). */
+export function isLiveConnectRequest(value: unknown): value is LiveConnectRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'apiKeyId' && k !== 'apiSecret')) return false;
+  return isBrokerKey(v.apiKeyId) && isBrokerKey(v.apiSecret);
+}
+
+/** Petición de `live:smoke-test`: confirmación breve explícita. */
+export function isLiveSmokeTestRequest(value: unknown): value is LiveSmokeTestRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'confirm')) return false;
+  return v.confirm === true;
+}
+
+/**
+ * Gancho E2E `live:seed-progress`: siembra evidencia para los requisitos
+ * automáticos. Todos los campos son opcionales (sin campos = valores que
+ * cumplen la lista completa).
+ */
+export function isLiveSeedProgressRequest(
+  value: unknown,
+): value is LiveSeedProgressRequest | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const allowed = [
+    'paperMonths',
+    'paperTrades',
+    'deviationPct',
+    'finalTestDone',
+    'killSwitchTested',
+    'alertsTested',
+  ];
+  if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
+  const positiveInt = (key: 'paperMonths' | 'paperTrades', max: number): boolean =>
+    !(key in v) ||
+    (Number.isInteger(v[key]) && (v[key] as number) >= 0 && (v[key] as number) <= max);
+  if (!positiveInt('paperMonths', 120)) return false;
+  if (!positiveInt('paperTrades', 10_000)) return false;
+  if (
+    'deviationPct' in v &&
+    (typeof v.deviationPct !== 'number' ||
+      !Number.isFinite(v.deviationPct) ||
+      Math.abs(v.deviationPct) > 10_000)
+  ) {
+    return false;
+  }
+  for (const key of ['finalTestDone', 'killSwitchTested', 'alertsTested'] as const) {
+    if (key in v && typeof v[key] !== 'boolean') return false;
+  }
+  return true;
+}
+
+/** Gancho E2E `live:use-simulated-broker`. */
+export function isLiveSimulatedBrokerRequest(value: unknown): value is LiveSimulatedBrokerRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (Object.keys(v).some((k) => k !== 'enabled')) return false;
+  return typeof v.enabled === 'boolean';
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

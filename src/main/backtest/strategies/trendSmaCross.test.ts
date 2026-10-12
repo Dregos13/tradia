@@ -41,8 +41,22 @@ describe('cruce de medias (seguimiento de tendencia)', () => {
   // Plana 15 sesiones, sube con fuerza (cruce al alza), baja (cruce a la baja).
   const closes = [
     ...Array(15).fill(100),
-    104, 108, 112, 116, 120, 124, 128,
-    124, 120, 116, 112, 108, 104, 100, 96, 92,
+    104,
+    108,
+    112,
+    116,
+    120,
+    124,
+    128,
+    124,
+    120,
+    116,
+    112,
+    108,
+    104,
+    100,
+    96,
+    92,
   ] as number[];
   const dates = sessionDates(closes.length, '2024-01-02');
   const bars = seriesFromCloses(dates, closes);
@@ -94,7 +108,16 @@ describe('cruce de medias (seguimiento de tendencia)', () => {
     // pero cierre alto: sin cruce a la baja, tiene que salir el stop.
     const dipCloses = [
       ...Array(10).fill(100),
-      104, 108, 112, 116, 120, 124, 128, 132, 136, 140,
+      104,
+      108,
+      112,
+      116,
+      120,
+      124,
+      128,
+      132,
+      136,
+      140,
     ] as number[];
     const dipDates = sessionDates(dipCloses.length + 2, '2024-02-01');
     const dipBars = [

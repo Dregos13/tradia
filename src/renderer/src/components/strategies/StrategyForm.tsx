@@ -4,6 +4,8 @@ import {
   type Strategy,
   type StrategyDraft,
 } from '../../../../shared/strategy';
+import { REGIME_LABELS } from '../../../../shared/ai';
+import { regimeLabels } from './regimeLabels';
 import { isCreateStrategyRequest } from '../../../../shared/ipc';
 export function StrategyForm({
   strategy,
@@ -22,6 +24,8 @@ export function StrategyForm({
           parameterRanges: strategy.parameterRanges,
           markets: strategy.markets,
           regime: strategy.regime,
+          worksIn: [...strategy.worksIn],
+          failsIn: [...strategy.failsIn],
           assumedCosts: strategy.assumedCosts,
           trainingPeriod: strategy.trainingPeriod,
           outOfSamplePeriod: strategy.outOfSamplePeriod,
@@ -34,6 +38,8 @@ export function StrategyForm({
           parameterRanges: {},
           markets: [],
           regime: '',
+          worksIn: [],
+          failsIn: [],
           assumedCosts: { ...DEFAULT_STRATEGY_COSTS },
           trainingPeriod: null,
           outOfSamplePeriod: null,
@@ -64,6 +70,11 @@ export function StrategyForm({
     setNoteError(false);
     if (strategy && note.trim().length < 12) {
       setNoteError(true);
+      return;
+    }
+    const overlap = draft.worksIn?.find((label) => draft.failsIn?.includes(label));
+    if (overlap) {
+      setError(`${regimeLabels[overlap]} no puede estar a la vez en “Funciona en” y “Falla en”.`);
       return;
     }
     let request: StrategyDraft;
@@ -193,6 +204,30 @@ export function StrategyForm({
           </fieldset>
           <fieldset id="strategy-section-4">
             <legend>Régimen</legend>
+            <div className="strategy-grid">
+              {(['worksIn', 'failsIn'] as const).map((key) => (
+                <fieldset key={key} disabled={busy}>
+                  <legend>{key === 'worksIn' ? 'Funciona en' : 'Falla en'}</legend>
+                  {REGIME_LABELS.map((label) => (
+                    <label className="strategy-regime-choice" key={label}>
+                      <input
+                        type="checkbox"
+                        checked={draft[key]?.includes(label) ?? false}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            [key]: event.target.checked
+                              ? [...(current[key] ?? []), label]
+                              : (current[key] ?? []).filter((value) => value !== label),
+                          }))
+                        }
+                      />
+                      {regimeLabels[label]}
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+            </div>
             {text('regime', 'Régimen favorable y limitaciones', 500)}
           </fieldset>
           <fieldset id="strategy-section-5">

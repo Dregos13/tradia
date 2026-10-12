@@ -4,6 +4,7 @@ import { E2E_FLAG_ARG, IPC_CHANNELS, isNotificationRoute } from '../shared/ipc';
 import type {
   AddSourceRequest,
   AgentsState,
+  AiChangedEvent,
   AlertPrefs,
   BackupInfo,
   BackupRestoreRequest,
@@ -46,8 +47,29 @@ import type {
   KillSwitchCause,
   KillSwitchResumeRequest,
   KillSwitchState,
+  LiveActivateRequest,
+  LiveActivateResult,
+  LiveChecklist,
+  LiveConnectRequest,
+  LiveDeclareRequest,
+  LiveKillSwitchTestResult,
+  LiveLimitsInput,
+  LiveLimitsState,
+  LiveScalingStatus,
+  LiveSeedProgressRequest,
+  LiveSimulatedBrokerRequest,
+  LiveSmokeTestRequest,
+  LiveSmokeTestResult,
+  LiveState,
   MacroSeriesQuery,
   MarketUpdatedEvent,
+  ModelCard,
+  ModelHealthOverview,
+  NewsAnalysis,
+  NewsAnalysisQuery,
+  NewsLlmSettings,
+  NewsLlmSettingsInput,
+  NewsLlmTestResult,
   NewsListQuery,
   NewsUpdatedEvent,
   NotificationLevel,
@@ -56,9 +78,22 @@ import type {
   NotificationRoute,
   OpenFolderResult,
   PaperPortfolioOverview,
+  Prediction,
+  PredictionsQuery,
+  ProviderSimulateTestRequest,
+  ProviderSimulateTestResult,
+  ProviderTestRequest,
+  ProviderTestResult,
   ReconcileDiscrepancyEvent,
   ReconcileRun,
   ReconcileStatusResult,
+  RegimeComparison,
+  RegimeComparisonRequest,
+  RegimeOverview,
+  RegimeSnapshot,
+  RetrainProposal,
+  RetrainResolveRequest,
+  RetrainResolveResult,
   RiskLimits,
   RiskOverview,
   RiskVeto,
@@ -74,6 +109,8 @@ import type {
   SignalStrategyState,
   SignalsListQuery,
   SimulateCalendarEventRequest,
+  SimulateDriftRequest,
+  SimulateRegimeRequest,
   StressRequest,
   TestSourceRequest,
   TradiaApi,
@@ -141,9 +178,11 @@ const api: TradiaApi = {
   macro: {
     getSeries: (query?: MacroSeriesQuery) =>
       ipcRenderer.invoke(IPC_CHANNELS.macro.getSeries, query),
+    refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.macro.refreshNow),
   },
   dataStatus: {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.get),
+    freshness: () => ipcRenderer.invoke(IPC_CHANNELS.dataStatus.freshness),
     onChanged: (listener) => subscribe<DataStatusEntry>(IPC_CHANNELS.dataStatus.changed, listener),
   },
   sources: {
@@ -185,6 +224,10 @@ const api: TradiaApi = {
     get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.backtest.get, id),
     runFinalTest: (request: BacktestFinalTestRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.backtest.runFinalTest, request),
+    regimeComparison: (request: RegimeComparisonRequest): Promise<RegimeComparison | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.backtest.regimeComparison, request),
+    runRegimeComparison: (request: RegimeComparisonRequest): Promise<RegimeComparison> =>
+      ipcRenderer.invoke(IPC_CHANNELS.backtest.runRegimeComparison, request),
     onProgress: (listener: (event: BacktestProgressEvent) => void) =>
       subscribe<BacktestProgressEvent>(IPC_CHANNELS.backtest.progress, listener),
   },
@@ -266,10 +309,13 @@ const api: TradiaApi = {
     cancel: (request: CancelOrderRequest): Promise<BrokerOrder> =>
       ipcRenderer.invoke(IPC_CHANNELS.orders.cancel, request),
   },
+  providers: {
+    testConnection: (request: ProviderTestRequest): Promise<ProviderTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.providers.testConnection, request),
+  },
   reconcile: {
     run: (): Promise<ReconcileRun> => ipcRenderer.invoke(IPC_CHANNELS.reconcile.run),
-    status: (): Promise<ReconcileStatusResult> =>
-      ipcRenderer.invoke(IPC_CHANNELS.reconcile.status),
+    status: (): Promise<ReconcileStatusResult> => ipcRenderer.invoke(IPC_CHANNELS.reconcile.status),
     onDiscrepancy: (listener: (event: ReconcileDiscrepancyEvent) => void) =>
       subscribe<ReconcileDiscrepancyEvent>(IPC_CHANNELS.reconcile.discrepancy, listener),
   },
@@ -279,6 +325,47 @@ const api: TradiaApi = {
   },
   logs: {
     openFolder: (): Promise<OpenFolderResult> => ipcRenderer.invoke(IPC_CHANNELS.logs.openFolder),
+  },
+  ai: {
+    regimeOverview: (): Promise<RegimeOverview> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.regimeOverview),
+    predictions: (query?: PredictionsQuery): Promise<Prediction[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.predictions, query),
+    modelCard: (): Promise<ModelCard | null> => ipcRenderer.invoke(IPC_CHANNELS.ai.modelCard),
+    newsAnalysis: (query?: NewsAnalysisQuery): Promise<NewsAnalysis[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.newsAnalysis, query),
+    getLlmSettings: (): Promise<NewsLlmSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.getLlmSettings),
+    setLlmSettings: (input: NewsLlmSettingsInput): Promise<NewsLlmSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.setLlmSettings, input),
+    testLlm: (): Promise<NewsLlmTestResult> => ipcRenderer.invoke(IPC_CHANNELS.ai.testLlm),
+    health: (): Promise<ModelHealthOverview> => ipcRenderer.invoke(IPC_CHANNELS.ai.health),
+    retrainProposals: (): Promise<RetrainProposal[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.retrainProposals),
+    resolveRetrain: (request: RetrainResolveRequest): Promise<RetrainResolveResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ai.resolveRetrain, request),
+    onChanged: (listener: (event: AiChangedEvent) => void) =>
+      subscribe<AiChangedEvent>(IPC_CHANNELS.ai.changed, listener),
+  },
+  live: {
+    checklist: (): Promise<LiveChecklist> => ipcRenderer.invoke(IPC_CHANNELS.live.checklist),
+    state: (): Promise<LiveState> => ipcRenderer.invoke(IPC_CHANNELS.live.state),
+    declare: (request: LiveDeclareRequest): Promise<LiveChecklist> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.declare, request),
+    setLimits: (input: LiveLimitsInput): Promise<LiveLimitsState> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.setLimits, input),
+    connect: (request: LiveConnectRequest): Promise<LiveState> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.connect, request),
+    activate: (request: LiveActivateRequest): Promise<LiveActivateResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.activate, request),
+    deactivate: (): Promise<LiveState> => ipcRenderer.invoke(IPC_CHANNELS.live.deactivate),
+    testKillSwitch: (): Promise<LiveKillSwitchTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.testKillSwitch),
+    smokeTest: (request: LiveSmokeTestRequest): Promise<LiveSmokeTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.live.smokeTest, request),
+    scaling: (): Promise<LiveScalingStatus> => ipcRenderer.invoke(IPC_CHANNELS.live.scaling),
+    onChanged: (listener: (state: LiveState) => void) =>
+      subscribe<LiveState>(IPC_CHANNELS.live.changed, listener),
   },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
@@ -315,6 +402,24 @@ const api: TradiaApi = {
               ipcRenderer.invoke(IPC_CHANNELS.broker.createDiscrepancy, request),
             seedWeeks: (request?: BrokerSeedWeeksRequest): Promise<BrokerSeedWeeksResult> =>
               ipcRenderer.invoke(IPC_CHANNELS.broker.seedWeeks, request),
+          },
+          providers: {
+            simulateTest: (
+              request: ProviderSimulateTestRequest,
+            ): Promise<ProviderSimulateTestResult> =>
+              ipcRenderer.invoke(IPC_CHANNELS.providers.simulateTest, request),
+          },
+          ai: {
+            simulateRegime: (request: SimulateRegimeRequest): Promise<RegimeSnapshot> =>
+              ipcRenderer.invoke(IPC_CHANNELS.ai.simulateRegime, request),
+            simulateDrift: (request: SimulateDriftRequest): Promise<ModelHealthOverview> =>
+              ipcRenderer.invoke(IPC_CHANNELS.ai.simulateDrift, request),
+          },
+          live: {
+            seedProgress: (request?: LiveSeedProgressRequest): Promise<LiveChecklist> =>
+              ipcRenderer.invoke(IPC_CHANNELS.live.seedProgress, request),
+            useSimulatedBroker: (request: LiveSimulatedBrokerRequest): Promise<LiveState> =>
+              ipcRenderer.invoke(IPC_CHANNELS.live.useSimulatedBroker, request),
           },
         },
       }

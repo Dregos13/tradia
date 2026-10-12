@@ -126,6 +126,12 @@ export interface BacktestRunRequest {
   sensitivity?: false | SensitivityAxes;
   /** Monte Carlo: `false` lo omite; objeto lo configura. */
   monteCarlo?: false | MonteCarloOptions;
+  /**
+   * Filtro de régimen (fase 6): con `true` la estrategia solo opera en las
+   * sesiones cuyo régimen encaja con su ficha. Por defecto `false`
+   * (regresión idéntica a ejecuciones anteriores).
+   */
+  regimeFilter?: boolean;
 }
 
 /** Filtros de `backtest:list`; sin `strategyId` lista todas las ejecuciones. */
@@ -346,6 +352,8 @@ export interface BacktestRunConfig {
   walkForward: WalkForwardOptions | null;
   sensitivity: { xParam: string; yParam: string } | null;
   monteCarlo: { seed: number; simulations: number; method: MonteCarloMethod } | null;
+  /** Filtro de régimen aplicado (fase 6); ausente = run sin filtro. */
+  regimeFilter?: boolean;
 }
 
 /** Fila de `backtest:list`: resumen de una ejecución guardada. */

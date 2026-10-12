@@ -22,6 +22,7 @@
  */
 import { createRateLimiter, type RateLimiter } from '../providers/rateLimiter';
 import {
+  InvalidStoredKeyError,
   MarketDataError,
   type MarketDataErrorKind,
   type RateLimits,
@@ -72,10 +73,23 @@ interface FredObservationRow {
   value?: unknown;
 }
 
+/** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
+const isUnsafeKeyChar = (char: string): boolean => {
+  const code = char.codePointAt(0)!;
+  return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
+};
+
 /** Quita la clave de cualquier texto externo antes de meterla en un error. */
 function redact(text: string, apiKey: string | null): string {
   if (!apiKey) return text;
-  return text.split(apiKey).join('***');
+  let out = text.split(apiKey).join('***');
+  // La capa de transporte puede citar la credencial ya normalizada (sin
+  // espacios ni controles): también se cubre la variante saneada.
+  const sanitized = [...apiKey].filter((char) => !isUnsafeKeyChar(char)).join('');
+  if (sanitized !== '' && sanitized !== apiKey) {
+    out = out.split(sanitized).join('***');
+  }
+  return out;
 }
 
 const truncate = (text: string, max = 300): string =>
@@ -158,6 +172,12 @@ export function createFredProvider(deps: FredProviderDeps): MacroDataProvider {
     const apiKey = await deps.getApiKey();
     if (!apiKey) {
       throw fail('auth', `sin clave de API guardada (secrets['${FRED_SECRETS_KEY}'])`);
+    }
+    // Una clave con controles o espacios dentro no sirve como api_key:
+    // se rechaza antes de la petición como clave no válida, no como
+    // fallo de red (el mensaje de transporte podría citarla).
+    if ([...apiKey].some(isUnsafeKeyChar)) {
+      throw new InvalidStoredKeyError({ provider: FRED_PROVIDER_ID });
     }
 
     await limiter.acquire();

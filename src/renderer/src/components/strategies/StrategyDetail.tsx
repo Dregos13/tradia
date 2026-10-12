@@ -1,3 +1,6 @@
+import { StrategyHealth } from './StrategyHealth';
+import { RegimeBacktestComparison } from './RegimeBacktestComparison';
+import { regimeLabels } from './regimeLabels';
 import { StressResults } from './StressResults';
 import { BacktestLauncher } from '../backtest/BacktestLauncher';
 import { useCallback, useState } from 'react';
@@ -73,6 +76,7 @@ export function StrategyDetail({
         </div>
       </header>
       {historical && <p className="strategy-section">Versión histórica · solo lectura</p>}
+      <StrategyHealth strategy={latest} />
       <section className="strategy-section" aria-labelledby="strategy-evidence">
         <h3 id="strategy-evidence">Resumen de evidencia</h3>
         {evidence.loading ? (
@@ -154,9 +158,30 @@ export function StrategyDetail({
         )}
       </section>
       <section className="strategy-section">
-        <h3>Régimen</h3>
+        <h3>Régimen de mercado</h3>
+        <dl className="strategy-grid">
+          <div>
+            <dt>Funciona en</dt>
+            <dd>
+              {s.worksIn.map((label) => regimeLabels[label]).join(', ') ||
+                'Sin preferencia declarada'}
+            </dd>
+          </div>
+          <div>
+            <dt>Falla en</dt>
+            <dd>
+              {s.failsIn.map((label) => regimeLabels[label]).join(', ') ||
+                'Sin limitaciones declaradas'}
+            </dd>
+          </div>
+        </dl>
         <p>{s.regime}</p>
       </section>
+      <RegimeBacktestComparison
+        key={`regime:${s.id}:${s.version}`}
+        strategy={s}
+        readOnly={historical}
+      />
       <section className="strategy-section">
         <h3>Costes asumidos</h3>
         <p>

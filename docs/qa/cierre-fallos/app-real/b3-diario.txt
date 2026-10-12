@@ -1,0 +1,81 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Diario
+Señales + paper trading
+Parada
+Datos desactualizados desde el 25 sept 2026
+
+faltan datos recientes; último dato: 25 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
+Diario
+
+1 entradas · Señales, operaciones paper y de dinero real, y decisiones auditables.
+
+Exportar CSV · 1 entradas
+Desde
+Hasta
+Tipo
+Todos
+Señal
+Veto
+Contradicción
+Operación (paper o dinero real)
+Resumen
+Error
+Límite
+Activo
+Estrategia
+Todas
+Cruce de medias
+Reversión RSI/Bollinger
+Ruptura de rangos
+Momentum entre activos
+Resultado
+Todos
+Aprobada
+Reducida
+Vetada
+Sin señal
+Ganancia
+Pérdida
+Empate
+Completado
+Con retraso
+Alcanzado
+Error
+Aplicar
+Limpiar filtros
+
+Desplázate para ver todas las columnas.
+
+Diario ordenado por fecha descendente
+Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
+12 oct 2026, 15:39:45 CEST	Resumen	No aplica	No aplica	Con retraso	Resumen previo a la apertura del 2026-10-12: 0 noticias relevantes, 0 eventos de calendario y 0 huecos en seguimiento.	Ver detalle
+Anterior
+Página 1 de 1
+Siguiente
+En línea
+Agentes activos
+Última comprobación 15:40:15
+Próximo reintento —
+Último latido 15:40:15

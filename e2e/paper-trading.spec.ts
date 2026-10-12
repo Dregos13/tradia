@@ -41,6 +41,7 @@ test.beforeEach(async () => {
   page = await app.firstWindow();
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await page.getByRole('button', { name: 'Saltar tour', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 });
 
@@ -126,6 +127,11 @@ async function createApprovedStrategySignal() {
     const updated = await window.tradia.strategies.update({
       id: detail.id,
       note: 'Parámetros deterministas para la comprobación E2E de ejecución paper.',
+      // Fase 6: sin restricción de régimen. La semilla «falla en Tendencia» y el
+      // mercado simulado del reloj anclado está en tendencia: el filtro (probado
+      // en ai-regime-prediction.spec.ts) la silenciaría y aquí se prueba la ejecución.
+      worksIn: [],
+      failsIn: [],
       parameters: {
         ...detail.parameters,
         rsiPeriod: 2,
@@ -216,8 +222,12 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       .toHaveLength(1);
 
     await page.getByRole('link', { name: 'Órdenes', exact: true }).click();
-    const table = page.getByRole('table', { name: 'Órdenes paper y precios de ejecución' });
-    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
+    const table = page.getByRole('table', { name: 'Modo de cada orden y precios de ejecución' });
+    // Fase 7: el modo se indica en cada orden (ya no hay insignia global en Órdenes).
+    await expect(table.getByText(signal.ticker).first()).toBeVisible();
+    await page.screenshot({ path: resolve(evidenceDir, 'fase-6-7-ordenes-modo-por-orden.png') });
+    await expect(table.getByText('Modo no disponible')).toHaveCount(0);
+    await expect(table.getByText('Paper · sin dinero real').first()).toBeVisible();
     for (const heading of ['Hora', 'Precio pedido', 'Precio ejecutado', 'Slippage']) {
       await expect(table.getByRole('columnheader', { name: heading, exact: true })).toBeVisible();
     }
@@ -286,7 +296,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     const banner = page.getByRole('alert', { name: 'Descuadre con el broker' });
     await expect(banner).toBeVisible();
-    await expect(page.getByText(/Solo paper · sin dinero real/)).toBeVisible();
+    await expect(page.getByText('Señales + paper trading', { exact: true })).toBeVisible();
     const discrepancy = await page.evaluate(
       async () => (await window.tradia.reconcile.status()).openDiscrepancies[0] ?? null,
     );

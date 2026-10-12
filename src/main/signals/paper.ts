@@ -300,6 +300,7 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
 
     recordJournal({
       type: 'operacion',
+      mode: 'paper',
       ticker: position.ticker,
       strategies,
       reason:

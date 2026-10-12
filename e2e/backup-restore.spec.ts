@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import type { CreateStrategyRequest } from '../src/shared/strategy';
+import { skipGuidedTour } from './onboarding.helpers';
 
 const projectRoot = resolve('.');
 
@@ -36,6 +37,7 @@ async function launchTradia(userData: string): Promise<ElectronApplication> {
 async function acceptRisk(page: Page): Promise<void> {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await skipGuidedTour(page);
   await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
 }
 

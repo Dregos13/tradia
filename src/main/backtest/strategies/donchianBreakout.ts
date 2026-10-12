@@ -17,10 +17,7 @@
  * evalúa (índices length-1-period .. length-2): la propia vela no entra en
  * su canal, que es lo que convierte el máximo en una ruptura de verdad.
  */
-import {
-  DEFAULT_STRATEGY_COSTS,
-  type CreateStrategyRequest,
-} from '../../../shared/strategy';
+import { DEFAULT_STRATEGY_COSTS, type CreateStrategyRequest } from '../../../shared/strategy';
 import type { EngineBar, Strategy, StrategyContext } from '../types';
 import { requireIntegerParam, requireParamRange, resolveParams } from './params';
 import { WilderAtr } from './rolling';
@@ -128,10 +125,8 @@ export const DONCHIAN_BREAKOUT_SEED: CreateStrategyRequest = {
   rules: {
     entry:
       'Compra cuando el cierre supera el máximo de las entryPeriod (55) sesiones anteriores — canal superior de Donchian; la orden se ejecuta en la apertura siguiente.',
-    exit:
-      'Vende cuando el cierre perfora el mínimo de las exitPeriod (20) sesiones anteriores — canal inferior de Donchian; ejecución en la apertura siguiente.',
-    stop:
-      'Stop de protección fijo a stopAtr (2) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
+    exit: 'Vende cuando el cierre perfora el mínimo de las exitPeriod (20) sesiones anteriores — canal inferior de Donchian; ejecución en la apertura siguiente.',
+    stop: 'Stop de protección fijo a stopAtr (2) × ATR(atrPeriod) bajo el cierre de la señal; no se mueve durante la operación.',
     target:
       'Objetivo fijo a targetR (2,5) × la distancia entrada−stop sobre el cierre de la señal: la pasarela de riesgo exige beneficio/riesgo ≥ 2 y el OCO de salida necesita el nivel. Si no se alcanza, sale el canal contrario (exitPeriod) o el stop.',
   },
@@ -148,6 +143,7 @@ export const DONCHIAN_BREAKOUT_SEED: CreateStrategyRequest = {
   outOfSamplePeriod: { desde: '2015-01-02', hasta: '2024-12-31' },
   regime:
     'Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales.',
+  worksIn: ['tendencia'],
   assumedCosts: DEFAULT_STRATEGY_COSTS,
   note: 'Semilla de la fase 2: ruptura de rangos con canal de Donchian 55/20 (sistema tortuga).',
 };

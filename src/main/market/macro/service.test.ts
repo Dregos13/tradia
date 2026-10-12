@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC_CHANNELS, dataStatusKey } from '../../../shared/ipc';
 import { MIGRATIONS } from '../../db/migrations';
 import { migrate } from '../../db/migrator';
-import { isMarketDataError } from '../providers/types';
+import { InvalidStoredKeyError, isMarketDataError } from '../providers/types';
 import { createMarketRepository, type MarketRepository } from '../repository';
 import { createMacroService, type MacroService, type TimerHandle } from './service';
 import { createSimulatedMacroProvider, type SimulatedMacroProvider } from './simulated';
+import { MACRO_SERIES_CATALOG, type MacroDataProvider } from './types';
 
 let db: Database.Database;
 let repo: MarketRepository;
@@ -158,6 +159,43 @@ describe('servicio macro: refresco', () => {
     expect(entry.lastOkAt).not.toBeNull();
   });
 
+  it('los motivos de «actualizando» escriben las fechas en formato local, nunca AAAA-MM-DD', async () => {
+    const broadcast = vi.fn();
+    const service = makeService({ broadcast });
+    await service.refreshAll();
+
+    const actualizando = broadcast.mock.calls
+      .filter((call) => call[0] === IPC_CHANNELS.dataStatus.changed)
+      .map((call) => call[1] as { state: string; reason?: string | null })
+      .filter((entry) => entry.state === 'actualizando');
+    // Un «descargando observaciones del … al …» por serie refrescada.
+    expect(actualizando.length).toBe(6);
+    for (const entry of actualizando) {
+      expect(entry.reason ?? '').toContain('descargando observaciones');
+      expect(entry.reason ?? '').not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    }
+  });
+
+  it('una clave guardada no válida marca la serie con el motivo de clave, no «sin conexión»', async () => {
+    // El proveedor rechaza la clave guardada antes de la petición (R1):
+    // el motivo de la serie lo dice, no un fallo de red.
+    const failing: MacroDataProvider = {
+      id: 'fred',
+      rateLimits: { perHour: 60, perDay: 500 },
+      listSeries: () => MACRO_SERIES_CATALOG,
+      getObservations: async () => {
+        throw new InvalidStoredKeyError({ provider: 'fred' });
+      },
+    };
+    const service = makeService({ provider: failing });
+
+    await service.refreshAll();
+
+    const entry = repo.getDataStatus(dataStatusKey.macro('VIXCLS'))!;
+    expect(entry.reason).toContain('vuelve a pegarla');
+    expect(entry.reason).not.toContain('Sin conexión');
+  });
+
   it('emite data-status:changed en cada cambio de estado', async () => {
     const broadcast = vi.fn();
     const service = makeService({ broadcast });
@@ -271,5 +309,105 @@ describe('servicio macro: getSeries (contrato IPC)', () => {
     expect(snapshots.find((s) => s.id === 'VIXCLS')!.observations.length).toBeLessThan(
       service.getSeries().find((s) => s.id === 'VIXCLS')!.observations.length,
     );
+  });
+});
+
+describe('servicio macro: configuración y refresco manual', () => {
+  it('sin proveedor configurado queda neutro: no descarga observaciones ni escribe fallos', async () => {
+    const getObservations = vi.spyOn(provider, 'getObservations');
+    const service = makeService({ isConfigured: async () => false });
+
+    const results = await service.refreshAll();
+
+    expect(results).toEqual([]);
+    expect(getObservations).not.toHaveBeenCalled();
+    expect(repo.getDataStatus(dataStatusKey.provider(provider.id))).toBeNull();
+  });
+
+  it('refreshNow rechaza sin conexión, sin proveedor y con refresco en curso', async () => {
+    const offline = makeService({ isOnline: () => false });
+    expect(await offline.refreshNow()).toEqual({ accepted: false, reason: 'sin-conexion' });
+
+    const unconfigured = makeService({ isConfigured: async () => false });
+    expect(await unconfigured.refreshNow()).toEqual({
+      accepted: false,
+      reason: 'sin-proveedor',
+    });
+
+    const service = makeService();
+    const pending = service.refreshAll();
+    expect(await service.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
+    await pending;
+
+    expect(await service.refreshNow()).toEqual({
+      accepted: true,
+      reason: null,
+      ok: true,
+      detail: null,
+    });
+  });
+
+  it('refreshNow con el proveedor caído devuelve ok:false y el motivo real, no un «solicitado»', async () => {
+    const service = makeService();
+    provider.setFailing('network');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('fallo simulado del proveedor macro');
+  });
+
+  it('refreshNow con un fallo parcial informa del recuento de series', async () => {
+    const service = makeService();
+    provider.queueFailures(2, 'network');
+
+    const result = await service.refreshNow();
+
+    expect(result).toMatchObject({ accepted: true, ok: false });
+    expect(result.detail).toContain('2 de 6 series fallaron');
+    expect(result.detail).toContain('fallo simulado del proveedor macro');
+  });
+});
+
+describe('servicio macro: puesta al día al despertar', () => {
+  class FakePowerMonitor {
+    private listeners = new Set<() => void>();
+
+    on(_event: 'resume', listener: () => void): void {
+      this.listeners.add(listener);
+    }
+
+    removeListener(_event: 'resume', listener: () => void): void {
+      this.listeners.delete(listener);
+    }
+
+    emitResume(): void {
+      for (const listener of this.listeners) listener();
+    }
+  }
+
+  const flushAsync = async (): Promise<void> => {
+    for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  };
+
+  it('powerMonitor resume lanza la puesta al día y stop la desengancha', async () => {
+    const powerMonitor = new FakePowerMonitor();
+    const service = makeService({ powerMonitor });
+    const spy = vi.spyOn(provider, 'getObservations');
+
+    service.start();
+    await flushAsync();
+    const afterStart = spy.mock.calls.length;
+    expect(afterStart).toBe(6);
+
+    powerMonitor.emitResume();
+    await flushAsync();
+    expect(spy.mock.calls.length).toBeGreaterThan(afterStart);
+
+    service.stop();
+    const afterStop = spy.mock.calls.length;
+    powerMonitor.emitResume();
+    await flushAsync();
+    expect(spy.mock.calls.length).toBe(afterStop);
   });
 });

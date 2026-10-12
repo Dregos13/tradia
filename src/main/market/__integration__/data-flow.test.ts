@@ -11,7 +11,12 @@ import * as nyseCalendar from '../calendar';
 import { createDataHealthService, type DataHealthService } from '../health';
 import { createMarketIngestionService, type MarketIngestionService } from '../ingestion';
 import { createMarketRepository, type MarketRepository } from '../repository';
+import { createSignalEngine } from '../../signals/engine';
+import { createSignalsRepository } from '../../signals/repository';
+import type { RiskDecision } from '../../../shared/risk';
+import type { SignalIntent } from '../../../shared/risk';
 import { dataStatusKey, IPC_CHANNELS, type DataStatusEntry } from '../../../shared/ipc';
+import { sessionDateLabel } from '../../../shared/dates';
 
 const DEFAULT_NOW = Date.parse('2026-10-08T19:00:00.000Z');
 
@@ -196,6 +201,100 @@ describe('flujo de mercado integrado', () => {
     expect(notifications.filter((notification) => notification.level === 'critica')).toHaveLength(
       1,
     );
+  });
+});
+
+describe('datos desactualizados y cálculos', () => {
+  it('una vela vieja de una puesta al día atrasada no produce señal y el motivo queda en data_status', async () => {
+    const { db, repo, health } = createMarketFixture();
+    repo.addWatchlistTicker('AAPL');
+    // El proveedor solo publicó hasta el 25-09 mientras la sesión
+    // esperada es el 07-10 (caso QA: datos que llegan tarde).
+    const batch = repo.createBatch({
+      version: 1,
+      hash: 'h-viejo',
+      provider: 'simulated',
+      scope: 'bars',
+      ticker: 'AAPL',
+      rangeStart: '2026-09-24',
+      rangeEnd: '2026-09-25',
+    });
+    repo.upsertBars('AAPL', 'simulated', batch.id, [
+      { date: '2026-09-25', open: 100, high: 101, low: 99, close: 100, volume: 1 },
+    ]);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(Date.now()).toISOString(),
+      consecutiveFailures: 0,
+    });
+
+    // La evaluación lo ve: faltan las velas desde el lunes 28-09.
+    health.evaluate();
+    await flushAsync();
+
+    const status = repo.getDataStatus(dataStatusKey.ticker('AAPL'))!;
+    expect(status.state).toBe('desactualizado');
+    expect(status.reason).toContain(`falta la vela del ${sessionDateLabel('2026-09-28')}`);
+    expect(status.reason).toContain(`último dato: ${sessionDateLabel('2026-09-25')}`);
+    expect(health.freshness()).toMatchObject({ state: 'stale' });
+
+    // Y el motor no emite señal con la vela vieja ni la marca como evaluada.
+    const signalsRepo = createSignalsRepository(db);
+    const submitted: SignalIntent[] = [];
+    const processedMarks = new Set<string>();
+    const engine = createSignalEngine({
+      repo: signalsRepo,
+      listEvaluables: () => [],
+      listStrategies: () => [],
+      listWatchlistTickers: () => ['AAPL'],
+      barsFor: (ticker, hasta, preferSource) =>
+        repo
+          .getBars(ticker, {
+            hasta,
+            ...(preferSource === null ? {} : { source: preferSource }),
+          })
+          .map((bar) => ({
+            date: bar.date,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume,
+            batchId: bar.batchId,
+            source: bar.source,
+          })),
+      lastBarDate: (ticker) => repo.lastBarDate(ticker),
+      getBatchVersion: () => 1,
+      submitSignal: (intent) => {
+        submitted.push(intent);
+        return {
+          status: 'aprobada',
+          size: 1,
+          sizeFactor: 1,
+          riskAmount: 0,
+          notional: 0,
+          reasons: [],
+          decidedAt: new Date().toISOString(),
+        } satisfies RiskDecision;
+      },
+      recordJournal: () => undefined,
+      broadcast: () => undefined,
+      isAgentsPaused: () => false,
+      isOffline: () => false,
+      isKillSwitchActive: () => false,
+      wasProcessed: (ticker, barDate) => processedMarks.has(`${ticker}|${barDate}`),
+      markProcessed: (ticker, barDate) => {
+        processedMarks.add(`${ticker}|${barDate}`);
+      },
+      expectedSessionDate: (nowMs) => nyseCalendar.lastExpectedSession(nowMs)?.date ?? null,
+      now: () => Date.now(),
+    });
+
+    expect(engine.evaluateTicker('AAPL', '2026-09-25', 'simulated')).toBe('stale-data');
+    expect(submitted).toHaveLength(0);
+    expect(processedMarks.size).toBe(0);
+    expect(signalsRepo.listSignals({})).toHaveLength(0);
   });
 });
 

@@ -5,10 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../App';
 import { createSimulatedAdapter } from '../adapters/simulated';
+import { ONBOARDING_TOUR_VERSION } from '../../../shared/ipc';
 import { RISK_DISCLAIMER_VERSION } from '../../../shared/riskDisclaimer';
 
 beforeEach(() => {
   window.location.hash = '';
+  localStorage.clear();
   window.tradia = createSimulatedAdapter().api;
 });
 afterEach(() => {
@@ -21,7 +23,10 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   const save = vi.spyOn(window.tradia.settings, 'set');
   render(<App />);
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(await screen.findByRole('heading', { name: 'Antes de empezar' })).toHaveFocus();
+  const heading = await screen.findByRole('heading', { name: 'Antes de empezar' });
+  await waitFor(() => expect(heading).toHaveFocus());
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(document.querySelector('.onboarding-root')).not.toBeInTheDocument();
   const button = screen.getByRole('button', { name: 'Continuar' });
   expect(button).toBeDisabled();
   await user.tab();
@@ -30,13 +35,23 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   await user.tab();
   await user.keyboard('{Enter}');
   expect(await screen.findByRole('navigation')).toBeInTheDocument();
-  expect(save).toHaveBeenCalledWith({ disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION });
+  expect(save).toHaveBeenCalledWith({
+    disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION,
+  });
   expect((await window.tradia.settings.get()).disclaimerAcceptedAt).toBeTruthy();
-  expect(screen.getByRole('heading', { level: 1 })).toHaveFocus();
+  expect(
+    await screen.findByRole('heading', { name: /Paso 1 de 10. Te enseñamos Tradia/ }),
+  ).toHaveFocus();
+  await user.click(screen.getByRole('button', { name: 'Saltar tour' }));
+  await waitFor(async () =>
+    expect((await window.tradia.settings.get()).onboardingTourCompletedAt).toBeTruthy(),
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   cleanup();
   render(<App />);
   expect(await screen.findByRole('navigation')).toBeInTheDocument();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
 it('vuelve a solicitar aceptación si la versión aceptada no coincide', async () => {
@@ -80,7 +95,10 @@ it('no desbloquea durante el guardado ni ante un error y permite reintentar', as
 
 it('abre el aviso en Legal sin controles de aceptación y restaura el foco', async () => {
   const user = userEvent.setup();
-  await window.tradia.settings.set({ disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION });
+  await window.tradia.settings.set({
+    disclaimerAcceptedVersion: RISK_DISCLAIMER_VERSION,
+    onboardingTourVersion: ONBOARDING_TOUR_VERSION,
+  });
   const save = vi.spyOn(window.tradia.settings, 'set');
   window.location.hash = '#ajustes';
   render(<App />);

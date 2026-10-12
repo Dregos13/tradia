@@ -44,20 +44,34 @@ posteriores.
 
 ## 3. Modo de uso por defecto
 
-**Decisión: modo (a) + (b) — solo señales informativas y paper trading. La
-ejecución automática con capital real (c) queda fuera del alcance.**
+**Decisión: modo (a) + (b) por defecto — señales informativas y paper
+trading. La ejecución automática con capital real (c) existe desde la
+fase 7, pero queda bloqueada hasta cumplir toda la lista de comprobación
+y solo opera con capital y límites mínimos.**
 
-Desde la fase 5 la app sí se conecta a un broker, **pero solo a una cuenta
+Desde la fase 5 la app se conecta a un broker, **pero solo a una cuenta
 de paper trading** (Alpaca paper; ver `docs/broker.md`): las señales
 aprobadas por el motor de riesgo se ejecutan con dinero simulado en la
 cuenta paper del propio broker y la app concilia su registro con el del
-broker. El dinero real sigue fuera del alcance: el adaptador tiene fijada
-la URL `paper-api.alpaca.markets`, las claves de una cuenta live se
-rechazan antes de guardarse y la app exige que se generen sin permiso de
-retirada. Además convive la cartera simulada interna con su diario
-automático, que sigue funcionando sin cuenta conectada. Pasar a ejecución
-real requiere cumplir el criterio de la sección 4.4 y el checklist de la
-sección 18 del plan, y será una decisión explícita en una fase posterior.
+broker. El adaptador paper tiene fijada la URL
+`paper-api.alpaca.markets` y las claves de una cuenta live se rechazan
+antes de guardarse. Además convive la cartera simulada interna con su
+diario automático, que sigue funcionando sin cuenta conectada.
+
+Desde la fase 7 el modo real existe pero **arranca bloqueado** (ver
+`docs/dinero-real.md`): solo se activa cuando se cumplen todos los
+requisitos de la lista de comprobación de la sección 18 del plan —los
+automáticos los evalúa el proceso principal y nunca los puede marcar la
+interfaz— y los límites se confirman por escrito. Incluso activado,
+opera con **techos fijos de la fase** (`LIVE_FIXED_CAPS` en
+`src/shared/live.ts`): como máximo 1 000 USD de capital, 200 USD por
+orden, 20 USD de pérdida diaria y 2 posiciones abiertas, con las claves
+live en una ranura cifrada separada y exigidas sin permiso de retirada.
+Cualquier requisito que deje de cumplirse, la parada de emergencia o la
+pérdida de conexión suspenden el modo real al instante, y nunca se
+reactiva solo. **El escalado por encima de esos techos queda fuera del
+alcance**: solo se planteará en una fase posterior si los resultados
+reales respaldan el backtest, como decisión explícita.
 
 ## 4. Objetivos medibles
 
@@ -122,29 +136,29 @@ marcado como **verificar** antes de integrarse.
 
 ### Proveedores de precios (datos diarios EE. UU.)
 
-| Proveedor | Nivel | Límites orientativos | Nota |
-| --- | --- | --- | --- |
-| Stooq | Gratuito | CSV diario, sin clave; límites no publicados | verificar |
-| Yahoo Finance (no oficial) | Gratuito | Sin garantía ni SLA | solo apoyo/desarrollo; verificar términos |
-| Alpha Vantage | Gratuito / pago | ~25 peticiones/día gratis; desde ~50 $/mes | verificar |
-| Twelve Data | Gratuito / pago | ~800 peticiones/día y 8/min gratis; desde ~29 $/mes | verificar |
-| Tiingo | Gratuito / pago | Límites por símbolo y peticiones/hora; desde ~10 $/mes | verificar |
-| Polygon.io | Gratuito / pago | ~5 req/min con retraso gratis; desde ~29 $/mes | verificar |
-| Finnhub | Gratuito / pago | ~60 req/min gratis; de pago desde ~50 $/mes | verificar |
-| Alpaca | Gratuito con cuenta | Datos de mercado con cuenta (sin operar) | verificar términos de datos |
+| Proveedor                  | Nivel               | Límites orientativos                                   | Nota                                      |
+| -------------------------- | ------------------- | ------------------------------------------------------ | ----------------------------------------- |
+| Stooq                      | Gratuito            | CSV diario, sin clave; límites no publicados           | verificar                                 |
+| Yahoo Finance (no oficial) | Gratuito            | Sin garantía ni SLA                                    | solo apoyo/desarrollo; verificar términos |
+| Alpha Vantage              | Gratuito / pago     | ~25 peticiones/día gratis; desde ~50 $/mes             | verificar                                 |
+| Twelve Data                | Gratuito / pago     | ~800 peticiones/día y 8/min gratis; desde ~29 $/mes    | verificar                                 |
+| Tiingo                     | Gratuito / pago     | Límites por símbolo y peticiones/hora; desde ~10 $/mes | verificar                                 |
+| Polygon.io                 | Gratuito / pago     | ~5 req/min con retraso gratis; desde ~29 $/mes         | verificar                                 |
+| Finnhub                    | Gratuito / pago     | ~60 req/min gratis; de pago desde ~50 $/mes            | verificar                                 |
+| Alpaca                     | Gratuito con cuenta | Datos de mercado con cuenta (sin operar)               | verificar términos de datos               |
 
 ### Proveedores de noticias y macro
 
-| Proveedor | Nivel | Límites orientativos | Nota |
-| --- | --- | --- | --- |
-| Fuentes oficiales (SEC EDGAR, Fed, BLS) | Gratuito | APIs y RSS públicos | máxima fiabilidad; verificar |
-| GDELT | Gratuito | Uso público | verificar condiciones |
-| Finnhub (noticias) | Gratuito / pago | Dentro del límite de llamadas | verificar |
-| Alpha Vantage (noticias con sentimiento) | Gratuito / pago | Dentro del límite diario | verificar |
-| NewsAPI | Gratuito solo desarrollo / pago | ~100 req/día en dev; producción desde ~449 $/mes | caro; verificar |
-| Benzinga | Pago | Según plan | verificar |
-| FRED (macro) | Gratuito | Requiere clave de API | verificar |
-| RSS de prensa (Expansión, Cinco Días, CNBC, etc.) | Gratuito | Solo titulares | verificar términos de cada feed |
+| Proveedor                                         | Nivel                           | Límites orientativos                             | Nota                            |
+| ------------------------------------------------- | ------------------------------- | ------------------------------------------------ | ------------------------------- |
+| Fuentes oficiales (SEC EDGAR, Fed, BLS)           | Gratuito                        | APIs y RSS públicos                              | máxima fiabilidad; verificar    |
+| GDELT                                             | Gratuito                        | Uso público                                      | verificar condiciones           |
+| Finnhub (noticias)                                | Gratuito / pago                 | Dentro del límite de llamadas                    | verificar                       |
+| Alpha Vantage (noticias con sentimiento)          | Gratuito / pago                 | Dentro del límite diario                         | verificar                       |
+| NewsAPI                                           | Gratuito solo desarrollo / pago | ~100 req/día en dev; producción desde ~449 $/mes | caro; verificar                 |
+| Benzinga                                          | Pago                            | Según plan                                       | verificar                       |
+| FRED (macro)                                      | Gratuito                        | Requiere clave de API                            | verificar                       |
+| RSS de prensa (Expansión, Cinco Días, CNBC, etc.) | Gratuito                        | Solo titulares                                   | verificar términos de cada feed |
 
 Regla de calidad (del plan, sección 5.4): una noticia solo de redes
 sociales nunca dispara una operación por sí sola; debe confirmarse con una
@@ -201,19 +215,22 @@ extranjero. Confirmar con un asesor fiscal antes de operar en real.
 
 ## 8. Fuera de alcance en esta fase
 
-- Ejecución automática con capital real y conexión a un broker.
+- Escalado del modo real por encima de los techos fijos de la fase 7
+  (1 000 USD de capital, 200 USD por orden, 20 USD de pérdida diaria,
+  2 posiciones); la ejecución real mínima ya existe pero bloqueada tras
+  la lista de comprobación (§3).
 - Trading intradía, pre y post mercado.
 - Otros mercados (forex, cripto, materias primas, bonos, Europa).
 - Telemetría, cuentas de usuario y sincronización en la nube.
 
 ## 9. Cotejo con la sección 1 del plan
 
-| Punto de la sección 1 | Decisión |
-| --- | --- |
-| Mercado inicial | Acciones y ETF de EE. UU. (NYSE/Nasdaq); universo acotado de 25 tickers (10 ETF + 15 acciones); un solo mercado líquido (§1) |
-| Horizonte | Swing, días a semanas, con datos diarios como temporalidad de decisión (§2) |
-| Modo de uso | (a) señales informativas + (b) paper trading por defecto; (c) ejecución real fuera de esta fase (§3) |
-| Objetivos medibles | Drawdown máx. 10 %; objetivo 8–15 % anual batiendo SPY; 2–10 operaciones/mes y máx. 5 posiciones; 0,5–1 % por operación; ≥30 operaciones y ≥3 meses de paper con desviación ≤ ±30 % del backtest para pasar a real (§4) |
-| Principio rector | Primero proteger el capital, después buscar rentabilidad; riesgo con veto, no operar ante duda, pausa sin conexión (§5) |
-| Presupuesto de APIs | 0 €/mes en esta fase con techo de 30 €/mes; tabla de proveedores de precios, noticias y macro, todo «verificar» (§6) |
-| Avisos legales | Uso personal: ni asesoramiento ni gestión (CNMV/MiFID II); datos locales y sin telemetría por defecto (RGPD); uso personal sin redistribución (licencias); aviso de riesgo v1.0 fijado (§7) |
+| Punto de la sección 1 | Decisión                                                                                                                                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mercado inicial       | Acciones y ETF de EE. UU. (NYSE/Nasdaq); universo acotado de 25 tickers (10 ETF + 15 acciones); un solo mercado líquido (§1)                                                                                            |
+| Horizonte             | Swing, días a semanas, con datos diarios como temporalidad de decisión (§2)                                                                                                                                             |
+| Modo de uso           | (a) señales informativas + (b) paper trading por defecto; (c) ejecución real bloqueada tras la lista de comprobación y con techos fijos mínimos (§3)                                                                    |
+| Objetivos medibles    | Drawdown máx. 10 %; objetivo 8–15 % anual batiendo SPY; 2–10 operaciones/mes y máx. 5 posiciones; 0,5–1 % por operación; ≥30 operaciones y ≥3 meses de paper con desviación ≤ ±30 % del backtest para pasar a real (§4) |
+| Principio rector      | Primero proteger el capital, después buscar rentabilidad; riesgo con veto, no operar ante duda, pausa sin conexión (§5)                                                                                                 |
+| Presupuesto de APIs   | 0 €/mes en esta fase con techo de 30 €/mes; tabla de proveedores de precios, noticias y macro, todo «verificar» (§6)                                                                                                    |
+| Avisos legales        | Uso personal: ni asesoramiento ni gestión (CNMV/MiFID II); datos locales y sin telemetría por defecto (RGPD); uso personal sin redistribución (licencias); aviso de riesgo v1.0 fijado (§7)                             |

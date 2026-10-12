@@ -82,6 +82,16 @@ export const BROKER_TIME_IN_FORCE = ['day', 'gtc'] as const;
 export type BrokerTimeInForce = (typeof BROKER_TIME_IN_FORCE)[number];
 
 /**
+ * Cuenta en que se envió una orden: 'paper' es la cuenta simulada
+ * (`broker_orders`) y 'live' la cuenta real mínima (`broker_orders_live`,
+ * modo real de la fase 7). Lo persiste el proceso principal: nunca se
+ * deduce del modo vigente de la app —una orden paper sigue siendo paper
+ * con el modo real activo—.
+ */
+export const BROKER_ORDER_MODES = ['paper', 'live'] as const;
+export type BrokerOrderMode = (typeof BROKER_ORDER_MODES)[number];
+
+/**
  * Registro de ejecución de una orden: la hora y el precio pedidos frente a
  * la hora y el precio ejecutados, y el slippage resultante en puntos
  * básicos (10 000 pb = 100 %).
@@ -128,6 +138,13 @@ export interface BrokerOrder {
   ticker: string;
   type: BrokerOrderType;
   side: BrokerOrderSide;
+  /**
+   * Cuenta origen de la orden ('paper' | 'live'), fija desde su creación.
+   * Puede faltar en órdenes registradas antes de este campo: entonces la
+   * interfaz muestra «Modo no disponible» y nunca lo deduce del modo
+   * vigente de la app.
+   */
+  mode?: BrokerOrderMode;
   /** Cantidad pedida en unidades. */
   quantity: number;
   /** Cantidad ejecutada (igual a `quantity` en 'ejecutada'). */
@@ -197,7 +214,7 @@ export interface BrokerPosition {
   currency: string;
 }
 
-/** Cuenta del broker (siempre paper en esta fase). */
+/** Cuenta del broker (paper, o live mínimo desde la fase 7). */
 export interface BrokerAccount {
   /** Número o id de la cuenta (se muestra en Ajustes). */
   accountId: string;
@@ -210,8 +227,8 @@ export interface BrokerAccount {
   equity: number;
   /** Poder de compra; null si el broker no lo reporta. */
   buyingPower: number | null;
-  /** Siempre true: la app solo admite cuentas paper. */
-  paper: true;
+  /** true en una cuenta paper; false en la cuenta live del modo real. */
+  paper: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,8 +405,12 @@ export interface DeviationAlert {
 // Conexión del broker (Ajustes)
 // ---------------------------------------------------------------------------
 
-/** Adaptadores posibles: 'alpaca' real contra paper-api; 'simulado' en E2E. */
-export const BROKER_ADAPTER_IDS = ['alpaca', 'simulado'] as const;
+/**
+ * Adaptadores posibles: 'alpaca' contra paper-api; 'alpaca-live' contra
+ * api.alpaca.markets (solo con la lista del modo real cumplida, fase 7);
+ * 'simulado' en E2E.
+ */
+export const BROKER_ADAPTER_IDS = ['alpaca', 'alpaca-live', 'simulado'] as const;
 export type BrokerAdapterId = (typeof BROKER_ADAPTER_IDS)[number];
 
 /** Estados de la conexión con la cuenta paper. */
@@ -471,6 +492,8 @@ export interface BrokerOrdersQuery {
   /** Filtra por la estrategia que originó la señal. */
   strategyId?: number;
   ticker?: string;
+  /** Filtra por la cuenta origen ('paper' | 'live'); sin él llegan ambas. */
+  mode?: BrokerOrderMode;
   limit?: number;
   offset?: number;
 }
@@ -479,6 +502,13 @@ export interface BrokerOrdersQuery {
 export interface CancelOrderRequest {
   /** Id local (`broker_orders.id`) de una orden abierta. */
   id: number;
+  /**
+   * Cuenta de la orden que se quiere cancelar. Los ids de `broker_orders`
+   * y de `broker_orders_live` se solapan: con 'live' el canal se niega en
+   * claro en vez de cancelar por accidente la orden paper con ese mismo
+   * id. Sin `mode` se asume 'paper' (comportamiento anterior).
+   */
+  mode?: BrokerOrderMode;
 }
 
 /**

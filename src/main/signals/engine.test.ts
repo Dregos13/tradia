@@ -60,6 +60,8 @@ const makeFicha = (id: number, patch: Partial<Strategy> = {}): Strategy => ({
   outOfSamplePeriod: null,
   metricsSummary: null,
   regime: 'tendencial',
+  worksIn: ['tendencia'],
+  failsIn: [],
   assumedCosts: { commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 },
   status: 'activa',
   changeNote: '',
@@ -486,6 +488,24 @@ describe('motor de señales al cierre de vela', () => {
 
     // Segunda pasada: todo ya procesado.
     expect(engine.evaluateNow()).toMatchObject({ tickers: 0, emitted: 0, contradictions: 0 });
+  });
+
+  it('una vela anterior a la sesión esperada no se evalúa: llegó de una puesta al día atrasada', () => {
+    evaluables = [evaluable(1, () => buyer('AAPL', 190, 230), { metricsSummary: metrics(60) })];
+    const engine = createSignalEngine({
+      ...makeDeps(),
+      // Hoy ya cerró la sesión del 09-10; la vela del 08-10 llega atrasada.
+      expectedSessionDate: () => '2026-10-09',
+    });
+
+    expect(engine.evaluateTicker('AAPL', BAR_DATE, 'simulado')).toBe('stale-data');
+    expect(submitted).toHaveLength(0);
+    // La vela vieja no queda marcada ni deja señal: no era evaluable.
+    expect(processedMarks.has(`AAPL|${BAR_DATE}`)).toBe(false);
+    expect(engine.listSignals({})).toHaveLength(0);
+
+    // La vela de la sesión vigente sí se evalúa.
+    expect(engine.evaluateTicker('AAPL', '2026-10-09', 'simulado')).not.toBe('stale-data');
   });
 
   it('evaluateNow no hace nada con las guardas activas', () => {

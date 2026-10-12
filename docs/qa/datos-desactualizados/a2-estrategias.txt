@@ -1,0 +1,67 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estrategias
+Señales + paper trading
+Parada
+Aún no hay datos de mercado
+
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
+
+Biblioteca de estrategias
+
+Hipótesis versionadas, reglas reproducibles y evidencia.
+
+Nueva estrategia
+Estado
+Todos los estados
+Investigación
+Paper
+Activa
+Degradada
+Retirada
+Ordenar por
+Actividad reciente
+Nombre
+Estado
+Rentabilidad
+Estrategias y métricas del último backtest
+Estrategia	Versión	Estado	Rentabilidad	Drawdown	Sharpe	Operaciones	Actualización
+Reversión RSI/Bollinger
+Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo. · SPY, QQQ
+	v1	● Investigación	1,52%	4,59%	0,09	145	11/10/2026
+Procedencia no disponible
+
+Cruce de medias
+Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados. · SPY, QQQ, DIA, IWM
+	v1	● Investigación	5,51%	6,04%	0,19	64	11/10/2026
+Procedencia no disponible
+
+Momentum entre activos
+Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas. · SPY, QQQ, DIA, IWM, VTI, XLF, XLK, XLE, XLV, TLT
+	v1	● Investigación	Sin datos	Sin datos	Sin datos	Sin datos	11/10/2026
+Procedencia no disponible
+
+Ruptura de rangos
+Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales. · SPY, QQQ, TLT
+	v1	● Investigación	Sin datos	Sin datos	Sin datos	Sin datos	11/10/2026
+Procedencia no disponible
+En línea
+Agentes activos
+Última comprobación 11:17:45
+Próximo reintento —
+Último latido Pendiente

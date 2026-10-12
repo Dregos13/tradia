@@ -46,7 +46,16 @@ const seedSignal = (patch: Partial<NewSignal> = {}): Signal => {
     target: 220,
     confidence: 0.8,
     reason: 'ruptura del canal',
-    strategies: [{ strategyId: 3, name: 'Donchian', version: 2, direction: 'largo', confidence: 0.8, reason: 'ruptura' }],
+    strategies: [
+      {
+        strategyId: 3,
+        name: 'Donchian',
+        version: 2,
+        direction: 'largo',
+        confidence: 0.8,
+        reason: 'ruptura',
+      },
+    ],
     dataUsed: {
       barDate: `2026-10-${String(Math.min(28, barSeq)).padStart(2, '0')}`,
       desde: '2026-09-01',
@@ -169,7 +178,14 @@ describe('gestor de órdenes · ejecución de señales', () => {
       target: 180,
       ticker: 'MSFT',
       strategies: [
-        { strategyId: 4, name: 'RSI', version: 1, direction, confidence: 0.7, reason: 'sobrecompra' },
+        {
+          strategyId: 4,
+          name: 'RSI',
+          version: 1,
+          direction,
+          confidence: 0.7,
+          reason: 'sobrecompra',
+        },
       ],
     });
     const result = await emit(signal);
@@ -198,8 +214,9 @@ describe('gestor de órdenes · ejecución de señales', () => {
     expect(again.outcome).toBe('duplicada');
     expect(repo.listOrders()).toHaveLength(2); // entrada + salida, sin más
     const remote = await broker.listOrders();
-    expect(remote.filter((o) => o.clientOrderId === orderClientId(signal.id, 'entrada')))
-      .toHaveLength(1);
+    expect(
+      remote.filter((o) => o.clientOrderId === orderClientId(signal.id, 'entrada')),
+    ).toHaveLength(1);
   });
 
   it('los envíos quedan bloqueados por la parada, la conexión y el interruptor', async () => {

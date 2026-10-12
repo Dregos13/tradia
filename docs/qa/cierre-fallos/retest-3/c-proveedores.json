@@ -1,0 +1,29 @@
+{
+  "ok-Tiingo": "Conectado · Conectado. Último dato disponible: 9 oct 2026. Comprobado hoy a las 16:43 (2 ms).",
+  "ok-FRED": "Conectado · Conectado. Último dato disponible: 8 oct 2026. Comprobado hoy a las 16:43 (1 ms).",
+  "error-Tiingo": "Error del proveedor · Tiingo no ha respondido como esperábamos: El proveedor no respondió como se esperaba (HTTP 503). Vuelve a probar; si se repite, revisa el estado del servicio.",
+  "freshness-tras-error": {
+    "state": "current",
+    "sinceDate": null,
+    "expectedSessionDate": "2026-10-09",
+    "missingSessions": 0,
+    "items": [],
+    "progress": null,
+    "updatedAt": "2026-10-12T14:43:01.875Z"
+  },
+  "macro-refresh": {
+    "accepted": true,
+    "reason": null,
+    "ok": false,
+    "detail": "network: [fred] error del servidor (HTTP 503): {}"
+  },
+  "freshness-tras-macro": {
+    "state": "current",
+    "sinceDate": null,
+    "expectedSessionDate": "2026-10-09",
+    "missingSessions": 0,
+    "items": [],
+    "progress": null,
+    "updatedAt": "2026-10-12T14:43:06.553Z"
+  }
+}

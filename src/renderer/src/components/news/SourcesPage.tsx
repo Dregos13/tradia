@@ -219,6 +219,7 @@ export function SourcesPage() {
       <style>{sourceTokenStylesheet()}</style>
       <section
         className="sources-page"
+        data-tour="fuentes-lista"
         aria-label="Fuentes de noticias"
         aria-busy={data.loading}
         inert={removing ? true : undefined}

@@ -65,7 +65,7 @@ export interface DeviationServiceDeps {
   /** Órdenes y alertas del dominio broker (migración 010). */
   repo: Pick<
     BrokerRepository,
-    'listOrders' | 'insertOrder' | 'listDeviationAlerts' | 'insertDeviationAlert'
+    'orderMode' | 'listOrders' | 'insertOrder' | 'listDeviationAlerts' | 'insertDeviationAlert'
   >;
   /** Expectativa del último backtest de la estrategia (ver expectationFromReport). */
   expectationFor(strategyId: number): StrategyExpectation;
@@ -261,7 +261,11 @@ export function createDeviationService(deps: DeviationServiceDeps): DeviationSer
         );
         continue;
       }
-      const journal = deps.recordJournal?.(journalInputFor(row, period, expectation, margins));
+      const journal = deps.recordJournal?.({
+        ...journalInputFor(row, period, expectation, margins),
+        // El informe real vs backtest siempre mide la cuenta paper.
+        mode: deps.repo.orderMode,
+      });
       const { inserted } = deps.repo.insertDeviationAlert({
         strategyId: row.strategyId,
         strategyName: row.strategyName,

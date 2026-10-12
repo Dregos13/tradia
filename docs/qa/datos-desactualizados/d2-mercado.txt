@@ -1,0 +1,89 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Mercado
+Señales + paper trading
+Parada
+Tu mercado, con perspectiva.
+
+Precios diarios ajustados por splits y dividendos.
+
+Ticker
+Añadir
+Añadir universo inicial · 25
+Lista de seguimiento
+4 / 25
+SPY
+✓
+Fiable
+QQQ
+✓
+Fiable
+AAPL
+✓
+Fiable
+MSFT
+✓
+Fiable
+Quitar SPY
+SPY
+
+USD · Precios ajustados por splits y dividendos
+
+Fuente: tiingo · Última vela: 2026-10-13
+
+1087,45 USD
+✓
+Fiable
+1A
+3A
+5A
+Medias móviles
+SMA 20
+SMA 50
+SMA 200
+Alcista: cuerpo vacío · Bajista: cuerpo sólido
+
+RSI 14: 63,51 · Referencias 30 y 70. ATR 14: 16,75 USD.
+
+	
+	
+
+
+
+	
+	
+
+
+
+	
+	
+
+	
+	
+
+2026-10-13 · Bajista · Apertura 1090,32 · Máximo 1096,86 · Mínimo 1080,93 · Cierre 1087,45 · Volumen 1.168.308
+
+Ver tabla de datos · 1255 velas
+
+Gráficos con TradingView Lightweight Charts™.
+
+En línea
+Agentes activos
+Última comprobación 15:00:15
+Próximo reintento —
+Último latido Pendiente

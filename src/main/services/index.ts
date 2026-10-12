@@ -20,6 +20,7 @@ import {
   type MarketIngestionService,
 } from '../market/ingestion';
 import { registerHealth, type DataHealthService } from '../market/health';
+import { registerProviders, type ProvidersService } from '../providers';
 import { registerStrategies } from '../strategies/service';
 import type { StrategiesRepository } from '../strategies/repository';
 import { registerBacktest, type BacktestService } from '../backtest/service';
@@ -27,10 +28,15 @@ import { registerKillSwitch, type KillSwitchService } from '../risk/killSwitch';
 import { registerRisk, type RiskService } from '../risk/service';
 import { registerSignals, type SignalsService } from '../signals';
 import { registerJournal, type JournalService } from '../journal';
+import { registerRegime, type AiRegimeService } from '../ai/regime';
+import { registerPrediction, type AiPredictionService } from '../ai/prediction';
+import { registerNewsAi, type NewsAiService } from '../ai/news';
+import { registerDrift, type AiDriftService } from '../ai/drift';
 import { registerDelivery, type DeliveryService } from '../delivery';
 import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
 import { registerBroker, type BrokerService } from '../broker';
+import { registerLive, type LiveServices } from '../live';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -43,6 +49,8 @@ export interface MainServices {
   connectivity: ConnectivityService;
   /** Vigilancia de datos caducados/no fiables: data-status:get y avisos. */
   health: DataHealthService;
+  /** Prueba de conexión de proveedores (Tiingo/FRED): providers:test-*. */
+  providers: ProvidersService;
   /** Parada de emergencia (fase 3): veto total, disparadores automáticos. */
   killSwitch: KillSwitchService;
   /** Pasarela única del motor de riesgo (fase 3): límites, vetos y cautela. */
@@ -65,6 +73,14 @@ export interface MainServices {
   backtest: BacktestService;
   /** Diario automático (fase 4): journal_entries, filtros y exportación CSV. */
   journal: JournalService;
+  /** Régimen de mercado (fase 6): clasificador por activo y mercado, ai:regime-*. */
+  aiRegime: AiRegimeService;
+  /** Predicción ONNX (fase 6): probabilidades calibradas, ai:predictions/model-card. */
+  aiPrediction: AiPredictionService;
+  /** Noticias con LLM (fase 6): cola de confirmados y ai:news-analysis/llm-*. */
+  newsAi: NewsAiService;
+  /** Salud de modelos (fase 6): drift, degradación y propuestas, ai:health/retrain. */
+  aiDrift: AiDriftService;
   /** Motor de señales (fase 4): evaluación al cierre de vela y signals:*. */
   signals: SignalsService;
   /** Canales de entrega (fase 4): escritorio, Telegram y correo. */
@@ -75,6 +91,8 @@ export interface MainServices {
   routine: RoutineService;
   /** Broker en modo paper (fase 5): conexión, órdenes, conciliación e informe. */
   broker: BrokerService;
+  /** Modo real mínimo (fase 7): lista, límites, claves live y broker real. */
+  live: LiveServices;
 }
 
 export interface ServiceContext {
@@ -107,6 +125,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   // si no, parte del tiempo real.
   const marketClock = createMarketClock(e2eMarketClockBase(app.isPackaged));
   services.health = registerHealth(ctx, { clock: marketClock });
+  // Prueba de conexión de los proveedores de datos (Ajustes). Comparte el
+  // reloj de mercado: en E2E los sondeos simulados publican datos hasta
+  // el instante simulado, no hasta la fecha real.
+  services.providers = registerProviders(ctx, { now: marketClock.now });
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial
   // de kill_switch_events); envuelve ctx.broadcast antes de macro/market.
@@ -115,7 +137,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.killSwitch = registerKillSwitch(ctx, {
     getLimits: () => services.risk?.getLimits() ?? RISK_DEFAULTS,
   });
-  services.macro = registerMacro(ctx);
+  services.macro = registerMacro(ctx, { now: marketClock.now });
   services.market = registerMarket(ctx, { clock: marketClock });
   // Tras secrets: los conectores piden sus claves por getApiKey. La app
   // real siembra las fuentes oficiales predefinidas (una vez por conector).
@@ -144,10 +166,29 @@ export function initServices(ctx: ServiceContext): MainServices {
   // journal; backup usa storage; routine va la última de la fase porque
   // consume señales, diario y canales.
   services.journal = registerJournal(ctx);
-  services.signals = registerSignals(ctx);
+  // Fase 6: el régimen se recalcula con cada lote de velas (market), las
+  // fichas deciden qué estrategias habilita (strategies) y sus cambios
+  // de mercado se anotan en el Diario (journal). El reloj de mercado fija
+  // la guarda de frescura: un lote viejo de una puesta al día atrasada
+  // no recalcula nada como si fuera vigente.
+  services.aiRegime = registerRegime(ctx, { clock: marketClock });
+  // Fase 6: la predicción ONNX se recalcula con cada lote de velas
+  // (market), registra su ficha en model_cards y publica su salud en
+  // data_status (health la observa por el broadcast envuelto). Antes de
+  // signals: la integración de señales consume sus probabilidades.
+  services.aiPrediction = registerPrediction(ctx, { clock: marketClock });
+  // Fase 6: el análisis de noticias encola los titulares confirmados que
+  // entrega cada pasada del lector (poller.onItemsStored) y los resume
+  // con el LLM o el léxico local; en E2E usa el analizador simulado.
+  services.newsAi = registerNewsAi(ctx);
+  services.signals = registerSignals(ctx, { clock: marketClock });
   services.delivery = registerDelivery(ctx);
   services.backup = registerBackup(ctx);
   services.routine = registerRoutine(ctx);
+  // Fase 6: la salud de modelos corre tras la conciliación diaria
+  // (routine.onPostMarket); consume market, strategies, backtest, broker
+  // (órdenes vía repositorio), journal, notifications y connectivity.
+  services.aiDrift = registerDrift(ctx);
   // El último antes del broker: consume notifications, settings, poller
   // (onItemsStored y el reloj de desarrollo), calendar (su evento updated)
   // y market (watchlist).
@@ -157,5 +198,13 @@ export function initServices(ctx: ServiceContext): MainServices {
   // backtest, strategies y routine (onPostMarket), y envuelve
   // ctx.broadcast para seguir `signals:new` y `connectivity:changed`.
   services.broker = registerBroker(ctx);
+  // Fase 7: el modo real va después del broker — su lista consume las
+  // órdenes paper, la última expectativa de backtest, la parada, las
+  // claves live, el Diario y los canales de alerta; y su broker real
+  // envuelve de nuevo ctx.broadcast para ejecutar las señales cuando el
+  // modo esté 'activo' con la cuenta conectada. Comparte el reloj de
+  // mercado: la prueba de humo juzga la frescura de la referencia con el
+  // mismo instante con el que se ingieren las velas.
+  services.live = registerLive(ctx, { marketNow: marketClock.now });
   return services as MainServices;
 }

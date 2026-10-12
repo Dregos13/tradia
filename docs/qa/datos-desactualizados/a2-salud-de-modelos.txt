@@ -1,0 +1,119 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Salud de modelos
+Señales + paper trading
+Parada
+Aún no hay datos de mercado
+
+Añade tus claves de Tiingo y FRED en Ajustes para empezar. Abrir Ajustes
+
+Salud de modelos
+
+Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
+
+Revisado 11 oct 2026, 11:17 CEST
+
+Revisar ahora
+
+Una racha mala aislada no degrada una estrategia. La degradación requiere evidencia sostenida y una muestra suficiente.
+
+Saludable
+1
+En observación
+0
+Degradada
+0
+Sin datos suficientes
+4
+
+Revisión de salud completada. 0 sujetos requieren atención.
+
+Revisión de modelos y estrategias
+
+Desplázate horizontalmente para ver todas las columnas.
+
+La persistencia evita degradar por una racha aislada
+Modelo o estrategia	Estado	Drift de datos	Drift de resultados	Persistencia	Última revisión	Acción
+Modelo de dirección y volatilidad v0.1.0
+Modelo
+	Saludable	0 variables con PSI > 0,25	Brier móvil Sin referencia
+Ficha 0,197 · diferencia Sin referencia · umbral +0,02
+0/60 predicciones resueltas
+	
+
+Desde hace 0 sesiones · mínimo 20 en 2 variables
+
+Ventana de 60 predicciones.
+	11 oct 2026, 11:17 CEST	Ver detalle
+Cruce de medias · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Reversión RSI/Bollinger · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Ruptura de rangos · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Momentum entre activos · v1
+Estrategia
+	Sin datos suficientes
+Sin revisiones todavía.
+	No aplica	0 operaciones · desviación Sin referencia %
+Umbral ±30 % · mínimo 30 operaciones
+	
+
+Desde hace 0 revisiones mensuales · mínimo 2
+
+	Sin revisión	Ver detalle
+Propuestas de reentrenamiento
+
+Como máximo una propuesta por trimestre natural.
+
+No hay reentrenamientos propuestos
+
+Los modelos se mantienen bajo vigilancia.
+
+En línea
+Agentes activos
+Última comprobación 11:17:45
+Próximo reintento —
+Último latido Pendiente

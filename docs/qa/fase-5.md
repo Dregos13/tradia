@@ -45,12 +45,12 @@ Recorrido E2E en Electron con el broker simulado, almacenamiento temporal por se
 
 ## Comprobaciones automatizadas
 
-| Comando | Resultado |
-| --- | --- |
-| `npm run typecheck` | Correcto |
-| `npm run lint` | Correcto |
-| `npm test` | 130 archivos y 1.677 pruebas correctas |
-| `npm run test:e2e` | 29/29 pruebas correctas; `test-results/.last-run.json`: `passed`, `failedTests: []` |
+| Comando             | Resultado                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `npm run typecheck` | Correcto                                                                            |
+| `npm run lint`      | Correcto                                                                            |
+| `npm test`          | 130 archivos y 1.677 pruebas correctas                                              |
+| `npm run test:e2e`  | 29/29 pruebas correctas; `test-results/.last-run.json`: `passed`, `failedTests: []` |
 
 La batería unitaria incluye los contratos HTTP de Alpaca paper, los casos de error y los fallos simulados del gestor de órdenes. E2E valida la conciliación bajo demanda; la periodicidad, el cifrado y el manejo de reintentos/huérfanas se cubren en tests automatizados de servicios. No se considera una sesión E2E periódica con OS en bandeja.
 

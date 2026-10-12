@@ -33,6 +33,17 @@ import {
   isRiskVetoesQuery,
   isRoutineConfig,
   isSetStrategyStatusRequest,
+  isLiveActivateRequest,
+  isLiveConnectRequest,
+  isLiveDeclareRequest,
+  isLiveLimitsInput,
+  isLiveSmokeTestRequest,
+  isNewsAnalysisQuery,
+  isNewsLlmSettingsInput,
+  isPredictionsQuery,
+  isProviderTestRequest,
+  isRegimeComparisonRequest,
+  isRetrainResolveRequest,
   isSignalId,
   isSignalIntent,
   isSignalsListQuery,
@@ -43,6 +54,17 @@ import {
   isTicker,
   isUpdateSourceRequest,
   isUpdateStrategyRequest,
+  liveConfirmationPhrase,
+  LIVE_DECLARATION_TEXTS,
+  LIVE_FIXED_CAPS,
+  LIVE_REQUIREMENT_TITLES,
+  LIVE_SMOKE_NOTIONAL_USD,
+  LIVE_SMOKE_STEPS,
+  LIVE_SMOKE_TICKER,
+  NEWS_LLM_DAILY_CAP_DEFAULT,
+  NEWS_LLM_MODEL,
+  PREDICTION_HORIZON_DAYS,
+  REGIME_MARKET_TICKER,
   BROKER_ORDER_OPEN_STATUSES,
   CAUTION_REDUCED_SIZE_FACTOR,
   JOURNAL_LIST_MAX_LIMIT,
@@ -54,6 +76,7 @@ import {
 } from '../../../shared/ipc';
 import type {
   AgentsState,
+  AiChangedEvent,
   AlertPrefs,
   AppSettings,
   BackupInfo,
@@ -67,6 +90,9 @@ import type {
   CalendarUpdatedEvent,
   CautionState,
   ConnectivityState,
+  DataFreshnessItem,
+  DataFreshnessState,
+  DataFreshnessSummary,
   DataStatusEntry,
   DeliveryConfig,
   DeviationPeriod,
@@ -78,22 +104,44 @@ import type {
   JournalListQuery,
   JournalUpdatedEvent,
   KillSwitchState,
+  LiveActivateResult,
+  LiveChecklist,
+  LiveChecklistItem,
+  LiveDeclarationRequirement,
+  LiveKillSwitchTestResult,
+  LiveLimits,
+  LiveScalingStatus,
+  LiveSmokeTestResult,
+  LiveState,
   LoggedRiskDecision,
   MacroObservation,
   MacroSeriesQuery,
   MacroSeriesSnapshot,
   MarketBar,
   MarketUpdatedEvent,
+  ModelCard,
+  ModelHealthOverview,
+  ModelHealthRow,
+  NewsAnalysis,
   NewsItem,
+  NewsLlmSettings,
+  NewsLlmTestResult,
+  NewsSentiment,
   NewsSource,
   NewsUpdatedEvent,
   NotificationPrefs,
   NotificationRoute,
   PaperPortfolioOverview,
   PaperPosition,
+  Prediction,
   ReconcileDiscrepancy,
   ReconcileDiscrepancyEvent,
   ReconcileRun,
+  RegimeComparison,
+  RegimeLabel,
+  RegimeOverview,
+  RegimeSnapshot,
+  RetrainProposal,
   RiskDecision,
   RiskDecisionReason,
   RiskLimits,
@@ -109,6 +157,7 @@ import type {
   Strategy,
   StrategyChangelogEntry,
   StrategyDraft,
+  StrategyRegimeStatus,
   StrategyStatus,
   StressResultDto,
   TradiaApi,
@@ -450,6 +499,8 @@ export function createSimulatedAdapter() {
     brokerExecutionEnabled: true,
     deviationMarginPp: DEVIATION_MARGIN_PP_DEFAULT,
     deviationSlippageBps: DEVIATION_SLIPPAGE_BPS_DEFAULT,
+    onboardingTourVersion: null,
+    onboardingTourCompletedAt: null,
   };
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
   let alertPrefs: AlertPrefs = { leadMinutes: 30 };
@@ -518,6 +569,8 @@ export function createSimulatedAdapter() {
       outOfSamplePeriod:
         patch.outOfSamplePeriod === undefined ? base.outOfSamplePeriod : patch.outOfSamplePeriod,
       regime: patch.regime ?? base.regime,
+      worksIn: patch.worksIn ?? base.worksIn,
+      failsIn: patch.failsIn ?? base.failsIn,
       assumedCosts: patch.assumedCosts ?? base.assumedCosts,
     };
     // Como en el repositorio: si cambian los parámetros sin tocar los rangos,
@@ -881,6 +934,20 @@ export function createSimulatedAdapter() {
   };
   const emitConnectivity = (value: ConnectivityState) => {
     connectivity = value;
+    // Sin conexión el modo real activo se suspende para órdenes nuevas;
+    // al volver la línea queda 'activo' otra vez (el estado lo reconstruye).
+    if (value.status === 'offline' && liveModeNow.mode === 'activo') {
+      liveModeNow = {
+        ...liveModeNow,
+        mode: 'suspendido',
+        suspendedAt: nowIso(),
+        suspension: { reason: 'sin-conexion', detail: 'Conexión perdida.' },
+      };
+      emitLiveChanged();
+    } else if (value.status === 'online' && liveModeNow.suspension?.reason === 'sin-conexion') {
+      liveModeNow = { ...liveModeNow, mode: 'activo', suspension: null, suspendedAt: null };
+      emitLiveChanged();
+    }
     connectionListeners.forEach((listener) => listener(value));
   };
   const emitAgents = (value: AgentsState) => {
@@ -1019,6 +1086,7 @@ export function createSimulatedAdapter() {
     ticker: 'AAPL',
     type: 'market',
     side: 'buy',
+    mode: 'paper',
     quantity: 10,
     filledQuantity: 0,
     limitPrice: null,
@@ -1281,6 +1349,479 @@ export function createSimulatedAdapter() {
     };
   };
 
+  // -- Fases 6-7: IA predictiva y dinero real (en memoria, determinista) ----
+  // Valores plausibles fijados por hash: el régimen de cada activo, la
+  // probabilidad simulada y el sentimiento de los análisis son estables
+  // entre llamadas para que las pruebas sean repetibles. El modelo del
+  // falso es sintético y 'no apto', como el que entrega esta fase.
+  const aiChangedListeners = new Set<(event: AiChangedEvent) => void>();
+  const liveChangedListeners = new Set<(state: LiveState) => void>();
+  const emitAiChanged = (kind: AiChangedEvent['kind']) =>
+    aiChangedListeners.forEach((listener) => listener({ kind, at: nowIso() }));
+
+  /** Última sesión laborable simulada (el cierre que evalúa el régimen). */
+  const lastSession = (): string => {
+    let ms = Date.now() - DAY_MS;
+    while (!isWeekday(ms)) ms -= DAY_MS;
+    return toDate(ms);
+  };
+
+  const REGIME_LABEL_TEXT: Record<RegimeLabel, string> = {
+    tendencia: 'Tendencia',
+    lateral: 'Lateral',
+    'volatilidad-alta': 'Volatilidad alta',
+    'volatilidad-baja': 'Volatilidad baja',
+  };
+
+  /** Régimen determinista: 'tendencia' + volatilidad alta para el mercado. */
+  const fakeRegime = (scope: 'activo' | 'mercado', ticker: string): RegimeSnapshot => {
+    const h = hashSeed(`regimen:${ticker}`);
+    const direction = scope === 'mercado' || h % 3 !== 0 ? 'tendencia' : 'lateral';
+    const volatility = scope === 'mercado' || h % 4 < 2 ? 'volatilidad-alta' : 'volatilidad-baja';
+    const sessionDate = lastSession();
+    return {
+      scope,
+      ticker,
+      sessionDate,
+      direction,
+      volatility,
+      metrics: {
+        adx:
+          direction === 'tendencia' ? round(26 + (h % 90) / 10, 1) : round(15 + (h % 80) / 10, 1),
+        smaSlope:
+          direction === 'tendencia'
+            ? round(0.001 + (h % 40) / 10_000, 4)
+            : round(-0.0005 + (h % 10) / 10_000, 4),
+        realizedVolatility:
+          volatility === 'volatilidad-alta'
+            ? round(0.24 + (h % 15) / 100, 3)
+            : round(0.08 + (h % 10) / 100, 3),
+        volatilityMedian: 0.16,
+      },
+      previousChange:
+        h % 3 === 1
+          ? {
+              direction: direction === 'tendencia' ? 'lateral' : 'tendencia',
+              sessionDate: toDate(Date.parse(`${sessionDate}T00:00:00Z`) - 5 * DAY_MS),
+            }
+          : null,
+      computedAt: nowIso(),
+    };
+  };
+
+  /**
+   * Resolución por régimen (la regla del plan): 'degradada' tiene prioridad;
+   * desactivada si una etiqueta vigente está en «falla en» o si «funciona
+   * en» no es vacío y no contiene ninguna etiqueta vigente.
+   */
+  const strategyRegimeStatuses = (): StrategyRegimeStatus[] => {
+    const market = fakeRegime('mercado', REGIME_MARKET_TICKER);
+    const current: RegimeLabel[] = [market.direction, market.volatility];
+    const text = (labels: RegimeLabel[]) =>
+      labels.map((label) => REGIME_LABEL_TEXT[label]).join(' · ');
+    return [...new Set(strategyVersions.map((v) => v.id))]
+      .map((id) => latestStrategyVersion(id)!)
+      .filter((s) => s.status !== 'retirada')
+      .map((s) => {
+        const fails = s.failsIn.filter((label) => current.includes(label));
+        const works = s.worksIn.length === 0 || s.worksIn.some((label) => current.includes(label));
+        let regimeState: StrategyRegimeStatus['regimeState'] = 'habilitada';
+        let reason = `Coincide: ${text(current)}. No coincide con ningún régimen de fallo.`;
+        if (s.status === 'degradada') {
+          regimeState = 'degradada';
+          reason = 'El drift sostenido tiene prioridad. Revisa Salud de modelos.';
+        } else if (fails.length > 0) {
+          regimeState = 'desactivada';
+          reason = `El mercado está en ${text(current)} y la estrategia declara que falla en ${text(fails)}.`;
+        } else if (!works) {
+          regimeState = 'desactivada';
+          reason = `Solo funciona en ${text(s.worksIn)}; el régimen actual es ${text(current)}.`;
+        }
+        return {
+          strategyId: s.id,
+          name: s.name,
+          version: s.version,
+          status: s.status,
+          regimeState,
+          worksIn: s.worksIn,
+          failsIn: s.failsIn,
+          reason,
+        };
+      });
+  };
+
+  /** Modelo simulado de la fase: sintético y 'no apto' para señales. */
+  const MODEL_VERSION = '0.1.0';
+  const MODEL_HASH = '7f3a9c2b1d4e5f6a8b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a';
+  const fakeModelCard: ModelCard = {
+    id: 1,
+    version: MODEL_VERSION,
+    hash: MODEL_HASH,
+    horizonDays: PREDICTION_HORIZON_DAYS,
+    dataOrigin: 'sintetico',
+    trainingPeriod: { desde: '2015-01-02', hasta: '2021-12-31' },
+    calibrationPeriod: { desde: '2022-01-03', hasta: '2024-06-28' },
+    testPeriod: { desde: '2024-07-01', hasta: lastSession() },
+    metrics: { brierOos: 0.184, logLossOos: 0.53, brierBaseline: 0.213 },
+    calibration: [0.05, 0.25, 0.45, 0.65, 0.85].map((center, index, all) => ({
+      from: index === 0 ? 0 : all[index - 1]! + 0.05,
+      to: index === all.length - 1 ? 1 : center + 0.15,
+      meanPredicted: center,
+      observed: round(center + (index % 2 === 0 ? 0.02 : -0.02), 2),
+      count: 40 + index * 12,
+    })),
+    referenceDistribution: [
+      {
+        name: 'ret_5',
+        mean: 0.001,
+        std: 0.021,
+        bins: [
+          { from: null, to: -0.03, proportion: 0.1 },
+          { from: -0.03, to: -0.01, proportion: 0.2 },
+          { from: -0.01, to: 0.01, proportion: 0.4 },
+          { from: 0.01, to: 0.03, proportion: 0.2 },
+          { from: 0.03, to: null, proportion: 0.1 },
+        ],
+      },
+      {
+        name: 'rsi_14',
+        mean: 52.4,
+        std: 14.8,
+        bins: [
+          { from: null, to: 30, proportion: 0.08 },
+          { from: 30, to: 45, proportion: 0.28 },
+          { from: 45, to: 60, proportion: 0.36 },
+          { from: 60, to: 70, proportion: 0.2 },
+          { from: 70, to: null, proportion: 0.08 },
+        ],
+      },
+    ],
+    eligible: false,
+    ineligibleReason: 'Datos sintéticos · no apto',
+    trainedAt: new Date(Date.now() - 30 * DAY_MS).toISOString(),
+    registeredAt: new Date(Date.now() - 29 * DAY_MS).toISOString(),
+  };
+
+  /** Predicción determinista por activo de la lista de seguimiento. */
+  const fakePrediction = (ticker: string, index: number): Prediction => {
+    const h = hashSeed(`pred:${ticker}`);
+    const probUp = round(0.3 + (h % 45) / 100, 2);
+    return {
+      id: index + 1,
+      ticker,
+      sessionDate: lastSession(),
+      horizonDays: PREDICTION_HORIZON_DAYS,
+      probUp,
+      probDown: round(1 - probUp, 2),
+      expectedVolatility: round(0.02 + (h % 30) / 1_000, 3),
+      modelVersion: MODEL_VERSION,
+      modelHash: MODEL_HASH,
+      modelCardId: fakeModelCard.id,
+      createdAt: nowIso(),
+      resolvedSession: null,
+      outcomeUp: null,
+      realizedBrier: null,
+    };
+  };
+
+  let llmSettings: NewsLlmSettings = {
+    enabled: false,
+    provider: 'local',
+    cliPath: null,
+    // La simulación presume la CLI de Claude Code instalada, para que la
+    // opción «Suscripción (Claude Code)» se pueda ejercer en la interfaz.
+    cliAvailable: true,
+    dailyCap: NEWS_LLM_DAILY_CAP_DEFAULT,
+    monthlyBudgetEur: 0,
+    hasKey: false,
+    usedToday: 0,
+    spentThisMonthEur: 0,
+  };
+
+  /**
+   * Análisis de un titular: solo los confirmados tienen análisis (un
+   * titular sin verificar nunca lo tiene, ni crea nada). Sentimiento
+   * determinista por noticia y activo; 'local' salvo LLM activado.
+   */
+  const analysesFor = (item: NewsItem): NewsAnalysis[] => {
+    if (!item.confirmed) return [];
+    const sentiments: NewsSentiment[] = ['positivo', 'negativo', 'neutro', 'mixto'];
+    // El proveedor configurado manda: 'suscripcion' va por la CLI de la
+    // suscripción, 'llm' por la API con clave y 'local' por el léxico.
+    const provider =
+      llmSettings.provider === 'suscripcion' && llmSettings.cliAvailable
+        ? ('suscripcion' as const)
+        : llmSettings.provider === 'llm' && llmSettings.enabled && llmSettings.hasKey
+          ? ('llm' as const)
+          : ('local' as const);
+    return item.assets.map((ticker, index) => {
+      const h = hashSeed(`analisis:${item.id}:${ticker}`);
+      return {
+        id: item.id * 100 + index + 1,
+        newsItemId: item.id,
+        ticker,
+        summary: `Resumen automático del titular para ${ticker}: impacto moderado según el contexto de la noticia.`,
+        sentiment: sentiments[h % sentiments.length]!,
+        analyzer: provider,
+        model:
+          provider === 'llm'
+            ? NEWS_LLM_MODEL
+            : provider === 'suscripcion'
+              ? 'claude-code-cli'
+              : null,
+        analyzedAt: item.publishedAt,
+        publishedAt: item.publishedAt,
+      };
+    });
+  };
+
+  /** Propuestas de reentrenamiento del falso: vacías por defecto. */
+  const retrainProposals: RetrainProposal[] = [];
+
+  /** Salud determinista: el modelo en 'insuficiente' (sin 60 resueltas) con
+   * ret_5 en una racha temprana sobre el umbral de PSI (aún no degrada); la
+   * primera estrategia en 'observacion' por racha aislada (nunca degrada). */
+  const healthOverview = (): ModelHealthOverview => {
+    // Racha de unas 6 sesiones: fecha de inicio verosímil unos 8 días atrás.
+    const ret5Since = new Date(Date.now() - 8 * DAY_MS).toISOString();
+    const modelRow: ModelHealthRow = {
+      subject: 'modelo',
+      subjectId: fakeModelCard.id,
+      name: `Modelo de dirección y volatilidad v${MODEL_VERSION}`,
+      state: 'insuficiente',
+      dataDrift: {
+        drifted: false,
+        sessions: 0,
+        features: fakeModelCard.referenceDistribution.map((f) => {
+          const drifting = f.name === 'ret_5';
+          return {
+            name: f.name,
+            psi: drifting ? 0.31 : round(0.04 + (hashSeed(`psi:${f.name}`) % 15) / 100, 3),
+            overThreshold: drifting,
+            overThresholdSince: drifting ? ret5Since : null,
+          };
+        }),
+        driftedFeatures: 1,
+        // Una sola variable sobre el umbral no abre la racha conjunta.
+        driftSince: null,
+      },
+      resultsDrift: {
+        drifted: false,
+        resolvedCount: 0,
+        rollingBrier: null,
+        cardBrier: null,
+        delta: null,
+        driftSince: null,
+      },
+      strategyEval: null,
+      reason: 'Aún no hay 60 predicciones resueltas.',
+      lastReviewedAt: nowIso(),
+    };
+    const ids = [...new Set(strategyVersions.map((v) => v.id))];
+    const strategyRows: ModelHealthRow[] = ids.map((id, index) => {
+      const s = latestStrategyVersion(id)!;
+      const degraded = s.status === 'degradada';
+      const observacion = !degraded && index === 0;
+      return {
+        subject: 'estrategia' as const,
+        subjectId: s.id,
+        name: `${s.name} · v${s.version}`,
+        state: degraded
+          ? ('degradada' as const)
+          : observacion
+            ? ('observacion' as const)
+            : ('saludable' as const),
+        dataDrift: null,
+        resultsDrift: null,
+        strategyEval: {
+          trades: 34,
+          deviationPct: degraded ? -36 : -4,
+          consecutiveReviews: degraded ? 2 : 0,
+          losingStreak: observacion ? 4 : 1,
+          maxLosingStreakBacktest: 6,
+        },
+        reason: degraded
+          ? 'Drift sostenido. No se debe a una sola racha perdedora.'
+          : observacion
+            ? 'En observación · racha de 4 pérdidas dentro del máximo de backtest (6). No degrada la estrategia.'
+            : null,
+        lastReviewedAt: nowIso(),
+      };
+    });
+    const subjects = [modelRow, ...strategyRows];
+    const counts = { saludable: 0, observacion: 0, degradada: 0, insuficiente: 0 };
+    for (const row of subjects) counts[row.state] += 1;
+    return { subjects, counts, proposals: [...retrainProposals], evaluatedAt: nowIso() };
+  };
+
+  // — Dinero real: lista, límites, modo y prueba de humo ----------------
+  // El falso simula una app con historial paper: los requisitos
+  // 'validacion-fuera-muestra' y 'paper-continuo' parten cumplidos;
+  // 'parada-probada' lo completa live.testKillSwitch y 'alertas-activas'
+  // la prueba de delivery. Las declaraciones solo las suscribe el usuario.
+  let liveKillSwitchTestedAt: string | null = null;
+  let liveAlertsTestedAt: string | null = null;
+  const liveDeclarations: Record<
+    LiveDeclarationRequirement,
+    { at: string; detail: string | null } | null
+  > = {
+    'claves-sin-retirada': null,
+    'plan-contingencia': null,
+    'revision-legal': null,
+  };
+  let liveLimitsSaved: LiveLimits | null = null;
+  let liveLimitsConfirmedAt: string | null = null;
+  let liveCredentials: { accountMasked: string } | null = null;
+  let liveSmoke: LiveSmokeTestResult | null = null;
+  let liveModeNow: {
+    mode: 'bloqueado' | 'listo' | 'activo' | 'suspendido';
+    suspension: {
+      reason: 'sin-conexion' | 'parada-emergencia' | 'requisito-vencido';
+      detail: string;
+    } | null;
+    activatedAt: string | null;
+    suspendedAt: string | null;
+  } = { mode: 'bloqueado', suspension: null, activatedAt: null, suspendedAt: null };
+
+  const automaticItem = (
+    requirement:
+      'validacion-fuera-muestra' | 'paper-continuo' | 'parada-probada' | 'alertas-activas',
+    done: boolean,
+    evidence: string,
+    markedAt: string | null,
+  ): LiveChecklistItem => ({
+    requirement,
+    kind: 'automatica',
+    title: LIVE_REQUIREMENT_TITLES[requirement],
+    state: done ? 'cumplido' : 'pendiente',
+    evidence,
+    declaration: null,
+    declarationDetail: null,
+    markedAt,
+  });
+
+  const buildLiveChecklist = (): LiveChecklist => {
+    const day = hoursAgo(24);
+    const items: LiveChecklistItem[] = [
+      automaticItem(
+        'validacion-fuera-muestra',
+        true,
+        'Prueba final guardada en cada estrategia que operaría en real.',
+        day,
+      ),
+      automaticItem(
+        'paper-continuo',
+        true,
+        '3,2 meses de paper continuo · 36 operaciones · desviación −4 %.',
+        day,
+      ),
+      automaticItem(
+        'parada-probada',
+        liveKillSwitchTestedAt !== null,
+        liveKillSwitchTestedAt !== null
+          ? 'La parada se activó y se reanudó en paper con registro.'
+          : 'Sin prueba de la parada en los últimos 30 días.',
+        liveKillSwitchTestedAt,
+      ),
+      automaticItem(
+        'alertas-activas',
+        liveAlertsTestedAt !== null,
+        liveAlertsTestedAt !== null
+          ? 'Envío de prueba correcto por un canal externo.'
+          : 'Ningún canal externo probado todavía.',
+        liveAlertsTestedAt,
+      ),
+      ...(
+        [
+          'claves-sin-retirada',
+          'plan-contingencia',
+          'revision-legal',
+        ] as LiveDeclarationRequirement[]
+      ).map((requirement): LiveChecklistItem => {
+        const declared = liveDeclarations[requirement];
+        return {
+          requirement,
+          kind: 'declaracion',
+          title: LIVE_REQUIREMENT_TITLES[requirement],
+          state: declared === null ? 'pendiente' : 'cumplido',
+          evidence: declared === null ? null : 'Declaración del usuario.',
+          declaration: declared === null ? null : LIVE_DECLARATION_TEXTS[requirement],
+          declarationDetail: declared?.detail ?? null,
+          markedAt: declared?.at ?? null,
+        };
+      }),
+    ];
+    const completedCount = items.filter((item) => item.state === 'cumplido').length;
+    return {
+      items,
+      completedCount,
+      total: items.length,
+      allComplete: completedCount === items.length,
+      limits: {
+        limits: liveLimitsSaved,
+        confirmationPhrase:
+          liveLimitsSaved === null ? null : liveConfirmationPhrase(liveLimitsSaved),
+        confirmed: liveLimitsConfirmedAt !== null,
+        savedAt: liveLimitsSaved === null ? null : (liveLimitsConfirmedAt ?? nowIso()),
+      },
+      evaluatedAt: nowIso(),
+    };
+  };
+
+  const buildLiveState = (): LiveState => {
+    const checklist = buildLiveChecklist();
+    let mode = liveModeNow.mode;
+    if (mode !== 'activo' && mode !== 'suspendido') {
+      mode = checklist.allComplete && liveLimitsSaved !== null ? 'listo' : 'bloqueado';
+    }
+    return {
+      mode,
+      suspension: liveModeNow.suspension,
+      hasCredentials: liveCredentials !== null,
+      accountMasked: liveCredentials?.accountMasked ?? null,
+      limits: liveLimitsSaved,
+      caps: { ...LIVE_FIXED_CAPS },
+      smokeTest: liveSmoke,
+      activatedAt: liveModeNow.activatedAt,
+      suspendedAt: liveModeNow.suspendedAt,
+      updatedAt: nowIso(),
+    };
+  };
+
+  const emitLiveChanged = () => {
+    const state = buildLiveState();
+    liveChangedListeners.forEach((listener) => listener(state));
+  };
+
+  /** Compara la frase escrita con la generada por los límites guardados. */
+  const phraseOk = (phrase: string): boolean =>
+    liveLimitsSaved !== null && phrase.trim() === liveConfirmationPhrase(liveLimitsSaved);
+
+  const pendingLiveReasons = (
+    checklist: LiveChecklist,
+  ): {
+    pendingRequirements: LiveChecklist['items'][number]['requirement'][];
+    reasons: string[];
+  } => {
+    const pendingRequirements: LiveChecklist['items'][number]['requirement'][] = [];
+    const reasons: string[] = [];
+    for (const item of checklist.items) {
+      if (item.state === 'cumplido') continue;
+      pendingRequirements.push(item.requirement);
+      reasons.push(
+        item.kind === 'declaracion'
+          ? `No has declarado: ${item.title.toLowerCase()}.`
+          : `${item.title}: ${item.evidence ?? 'pendiente'}.`,
+      );
+    }
+    if (liveLimitsSaved === null) {
+      reasons.push('Guarda y confirma los límites de capital real.');
+    }
+    return { pendingRequirements, reasons };
+  };
+
+  const regimeComparisons = new Map<string, RegimeComparison>();
+
   const api: TradiaApi = {
     connectivity: {
       getState: async () => connectivity,
@@ -1309,6 +1850,13 @@ export function createSimulatedAdapter() {
           ...(patch.disclaimerAcceptedVersion !== undefined
             ? {
                 disclaimerAcceptedAt: patch.disclaimerAcceptedVersion
+                  ? new Date().toISOString()
+                  : null,
+              }
+            : {}),
+          ...(patch.onboardingTourVersion !== undefined
+            ? {
+                onboardingTourCompletedAt: patch.onboardingTourVersion
                   ? new Date().toISOString()
                   : null,
               }
@@ -1394,9 +1942,50 @@ export function createSimulatedAdapter() {
           status: statuses.get(dataStatusKey.macro(series.id)) ?? series.status,
         }));
       },
+      refreshNow: async () => ({ accepted: true, reason: null }),
     },
     dataStatus: {
       get: async () => [...statuses.values()].sort((a, b) => a.key.localeCompare(b.key)),
+      freshness: async (): Promise<DataFreshnessSummary> => {
+        // Agregado sobre las entradas ticker:*/macro:*/provider:*; el
+        // renderer añade 'offline' encima con su propio estado de red.
+        const entries = [...statuses.values()].filter((entry) => !entry.key.startsWith('modelo:'));
+        const bad = entries.filter(
+          (entry) => entry.state === 'desactualizado' || entry.state === 'no-fiable',
+        );
+        const items: DataFreshnessItem[] = bad
+          .map((entry) => ({
+            key: entry.key,
+            label: entry.key.slice(entry.key.indexOf(':') + 1),
+            state: entry.state,
+            lastDataDate: entry.lastOkAt === null ? null : entry.lastOkAt.slice(0, 10),
+            reason: entry.reason,
+          }))
+          .sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
+        const state: DataFreshnessState = items.some((item) => item.state === 'no-fiable')
+          ? 'unreliable'
+          : items.length > 0
+            ? 'stale'
+            : entries.some((entry) => entry.state === 'actualizando')
+              ? 'catching-up'
+              : entries.every((entry) => entry.lastOkAt === null)
+                ? 'no-data'
+                : 'current';
+        const dates = items
+          .map((item) => item.lastDataDate)
+          .filter((date): date is string => date !== null)
+          .sort();
+        return {
+          state,
+          sinceDate: dates[0] ?? null,
+          // Sin calendario de mercado en el renderer: la app real lo
+          // calcula en main; el falso deja el resumen sin sesiones.
+          expectedSessionDate: null,
+          missingSessions: 0,
+          items,
+          updatedAt: new Date().toISOString(),
+        };
+      },
       onChanged: (listener) => subscribe(dataStatusListeners, listener),
     },
     sources: {
@@ -1542,6 +2131,8 @@ export function createSimulatedAdapter() {
             version: latest.version,
             status: latest.status,
             regime: latest.regime,
+            worksIn: latest.worksIn,
+            failsIn: latest.failsIn,
             markets: latest.markets,
             metricsSummary: latest.metricsSummary,
             updatedAt: latest.updatedAt,
@@ -1579,6 +2170,8 @@ export function createSimulatedAdapter() {
           outOfSamplePeriod: request.outOfSamplePeriod ?? null,
           metricsSummary: null,
           regime: request.regime,
+          worksIn: request.worksIn ?? [],
+          failsIn: request.failsIn ?? [],
           assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
           status: 'investigacion',
           changeNote: note,
@@ -1616,6 +2209,8 @@ export function createSimulatedAdapter() {
           outOfSamplePeriod: merged.outOfSamplePeriod ?? null,
           metricsSummary: null,
           regime: merged.regime,
+          worksIn: merged.worksIn ?? [],
+          failsIn: merged.failsIn ?? [],
           assumedCosts: merged.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
           changeNote: note.trim(),
           updatedAt: now,
@@ -1757,6 +2352,61 @@ export function createSimulatedAdapter() {
         finalTestRunByKey.set(key, report.id);
         emitProgress(ticket, strategy.id, 'completado', 100);
         return report;
+      },
+      regimeComparison: async (request) => {
+        if (!isRegimeComparisonRequest(request)) {
+          throw new Error('Consulta de comparación inválida (id de estrategia).');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null) {
+          throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        }
+        return regimeComparisons.get(`${strategy.id}:${strategy.version}`) ?? null;
+      },
+      runRegimeComparison: async (request) => {
+        if (!isRegimeComparisonRequest(request)) {
+          throw new Error('Petición de comparación inválida (id de estrategia).');
+        }
+        const strategy = findStrategyVersion(request.strategyId, request.version);
+        if (strategy === null) {
+          throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        }
+        const key = `${strategy.id}:${strategy.version}`;
+        const existing = regimeComparisons.get(key);
+        if (existing !== undefined) return existing;
+        // El falso fabrica el par emparejado sobre la misma base: el lado
+        // con filtro solo opera cuando el régimen encaja con la ficha.
+        const h = hashSeed(`regimen-cmp:${strategy.id}`);
+        const base = {
+          totalReturnPct: round(8 + (h % 120) / 10, 1),
+          maxDrawdownPct: round(-(6 + (h % 140) / 10), 1),
+          sharpe: round(0.3 + (h % 90) / 100, 2),
+          trades: 24 + (h % 30),
+          winRatePct: round(38 + (h % 250) / 10, 1),
+        };
+        const comparison: RegimeComparison = {
+          strategyId: strategy.id,
+          version: strategy.version,
+          period: {
+            desde: strategy.trainingPeriod?.desde ?? '2018-01-02',
+            hasta: strategy.outOfSamplePeriod?.hasta ?? lastSession(),
+          },
+          markets: [...strategy.markets],
+          withoutFilter: { runId: null, ...base },
+          withFilter: {
+            runId: null,
+            totalReturnPct: round(base.totalReturnPct * 1.08, 1),
+            maxDrawdownPct: round(base.maxDrawdownPct * 0.8, 1),
+            sharpe: round(base.sharpe + 0.2, 2),
+            trades: Math.max(1, Math.round(base.trades * 0.7)),
+            winRatePct: round(base.winRatePct + 3, 1),
+          },
+          comparable: true,
+          createdAt: nowIso(),
+        };
+        regimeComparisons.set(key, comparison);
+        emitAiChanged('regimen');
+        return comparison;
       },
       onProgress: (listener) => subscribe(progressListeners, listener),
     },
@@ -1978,6 +2628,10 @@ export function createSimulatedAdapter() {
         if (!isDeliveryTestRequest(request)) {
           throw new Error('Canal de prueba inválido.');
         }
+        // La prueba correcta por un canal externo es la evidencia del
+        // requisito automático 'alertas-activas' de la lista de dinero real.
+        liveAlertsTestedAt = nowIso();
+        emitLiveChanged();
         return { ok: true, error: null, latencyMs: 12 };
       },
     },
@@ -2061,6 +2715,7 @@ export function createSimulatedAdapter() {
         if (query?.ticker) {
           rows = rows.filter((o) => o.ticker === query.ticker!.trim().toUpperCase());
         }
+        if (query?.mode) rows = rows.filter((o) => o.mode === query.mode);
         const offset = query?.offset ?? 0;
         return rows.slice(offset, offset + (query?.limit ?? rows.length));
       },
@@ -2106,6 +2761,23 @@ export function createSimulatedAdapter() {
         order.updatedAt = nowIso();
         brokerOrderUpdatedListeners.forEach((listener) => listener({ ...order }));
         return { ...order };
+      },
+    },
+    providers: {
+      // Determinista como el resto del adaptador: sin claves guardadas en
+      // `secrets`, la prueba siempre sale «sin-clave» con su motivo.
+      testConnection: async (request) => {
+        if (!isProviderTestRequest(request)) {
+          throw new Error('Proveedor de datos inválido.');
+        }
+        return {
+          provider: request.provider,
+          status: 'sin-clave' as const,
+          message: 'No hay una clave guardada para este proveedor.',
+          latestDataDate: null,
+          checkedAt: nowIso(),
+          latencyMs: null,
+        };
       },
     },
     reconcile: {
@@ -2160,6 +2832,276 @@ export function createSimulatedAdapter() {
     logs: {
       openFolder: async () => ({ ok: true, path: '/tmp/tradia-logs' }),
     },
+    ai: {
+      regimeOverview: async () => {
+        const tickers = [...new Set(watchlist.map((item) => item.ticker))];
+        const market = fakeRegime('mercado', REGIME_MARKET_TICKER);
+        const overview: RegimeOverview = {
+          market,
+          assets: tickers.map((ticker) => fakeRegime('activo', ticker)),
+          strategies: strategyRegimeStatuses(),
+          computedAt: nowIso(),
+          expectedSessionDate: lastSession(),
+          stale: false,
+        };
+        return overview;
+      },
+      predictions: async (query) => {
+        if (query !== undefined && !isPredictionsQuery(query)) {
+          throw new Error('Filtros de predicciones inválidos.');
+        }
+        const tickers = [...new Set(watchlist.map((item) => item.ticker))];
+        let rows = tickers.map((ticker, index) => fakePrediction(ticker, index));
+        if (query?.ticker) {
+          rows = rows.filter((p) => p.ticker === query.ticker!.trim().toUpperCase());
+        }
+        return rows.slice(0, query?.limit ?? 100);
+      },
+      modelCard: async () => fakeModelCard,
+      newsAnalysis: async (query) => {
+        if (query !== undefined && !isNewsAnalysisQuery(query)) {
+          throw new Error('Filtros del análisis de noticias inválidos.');
+        }
+        let rows = newsItems.flatMap((item) => analysesFor(item));
+        if (query?.newsItemId !== undefined) {
+          rows = rows.filter((a) => a.newsItemId === query.newsItemId);
+        }
+        if (query?.ticker) {
+          rows = rows.filter((a) => a.ticker === query.ticker!.trim().toUpperCase());
+        }
+        return rows.slice(0, query?.limit ?? 100);
+      },
+      getLlmSettings: async () => ({ ...llmSettings }),
+      setLlmSettings: async (input) => {
+        if (!isNewsLlmSettingsInput(input)) {
+          throw new Error('Ajustes del LLM inválidos (revisa los márgenes).');
+        }
+        const provider =
+          input.provider ??
+          (input.enabled === undefined
+            ? llmSettings.provider
+            : input.enabled
+              ? llmSettings.provider === 'local'
+                ? ('llm' as const)
+                : llmSettings.provider
+              : ('local' as const));
+        llmSettings = {
+          ...llmSettings,
+          provider,
+          enabled: input.enabled ?? provider !== 'local',
+          ...(input.cliPath !== undefined ? { cliPath: input.cliPath } : {}),
+          ...(input.dailyCap !== undefined ? { dailyCap: input.dailyCap } : {}),
+          ...(input.monthlyBudgetEur !== undefined
+            ? { monthlyBudgetEur: input.monthlyBudgetEur }
+            : {}),
+        };
+        emitAiChanged('noticias');
+        return { ...llmSettings };
+      },
+      testLlm: async (): Promise<NewsLlmTestResult> => {
+        if (llmSettings.provider === 'local') {
+          return { ok: true, error: null, latencyMs: null };
+        }
+        if (llmSettings.provider === 'suscripcion') {
+          return llmSettings.cliAvailable
+            ? { ok: true, error: null, latencyMs: 180 }
+            : { ok: false, error: 'CLI no encontrada.', latencyMs: null };
+        }
+        return llmSettings.hasKey
+          ? { ok: true, error: null, latencyMs: 120 }
+          : { ok: false, error: 'No hay una clave de Anthropic guardada.', latencyMs: null };
+      },
+      health: async () => healthOverview(),
+      retrainProposals: async () => [...retrainProposals],
+      resolveRetrain: async (request) => {
+        if (!isRetrainResolveRequest(request)) {
+          throw new Error('Resolución de propuesta inválida.');
+        }
+        // El falso no genera propuestas: toda resolución es un no-pendiente.
+        throw new Error(`No hay una propuesta pendiente con id ${request.id}.`);
+      },
+      onChanged: (listener) => subscribe(aiChangedListeners, listener),
+    },
+    live: {
+      checklist: async () => buildLiveChecklist(),
+      state: async () => buildLiveState(),
+      declare: async (request) => {
+        if (!isLiveDeclareRequest(request)) {
+          throw new Error('Declaración inválida (requisito manual, marca y detalle opcional).');
+        }
+        liveDeclarations[request.requirement] = request.confirmed
+          ? { at: nowIso(), detail: request.detail?.trim() || null }
+          : null;
+        // Retirar una declaración suspende el modo real para órdenes nuevas.
+        if (!request.confirmed && liveModeNow.mode === 'activo') {
+          liveModeNow = {
+            ...liveModeNow,
+            mode: 'suspendido',
+            suspendedAt: nowIso(),
+            suspension: {
+              reason: 'requisito-vencido',
+              detail: `Declaración retirada: ${LIVE_REQUIREMENT_TITLES[request.requirement]}.`,
+            },
+          };
+        }
+        emitLiveChanged();
+        return buildLiveChecklist();
+      },
+      setLimits: async (input) => {
+        if (!isLiveLimitsInput(input)) {
+          throw new Error(
+            'Límites inválidos: los cuatro valores deben ser positivos y no superar los techos.',
+          );
+        }
+        const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(input);
+        liveLimitsSaved = { ...input };
+        // Los límites nuevos generan una frase nueva: la confirmación
+        // anterior ya no vale (guardar los mismos valores la conserva).
+        if (changed) liveLimitsConfirmedAt = null;
+        emitLiveChanged();
+        return {
+          limits: { ...input },
+          confirmationPhrase: liveConfirmationPhrase(input),
+          confirmed: liveLimitsConfirmedAt !== null,
+          savedAt: nowIso(),
+        };
+      },
+      connect: async (request) => {
+        if (!isLiveConnectRequest(request)) {
+          throw new Error('Claves live inválidas.');
+        }
+        liveCredentials = { accountMasked: '•••• 4821' };
+        emitLiveChanged();
+        return buildLiveState();
+      },
+      activate: async (request): Promise<LiveActivateResult> => {
+        if (!isLiveActivateRequest(request)) {
+          throw new Error('La activación exige la frase de confirmación escrita.');
+        }
+        const checklist = buildLiveChecklist();
+        const { pendingRequirements, reasons } = pendingLiveReasons(checklist);
+        if (checklist.allComplete && liveLimitsSaved !== null && !phraseOk(request.phrase)) {
+          reasons.push('La frase de confirmación no coincide con los límites guardados.');
+        }
+        if (reasons.length > 0) {
+          return {
+            activated: false,
+            pendingRequirements,
+            reasons,
+            state: buildLiveState(),
+          };
+        }
+        liveLimitsConfirmedAt = nowIso();
+        liveModeNow = {
+          mode: 'activo',
+          suspension: null,
+          activatedAt: nowIso(),
+          suspendedAt: null,
+        };
+        emitLiveChanged();
+        return {
+          activated: true,
+          pendingRequirements: [],
+          reasons: [],
+          state: buildLiveState(),
+        };
+      },
+      deactivate: async () => {
+        const checklist = buildLiveChecklist();
+        liveModeNow = {
+          mode: checklist.allComplete && liveLimitsSaved !== null ? 'listo' : 'bloqueado',
+          suspension: null,
+          activatedAt: liveModeNow.activatedAt,
+          suspendedAt: null,
+        };
+        emitLiveChanged();
+        return buildLiveState();
+      },
+      testKillSwitch: async (): Promise<LiveKillSwitchTestResult> => {
+        // El ejercicio activa y reanuda la parada en paper y deja registro.
+        killSwitch = {
+          active: true,
+          cause: 'manual',
+          actor: 'usuario',
+          activatedAt: nowIso(),
+          detail: 'Prueba de la lista de dinero real',
+        };
+        emitRiskChanged();
+        killSwitch = { ...killSwitch, active: false };
+        emitRiskChanged();
+        liveKillSwitchTestedAt = nowIso();
+        emitLiveChanged();
+        return { ok: true, error: null, testedAt: liveKillSwitchTestedAt };
+      },
+      smokeTest: async (request) => {
+        if (!isLiveSmokeTestRequest(request)) {
+          throw new Error('La prueba de humo exige una confirmación explícita.');
+        }
+        const state = buildLiveState();
+        if (state.mode !== 'activo') {
+          throw new Error('La prueba de humo exige el modo real activo.');
+        }
+        const bar = generateBars(LIVE_SMOKE_TICKER).at(-1);
+        const buyPrice = bar?.close ?? 600;
+        const sellPrice = round(buyPrice * 0.9996, 2);
+        const at = nowIso();
+        liveSmoke = {
+          state: 'cerrada-conciliada',
+          steps: LIVE_SMOKE_STEPS.map((step) => ({ step, at })),
+          ticker: LIVE_SMOKE_TICKER,
+          notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
+          requestedPrice: null,
+          referencePrice: buyPrice,
+          buyExecutedPrice: buyPrice,
+          sellExecutedPrice: sellPrice,
+          buyExecutedAt: at,
+          sellExecutedAt: at,
+          slippageBps: 4,
+          reconcileRunId: 1,
+          discrepancies: 0,
+          failedStep: null,
+          error: null,
+          startedAt: at,
+          finishedAt: at,
+        };
+        journalEntries.push({
+          id: journalEntries.length + 1,
+          type: 'operacion',
+          createdAt: at,
+          ticker: LIVE_SMOKE_TICKER,
+          strategies: [],
+          reason:
+            'Prueba de humo real: compra y cierre de 1 USD nocional, conciliada sin descuadres.',
+          dataUsed: {
+            requestedPrice: null,
+            buyExecutedPrice: buyPrice,
+            sellExecutedPrice: sellPrice,
+            slippageBps: 4,
+            notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
+          },
+          result: 'perdida',
+          errors: [],
+          ruleChecks: [],
+          signalId: null,
+        });
+        journalUpdatedListeners.forEach((listener) =>
+          listener({ entry: journalEntries[journalEntries.length - 1]! }),
+        );
+        emitLiveChanged();
+        return liveSmoke;
+      },
+      scaling: async (): Promise<LiveScalingStatus> => ({
+        state: 'bloqueado',
+        liveWeeks: 0,
+        liveTrades: 0,
+        weeksInMargin: 0,
+        deviationPct: null,
+        drawdownPct: null,
+        reason: 'Escalado bloqueado · esta fase limita el capital a los techos confirmados.',
+        evaluatedAt: nowIso(),
+      }),
+      onChanged: (listener) => subscribe(liveChangedListeners, listener),
+    },
   };
   return {
     api,
@@ -2199,6 +3141,10 @@ export function createSimulatedAdapter() {
       };
       reconcileDiscrepancyListeners.forEach((listener) => listener(event));
     },
+    /** Notifica un ai:changed (fase 6). */
+    emitAiChanged,
+    /** Notifica un live:changed con el estado actual (fase 7). */
+    emitLiveChanged,
     listenerCount: () =>
       connectionListeners.size +
       agentListeners.size +
@@ -2209,6 +3155,8 @@ export function createSimulatedAdapter() {
       calendarUpdatedListeners.size +
       alertNavigateListeners.size +
       brokerOrderUpdatedListeners.size +
-      reconcileDiscrepancyListeners.size,
+      reconcileDiscrepancyListeners.size +
+      aiChangedListeners.size +
+      liveChangedListeners.size,
   };
 }

@@ -74,6 +74,7 @@
   outline-offset: 2px;
 }
 .orders-table-wrap {
+  position: relative;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -228,4 +229,22 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+.orders-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.orders-mode-live {
+  color: var(--live-live-text);
+  background: var(--live-live-surface);
+}
+.orders-mode-unknown {
+  color: var(--live-requirement-review);
+  background: var(--live-requirement-review-surface);
 }

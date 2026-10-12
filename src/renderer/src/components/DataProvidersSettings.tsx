@@ -1,10 +1,50 @@
 import { useEffect, useState } from 'react';
+import type { ProviderTestResult } from '../../../shared/ipc';
+import { dataStateTokenStylesheet } from './dataStateTokens';
+import './dataFreshness.css';
+import { ProviderConnectionResult } from './ProviderConnectionResult';
+import { refreshResultMessage } from './DataFreshness';
 
 function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: string }) {
   const [stored, setStored] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<ProviderTestResult | null>(null);
+  const [refreshMessage, setRefreshMessage] = useState('');
+  async function testConnection() {
+    setTesting(true);
+    setRefreshMessage('');
+    try {
+      setResult(await window.tradia.providers.testConnection({ provider }));
+    } catch {
+      setResult({
+        provider,
+        status: 'error',
+        message: 'No se pudo comprobar el proveedor.',
+        latestDataDate: null,
+        checkedAt: new Date().toISOString(),
+        latencyMs: null,
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+  async function refresh() {
+    setRefreshMessage('Actualizando…');
+    try {
+      setRefreshMessage(
+        refreshResultMessage(
+          await (provider === 'fred'
+            ? window.tradia.macro.refreshNow()
+            : window.tradia.market.refreshNow()),
+        ),
+      );
+    } catch {
+      setRefreshMessage('No pudimos iniciar la actualización. Inténtalo de nuevo.');
+    }
+  }
   useEffect(() => {
     let active = true;
     void window.tradia.secrets
@@ -30,6 +70,8 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
     setKey('');
     try {
       await window.tradia.secrets.setKey(provider, submitted);
+      setResult(null);
+      setRefreshMessage('');
       setStored(await window.tradia.secrets.hasKey(provider));
     } catch {
       setError(
@@ -62,11 +104,11 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
           autoComplete="new-password"
           spellCheck={false}
           value={key}
-          disabled={busy}
+          disabled={busy || testing}
           onChange={(event) => setKey(event.target.value)}
           aria-describedby={`${provider}-state`}
         />
-        <button className="button primary" type="submit" disabled={busy}>
+        <button className="button primary" type="submit" disabled={busy || testing}>
           {busy ? 'Guardando…' : `Guardar clave de ${name}`}
         </button>
       </div>
@@ -79,16 +121,25 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
       </p>
       <div>
         <button
+          id={`${provider}-test`}
           className="button"
           type="button"
-          disabled
+          disabled={testing || busy}
+          aria-disabled={testing || busy}
+          onClick={() => void testConnection()}
           aria-describedby={`${provider}-test-help`}
         >
-          Probar conexión
+          {testing ? 'Probando…' : 'Probar conexión'}
         </button>
-        <p id={`${provider}-test-help`}>
-          La prueba de conexión estará disponible cuando se incorpore la comprobación del proveedor.
-        </p>
+        <ProviderConnectionResult
+          provider={provider}
+          name={name}
+          testing={testing}
+          result={result}
+          onRetry={() => void testConnection()}
+          onRefresh={() => void refresh()}
+        />
+        {refreshMessage && <p role="status">{refreshMessage}</p>}
       </div>
       {error && (
         <p className="settings-message error" role="alert">
@@ -99,8 +150,31 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
   );
 }
 export function DataProvidersSettings() {
+  useEffect(() => {
+    const focusTarget = () => {
+      const params = new URLSearchParams(window.location.hash.split('?')[1]);
+      const provider = params.get('provider');
+      if (provider !== 'tiingo' && provider !== 'fred') return;
+      const target = document.getElementById(
+        `${provider}-${params.get('focus') === 'test' ? 'test' : 'key'}`,
+      );
+      target?.scrollIntoView?.({ block: 'center' });
+      target?.focus();
+    };
+    const timer = window.setTimeout(focusTarget, 0);
+    window.addEventListener('hashchange', focusTarget);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('hashchange', focusTarget);
+    };
+  }, []);
   return (
-    <section className="settings-section" aria-label="Proveedores de datos">
+    <section
+      className="settings-section"
+      data-tour="ajustes-proveedores"
+      aria-label="Proveedores de datos"
+    >
+      <style>{dataStateTokenStylesheet()}</style>
       <div>
         <h2>Proveedores de datos</h2>
         <p>Las claves se cifran en el sistema y nunca vuelven a mostrarse.</p>

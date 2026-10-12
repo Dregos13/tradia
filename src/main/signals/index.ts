@@ -13,6 +13,10 @@
  * - Pasarela única: `services.risk.submitSignal`. Sin motor de riesgo la
  *   evaluación se bloquea (degradación segura: mejor no emitir que
  *   emitir sin veto).
+ * - IA (fase 6): el régimen del mercado (`aiRegime`) habilita las fichas,
+ *   el modelo apto (`aiPrediction`) aporta la probabilidad calibrada y
+ *   `news_analysis` el sentimiento confirmado. Ninguno crea señales:
+ *   solo filtran votos o ajustan la confianza antes de la pasarela.
  * - Diario y avisos: `journal.record` estructural (opcional mientras el
  *   diario convive con su esqueleto) y `ctx.broadcast` perezoso, que
  *   delivery intercepta para `signals:new`.
@@ -39,10 +43,13 @@ import type { JournalRecordInput } from '../../shared/journal';
 import { openDatabase } from '../db/database';
 import { createBacktestRepository } from '../backtest/repository';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
+import { createNewsAnalysisRepository } from '../ai/news/repository';
+import * as nyseCalendar from '../market/calendar';
 import { createMarketRepository, type StoredBar } from '../market/repository';
 import type { ServiceContext } from '../services';
 import {
   createSignalEngine,
+  SIGNAL_NEWS_MAX_ITEMS,
   SIGNAL_PROCESSED_MARKS_LIMIT,
   type EvaluableStrategy,
   type SignalEngine,
@@ -76,7 +83,20 @@ function toSourceBar(bar: StoredBar): SignalSourceBar {
   };
 }
 
-export function registerSignals(ctx: ServiceContext): SignalsService {
+export interface RegisterSignalsOptions {
+  /**
+   * Reloj compartido con la ingesta de mercado (adelantable por
+   * `market:advance-clock`): fija la sesión esperada de la guarda de
+   * frescura, así una vela vieja que llega en una puesta al día atrasada
+   * no se evalúa para señal. Por defecto, el reloj real.
+   */
+  clock?: { now(): number };
+}
+
+export function registerSignals(
+  ctx: ServiceContext,
+  options: RegisterSignalsOptions = {},
+): SignalsService {
   // Sin base de datos el motor degrada a memoria (mismo patrón que el
   // resto de servicios del proceso principal).
   let db = ctx.services.storage?.getDb() ?? null;
@@ -87,6 +107,13 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
   const repo = createSignalsRepository(db);
   const market = createMarketRepository(db);
   const runs = createBacktestRepository(db);
+  // Fase 6: régimen, modelo apto y noticias confirmadas que alimentan la
+  // combinación de confianza. Las noticias se leen de `news_analysis`
+  // directamente (solo existen filas de titulares confirmados); los otros
+  // servicios son opcionales y su ausencia deja ese factor sin efecto.
+  const newsAnalyses = createNewsAnalysisRepository(db);
+  const aiRegime = ctx.services.aiRegime ?? null;
+  const aiPrediction = ctx.services.aiPrediction ?? null;
 
   const settings = ctx.services.settings;
   let processedMarks: Set<string> | null = null;
@@ -225,6 +252,64 @@ export function registerSignals(ctx: ServiceContext): SignalsService {
     isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
     wasProcessed: (ticker, barDate) => loadMarks().has(`${ticker}|${barDate}`),
     markProcessed,
+    // Guarda de frescura: una vela anterior a la última sesión esperada
+    // no se evalúa (datos viejos de una puesta al día atrasada).
+    expectedSessionDate: () =>
+      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
+    // Sesión inmediatamente anterior a la vela evaluada: es la frescura
+    // mínima que el motor exige a la predicción que ajusta la señal.
+    previousExpectedSession: (barDate) => {
+      const dayMs = Date.parse(`${barDate}T00:00:00.000Z`);
+      if (!Number.isFinite(dayMs)) return null;
+      return (
+        nyseCalendar
+          .expectedSessionsBetween(
+            new Date(dayMs - 40 * 86_400_000).toISOString().slice(0, 10),
+            new Date(dayMs - 86_400_000).toISOString().slice(0, 10),
+          )
+          .at(-1)?.date ?? null
+      );
+    },
+    ai: {
+      // El régimen del mercado (referencia SPY) habilita o desactiva las
+      // estrategias: misma referencia que la página «IA» y el backtest.
+      // Si el régimen guardado es anterior a la sesión esperada está
+      // desactualizado y no decide nada (como si no hubiera régimen).
+      marketRegime: () => {
+        const snapshot = aiRegime?.service.marketRegime() ?? null;
+        if (snapshot === null) return null;
+        const expected =
+          nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null;
+        if (expected !== null && snapshot.sessionDate < expected) return null;
+        return { direction: snapshot.direction, volatility: snapshot.volatility };
+      },
+      // Solo un modelo apto apoya señales; la predicción se usa solo si
+      // casa con su versión y hash (lo decide el motor).
+      eligibleModel: () => aiPrediction?.service.eligibleModel() ?? null,
+      latestPrediction: (ticker) => {
+        const prediction = aiPrediction?.service.latestPrediction(ticker) ?? null;
+        // La sesión viaja con la predicción: el motor descarta una
+        // predicción de una sesión ya pasada (serie que estuvo atrasada).
+        return prediction === null
+          ? null
+          : {
+              probUp: prediction.probUp,
+              modelVersion: prediction.modelVersion,
+              modelHash: prediction.modelHash,
+              horizonDays: prediction.horizonDays,
+              sessionDate: prediction.sessionDate,
+            };
+      },
+      // `news_analysis` solo tiene filas de titulares confirmados: un
+      // titular sin verificar nunca llega a ajustar una señal.
+      newsAnalysesFor: (ticker) =>
+        newsAnalyses.list({ ticker, limit: SIGNAL_NEWS_MAX_ITEMS }).map((item) => ({
+          newsItemId: item.newsItemId,
+          sentiment: item.sentiment,
+          analyzedAt: item.analyzedAt,
+          publishedAt: item.publishedAt,
+        })),
+    },
   });
 
   // Disparo: cada lote guardado de un activo cierra primero las

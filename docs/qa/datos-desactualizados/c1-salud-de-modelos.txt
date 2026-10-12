@@ -1,0 +1,60 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Salud de modelos
+Señales + paper trading
+Parada
+Sin conexión: las decisiones están en pausa. Reintentando en 5 s.
+Comprobar ahora
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
+
+falta la observación esperada; último dato: 2026-09-17
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
+Salud de modelos
+
+Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
+
+Revisar ahora
+
+Una racha mala aislada no degrada una estrategia. La degradación requiere evidencia sostenida y una muestra suficiente.
+
+Sin conexión · la revisión queda pausada. Últimos resultados no disponibles.
+
+Reintentar conexión
+Revisión de modelos y estrategias
+
+Aún no hay predicciones resueltas ni operaciones suficientes
+
+La salud aparecerá cuando exista una muestra evaluable.
+
+Propuestas de reentrenamiento
+
+Como máximo una propuesta por trimestre natural.
+
+No hay reentrenamientos propuestos
+
+Los modelos se mantienen bajo vigilancia.
+
+Sin conexión
+Agentes en pausa
+· Sin conexión
+Última comprobación 11:19:24
+Próximo reintento 11:19:30
+Último latido Pendiente

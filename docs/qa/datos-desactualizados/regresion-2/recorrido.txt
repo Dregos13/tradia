@@ -1,0 +1,11 @@
+
+Running 3 tests using 1 worker
+
+(node:14939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 docs/qa/datos-desactualizados/regresion-2/regresion.spec.ts:413:5 › B0 · siembra: base al día del viernes 18-sep-2026 (reloj atrasado) (12.7s)
+  ✓  2 docs/qa/datos-desactualizados/regresion-2/regresion.spec.ts:444:5 › B3 · estrategias en paper y Tiingo solo hasta el 25-sep (sigue desactualizado) (27.9s)
+  ✓  3 docs/qa/datos-desactualizados/regresion-2/regresion.spec.ts:489:5 › C-largo · más de 60 s sin red con datos viejos y vuelta a la red (2.9m)
+
+  3 passed (3.6m)
+EXIT 0

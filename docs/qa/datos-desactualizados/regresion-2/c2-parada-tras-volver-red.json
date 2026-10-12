@@ -1,0 +1,15 @@
+{
+  "killSwitch": {
+    "active": false,
+    "cause": "sin-conexion",
+    "actor": "automatico",
+    "activatedAt": "2026-10-11T10:07:55.232Z",
+    "detail": "sin conexión durante más de 60 s"
+  },
+  "agents": {
+    "paused": false,
+    "pauseReason": null,
+    "lastHeartbeatAt": "2026-10-11T10:09:20.159Z"
+  },
+  "overview": "TypeError: t.risk.getOverview is not a function"
+}

@@ -1,0 +1,77 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+IA
+Señales + paper trading
+Parada
+Sin conexión: las decisiones están en pausa. Reintentando en 7 s.
+Comprobar ahora
+Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
+
+falta la observación esperada; último dato: 2026-09-17
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Actualizar ahora
+IA
+
+Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
+
+Actualizar
+
+Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el motor de riesgo.
+
+Sin conexión · régimen y predicciones congelados sin una instantánea disponible. No se evaluarán señales nuevas.
+
+Ficha local · no se pudo comprobar si existe una versión posterior.
+
+Reintentar conexión
+Régimen del mercado
+
+Todavía no hay cierres suficientes para clasificar el régimen
+
+Se necesitan velas diarias válidas antes de calcular el mercado y los activos.
+
+El régimen se recalcula al cierre; no predice por sí solo.
+
+Régimen por activo
+
+Aún no hay regímenes calculados para los activos.
+
+Estrategias según el régimen
+
+Aún no hay estrategias evaluadas por régimen.
+
+Predicción por activo
+
+No crea señales por sí solo · Riesgo conserva el veto.
+
+Aún no hay estimaciones por activo.
+
+Ficha del modelo · dirección y volatilidad
+
+Aún no hay una versión de modelo cargada.
+
+No hay una ficha asociada a esta versión. El modelo no puede apoyar señales sin periodos, métricas y calibración guardados.
+
+Revisar fuentes de mercado
+Sin conexión
+Agentes en pausa
+· Sin conexión
+Última comprobación 11:19:24
+Próximo reintento 11:19:30
+Último latido Pendiente

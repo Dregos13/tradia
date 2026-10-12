@@ -1,7 +1,12 @@
+import { useEffect, useState } from 'react';
 import type { MacroSeriesSnapshot } from '../../../../shared/ipc';
+import type { RegimeOverview } from '../../../../shared/ai';
+import { useDataFreshness } from '../../hooks/useDataFreshness';
 import { MacroCard } from '../macro/MacroCard';
 import { indicators } from '../macro/model';
+import { regimeLabels } from '../strategies/regimeLabels';
 import '../macro/macro.css';
+
 export function MacroBlock({
   series,
   simulated,
@@ -9,10 +14,44 @@ export function MacroBlock({
   series: MacroSeriesSnapshot[];
   simulated: boolean;
 }) {
+  const { summary } = useDataFreshness();
+  const [overview, setOverview] = useState<RegimeOverview | null>(null);
+
+  // El mismo régimen que la página «IA»: una única fuente evita que Inicio
+  // diga «Sin clasificar» mientras IA muestra el régimen calculado.
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      window.tradia.ai
+        .regimeOverview()
+        .then((value) => {
+          if (active) setOverview(value);
+        })
+        .catch(() => {
+          if (active) setOverview(null);
+        });
+    };
+    load();
+    const unsubscribe = window.tradia.ai.onChanged(() => load());
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const regimeText = overview?.market
+    ? overview.stale || (summary && summary.state !== 'current' && summary.state !== 'no-data')
+      ? summary?.state === 'catching-up'
+        ? 'En pausa: poniéndose al día'
+        : 'En pausa: datos desactualizados'
+      : `${regimeLabels[overview.market.direction]} · ${regimeLabels[overview.market.volatility]}`
+    : 'Sin clasificar';
+
   return (
     <>
       <p>
-        Régimen · <strong>Sin clasificar</strong> · Fuente {simulated ? 'Simulada' : 'FRED'}
+        Régimen · <strong>{regimeText}</strong> · Referencia {overview?.market?.ticker ?? 'SPY'} ·
+        Fuente {simulated ? 'Simulada' : 'precios diarios'}
       </p>
       <div className="dashboard-macro">
         {['VIXCLS', 'DGS10', 'CPIAUCSL']

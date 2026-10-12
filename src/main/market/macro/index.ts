@@ -8,7 +8,7 @@
  * - `service.start()` arma el refresco al arrancar y el diario programado;
  *   `will-quit` debe llamar a `service.stop()` (ver `main/index.ts`).
  */
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, powerMonitor } from 'electron';
 
 import {
   IPC_CHANNELS,
@@ -17,6 +17,7 @@ import {
   isMacroSeriesQuery,
 } from '../../../shared/ipc';
 import type { ServiceContext } from '../../services';
+import { isInvalidStoredKeyError } from '../providers/types';
 import { createMarketRepository } from '../repository';
 import { FRED_SECRETS_KEY, createFredProvider } from './fred';
 import { createMacroService, type MacroService } from './service';
@@ -44,10 +45,14 @@ export function registerMacro(
     console.warn('[macro] sin base de datos: las series macro quedan desactivadas');
   }
 
+  const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
   const provider =
     options.provider ??
-    (isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E)
-      ? createSimulatedMacroProvider({ seed: 'tradia-e2e' })
+    (e2e
+      ? // El reloj de mercado gobierna qué observaciones «ya existen»:
+        // con el reloj real el simulado serviría fechas futuras al
+        // mercado de la prueba.
+        createSimulatedMacroProvider({ seed: 'tradia-e2e', now: options.now })
       : createFredProvider({
           fetch: (...args) => globalThis.fetch(...args),
           getApiKey: async () => {
@@ -55,7 +60,10 @@ export function registerMacro(
             if (!secrets) return null;
             try {
               return await secrets.getKey(FRED_SECRETS_KEY);
-            } catch {
+            } catch (error) {
+              // Una clave guardada no válida se propaga con su motivo
+              // («vuelve a pegarla»), no se disfraza de «sin clave».
+              if (isInvalidStoredKeyError(error)) throw error;
               // Sin almacén o sin cifrado equivale a no tener clave.
               return null;
             }
@@ -68,6 +76,22 @@ export function registerMacro(
     broadcast: ctx.broadcast,
     now: options.now,
     isOnline: () => ctx.services.connectivity?.getState().status !== 'offline',
+    // Al despertar el equipo se pone al día igual que al reconectar.
+    powerMonitor,
+    // Sin clave de FRED el proveedor es 'sin configurar': los refrescos se
+    // omiten sin estados de fallo (un perfil vacío no enseña aviso rojo).
+    isConfigured:
+      options.provider !== undefined || e2e
+        ? undefined
+        : async () => {
+            const secrets = ctx.services.secrets;
+            if (!secrets) return false;
+            try {
+              return await secrets.hasKey(FRED_SECRETS_KEY);
+            } catch {
+              return false;
+            }
+          },
     logger: console,
   });
 
@@ -79,6 +103,26 @@ export function registerMacro(
     };
   }
 
+  // Puesta al día sin esperar al horario: al volver la conexión y al
+  // guardar la clave de FRED (mismo patrón de envoltura que market).
+  let connectivityWasDown = ctx.services.connectivity?.getState().status === 'offline';
+  const innerBroadcast = ctx.broadcast;
+  ctx.broadcast = (channel, payload) => {
+    innerBroadcast(channel, payload);
+    if (channel === IPC_CHANNELS.connectivity.changed) {
+      const status = (payload as { status?: unknown }).status;
+      if (status === 'online' && connectivityWasDown) {
+        void service.refreshNow();
+      }
+      if (status === 'offline') connectivityWasDown = true;
+      else if (status === 'online') connectivityWasDown = false;
+    } else if (channel === IPC_CHANNELS.secrets.changed) {
+      if ((payload as { provider?: unknown }).provider === FRED_SECRETS_KEY) {
+        void service.refreshNow();
+      }
+    }
+  };
+
   ipcMain.handle(IPC_CHANNELS.macro.getSeries, (_event, query: unknown) => {
     if (!isMacroSeriesQuery(query)) {
       throw new IpcValidationError(
@@ -88,6 +132,7 @@ export function registerMacro(
     }
     return service.getSeries(query);
   });
+  ipcMain.handle(IPC_CHANNELS.macro.refreshNow, () => service.refreshNow());
 
   if (options.autoStart ?? true) service.start();
   return service;

@@ -13,6 +13,9 @@ asar: true
 asarUnpack:
   - node_modules/better-sqlite3/prebuilds/**
   - node_modules/better-sqlite3/build/**
+  # Módulo nativo de onnxruntime-node (bin/napi-v6/*.{node,dylib,so,dll}):
+  # no puede cargarse desde dentro del asar.
+  - node_modules/onnxruntime-node/**
 
 # better-sqlite3 >= 13 ya empaqueta binarios precompilados para todas las
 # plataformas (node_modules/better-sqlite3/prebuilds/) que Electron carga

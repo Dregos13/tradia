@@ -1,0 +1,137 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+IA
+Señales + paper trading
+Parada activa
+Parada activa: Pérdida de conexión · 16:41:18 CEST · Activada por Sistema
+sin conexión durante más de 60 s
+
+Sin conexión. Ver estado
+
+Ver en Riesgo
+Reanudar
+Sin conexión: las decisiones están en pausa. Reintentando en 42 s.
+Comprobar ahora
+Datos desactualizados desde el 17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+IA
+
+Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.
+
+Instantánea calculada 19 sept 2026, 12:00 CEST
+
+Actualizar
+Datos desactualizados desde el 17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+
+Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el motor de riesgo.
+
+Sin conexión · régimen y predicciones congelados desde 19 sept 2026, 12:00 CEST. No se evaluarán señales nuevas.
+
+Ficha local · no se pudo comprobar si existe una versión posterior.
+
+Reintentar conexión
+Régimen del mercado
+
+Datos desactualizados desde el 17 sept 2026
+
+Calculado con el cierre del 18 sept 2026
+
+En pausa: datos desactualizados. No se calcula el régimen hasta ponerse al día.
+
+Estrategias por régimen
+
+En pausa: un régimen caducado no habilita ni desactiva estrategias.
+
+Predicción por activo
+
+Datos desactualizados desde el 17 sept 2026
+
+Calculado con el cierre del 18 sept 2026
+
+En pausa: datos desactualizados. No se calculan nuevas probabilidades hasta ponerse al día.
+
+Ficha del modelo · dirección y volatilidad
+Datos sintéticos · no apto
+Versión
+v0.1.0
+SHA-256 del archivo
+0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6
+Copiar hash
+Horizonte
+5 sesiones
+Origen
+Datos sintéticos
+Entrenamiento
+11 mar 2022 – 19 ene 2024 · 60 %
+Calibración
+29 ene 2024 – 27 sept 2024 · 20 %
+Prueba final intacta
+7 oct 2024 – 6 jun 2025 · 20 %
+Entrenado
+10 oct 2026, 22:40 CEST
+Registrado
+19 sept 2026, 12:00 CEST
+Evaluación fuera de muestra
+
+En Brier, menos es mejor. 0 indica probabilidades perfectas; la comparación solo usa la prueba final fuera de muestra.
+
+Brier del modelo
+0,197
+Brier de referencia
+0,25
+Diferencia
+-0,053
+
+Mejor que la referencia
+
+La mejora no elimina el bloqueo: el origen es sintético. Solo información. Este modelo no puede influir en señales porque usa datos sintéticos.
+
+Calibración fuera de muestra
+
+Cuanto más cerca esté la línea del modelo de la diagonal, mejor corresponden sus porcentajes con lo observado.
+
+0 %
+0 %
+50 %
+50 %
+100 %
+100 %
+Probabilidad estimada
+Frecuencia observada
+
+Calibración ideal · línea discontinua
+Modelo · línea sólida
+
+Ver datos del gráfico
+Sin conexión
+Agentes en pausa
+· Pérdida de conexión
+Última comprobación 16:41:16
+Próximo reintento 16:42:26
+Último latido Pendiente

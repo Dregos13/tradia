@@ -554,13 +554,15 @@ describe('auditoría · causas automáticas de la parada', () => {
     expect(killSwitch.getState().detail).toContain('JUMP');
   });
 
-  it('dato-anomalo: un data-status no fiable también activa la parada', () => {
+  it('dato-anomalo: un data-status no fiable por contenido también activa la parada', () => {
+    // 'no-fiable' con fallos en 0: anomalía de contenido (valor grave,
+    // lote rechazado) — los cortes del proveedor llevan fallos > 0.
     killSwitch.observeDataStatus({
       key: 'ticker:AAPL',
       state: 'no-fiable',
       lastOkAt: NOW_ISO,
-      consecutiveFailures: 3,
-      reason: 'valores anómalos',
+      consecutiveFailures: 0,
+      reason: 'valor anómalo grave en el último lote',
       updatedAt: NOW_ISO,
     });
 
@@ -568,7 +570,22 @@ describe('auditoría · causas automáticas de la parada', () => {
     expectVeto(service.submitSignal(signal()), 'KILL_SWITCH_ACTIVE');
   });
 
-  it('sin-conexion: 60 s sin conexión activa la parada y no se reanuda sola', () => {
+  it('un data-status no fiable por caída del proveedor no dispara la parada', () => {
+    // 3 fallos seguidos del proveedor: el dato no es fiable pero no hay
+    // anomalía; la conectividad ya pausa las decisiones durante el corte.
+    killSwitch.observeDataStatus({
+      key: 'ticker:AAPL',
+      state: 'no-fiable',
+      lastOkAt: NOW_ISO,
+      consecutiveFailures: 3,
+      reason: '3 fallos seguidos del proveedor',
+      updatedAt: NOW_ISO,
+    });
+
+    expect(killSwitch.getState().active).toBe(false);
+  });
+
+  it('sin-conexion: 60 s sin conexión activa la parada y se levanta sola al volver la red', () => {
     connectivity = { ...connectivity, status: 'offline' };
     killSwitch.checkConnectivity();
     expect(killSwitch.getState().active).toBe(false);
@@ -578,10 +595,12 @@ describe('auditoría · causas automáticas de la parada', () => {
     expectActiveKillSwitch('sin-conexion');
     expectVeto(service.submitSignal(signal()), 'KILL_SWITCH_ACTIVE');
 
-    // Aunque vuelva la conexión, la parada no se levanta sola.
+    // Al volver la conexión la causa deja de existir: la parada se
+    // levanta en el primer sondeo y vuelven a admitirse señales.
     connectivity = { ...connectivity, status: 'online', attempt: 0 };
     killSwitch.checkConnectivity();
-    expect(killSwitch.getState().active).toBe(true);
+    expect(killSwitch.getState().active).toBe(false);
+    expect(service.submitSignal(signal()).status).not.toBe('vetada');
   });
 
   it('modelo-erratico: una ráfaga de más de 20 señales/hora activa la parada', () => {

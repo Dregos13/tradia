@@ -42,14 +42,14 @@ Filas con nombre, versión, estado (`Activa`, `Paper`, `Degradada`, `En pausa`),
 
 ## Estados del panel
 
-| Estado | Tratamiento global | Tratamiento dentro de los bloques |
-| --- | --- | --- |
-| Cargando | Mantener títulos y geometría; `aria-busy="true"` | Esqueletos de 2–4 filas, sin cifras inventadas; texto accesible `Cargando…` |
-| Vacío inicial | Sin pantalla vacía global | Cada bloque explica qué falta y la acción: configurar fuentes, activar estrategia o esperar el siguiente cierre |
-| Sin conexión | Banner fijo: `Sin conexión · Datos congelados desde {hora}. Los agentes están en pausa.` + `Reintentar` | Se conserva la última instantánea, atenuada y rotulada `Datos de {hora}`; si nunca hubo datos, vacío específico |
-| Parada activa | Banner crítico persistente de fase 3 | Señales: `No se admiten nuevas señales`; posiciones y métricas siguen visibles; estrategias indican `Bloqueada por parada` |
-| Error parcial | No inutiliza el resto del panel | Mensaje dentro del bloque, última instantánea si existe y `Reintentar` |
-| Actualización correcta | Sin toast por cada refresco | Hora `Actualizado {hora}` con `role="status"`; nuevas señales en cabeza sin mover el foco |
+| Estado                 | Tratamiento global                                                                                      | Tratamiento dentro de los bloques                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Cargando               | Mantener títulos y geometría; `aria-busy="true"`                                                        | Esqueletos de 2–4 filas, sin cifras inventadas; texto accesible `Cargando…`                                                |
+| Vacío inicial          | Sin pantalla vacía global                                                                               | Cada bloque explica qué falta y la acción: configurar fuentes, activar estrategia o esperar el siguiente cierre            |
+| Sin conexión           | Banner fijo: `Sin conexión · Datos congelados desde {hora}. Los agentes están en pausa.` + `Reintentar` | Se conserva la última instantánea, atenuada y rotulada `Datos de {hora}`; si nunca hubo datos, vacío específico            |
+| Parada activa          | Banner crítico persistente de fase 3                                                                    | Señales: `No se admiten nuevas señales`; posiciones y métricas siguen visibles; estrategias indican `Bloqueada por parada` |
+| Error parcial          | No inutiliza el resto del panel                                                                         | Mensaje dentro del bloque, última instantánea si existe y `Reintentar`                                                     |
+| Actualización correcta | Sin toast por cada refresco                                                                             | Hora `Actualizado {hora}` con `role="status"`; nuevas señales en cabeza sin mover el foco                                  |
 
 ## Diario
 
@@ -89,14 +89,14 @@ Fila `Registros de diagnóstico`, texto `Se guardan localmente y se rotan autom�
 
 Todas terminan con la misma línea: **`Aviso informativo: Tradia no ejecuta órdenes reales.`** No truncar esta línea en los canales propios; para notificación del sistema, colocarla antes del detalle menos importante si el sistema operativo limita el cuerpo.
 
-| Caso | Título | Cuerpo |
-| --- | --- | --- |
-| Aprobada | `Señal aprobada · {activo} {dirección}` | `{motivo} Confianza: {confianza} %. Riesgo: aprobado; posición simulada de {tamaño}. Aviso informativo: Tradia no ejecuta órdenes reales.` |
-| Vetada | `Señal vetada · {activo} {dirección}` | `{motivo}. Regla: {regla}; observado {valor}, límite {límite}. Aviso informativo: Tradia no ejecuta órdenes reales.` |
-| Límite | `Límite alcanzado · {nombre}` | `{valor actual} frente al límite {límite}. Se ha {efecto: activado la parada / bloqueado nuevas señales}. Aviso informativo: Tradia no ejecuta órdenes reales.` |
-| Preapertura | `Resumen previo a la apertura · {fecha}` | `{n} noticias relevantes, {n} eventos de calendario y {n} huecos en seguimiento.{con retraso} Aviso informativo: Tradia no ejecuta órdenes reales.` |
-| Cierre | `Revisión al cierre · {fecha}` | `{n} señales, {n} vetos y {n} posiciones simuladas. Drawdown: {valor}. Aviso informativo: Tradia no ejecuta órdenes reales.` |
-| Conciliación | `Conciliación completada · {fecha}` | `{resultado: Sin discrepancias / n discrepancias detectadas}. Cartera simulada y diario revisados.{con retraso} Aviso informativo: Tradia no ejecuta órdenes reales.` |
+| Caso         | Título                                   | Cuerpo                                                                                                                                                                |
+| ------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aprobada     | `Señal aprobada · {activo} {dirección}`  | `{motivo} Confianza: {confianza} %. Riesgo: aprobado; posición simulada de {tamaño}. Aviso informativo: Tradia no ejecuta órdenes reales.`                            |
+| Vetada       | `Señal vetada · {activo} {dirección}`    | `{motivo}. Regla: {regla}; observado {valor}, límite {límite}. Aviso informativo: Tradia no ejecuta órdenes reales.`                                                  |
+| Límite       | `Límite alcanzado · {nombre}`            | `{valor actual} frente al límite {límite}. Se ha {efecto: activado la parada / bloqueado nuevas señales}. Aviso informativo: Tradia no ejecuta órdenes reales.`       |
+| Preapertura  | `Resumen previo a la apertura · {fecha}` | `{n} noticias relevantes, {n} eventos de calendario y {n} huecos en seguimiento.{con retraso} Aviso informativo: Tradia no ejecuta órdenes reales.`                   |
+| Cierre       | `Revisión al cierre · {fecha}`           | `{n} señales, {n} vetos y {n} posiciones simuladas. Drawdown: {valor}. Aviso informativo: Tradia no ejecuta órdenes reales.`                                          |
+| Conciliación | `Conciliación completada · {fecha}`      | `{resultado: Sin discrepancias / n discrepancias detectadas}. Cartera simulada y diario revisados.{con retraso} Aviso informativo: Tradia no ejecuta órdenes reales.` |
 
 `{con retraso}` es ` Enviado con retraso.` cuando corresponda. La dirección se verbaliza como `compra` o `venta`, nunca como código interno. La confianza se redondea a entero solo en la notificación; el diario conserva el valor completo.
 

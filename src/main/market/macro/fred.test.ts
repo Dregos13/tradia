@@ -9,7 +9,7 @@ import error500 from './__fixtures__/error-500.json';
 import malformedObservations from './__fixtures__/malformed-observations.json';
 import vixclsObservations from './__fixtures__/vixcls-observations.json';
 import { createFredProvider, FRED_RATE_LIMITS } from './fred';
-import { isMarketDataError } from '../providers/types';
+import { isInvalidStoredKeyError, isMarketDataError } from '../providers/types';
 import { MACRO_SERIES_CATALOG } from './types';
 
 const API_KEY = 'abcdef0123456789abcdef0123456789';
@@ -108,6 +108,18 @@ describe('adaptador FRED', () => {
 
     const error = await provider.getObservations('DGS10').catch((e: unknown) => e);
     expect(isMarketDataError(error, 'auth')).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('una clave guardada con caracteres de control lanza clave no válida sin llamar a la red', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(dgs10Observations));
+    const provider = make(fetch, { getApiKey: async () => 'abcdef0123456789\rabcdef' });
+
+    const error = await provider.getObservations('DGS10').catch((e: unknown) => e);
+    expect(isInvalidStoredKeyError(error)).toBe(true);
+    expect(isMarketDataError(error, 'auth')).toBe(true);
+    expect((error as Error).message).toContain('vuelve a pegarla');
+    expect((error as Error).message).not.toContain('abcdef');
     expect(calls).toHaveLength(0);
   });
 

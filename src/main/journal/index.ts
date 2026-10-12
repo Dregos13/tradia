@@ -27,6 +27,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import {
   IPC_CHANNELS,
   IpcValidationError,
+  isBrokerOrderMode,
   isE2eEnabled,
   isJournalEntryId,
   isJournalEntryType,
@@ -123,6 +124,9 @@ export function assertJournalRecordInput(input: unknown): asserts input is Journ
     throw new JournalServiceError('entrada-invalida', 'el motivo es obligatorio');
   }
   const v = input as Record<string, unknown>;
+  if (v.mode !== undefined && !isBrokerOrderMode(v.mode)) {
+    throw new JournalServiceError('entrada-invalida', `modo inválido: ${String(v.mode)}`);
+  }
   if (v.ticker !== undefined && v.ticker !== null && !isNonEmptyString(v.ticker)) {
     throw new JournalServiceError('entrada-invalida', 'el activo debe ser texto no vacío');
   }
@@ -328,6 +332,7 @@ export function createJournalService(deps: JournalServiceDeps): JournalService {
     const entry = deps.repo.insert(
       {
         type: input.type,
+        mode: input.mode,
         ticker: input.ticker ?? null,
         strategies: input.strategies ?? [],
         reason: input.reason.trim(),

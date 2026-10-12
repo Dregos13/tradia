@@ -133,7 +133,18 @@ describe('createJournalService: registro', () => {
     expect(() => service.record(input({ ruleChecks: [{ code: 'X' } as never] }))).toThrowError(
       /reglas/,
     );
+    expect(() => service.record(input({ mode: 'demo' as never }))).toThrowError(/modo/);
     expect(sent).toHaveLength(0);
+  });
+
+  it('record() persiste el modo de la cuenta y lo emite en journal:updated', () => {
+    const service = makeService();
+    const entry = service.record(input({ type: 'operacion', mode: 'live' }));
+
+    expect(entry.mode).toBe('live');
+    const event = sent.find((s) => s.channel === IPC_CHANNELS.journal.updated)
+      ?.payload as JournalUpdatedEvent;
+    expect(event.entry.mode).toBe('live');
   });
 
   it('recordRiskVeto convierte el veto del motor en una entrada con la regla incumplida', () => {

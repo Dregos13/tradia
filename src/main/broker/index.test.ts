@@ -13,10 +13,11 @@ import {
   ERR_BROKER_LIVE_KEYS,
   ERR_BROKER_NO_ACCOUNT,
   ERR_BROKER_NO_KEYS,
+  ERR_ORDER_NOT_PAPER,
   registerBroker,
   type BrokerService,
 } from './index';
-import { createBrokerRepository, type BrokerRepository } from './repository';
+import { createBrokerRepository, type BrokerRepository, type NewBrokerOrder } from './repository';
 
 // electron solo aporta app/ipcMain: mismo patrón que las demás pruebas
 // de servicios de main (settings-ipc.test.ts, routine/index.test.ts).
@@ -566,6 +567,115 @@ describe('registerBroker · órdenes limitadas manuales', () => {
 });
 
 // ---------------------------------------------------------------------------
+// orders:list unido paper + live (fase 7)
+// ---------------------------------------------------------------------------
+
+describe('registerBroker · orders:list une paper y reales', () => {
+  /** Orden real directa en broker_orders_live (la prueba de humo las crea así). */
+  const seedLiveOrder = (clientOrderId: string): void => {
+    createBrokerRepository(db, { ordersTable: 'broker_orders_live' }).insertOrder({
+      clientOrderId,
+      ticker: 'SPY',
+      type: 'limit',
+      side: 'buy',
+      quantity: 0.002,
+      limitPrice: 515,
+      requestedPrice: 500,
+      requestedAt: '2026-10-08T20:00:00.000Z',
+      status: 'ejecutada',
+      attempts: 1,
+    });
+  };
+
+  it('devuelve las órdenes paper y las reales, cada una con su mode', async () => {
+    const { ctx } = await connectSimulated();
+    const signal = seedSignal();
+    ctx.broadcast(IPC_CHANNELS.signals.new, { signal });
+    await waitFor(() => repo.listOrders({}).length > 0);
+    seedLiveOrder('tradia-humo-1-compra');
+
+    const all = (await handle(IPC_CHANNELS.orders.list)(null, undefined)) as BrokerOrder[];
+    const entry = all.find((o) => o.clientOrderId === `tradia-${signal.id}-entrada`);
+    const live = all.find((o) => o.clientOrderId === 'tradia-humo-1-compra');
+    expect(entry?.mode).toBe('paper');
+    expect(live?.mode).toBe('live');
+
+    // El filtro por modo selecciona una sola cuenta.
+    const onlyLive = (await handle(IPC_CHANNELS.orders.list)(null, {
+      mode: 'live',
+    })) as BrokerOrder[];
+    expect(onlyLive.map((o) => o.clientOrderId)).toEqual(['tradia-humo-1-compra']);
+    const onlyPaper = (await handle(IPC_CHANNELS.orders.list)(null, {
+      mode: 'paper',
+    })) as BrokerOrder[];
+    expect(onlyPaper.every((o) => o.mode === 'paper')).toBe(true);
+    expect(onlyPaper.some((o) => o.clientOrderId === 'tradia-humo-1-compra')).toBe(false);
+  });
+
+  it('devuelve el conjunto unido en orden cronológico, no tabla a tabla', async () => {
+    await connectSimulated();
+    const paperOrder = (clientOrderId: string): void => {
+      repo.insertOrder({
+        clientOrderId,
+        ticker: 'AAPL',
+        type: 'market',
+        side: 'buy',
+        quantity: 1,
+        requestedPrice: 200,
+        requestedAt: '2026-10-08T20:00:00.000Z',
+        status: 'ejecutada',
+      } satisfies NewBrokerOrder);
+    };
+    // Una real entre dos paper: por el canal llega el orden del conjunto
+    // mezclado (creado_en DESC), no las live primero ni por tabla.
+    paperOrder('paper-1');
+    seedLiveOrder('tradia-humo-1-compra');
+    paperOrder('paper-2');
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:00:00.000Z',
+      'paper-1',
+    );
+    db.prepare(`UPDATE broker_orders_live SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:05:00.000Z',
+      'tradia-humo-1-compra',
+    );
+    db.prepare(`UPDATE broker_orders SET creado_en = ? WHERE client_order_id = ?`).run(
+      '2026-10-08T20:10:00.000Z',
+      'paper-2',
+    );
+
+    const all = (await handle(IPC_CHANNELS.orders.list)(null, undefined)) as BrokerOrder[];
+    expect(all.map((o) => [o.clientOrderId, o.mode])).toEqual([
+      ['paper-2', 'paper'],
+      ['tradia-humo-1-compra', 'live'],
+      ['paper-1', 'paper'],
+    ]);
+  });
+
+  it('orders:cancel con mode live se niega en claro sin tocar la orden paper con ese id', async () => {
+    await connectSimulated();
+    const order = (await handle(IPC_CHANNELS.orders.create)(null, {
+      ticker: 'aapl',
+      side: 'buy',
+      quantity: 2,
+      limitPrice: 1,
+    })) as BrokerOrder;
+
+    await expect(
+      handle(IPC_CHANNELS.orders.cancel)(null, { id: order.id, mode: 'live' }),
+    ).rejects.toThrow(ERR_ORDER_NOT_PAPER);
+    // La orden paper con el mismo id sigue abierta: no se tocó.
+    expect(repo.getOrder(order.id)?.status).toBe('enviada');
+    // Marcada como paper, sí cancela.
+    const canceled = (await handle(IPC_CHANNELS.orders.cancel)(null, {
+      id: order.id,
+      mode: 'paper',
+    })) as BrokerOrder;
+    expect(canceled.status).toBe('cancelada');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Cableado de señales
 // ---------------------------------------------------------------------------
 
@@ -604,5 +714,23 @@ describe('registerBroker · envoltura de broadcast', () => {
     expect(repo.listOrders({})).toEqual([]);
     // El evento siguió llegando al renderer (seguimiento local intacto).
     expect(sent.some((m) => m.channel === IPC_CHANNELS.signals.new)).toBe(true);
+  });
+
+  it('con el modo real operando la señal no la ejecuta el gestor paper', async () => {
+    const { ctx } = await connectSimulated();
+    // El modo real está activo con su cuenta: las señales son del broker live.
+    ctx.services.live = { liveExecutionActive: () => true } as never;
+
+    const signal = seedSignal();
+    ctx.broadcast(IPC_CHANNELS.signals.new, { signal });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(repo.listOrders({})).toEqual([]);
+
+    // Con el modo real fuera, la misma señal sí la toma el paper.
+    ctx.services.live = { liveExecutionActive: () => false } as never;
+    const next = seedSignal();
+    ctx.broadcast(IPC_CHANNELS.signals.new, { signal: next });
+    await waitFor(() => repo.listOrders({}).length > 0);
+    expect(repo.listOrders({})).toHaveLength(1);
   });
 });

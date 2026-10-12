@@ -14,7 +14,10 @@ import type { StrategyParams } from '../types';
  * cada una debe ser un número finito. Devuelve el mismo shape que
  * `defaults` para que la estrategia trabaje con tipos concretos.
  */
-export function resolveParams<D extends Record<string, number>>(defaults: D, params: StrategyParams): D {
+export function resolveParams<D extends Record<string, number>>(
+  defaults: D,
+  params: StrategyParams,
+): D {
   const resolved = { ...defaults };
   for (const key of Object.keys(resolved) as (keyof D & string)[]) {
     const value = params[key];
@@ -39,12 +42,7 @@ export function requireIntegerParam(value: number, name: string, min = 1): void 
 }
 
 /** Exige un número en (min, max) inclusive. */
-export function requireParamRange(
-  value: number,
-  name: string,
-  min: number,
-  max: number,
-): void {
+export function requireParamRange(value: number, name: string, min: number, max: number): void {
   if (value < min || value > max) {
     throw new RangeError(
       `estrategia: el parámetro '${name}' debe estar entre ${min} y ${max} (${value})`,

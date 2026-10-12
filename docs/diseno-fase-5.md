@@ -108,14 +108,14 @@ La ventana mínima objetivo es 700 px. La barra lateral usa la variante compacta
 
 ## Matriz de implementación
 
-| Componente | Estado obligatorio | Texto/acción clave |
-| --- | --- | --- |
-| `BrokerSettings` | sin conectar, validación, comprobando, conectada, error, sin llavero | Probar, ejecutar, reemplazar, desconectar con confirmación |
-| `PaperBadge` | normal, tema oscuro | `Solo paper · sin dinero real` completo |
-| `OrdersTable` | cargando, vacío, filtrado vacío, error, datos congelados, éxito | OCO agrupado; cancelar solo abiertas |
-| `ReconcileStatus` | sin ejecutar, ejecutando, limpio, descuadre, error | hora, próxima ejecución y `Conciliar ahora` |
-| `ReconcileBanner` | una o varias diferencias, resuelta | activo y cantidades app/broker |
-| `DeviationTable` | cargando, vacío semanal/mensual, parcial, error, éxito | alerta con icono + texto + motivo |
-| `DeviationMargins` | limpio, validación, guardando, éxito, error | márgenes en pp y pb |
+| Componente         | Estado obligatorio                                                   | Texto/acción clave                                         |
+| ------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `BrokerSettings`   | sin conectar, validación, comprobando, conectada, error, sin llavero | Probar, ejecutar, reemplazar, desconectar con confirmación |
+| `PaperBadge`       | normal, tema oscuro                                                  | `Solo paper · sin dinero real` completo                    |
+| `OrdersTable`      | cargando, vacío, filtrado vacío, error, datos congelados, éxito      | OCO agrupado; cancelar solo abiertas                       |
+| `ReconcileStatus`  | sin ejecutar, ejecutando, limpio, descuadre, error                   | hora, próxima ejecución y `Conciliar ahora`                |
+| `ReconcileBanner`  | una o varias diferencias, resuelta                                   | activo y cantidades app/broker                             |
+| `DeviationTable`   | cargando, vacío semanal/mensual, parcial, error, éxito               | alerta con icono + texto + motivo                          |
+| `DeviationMargins` | limpio, validación, guardando, éxito, error                          | márgenes en pp y pb                                        |
 
 Los mockups autocontenidos de `.orquesta/design/cedf884a/` son referencia visual; este documento gobierna comportamiento, copias y estados cuando exista cualquier diferencia.

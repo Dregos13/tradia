@@ -10,7 +10,7 @@ import malformedPrices from './__fixtures__/malformed-prices.json';
 import nvdaPrices from './__fixtures__/nvda-prices.json';
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
 import { createTiingoProvider } from './tiingo';
-import { isMarketDataError, type MarketDataErrorKind } from './types';
+import { isInvalidStoredKeyError, isMarketDataError, type MarketDataErrorKind } from './types';
 
 const API_KEY = 'tk-SECRETO-de-prueba-12345';
 
@@ -123,6 +123,20 @@ describe('adaptador Tiingo', () => {
       kind: 'auth',
       provider: 'tiingo',
     });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('una clave guardada con caracteres de control falla como clave no válida, sin llamar a la red', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(aaplPrices));
+    const provider = make(fetch, { getApiKey: async () => 'tk-SECRETO-de-prueba\r12345' });
+
+    const error = await provider
+      .getBars('AAPL', '2020-08-01', '2020-09-05')
+      .catch((e: unknown) => e);
+    expect(isInvalidStoredKeyError(error)).toBe(true);
+    expect(isMarketDataError(error, 'auth')).toBe(true);
+    expect((error as Error).message).toContain('vuelve a pegarla');
+    expect((error as Error).message).not.toContain('SECRETO');
     expect(calls).toHaveLength(0);
   });
 
