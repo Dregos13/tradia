@@ -175,13 +175,13 @@ _Claude · Predeterminado (Testing) · 12-10-2026 · `HEAD` = `f0bf2226` («Rond
 | `scaling.test.ts` sin formato | auditoría | Corregido | `format:check` en verde |
 | F1 · ficha sin «Estado actualizado» ni foco | `e2e-reglas-noticias.md` | Corregido | `StrategiesPage.tsx:123`, `StrategyDetail.tsx:252`; `StrategiesPage.test.tsx:149`; E2E `custom-strategy.spec.ts:127` (3/3) |
 | O1 · «Venta» sin posición en una propia solo larga | E2E | Justificado | Riesgo la veta con motivo; igual en las clásicas (`signals-dashboard.spec.ts:152`) |
-| O2 · con `Objetivo: ninguno` Riesgo veta la compra | E2E | **Hecho** | El comportamiento del motor de riesgo no cambia. La ayuda del objetivo avisa ahora de que con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo: `src/renderer/src/components/strategies/RuleEditor.tsx:21-22`; prueba `RuleEditor.test.tsx:366` |
+| O2 · con `Objetivo: ninguno` Riesgo veta la compra | E2E | **Cerrado** (ver «Cierre de los dos fallos abiertos») | El comportamiento del motor de riesgo no cambia. La ayuda del objetivo avisa de que con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo: `src/renderer/src/components/strategies/RuleEditor.tsx:21-22`; prueba `RuleEditor.test.tsx:366`; comprobado en la app abierta |
 | P-1 · nombre cortado a 120 | `perfiles-reglas-noticias.md` | Corregido | `StrategyNameAndLibrary.test.tsx:28`, `:41` |
 | P-2 · cabeceras partidas en la biblioteca | perfiles | Corregido | `StrategyNameAndLibrary.test.tsx:83`, `:102` |
 | P-3 · `estado-pendientes.md` desfasado | perfiles | Corregido | §1 reescrito; referencias revisadas otra vez en esta verificación |
 | P-4 · faltaban tareas del usuario | perfiles | Corregido | `docs/tareas-del-usuario.md` §0, §1, §4 y §7 |
 | Obs. · sin notificación al arrancar sin CLI | perfiles | Corregido | `news/service.ts:586`; `service.test.ts:595` |
-| `FirstStepsCard` intermitente / `daily-routine` según la hora | regresión / fe-correcciones | Corregido | `FirstStepsCard.test.tsx:143`; `daily-routine.spec.ts:232`; 2.710/2.710 y 54/54 en esta ejecución |
+| `FirstStepsCard` intermitente / `daily-routine` según la hora | regresión / fe-correcciones | **Cerrado** (ver «Cierre de los dos fallos abiertos») | `FirstStepsCard.tsx:81-86`, `FirstStepsCard.test.tsx:126-151`; `daily-routine.spec.ts:232`; 50/50 con carga, 2.711/2.711 y 54/54 |
 
 ### Sesiones por perfil
 
@@ -206,3 +206,41 @@ Ninguna tarea usa la API de pago. En este orden:
 - Windows y Linux: solo se ha ejecutado en macOS. La rama `claude.cmd` corre aquí con `platform: 'win32'` inyectado, no en un Windows real.
 - CLI real de Claude Code con sesión, notificación real de macOS tras `/logout`, claves reales y dinero real: son tareas del usuario.
 - Lector de pantalla manual y auditoría axe.
+
+## Cierre de los dos fallos abiertos (continuación)
+
+_Claude · Predeterminado (Testing, sustituye a Copilot; entrega provisional hasta la revisión) · 13-10-2026 · `HEAD` = `d12b7734` («Prueba de FirstStepsCard estable con el equipo cargado»). Sin cambios en `src` ni en `e2e`. Cada archivo:línea de esta sección se ha comprobado con `grep -n` / `sed -n` sobre `d12b7734`._
+
+**Veredicto: los dos fallos están cerrados y todas las puertas están en verde.** Queda una observación nueva y menor del editor (aviso «vacío» durante unos 200 ms tras insertar un ejemplo), descrita en `docs/qa/cierre-fallos-continuacion.md`. No afecta a O2 ni a ninguna puerta.
+
+### Los dos fallos
+
+| Fallo | Estado | Evidencia en el código | Ejecución repetida |
+| --- | --- | --- | --- |
+| **FirstStepsCard** «permite ocultar cuando todo está hecho y reaparece si se elimina una clave» falla de forma intermitente bajo carga | **Cerrado** | `src/renderer/src/components/onboarding/FirstStepsCard.tsx:81-86`: si faltan claves, borra «oculto» (`writeStorage(FIRST_STEPS_HIDDEN_KEY, null)`, `:83`) **antes** de `setConfig` (`:86`). Prueba `FirstStepsCard.test.tsx:126` con la respuesta controlada (`resolveStatuses`, `:137`) y la espera sobre DOM y `localStorage` (`:150`), sin pausas | **50/50** en bucle, una ejecución por proceso (`-t 'reaparece si se elimina una clave'`), con `npm test` en bucle a la vez: «BUCLE pass=50 fail=0». Además, `--repeats=49` (50 pasadas de los 6 casos) con otro `npm test` a la vez: «Tests 6 passed (6)», EXIT 0. Ese `npm test` simultáneo: 2.711/2.711 |
+| **O2** · la ayuda del editor no avisaba de que con «Sin objetivo» Riesgo vetará la compra | **Cerrado** | `src/renderer/src/components/strategies/RuleEditor.tsx:21-22` (ayuda del campo `target`), el botón «Sin objetivo» inserta `ninguno` (`:55`). Prueba `RuleEditor.test.tsx:366` («avisa en la ayuda del objetivo de que sin objetivo el motor de riesgo vetará la compra») | En la app abierta (Electron con `TRADIA_E2E`): Estrategias › Nueva estrategia › «Sin objetivo». El campo queda en `ninguno` y su descripción accesible dice «Con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo.» y, a los 500 ms, «Válida». Captura: `docs/qa/capturas/cierre-o2-sin-objetivo.png` |
+
+Nota sobre el comando: `npx vitest run … --repeat=50` lo rechaza Vitest 5.0.3 («CACError: Unknown option `--repeat`»). El equivalente es `--repeats=49`, que hace 50 pasadas en total. Vitest no publica el número de pasadas en su salida, así que el 50/50 se ha comprobado también con el bucle de 50 procesos.
+
+### Puertas
+
+Ejecutadas una a una sobre `d12b7734`, sin otras pruebas en marcha salvo donde se indica:
+
+| Comando | Resultado |
+| --- | --- |
+| `npx vitest run src/renderer/src/components/onboarding/FirstStepsCard.test.tsx --repeats=49` + `npm test` a la vez | **EXIT 0**, «Tests 6 passed (6)». El `npm test` simultáneo: **EXIT 0**, 192 archivos, 2.711/2.711 |
+| Bucle de 50 ejecuciones de la prueba + `npm test` en bucle | **50/50**. Observación: en la 2.ª vuelta del `npm test` de carga, con una carga media de 18 (dos baterías, 50 arranques de Vitest y el Playwright de otra tarea), dos pruebas ajenas pasaron del límite de 5 s: `src/main/market/ingestion.test.ts:481` (5,6 s; 0,6 s normalmente) y `StrategiesPage.test.tsx:97` (5,1 s; 0,9 s normalmente). Repetidas 10 veces cada una (`--repeats=9`): 34/34. Es saturación de la máquina, no un fallo del producto |
+| `npm run typecheck` | **EXIT 0** (`tsc --noEmit`, sin errores) |
+| `npm run lint` | **EXIT 0** (`eslint .`, sin avisos) |
+| `npm run format:check` | **EXIT 0**: «All matched files use Prettier code style!» |
+| `npx prettier --check src/main/live/scaling.test.ts` | **EXIT 0**: «All matched files use Prettier code style!». Los dos mensajes que pedían formatear este archivo ya no aplican |
+| `npm test` (solo) | **EXIT 0**: «Test Files 192 passed (192) · Tests 2711 passed (2711)», 37,8 s |
+| `npm run test:e2e` | **EXIT 0**: «54 passed (4.6m)». Las 65 capturas reescritas de `docs/qa/capturas/` se han restaurado con `git checkout` |
+| `git ls-files .venv-ml \| wc -l` | **0** |
+| `grep -rnE '\b(it\|test\|describe)\.(only\|skip\|fails\|skipIf\|runIf)\(\|\.fixme\(' src e2e \| wc -l` | **0** |
+| `grep -niE 'api de pago\|ANTHROPIC_API_KEY\|--provider api' docs/tareas-del-usuario.md` | Solo `:10`, que dice que **no** se usa ninguna API de pago |
+
+### Sesiones por perfil
+
+- **Responsable de equipo que revisa entregas.** Repite la prueba intermitente 50 veces con el equipo cargado, lanza todas las puertas y comprueba cada archivo:línea con `grep -n`. Esperado: 50/50 y todo en verde. Observado: 50/50, todas las puertas en verde y las referencias coinciden.
+- **Profesional independiente que organiza varios proyectos.** Crea una estrategia y pulsa «Sin objetivo». Esperado: la ayuda avisa del veto de Riesgo. Observado: lo avisa (captura de arriba). Durante unos 200 ms, el campo muestra en rojo «el campo de objetivo está vacío…» aunque ya contiene `ninguno` (`docs/qa/capturas/cierre-o2-aviso-transitorio.png`). Detalle en `docs/qa/cierre-fallos-continuacion.md`.
