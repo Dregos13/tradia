@@ -17,7 +17,15 @@ import { ScalingStatus } from './ScalingStatus';
 let adapter: ReturnType<typeof createSimulatedAdapter>;
 let emit: (state: LiveState) => void;
 let initial: LiveState;
-const limits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1, shortOrderUsd: 0, shortExposureUsd: 0, shortPositions: 0 };
+const limits = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
+};
 const at = '2026-10-10T14:01:00Z';
 const smoke: LiveSmokeTestResult = {
   state: 'cerrada-conciliada',

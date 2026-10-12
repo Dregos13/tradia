@@ -201,3 +201,19 @@ Revisa que cada fallo del objetivo tiene su cierre comprobable.
   **2.619 pruebas, 187 archivos**. `npm run test:e2e` completo en verde:
   **50/50**, incluido el nuevo recorrido de corto y la regresión IPC. No quedan
   pruebas omitidas en `src` ni `e2e`; `git ls-files .venv-ml` sigue vacío.
+
+### Corrección de la verificación del frontend de corto
+
+- `App.tsx` pasa su estado de dinero real a `LiveBanner.tsx`: franja,
+  cabecera y clase `has-banner` se actualizan con la misma lectura y los mismos
+  eventos, sin una segunda suscripción que pueda adelantar la franja.
+- `App.test.tsx` mantiene la aserción estricta de `has-banner` y añade una
+  regresión con consultas demoradas. También comprueba un evento recibido
+  mientras la lectura inicial está pendiente y la limpieza de suscripciones.
+- `npm install` y `npm test` pasan: **2.658 pruebas en 187 archivos**;
+  `typecheck` y `lint` pasan. Las 66 pruebas de App y LiveBanner pasan.
+- `npm run test:e2e` pasa: **50/50**, incluido el recorrido de la propia
+  con cortos, la validación accesible y las operaciones en el historial.
+- `format:check` detecta únicamente `src/main/live/scaling.test.ts`, fuera
+  del alcance de esta tarea de frontend; Backend debe formatearlo. Se han
+  formateado los fixtures de límites de renderer y E2E sin alterar su contenido.

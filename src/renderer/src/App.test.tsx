@@ -143,7 +143,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(16);
+    expect(simulation.listenerCount()).toBe(15);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });
@@ -449,7 +449,15 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
     mode: 'activo',
     hasCredentials: true,
     accountMasked: '•••• 4821',
-    limits: { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1, shortOrderUsd: 0, shortExposureUsd: 0, shortPositions: 0 },
+    limits: {
+      capitalUsd: 500,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    },
     activatedAt: '2026-10-10T14:00:00Z',
   };
   vi.spyOn(simulation.api.live, 'state').mockResolvedValue(active);
@@ -480,6 +488,30 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
   expect(banner).toBeVisible();
   unmount();
   expect(simulation.listenerCount()).toBe(0);
+});
+
+it('muestra la franja y su contenedor con el mismo estado aunque las consultas se demoren', async () => {
+  online();
+  const initial = await simulation.api.live.state();
+  const active: LiveState = { ...initial, mode: 'activo' };
+  const pending: ((state: LiveState) => void)[] = [];
+  vi.spyOn(simulation.api.live, 'state').mockImplementation(
+    () => new Promise<LiveState>((resolve) => pending.push(resolve)),
+  );
+  await act(async () => {
+    render(<App />);
+  });
+  expect(pending.length).toBeGreaterThan(0);
+  expect(screen.queryByRole('complementary', { name: 'Aviso de dinero real' })).toBeNull();
+  for (const resolve of pending) {
+    await act(async () => resolve(active));
+    const banner = screen.queryByRole('complementary', { name: 'Aviso de dinero real' });
+    if (banner) {
+      expect(banner.closest('.app')).toHaveClass('has-banner');
+      expect(screen.getByText('Dinero real activo', { selector: '.mode' })).toBeVisible();
+    }
+  }
+  expect(screen.getByRole('complementary', { name: 'Aviso de dinero real' })).toBeVisible();
 });
 
 it('actualiza franja, cabecera y aviso principal al activar, suspender y volver a paper', async () => {
@@ -596,16 +628,24 @@ it('muestra carga, error recuperable y desconexión sin afirmar que los modelos 
   expect(screen.getByText(/Sin conexión · revisión de salud pausada/)).toBeVisible();
 });
 
-it('mantiene visible la franja aunque la consulta de modo de la cabecera siga pendiente', async () => {
+it('sincroniza franja y cabecera con un evento mientras la consulta inicial sigue pendiente', async () => {
   const initial = await simulation.api.live.state();
-  vi.spyOn(simulation.api.live, 'state')
-    .mockResolvedValueOnce({ ...initial, mode: 'activo' })
-    .mockReturnValue(new Promise(() => {}));
+  vi.spyOn(simulation.api.live, 'state').mockReturnValue(new Promise(() => {}));
+  const listeners = new Set<(state: LiveState) => void>();
+  vi.spyOn(simulation.api.live, 'onChanged').mockImplementation((listener) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  });
   await act(async () => {
     render(<App />);
   });
   expect(screen.getByText('Comprobando modo…')).toBeVisible();
+  act(() => listeners.forEach((listener) => listener({ ...initial, mode: 'activo' })));
   const banner = await screen.findByRole('complementary', { name: 'Aviso de dinero real' });
   expect(banner).toBeVisible();
+  expect(banner.closest('.app')).toHaveClass('has-banner');
+  expect(screen.getByText('Dinero real activo', { selector: '.mode' })).toBeVisible();
   expect(banner.closest('.app-banner-stack')).not.toHaveAttribute('hidden');
 });
