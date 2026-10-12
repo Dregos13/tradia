@@ -166,6 +166,7 @@ import {
   DRIFT_CHECK_KINDS,
   NEWS_ANALYSIS_MAX_LIMIT,
   NEWS_ANALYZERS,
+  NEWS_PROVIDERS,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
   PREDICTIONS_MAX_LIMIT,
@@ -183,6 +184,7 @@ import type {
   NewsAnalysis,
   NewsAnalysisQuery,
   NewsAnalyzer,
+  NewsStatus,
   NewsLlmSettings,
   NewsLlmSettingsInput,
   NewsLlmTestResult,
@@ -583,6 +585,13 @@ export const IPC_CHANNELS = {
     modelCard: 'ai:model-card',
     /** Análisis de noticias confirmadas por activo (`{newsItemId?, ticker?, limit?}`). */
     newsAnalysis: 'ai:news-analysis',
+    /**
+     * Estado del análisis por suscripción: proveedor elegido, salud de la
+     * CLI de Claude Code y el motivo/paso para resolverlo cuando falla.
+     */
+    newsStatus: 'ai:news-status',
+    /** Evento main → renderer: el estado del análisis por suscripción cambió. */
+    newsStatusChanged: 'ai:news-status-changed',
     /** Ajustes del LLM de noticias (nunca la clave: solo `hasKey`). */
     getLlmSettings: 'ai:get-llm-settings',
     setLlmSettings: 'ai:set-llm-settings',
@@ -1731,6 +1740,14 @@ export interface TradiaApi {
     modelCard(): Promise<ModelCard | null>;
     /** Análisis de noticias confirmadas por activo. */
     newsAnalysis(query?: NewsAnalysisQuery): Promise<NewsAnalysis[]>;
+    /**
+     * Estado del análisis por suscripción: si la CLI falla (no encontrada,
+     * sin sesión o tope diario) `state` lo dice y `message` da el paso
+     * para resolverlo mientras los titulares se analizan en local.
+     */
+    newsStatus(): Promise<NewsStatus>;
+    /** Llega una vez por cada cambio del estado del análisis. */
+    onNewsStatusChanged(listener: (status: NewsStatus) => void): () => void;
     /**
      * Ajustes del análisis LLM de noticias. `hasKey` solo indica si hay
      * clave cifrada guardada; la clave nunca sale del proceso principal.
@@ -3388,9 +3405,14 @@ export function isNewsAnalysisQuery(value: unknown): value is NewsAnalysisQuery 
   return true;
 }
 
-/** Analizador de titulares registrado ('llm' | 'local' | 'suscripcion'). */
+/** Analizador de titulares persistido ('llm' | 'local' | 'suscripcion'). */
 export function isNewsAnalyzer(value: unknown): value is NewsAnalyzer {
   return typeof value === 'string' && (NEWS_ANALYZERS as readonly string[]).includes(value);
+}
+
+/** Proveedor elegible en Ajustes ('suscripcion' | 'local'); 'llm' se retiró. */
+export function isNewsProvider(value: unknown): value is NewsAnalyzer {
+  return typeof value === 'string' && (NEWS_PROVIDERS as readonly string[]).includes(value);
 }
 
 /** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
@@ -3402,7 +3424,8 @@ export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettings
   const allowed = ['enabled', 'provider', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
   if (keys.some((k) => !allowed.includes(k))) return false;
   if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
-  if ('provider' in v && !isNewsAnalyzer(v.provider)) return false;
+  // El proveedor solo admite los elegibles: 'llm' (API de pago) se retiró.
+  if ('provider' in v && !isNewsProvider(v.provider)) return false;
   if (
     'cliPath' in v &&
     v.cliPath !== null &&

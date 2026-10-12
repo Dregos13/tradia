@@ -296,13 +296,23 @@ export const NEWS_SENTIMENTS = ['positivo', 'negativo', 'neutro', 'mixto'] as co
 export type NewsSentiment = (typeof NEWS_SENTIMENTS)[number];
 
 /**
- * Quién produjo el análisis: el LLM remoto ('llm', API de Anthropic), el
- * clasificador léxico local ('local') o la CLI de Claude Code con la
- * suscripción del usuario ('suscripcion'). También es la elección del
- * proveedor en los ajustes del análisis (`NewsLlmSettings.provider`).
+ * Quién produjo el análisis: el clasificador léxico local ('local'), la
+ * CLI de Claude Code con la suscripción del usuario ('suscripcion') o,
+ * en filas ya guardadas, la retirada API de pago ('llm'). 'llm' solo
+ * sobrevive como etiqueta histórica de `news_analysis` (el CHECK de la
+ * tabla la admite): ya no es un proveedor elegible —los ajustes usan
+ * `NEWS_PROVIDERS`—.
  */
 export const NEWS_ANALYZERS = ['llm', 'local', 'suscripcion'] as const;
 export type NewsAnalyzer = (typeof NEWS_ANALYZERS)[number];
+
+/**
+ * Proveedores que el usuario puede elegir en Ajustes para los análisis
+ * nuevos: la suscripción de Claude Code o el analizador local. La API de
+ * pago ('llm') se retiró y el IPC la rechaza.
+ */
+export const NEWS_PROVIDERS = ['suscripcion', 'local'] as const;
+export type NewsProvider = (typeof NEWS_PROVIDERS)[number];
 
 /**
  * Análisis de una noticia confirmada para un activo (`news_analysis`, una
@@ -344,28 +354,40 @@ export const NEWS_ANALYSIS_MAX_LIMIT = 200;
 
 // — Ajustes del LLM (Ajustes · «Análisis de noticias con LLM») -----------
 
-/** Modelo fijo del análisis LLM (API Anthropic Messages). */
+/**
+ * @deprecated Modelo de la API de pago retirada; solo queda como etiqueta
+ * del analizador simulado de E2E y de las filas históricas de
+ * `news_analysis`.
+ */
 export const NEWS_LLM_MODEL = 'claude-haiku-4-5-20251001';
-/** Proveedor del almacén `secrets` donde vive la clave de Anthropic. */
+/**
+ * Proveedor del almacén `secrets` donde vivía la clave de la API de pago.
+ * Se conserva solo para que la migración pueda borrar la clave cifrada
+ * que quedara guardada: ningún análisis la vuelve a leer.
+ */
 export const NEWS_LLM_SECRET_PROVIDER = 'news-llm-anthropic';
 /** Tope diario de titulares analizados por defecto (se mide en titulares, no en euros). */
 export const NEWS_LLM_DAILY_CAP_DEFAULT = 200;
-/** Márgenes del tope diario y del presupuesto mensual en euros. */
+/** Márgenes del tope diario de titulares analizados. */
 export const NEWS_LLM_DAILY_CAP_BOUNDS = { min: 1, max: 2_000 } as const;
+/**
+ * @deprecated Márgenes del presupuesto mensual de la API de pago
+ * retirada; sin efecto — el servicio ya no guarda ni aplica presupuesto.
+ */
 export const NEWS_LLM_MONTHLY_BUDGET_BOUNDS = { min: 0, max: 30 } as const;
 
 /**
- * Ajustes del análisis LLM (`ai:get-llm-settings`). Nunca incluye la
- * clave: `hasKey` solo dice si hay una guardada cifrada en `secrets`.
+ * Ajustes del análisis de noticias (`ai:get-llm-settings`).
  *
  * `provider` es el analizador elegido para los titulares confirmados:
  * 'suscripcion' invoca la CLI de Claude Code con la sesión de la
- * suscripción del usuario (sin coste de API), 'llm' la API de Anthropic
- * con su clave y presupuesto y 'local' el clasificador léxico —que
- * equivale al LLM desactivado (`enabled` false)—. `enabled` se conserva
- * por compatibilidad y va de la mano de `provider`: vale true salvo con
- * 'local'. El tope diario se mide en titulares analizados y se aplica a
- * cualquier proveedor LLM; el presupuesto en euros solo cuenta para 'llm'.
+ * suscripción del usuario (sin coste de API) y 'local' el clasificador
+ * léxico —que equivale al LLM desactivado (`enabled` false)—. `enabled`
+ * va de la mano de `provider`: vale true salvo con 'local'. El tope
+ * diario se mide en titulares analizados y lo aplica la suscripción.
+ * Los campos `monthlyBudgetEur`, `hasKey` y `spentThisMonthEur` son un
+ * resto de la API de pago retirada: se devuelven solo para no romper el
+ * contrato mientras la interfaz se adapta, y ya no gobiernan nada.
  */
 export interface NewsLlmSettings {
   /** Interruptor «Usar LLM para titulares confirmados» (apagado por defecto). */
@@ -379,27 +401,32 @@ export interface NewsLlmSettings {
   cliPath: string | null;
   /** La CLI configurada (o la del PATH) está instalada y localizable. */
   cliAvailable: boolean;
-  /** Máximo de titulares analizados por día con cualquier proveedor LLM. */
+  /** Máximo de titulares analizados por día con la suscripción. */
   dailyCap: number;
-  /** Tope mensual de gasto en euros; solo aplica al proveedor 'llm' (0 = sin gasto autorizado). */
+  /** @deprecated La API de pago se retiró: siempre 0. */
   monthlyBudgetEur: number;
-  /** Hay una clave de Anthropic guardada cifrada. */
+  /** @deprecated Queda de la clave de la API retirada; false tras la migración que la borra. */
   hasKey: boolean;
-  /** Titulares analizados hoy por un proveedor LLM. */
+  /** Titulares analizados hoy por la suscripción. */
   usedToday: number;
-  /** Gasto estimado del mes en euros (solo 'llm'; 'suscripcion' no factura). */
+  /** @deprecated Gasto histórico de la API retirada; ya no crece. */
   spentThisMonthEur: number;
 }
 
 /** Entrada de `ai:set-llm-settings`; cada campo es opcional. */
 export interface NewsLlmSettingsInput {
   enabled?: boolean;
-  /** Proveedor elegido; 'local' equivale a desactivar el LLM. */
+  /**
+   * Proveedor elegido; 'local' equivale a desactivar el LLM. El tipo
+   * admite 'llm' por compatibilidad con la interfaz anterior, pero el
+   * validador del IPC ya no lo acepta (la API de pago se retiró).
+   */
   provider?: NewsAnalyzer;
   /** Ruta de la CLI de Claude Code; null vuelve a la autodetección (PATH). */
   cliPath?: string | null;
   /** Tope diario en titulares analizados. */
   dailyCap?: number;
+  /** @deprecated La API de pago se retiró: el validador lo tolera y el servicio lo ignora. */
   monthlyBudgetEur?: number;
 }
 
@@ -408,6 +435,41 @@ export interface NewsLlmTestResult {
   ok: boolean;
   error: string | null;
   latencyMs: number | null;
+}
+
+// — Estado del análisis por suscripción (`ai:news-status`) -------------
+
+/**
+ * Salud del proveedor de análisis elegido. Con 'suscripcion' describe la
+ * CLI de Claude Code: 'cli-no-encontrada' (no hay `claude` localizable),
+ * 'sin-sesion' (hay que hacer `claude` + `/login`), 'tope-diario' (tope
+ * de titulares alcanzado) o 'error' (otro fallo de ejecución). Con
+ * 'local' —y en E2E— el estado es siempre 'ok' salvo un fallo interno.
+ */
+export const NEWS_SUBSCRIPTION_STATES = [
+  'ok',
+  'cli-no-encontrada',
+  'sin-sesion',
+  'tope-diario',
+  'error',
+] as const;
+export type NewsSubscriptionState = (typeof NEWS_SUBSCRIPTION_STATES)[number];
+
+/**
+ * Estado vigente del análisis de noticias (`ai:news-status` y evento
+ * `ai:news-status-changed`). Cuando `state` no es 'ok' el análisis corre
+ * con el clasificador local y `message` explica el motivo y el paso para
+ * resolverlo; la app además manda UNA notificación del sistema al caer
+ * de 'ok' y otra al recuperarse.
+ */
+export interface NewsStatus {
+  /** Proveedor configurado en Ajustes ('suscripcion' o 'local'). */
+  provider: NewsAnalyzer;
+  state: NewsSubscriptionState;
+  /** Desde cuándo está en este estado (ISO 8601). */
+  since: string;
+  /** Motivo legible y paso para resolverlo; null cuando 'ok'. */
+  message: string | null;
 }
 
 // ---------------------------------------------------------------------------
