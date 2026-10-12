@@ -183,6 +183,7 @@ Resultado: **23 archivos, 397/397** (`comandos/regresiones.txt`). Las pruebas E2
 
 - **Estado:** Corregido en fe-fix-cierre-r3-r4. Regresiones: `src/renderer/src/components/DataFreshness.test.tsx:371`, `src/renderer/src/components/ai/AiPage.test.tsx:394` y `e2e/stale-data.spec.ts:225` (ambos paneles muestran la fecha conocida y el aviso sin red, sin negarla ni mostrar fechas ISO). Captura actualizada: `docs/qa/capturas/continuacion-datos-sin-red.png`.
 - **Validación de R3/R4:** `npm run typecheck`, `npm run lint`, `npm test` (183 archivos, 2493 pruebas) y `npx playwright test e2e/stale-data.spec.ts` (2 pruebas, tras `npx electron-vite build`) en verde.
+- **Verificación en fe-correcciones-cierre:** R3 y R4 ya estaban corregidos en fe-fix-cierre-r3-r4; no quedan hallazgos abiertos de Frontend. Sus regresiones pasan con `npx vitest run src/renderer` tres veces consecutivas (38 archivos, 434 pruebas por pasada), junto con `npm run typecheck`, `npm run lint` y `npm run format:check`. En esta comprobación se detectó y corrigió una carrera de la prueba `src/renderer/src/components/market/MarketWorkspace.test.tsx`: espera con `waitFor` la creación de las series por `useEffect` antes de comprobar OHLC e indicadores, manteniendo todas las aserciones.
 
 ## 5. Fuera de alcance / no comprobado aquí
 

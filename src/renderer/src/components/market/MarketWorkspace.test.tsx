@@ -78,14 +78,23 @@ describe('Lista y gráfico con adaptador simulado', () => {
     await screen.findByRole('img', { name: /Velas diarias ajustadas de AAPL/ });
     const result = await simulation.api.market.getBars({ ticker: 'AAPL' });
     const candles = adjustedCandles(result.bars);
+    // El nodo accesible aparece antes de que useEffect cree las series del gráfico.
+    await waitFor(() => {
+      const chart = charts.instances.at(-1);
+      expect(chart).toBeDefined();
+      expect(chart!.series[0]!.data).toEqual(candles);
+      for (const [index, period] of [20, 50, 200].entries()) {
+        const values = chart!.series[index + 1]!.data as { time: string; value: number }[];
+        expect(values.at(-1)?.value).toBe(sma(candles, period).at(-1));
+      }
+      expect((chart!.series[4]!.data as { value: number }[]).at(-1)?.value).toBe(
+        rsi(candles).at(-1),
+      );
+      expect((chart!.series[5]!.data as { value: number }[]).at(-1)?.value).toBe(
+        atr(candles).at(-1),
+      );
+    });
     const chart = charts.instances.at(-1)!;
-    expect(chart.series[0]!.data).toEqual(candles);
-    for (const [index, period] of [20, 50, 200].entries()) {
-      const values = chart.series[index + 1]!.data as { time: string; value: number }[];
-      expect(values.at(-1)?.value).toBe(sma(candles, period).at(-1));
-    }
-    expect((chart.series[4]!.data as { value: number }[]).at(-1)?.value).toBe(rsi(candles).at(-1));
-    expect((chart.series[5]!.data as { value: number }[]).at(-1)?.value).toBe(atr(candles).at(-1));
     expect(screen.getByText(/Última vela:/).textContent).toContain(candles.at(-1)!.time);
     expect(screen.getAllByText(/Datos simulados/)).toHaveLength(2);
     await user.click(screen.getByRole('checkbox', { name: 'SMA 20' }));
