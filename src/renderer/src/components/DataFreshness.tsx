@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { sessionDateLabel } from '../../../shared/dates';
 import type {
   DataFreshnessSummary,
   MacroRefreshResult,
@@ -9,17 +10,8 @@ import { DataStateIcon } from './DataStateIcon';
 import { dataStateTokenStylesheet } from './dataStateTokens';
 import { useDataFreshness } from '../hooks/useDataFreshness';
 
-export function sessionDateLabel(date: string | null): string {
-  if (date === null) return 'sin datos';
-  const parsed = new Date(`${date}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime())
-    ? date
-    : parsed.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-}
+export { sessionDateLabel } from '../../../shared/dates';
+
 export function freshnessTitle(
   summary: Pick<DataFreshnessSummary, 'state' | 'sinceDate'>,
   {
