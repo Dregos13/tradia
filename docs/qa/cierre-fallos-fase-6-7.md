@@ -197,3 +197,15 @@ Estas comprobaciones son tareas del usuario (`docs/tareas-del-usuario.md`):
 - la revisión legal y fiscal.
 
 Aquí se han usado el modo E2E, la CLI falsa y, en la app real, un servidor local que imita a Tiingo y FRED.
+
+## Verificación final (entrega, 12 oct 2026)
+
+Ejecutado sobre `da4a4891` en la rama conjunta:
+
+- `npm run typecheck`, `npm run lint` y `npm run format:check`: en verde.
+- `npm test`: 183 archivos y 2.510 pruebas en verde, incluidas todas las regresiones de la tabla.
+- `npx electron-vite build` y `npx playwright test`: 47/47 en verde.
+- `npx playwright test e2e/live-gate.spec.ts --repeat-each=5`: 10/10 en verde.
+- `grep -rnE 'it\.fails|test\.fixme|\.skip\(|\.only\(' src e2e`: sin resultados. `git ls-files .venv-ml`: vacío.
+
+Los 23 fallos y R1–R5 quedan cerrados con su prueba de regresión. Las comprobaciones con claves reales, `claude.cmd` en Windows real, la app empaquetada y la revisión legal y fiscal siguen siendo del usuario.
