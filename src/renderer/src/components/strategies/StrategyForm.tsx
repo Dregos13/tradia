@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   DEFAULT_STRATEGY_COSTS,
+  STRATEGY_NAME_MAX_LENGTH,
   type Strategy,
   type StrategyDraft,
 } from '../../../../shared/strategy';
@@ -89,7 +90,40 @@ export function StrategyForm({
   const summary = ruleErrors.length
     ? `Hay ${ruleErrors.length} ${ruleErrors.length === 1 ? 'error' : 'errores'}. Corrige ${ruleLabels[ruleErrors[0]!.field]} antes de guardar.`
     : 'Reglas válidas · se pueden guardar y ejecutar.';
-  const text = (key: 'name' | 'hypothesis' | 'regime', label: string, max: number) => (
+  const nameExcess = draft.name.length - STRATEGY_NAME_MAX_LENGTH;
+  // Sin maxLength: un nombre pegado de más se conserva entero y se explica, no se corta en silencio.
+  const nameField = (
+    <div>
+      <label htmlFor="strategy-name">Nombre</label>
+      <textarea
+        id="strategy-name"
+        required
+        disabled={busy}
+        aria-invalid={nameExcess > 0}
+        aria-describedby="strategy-name-result strategy-name-count"
+        value={draft.name}
+        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+      />
+      <div className="strategy-rule-result">
+        <span
+          id="strategy-name-result"
+          aria-live="polite"
+          aria-atomic="true"
+          className={nameExcess > 0 ? 'strategy-rule-error' : undefined}
+        >
+          {nameExcess > 0
+            ? `Sobran ${nameExcess} ${nameExcess === 1 ? 'carácter' : 'caracteres'}: acorta el nombre para poder guardar.`
+            : nameExcess === 0
+              ? `Has llegado al máximo de ${STRATEGY_NAME_MAX_LENGTH} caracteres.`
+              : ''}
+        </span>
+        <span id="strategy-name-count">
+          {draft.name.length}/{STRATEGY_NAME_MAX_LENGTH}
+        </span>
+      </div>
+    </div>
+  );
+  const text = (key: 'hypothesis' | 'regime', label: string, max: number) => (
     <div>
       <label htmlFor={`strategy-${key}`}>{label}</label>
       <textarea
@@ -109,6 +143,10 @@ export function StrategyForm({
     setNoteError(false);
     if (parsedParameters === null) {
       document.getElementById('strategy-parameters')?.focus();
+      return;
+    }
+    if (nameExcess > 0) {
+      document.getElementById('strategy-name')?.focus();
       return;
     }
     setSubmitted(true);
@@ -197,7 +235,7 @@ export function StrategyForm({
         <div className="strategy-form-fields">
           <fieldset disabled={busy} id="strategy-section-0">
             <legend>Identidad</legend>
-            {text('name', 'Nombre', 120)}
+            {nameField}
           </fieldset>
           <fieldset disabled={busy} id="strategy-section-1">
             <legend>Hipótesis</legend>
@@ -411,7 +449,9 @@ export function StrategyForm({
           <button
             className="strategy-primary"
             disabled={busy || emptyRules}
-            aria-disabled={(!descriptiveRules && !validation.ok) || parsedParameters === null}
+            aria-disabled={
+              (!descriptiveRules && !validation.ok) || parsedParameters === null || nameExcess > 0
+            }
             type="submit"
           >
             {busy ? 'Guardando…' : strategy ? 'Guardar nueva versión' : 'Crear estrategia'}

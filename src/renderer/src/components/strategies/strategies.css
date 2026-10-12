@@ -76,6 +76,26 @@
 .strategy-table td {
   font-variant-numeric: tabular-nums;
 }
+/* Un nombre largo no estrecha las cifras: las columnas fijas no se parten y el nombre absorbe el ajuste. */
+.strategy-library-table .strategy-table-fixed {
+  white-space: nowrap;
+  min-width: var(--space-16);
+}
+.strategy-library-table .strategy-table-fixed small {
+  white-space: normal;
+}
+.strategy-library-table th[scope='row'] {
+  width: 100%;
+  min-width: calc(var(--space-16) * 3);
+}
+.strategy-table-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .strategy-table small {
   display: block;
   color: var(--color-textMuted);
