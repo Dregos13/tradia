@@ -429,3 +429,85 @@ it('mantiene los 200 ms al escribir y retira los errores del valor anterior mien
   expect(result).toHaveTextContent(/^Válida$/);
   expect(target).toHaveAttribute('aria-invalid', 'false');
 });
+
+it('solo anuncia la comprobación del campo editado y conserva los demás resultados durante 200 ms', () => {
+  vi.useFakeTimers();
+  render(<StrategyForm strategy={strategy} save={vi.fn()} />);
+  const fields = ['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'];
+  const results = fields.map((field) => document.getElementById(`strategy-rule-${field}-result`)!);
+  const unchanged = [
+    'Válida',
+    'Válida',
+    'Sin corto en este campo.',
+    'Sin corto en este campo.',
+    'Válida',
+  ];
+  const expectPendingTarget = () => {
+    results
+      .slice(0, -1)
+      .forEach((result, index) => expect(result).toHaveTextContent(unchanged[index]!));
+    expect(results[5]).toHaveTextContent(/^Comprobando…$/);
+    const liveChecks = [...document.querySelectorAll('[aria-live]')].filter(
+      (element) =>
+        element.getAttribute('aria-live') !== 'off' &&
+        /Comprobando/.test(element.textContent ?? ''),
+    );
+    expect(liveChecks).toEqual([results[5]]);
+  };
+  const target = screen.getByLabelText('Objetivo');
+  fireEvent.change(target, { target: { value: '6' } });
+  expectPendingTarget();
+  act(() => vi.advanceTimersByTime(199));
+  expectPendingTarget();
+  // Otra tecla no cambia el texto de la región viva ni vuelve a anunciar Comprobando.
+  fireEvent.change(target, { target: { value: '6%' } });
+  expectPendingTarget();
+  act(() => vi.advanceTimersByTime(199));
+  expectPendingTarget();
+  act(() => vi.advanceTimersByTime(1));
+  expect(results[5]).toHaveTextContent(/^Válida$/);
+  results
+    .slice(0, -1)
+    .forEach((result, index) => expect(result).toHaveTextContent(unchanged[index]!));
+});
+
+it('conserva el error de un campo sin editar mientras comprueba otro', () => {
+  vi.useFakeTimers();
+  render(
+    <StrategyForm
+      strategy={{ ...strategy, rules: { ...strategy.rules, entry: 'desconocido' } }}
+      save={vi.fn()}
+    />,
+  );
+  const entry = screen.getByLabelText('Entrada');
+  const result = document.getElementById('strategy-rule-entry-result')!;
+  const previous = result.textContent;
+  expect(entry).toHaveAttribute('aria-invalid', 'true');
+  fireEvent.change(screen.getByLabelText('Objetivo'), { target: { value: '6%' } });
+  expect(result.textContent).toBe(previous);
+  expect(entry).toHaveAttribute('aria-invalid', 'true');
+  act(() => vi.advanceTimersByTime(200));
+  expect(result.textContent).toBe(previous);
+});
+
+it('comprueba todos los campos al cambiar parámetros y publica sus resultados reales a los 200 ms', () => {
+  vi.useFakeTimers();
+  render(<StrategyForm strategy={strategy} save={vi.fn()} />);
+  const fields = ['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'];
+  const results = fields.map((field) => document.getElementById(`strategy-rule-${field}-result`)!);
+  fireEvent.change(screen.getByLabelText('Parámetros (objeto JSON de números)'), {
+    target: { value: '{"rapida":0,"lenta":50}' },
+  });
+  results.forEach((result) => expect(result).toHaveTextContent(/^Comprobando…$/));
+  act(() => vi.advanceTimersByTime(199));
+  results.forEach((result) => expect(result).toHaveTextContent(/^Comprobando…$/));
+  act(() => vi.advanceTimersByTime(1));
+  for (const label of ['Entrada', 'Salida']) {
+    expect(screen.getByLabelText(label)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(label)).toHaveAccessibleDescription(/periodo.*caracteres/i);
+  }
+  results
+    .slice(2, 4)
+    .forEach((result) => expect(result).toHaveTextContent(/^Sin corto en este campo\.$/));
+  results.slice(4).forEach((result) => expect(result).toHaveTextContent(/^Válida$/));
+});

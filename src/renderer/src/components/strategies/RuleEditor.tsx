@@ -163,7 +163,7 @@ export function RuleEditor({
   errors: StrategyRulesError[];
   change: (rules: StrategyRules, source: RuleChangeSource) => void;
   busy: boolean;
-  pending?: boolean;
+  pending?: Partial<Record<RuleField, boolean>>;
 }) {
   return (
     <div className="strategy-rule-layout">
@@ -175,7 +175,7 @@ export function RuleEditor({
             value={rules[field] ?? ''}
             error={errors.find((error) => error.field === field)}
             change={(value, source) => change({ ...rules, [field]: value }, source)}
-            pending={pending}
+            pending={pending?.[field]}
             busy={busy}
           />
         ))}

@@ -4,6 +4,7 @@ import {
   STRATEGY_NAME_MAX_LENGTH,
   type Strategy,
   type StrategyDraft,
+  type StrategyRules,
 } from '../../../../shared/strategy';
 import { REGIME_LABELS } from '../../../../shared/ai';
 import { regimeLabels } from './regimeLabels';
@@ -98,10 +99,17 @@ export function StrategyForm({
     );
     return () => clearTimeout(timer);
   }, [validation, draft.rules, parsedParameters]);
-  const validationPending =
-    visibleValidation.rules !== draft.rules || visibleValidation.parameters !== parsedParameters;
-  const ruleErrors =
-    validationPending || visibleValidation.result.ok ? [] : visibleValidation.result.errors;
+  const pending = Object.fromEntries(
+    (Object.keys(ruleLabels) as (keyof StrategyRules)[]).map((field) => [
+      field,
+      visibleValidation.parameters !== parsedParameters ||
+        draft.rules[field] !== visibleValidation.rules[field],
+    ]),
+  ) as Record<keyof StrategyRules, boolean>;
+  const validationPending = Object.values(pending).some(Boolean);
+  const ruleErrors = visibleValidation.result.ok
+    ? []
+    : visibleValidation.result.errors.filter((error) => !pending[error.field]);
   const emptyRules = !Object.values(draft.rules).some((value) => value?.trim());
   const summary = ruleErrors.length
     ? `Hay ${ruleErrors.length} ${ruleErrors.length === 1 ? 'error' : 'errores'}. Corrige ${ruleLabels[ruleErrors[0]!.field]} antes de guardar.`
@@ -302,7 +310,13 @@ export function StrategyForm({
                 </p>
                 <p
                   role={submitted && ruleErrors.length ? 'alert' : 'status'}
-                  aria-live={submitted && ruleErrors.length ? 'assertive' : 'polite'}
+                  aria-live={
+                    validationPending
+                      ? 'off'
+                      : submitted && ruleErrors.length
+                        ? 'assertive'
+                        : 'polite'
+                  }
                 >
                   {emptyRules && !submitted
                     ? 'Completa las cuatro reglas. En Stop y Objetivo también puedes escribir ninguno.'
@@ -318,7 +332,7 @@ export function StrategyForm({
                       (item.field === 'entryShort' && !!draft.rules.exitShort?.trim()) ||
                       (item.field === 'exitShort' && !!draft.rules.entryShort?.trim()),
                   )}
-                  pending={validationPending}
+                  pending={pending}
                   change={(rules, source) => {
                     setDraft({ ...draft, rules });
                     if (source === 'insertion') {
