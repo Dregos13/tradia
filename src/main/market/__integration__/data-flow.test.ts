@@ -16,6 +16,7 @@ import { createSignalsRepository } from '../../signals/repository';
 import type { RiskDecision } from '../../../shared/risk';
 import type { SignalIntent } from '../../../shared/risk';
 import { dataStatusKey, IPC_CHANNELS, type DataStatusEntry } from '../../../shared/ipc';
+import { sessionDateLabel } from '../../../shared/dates';
 
 const DEFAULT_NOW = Date.parse('2026-10-08T19:00:00.000Z');
 
@@ -234,8 +235,8 @@ describe('datos desactualizados y cálculos', () => {
 
     const status = repo.getDataStatus(dataStatusKey.ticker('AAPL'))!;
     expect(status.state).toBe('desactualizado');
-    expect(status.reason).toContain('falta la vela del 2026-09-28');
-    expect(status.reason).toContain('último dato: 2026-09-25');
+    expect(status.reason).toContain(`falta la vela del ${sessionDateLabel('2026-09-28')}`);
+    expect(status.reason).toContain(`último dato: ${sessionDateLabel('2026-09-25')}`);
     expect(health.freshness()).toMatchObject({ state: 'stale' });
 
     // Y el motor no emite señal con la vela vieja ni la marca como evaluada.

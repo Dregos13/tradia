@@ -41,6 +41,7 @@
  */
 import { app, ipcMain } from 'electron';
 
+import { sessionDateLabel } from '../../shared/dates';
 import {
   dataStatusKey,
   IPC_CHANNELS,
@@ -328,7 +329,9 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       const extra = missing.length > 1 ? ` (+${missing.length - 1} más)` : '';
       return {
         state: 'desactualizado',
-        reason: `falta la vela del ${firstMissing.date}${extra}; último dato: ${lastStored ?? 'sin datos'}`,
+        reason:
+          `falta la vela del ${sessionDateLabel(firstMissing.date)}${extra}; ` +
+          `último dato: ${sessionDateLabel(lastStored)}`,
       };
     }
     // Dentro del plazo de 12 h: el último dato verificado sigue sirviendo.
@@ -406,7 +409,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     if (now() >= deadline) {
       return {
         state: 'desactualizado',
-        reason: `falta la observación esperada; último dato: ${lastObs ?? 'sin datos'}`,
+        reason: `falta la observación esperada; último dato: ${sessionDateLabel(lastObs)}`,
       };
     }
     return { state: current?.state ?? 'fiable', reason: current?.reason ?? null };
@@ -474,7 +477,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         reason:
           oldestBadDate === null
             ? 'el proveedor no tiene el dato esperado todavía'
-            : `faltan datos recientes; último dato: ${oldestBadDate}`,
+            : `faltan datos recientes; último dato: ${sessionDateLabel(oldestBadDate)}`,
       };
     }
     if (rawCurrent.state !== 'fiable' && (rawCurrent.consecutiveFailures ?? 0) === 0) {

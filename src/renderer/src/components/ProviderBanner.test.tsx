@@ -12,7 +12,7 @@ const staleTicker = {
   state: 'desactualizado' as const,
   lastOkAt: '2026-10-07T20:00:00Z',
   consecutiveFailures: 1,
-  reason: 'falta la vela del 2026-10-08 (+2 más); último dato: 2026-10-06',
+  reason: `falta la vela del ${sessionDateLabel('2026-10-08')} (+2 más); último dato: ${sessionDateLabel('2026-10-06')}`,
   updatedAt: '2026-10-08T20:00:00Z',
 };
 const staleFred = {
@@ -20,7 +20,7 @@ const staleFred = {
   state: 'desactualizado' as const,
   lastOkAt: '2026-10-07T20:00:00Z',
   consecutiveFailures: 2,
-  reason: 'falta la observación esperada; último dato: 2026-10-06',
+  reason: `falta la observación esperada; último dato: ${sessionDateLabel('2026-10-06')}`,
   updatedAt: '2026-10-08T20:00:00Z',
 };
 
@@ -40,7 +40,7 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
 
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/falta la vela del 2026-10-08/, { selector: 'p' })).toBeTruthy();
+  expect(within(banner).getByText(/falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
   expect(within(banner).getByText(/en pausa hasta ponerse al día/)).toBeTruthy();
 
   act(() =>

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { sessionDateLabel } from '../../shared/dates';
 import {
   dataStatusKey,
   IPC_CHANNELS,
@@ -174,7 +175,10 @@ describe('vigilancia de tickers', () => {
 
     const s = status(dataStatusKey.ticker('AAPL'))!;
     expect(s).toMatchObject({ state: 'desactualizado' });
-    expect(s.reason).toContain(LAST_SESSION);
+    expect(s.reason).toBe(
+      `falta la vela del ${sessionDateLabel(LAST_SESSION)}; ` +
+        `último dato: ${sessionDateLabel(PREV_SESSION)}`,
+    );
     expect(notifications).toEqual([
       expect.objectContaining({ level: 'alerta', title: expect.stringContaining('AAPL') }),
     ]);
@@ -191,7 +195,7 @@ describe('vigilancia de tickers', () => {
 
     const s = status(dataStatusKey.ticker('AAPL'))!;
     expect(s.state).toBe('desactualizado');
-    expect(s.reason).toContain('2026-10-07');
+    expect(s.reason).toContain(`falta la vela del ${sessionDateLabel('2026-10-07')}`);
     expect(s.reason).toContain('+2 más');
   });
 
@@ -305,7 +309,7 @@ describe('vigilancia de tickers', () => {
 
     const s = status(dataStatusKey.ticker('AAPL'))!;
     expect(s.state).toBe('desactualizado');
-    expect(s.reason).toContain('falta la vela del 2026-10-12');
+    expect(s.reason).toContain(`falta la vela del ${sessionDateLabel('2026-10-12')}`);
     expect(s.reason).toContain('+2 más');
     expect(notifications.map((n) => n.level)).toEqual(['alerta']);
   });
@@ -330,7 +334,7 @@ describe('frescura por proveedor', () => {
 
     const s = status(dataStatusKey.provider('tiingo'))!;
     expect(s.state).toBe('desactualizado');
-    expect(s.reason).toContain(`último dato: ${PREV_SESSION}`);
+    expect(s.reason).toContain(`último dato: ${sessionDateLabel(PREV_SESSION)}`);
   });
 
   it('un proveedor macro con series atrasadas queda desactualizado igual', async () => {
@@ -350,7 +354,7 @@ describe('frescura por proveedor', () => {
 
     const s = status(dataStatusKey.provider('fred'))!;
     expect(s.state).toBe('desactualizado');
-    expect(s.reason).toContain('2026-10-05');
+    expect(s.reason).toContain(sessionDateLabel('2026-10-05'));
   });
 
   it('con los hijos al día un desactualizado sin fallos vuelve a fiable', async () => {
@@ -424,7 +428,7 @@ describe('vigilancia de series macro', () => {
 
     const s = status(dataStatusKey.macro('DGS10'))!;
     expect(s.state).toBe('desactualizado');
-    expect(s.reason).toContain('2026-10-05');
+    expect(s.reason).toContain(sessionDateLabel('2026-10-05'));
     expect(notifications).toEqual([expect.objectContaining({ level: 'alerta' })]);
   });
 
@@ -493,7 +497,11 @@ describe('vigilancia de series macro', () => {
 
 describe('notificaciones al observar cambios', () => {
   const stale = (key: string): DataStatusEntry =>
-    entry({ key, state: 'desactualizado', reason: 'falta la vela del 2026-10-07' });
+    entry({
+      key,
+      state: 'desactualizado',
+      reason: `falta la vela del ${sessionDateLabel('2026-10-07')}`,
+    });
 
   it('empeorar el estado avisa: alerta para desactualizado, crítica para no-fiable', async () => {
     const key = dataStatusKey.provider('tiingo');
@@ -692,7 +700,7 @@ describe('resumen de frescura', () => {
       key: dataStatusKey.ticker('AAPL'),
       state: 'desactualizado',
       consecutiveFailures: 1,
-      reason: `falta la vela del ${LAST_SESSION}`,
+      reason: `falta la vela del ${sessionDateLabel(LAST_SESSION)}`,
     });
     repo.setDataStatus({
       key: dataStatusKey.ticker('MSFT'),
@@ -869,6 +877,41 @@ describe('resumen de frescura', () => {
     const summary = service.freshness();
     expect(summary.state).toBe('stale');
     expect(summary.progress).toBeNull();
+  });
+
+  it('ningún motivo escribe una fecha AAAA-MM-DD: el texto va en el formato local de la franja', async () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    seedMacro('DGS10', 'daily', '2026-10-05');
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+
+    service.evaluate();
+    await flush();
+
+    // Los tres motivos «desactualizado» usan sessionDateLabel de
+    // src/shared/dates, el mismo texto que «Datos desactualizados desde …».
+    expect(status(dataStatusKey.ticker('AAPL'))!.reason).toBe(
+      `falta la vela del ${sessionDateLabel(LAST_SESSION)}; ` +
+        `último dato: ${sessionDateLabel(PREV_SESSION)}`,
+    );
+    expect(status(dataStatusKey.macro('DGS10'))!.reason).toBe(
+      `falta la observación esperada; último dato: ${sessionDateLabel('2026-10-05')}`,
+    );
+    expect(status(dataStatusKey.provider('tiingo'))!.reason).toBe(
+      `faltan datos recientes; último dato: ${sessionDateLabel(PREV_SESSION)}`,
+    );
+
+    const summary = service.freshness();
+    const reasons = [...service.list(), ...summary.items].map((entry) => entry.reason ?? '');
+    expect(reasons.some((reason) => reason.length > 0)).toBe(true);
+    for (const reason of reasons) {
+      expect(reason).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    }
   });
 });
 
