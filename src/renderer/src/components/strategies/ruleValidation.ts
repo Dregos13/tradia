@@ -37,7 +37,14 @@ export function isInvalidRulesError(cause: unknown): boolean {
   );
 }
 export function executionError(cause: unknown, fallback: string): string {
-  if (isInvalidRulesError(cause))
-    return 'Estas reglas no se pueden ejecutar: revisa la sintaxis y los parámetros en Editar reglas.';
+  if (isInvalidRulesError(cause)) {
+    const message = cause instanceof Error ? cause.message : '';
+    const marker = message.indexOf('reglas-invalidas');
+    const reason =
+      marker >= 0
+        ? message.slice(marker + 'reglas-invalidas'.length).replace(/^[\]\s:]+/, '')
+        : message;
+    return `Estas reglas no se pueden ejecutar: ${reason || 'revisa la sintaxis de esta versión.'} Revisa los parámetros o pulsa Editar reglas.`;
+  }
   return `${fallback} ${cause instanceof Error ? cause.message : 'Inténtalo de nuevo.'}`;
 }

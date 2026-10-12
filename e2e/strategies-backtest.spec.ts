@@ -370,7 +370,7 @@ test('reglas antiguas: motivo previo, acciones bloqueadas y corrección por tecl
         return cause instanceof Error ? cause.message : String(cause);
       }
     }, id);
-    expect(ipcError).toContain('reglas-invalidas');
+    expect.soft(ipcError).toContain('reglas-invalidas');
     const notice = page.getByRole('status', { name: 'Reglas no ejecutables' });
     await expect(notice).toContainText(/Estas reglas no se pueden ejecutar:.*Entrada, caracteres/);
     for (const name of ['Lanzar backtest', 'Ejecutar pruebas de estrés', 'Ejecutar comparación']) {

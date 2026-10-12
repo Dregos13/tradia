@@ -456,3 +456,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.strategy-rule-examples button {
+  color: var(--state-info);
+  background: var(--state-info-surface);
+  font-size: var(--type-sm);
+}

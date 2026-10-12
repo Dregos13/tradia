@@ -118,6 +118,7 @@ export function StrategyForm({
       selectRuleError(validation.errors[0]!);
       return;
     }
+    if (!event.currentTarget.reportValidity()) return;
     if (strategy && note.trim().length < 12) {
       setNoteError(true);
       return;
@@ -170,7 +171,7 @@ export function StrategyForm({
           </p>
         </div>
       </header>
-      <form aria-busy={busy} className="strategy-form" onSubmit={(e) => void submit(e)}>
+      <form noValidate aria-busy={busy} className="strategy-form" onSubmit={(e) => void submit(e)}>
         <nav aria-label="Secciones del formulario">
           {[
             'Identidad',

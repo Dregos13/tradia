@@ -113,7 +113,7 @@ function RuleFieldEditor({
             type="button"
             disabled={busy}
             onClick={() => {
-              inserted.current = true;
+              inserted.current = example !== value;
               change(example);
               editor.current?.focus();
               editor.current?.setSelectionRange(example.length, example.length);
