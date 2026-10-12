@@ -1,0 +1,10 @@
+regresiones EXIT=0 9s
+typecheck EXIT=0 4s
+lint EXIT=0 4s
+format EXIT=0 5s
+testA EXIT=0 42s
+testB EXIT=0 38s
+testC EXIT=0 39s
+grep lines=       0
+git-ls-venv=       0
+end

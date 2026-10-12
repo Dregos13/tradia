@@ -295,6 +295,29 @@ describe('auditoría de cierre · CLI de Claude: inyección en titulares', () =>
     expect(toolsAt).toBeGreaterThanOrEqual(0);
     expect(args[toolsAt + 1]).toBe('');
   });
+
+  it('HALLAZGO C1 (cierre) · ni las reglas de permisos del usuario ni su directorio llegan a la CLI, tampoco en ping()', async () => {
+    const { spawnFn, calls } = fakeSpawn({ kind: 'reply', stdout: ENVELOPE([]) });
+    const { analyzer } = makeAnalyzer(spawnFn, { tmpDir: () => '/tmp/tradia-audit-cwd' });
+    await analyzer.analyze({ title: INJECTED_TITLE, candidateTickers: [] });
+    await analyzer.ping();
+
+    // `--setting-sources ''` deja fuera ~/.claude/settings.json (con su
+    // permissions.allow y defaultMode), el del proyecto y el local; el
+    // cwd neutro evita que el ámbito de lectura sea el de la app o «/».
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      const sourcesAt = call.args.indexOf('--setting-sources');
+      expect(sourcesAt).toBeGreaterThanOrEqual(0);
+      expect(call.args[sourcesAt + 1]).toBe('');
+      const toolsAt = call.args.indexOf('--tools');
+      expect(toolsAt).toBeGreaterThanOrEqual(0);
+      expect(call.args[toolsAt + 1]).toBe('');
+      expect(call.args).toContain('--strict-mcp-config');
+      expect(call.options.cwd).toBe('/tmp/tradia-audit-cwd');
+      expect(call.options.shell ?? false).toBe(false);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,209 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estado del sistema
+Señales + paper trading
+Parada
+Datos desactualizados desde el 25 sept 2026
+
+faltan datos recientes; último dato: 25 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
+Primeros pasos
+2 de 3 hechos
+Hecho
+Añade tus claves de Tiingo y FRED
+
+Sin ellas no hay velas ni datos macro reales.
+
+Revisar
+Prueba la conexión
+
+Tiingo: faltan datos recientes; último dato: 25 sept 2026
+
+Probar conexión
+Hecho
+Añade tus fuentes de noticias
+
+Elige al menos una fuente para recibir titulares.
+
+Ver el tour
+Situación del mercado
+
+Seguridad, señales y cartera simulada de un vistazo.
+
+Actualizado 15:40:01 CEST
+
+Conexión y fuentes
+Ver fuentes
+Datos desactualizados desde el 25 sept 2026
+
+faltan datos recientes; último dato: 25 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
+
+En línea
+
+Precios · Tiingo
+
+Último cierre 25 sept 2026
+
+Con retraso
+Macro · FRED
+
+Última observación 8 oct 2026
+
+Disponible
+Noticias · Reserva Federal — comunicados y FOMC
+
+12 oct 2026, 15:39 CEST
+
+Disponible
+Noticias · BCE — notas de prensa
+
+12 oct 2026, 15:39 CEST
+
+Disponible
+Noticias · BLS — nóminas no agrícolas e IPC
+
+12 oct 2026, 15:39 CEST
+
+Disponible
+Noticias · BEA — comunicados (PIB, PCE…)
+
+12 oct 2026, 15:39 CEST
+
+Disponible
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+12 oct 2026, 15:40 CEST
+
+Disponible
+Noticias · CNMV — información privilegiada y relevante
+
+12 oct 2026, 15:40 CEST
+
+Disponible
+Contexto macro
+Ver macro
+
+Régimen · En pausa: datos desactualizados · Referencia SPY · Fuente precios diarios
+
+VIXCLS
+✓ Fiable
+Volatilidad VIX
+2,26 puntos
+
+= 0,00 puntos respecto al dato diario anterior
+
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
+
+Dato diario
+8 oct 2026
+DGS10
+✓ Fiable
+Treasury · 10 años
+3,42 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+8 oct 2026
+CPIAUCSL
+✓ Fiable
+IPC de EE. UU. · interanual
+2,44 %
+
+▼ -1,82 pp respecto al dato mensual anterior
+
+Dato mensual
+1 ago 2026
+Señales vivas
+Ver en Diario
+
+Sin señales nuevas: en pausa hasta poner al día los datos del 25 sept 2026.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 12 oct 2026, 15:40 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◇ Paper
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Reversión RSI/Bollinger
+◇ Paper
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Ruptura de rangos
+◇ Paper
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Momentum entre activos
+◇ Paper
+
+v1 · cierre Sin evaluar
+
+Pendiente del primer cierre
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
+En línea
+Agentes activos
+Última comprobación 15:40:00
+Próximo reintento —
+Último latido Pendiente

@@ -1,0 +1,12 @@
+HEAD ca851496 start Mon Oct 12 15:26:27 CEST 2026
+typecheck EXIT=0 5s
+lint EXIT=0 4s
+format EXIT=0 5s
+test1 EXIT=0 40s
+test2 EXIT=0 40s
+test3 EXIT=0 38s
+e2e1 EXIT=0 268s
+e2e2 EXIT=0 270s
+livegate EXIT=0 44s
+grep lines=       0
+end Mon Oct 12 15:38:21 CEST 2026

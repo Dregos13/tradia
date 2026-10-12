@@ -1,0 +1,226 @@
+Saltar al contenido
+Tradia
+Inicio
+Mercado
+IA
+Salud de modelos
+Macro
+Noticias
+Calendario
+Fuentes
+Estrategias
+Riesgo
+Diario
+Órdenes
+Real vs backtest
+Dinero real
+Ajustes
+Estado del sistema
+Señales + paper trading
+Parada activa
+Parada activa: Pérdida de conexión · 15:41:25 CEST · Activada por Sistema
+sin conexión durante más de 60 s
+
+Sin conexión. Ver estado
+
+Ver en Riesgo
+Reanudar
+Sin conexión: las decisiones están en pausa. Reintentando en 52 s.
+Comprobar ahora
+Datos desactualizados desde el 17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Primeros pasos
+2 de 3 hechos
+Hecho
+Añade tus claves de Tiingo y FRED
+
+Sin ellas no hay velas ni datos macro reales.
+
+Revisar
+Prueba la conexión
+
+Tiingo: faltan datos recientes; último dato: 18 sept 2026
+
+Probar conexión
+Hecho
+Añade tus fuentes de noticias
+
+Elige al menos una fuente para recibir titulares.
+
+Ver el tour
+
+Sin conexión · revisión de salud pausada. Ver última revisión
+
+Situación del mercado
+
+Seguridad, señales y cartera simulada de un vistazo.
+
+Datos congelados · Esperando datos
+
+Conexión y fuentes
+Ver fuentes
+Datos desactualizados desde el 17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+
+Sin conexión
+
+Precios · Tiingo
+
+Último cierre 18 sept 2026
+
+Con retraso
+Macro · FRED
+
+Última observación 17 sept 2026
+
+Con retraso
+Noticias · Reserva Federal — comunicados y FOMC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BCE — notas de prensa
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BLS — nóminas no agrícolas e IPC
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · BEA — comunicados (PIB, PCE…)
+
+19 sept 2026, 12:00 CEST
+
+Con retraso
+Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
+
+Sin actualización
+
+Sin evaluar
+Noticias · CNMV — información privilegiada y relevante
+
+Sin actualización
+
+Sin evaluar
+Contexto macro
+Ver macro
+
+Régimen · En pausa: datos desactualizados · Referencia SPY · Fuente precios diarios
+
+VIXCLS
+◌ Actualizando
+Volatilidad VIX
+2,46 puntos
+
+= 0,00 puntos respecto al dato diario anterior
+
+Banda baja
+(baja < 20 · media 20–<30 · alta ≥ 30)
+
+Dato diario
+17 sept 2026
+
+descargando observaciones del 2026-09-17 al 2026-10-12 en 'fred'
+
+DGS10
+◷ Desactualizado
+Treasury · 10 años
+3,62 %
+
+= 0,00 pp respecto al dato diario anterior
+
+Dato diario
+17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+CPIAUCSL
+✓ Fiable
+IPC de EE. UU. · interanual
+2,44 %
+
+▼ -1,82 pp respecto al dato mensual anterior
+
+Dato mensual
+1 ago 2026
+Señales vivas
+Ver en Diario
+
+No se admiten nuevas señales.
+
+Sin señales nuevas: en pausa hasta poner al día los datos del 17 sept 2026.
+
+Posiciones simuladas
+◇ Simulación
+
+No hay posiciones simuladas abiertas. Aparecerán al aprobarse una señal.
+
+No son posiciones reales.
+
+Drawdown
+
+Actual −0 %
+
+Máximo permitido −10 % · quedan 10 puntos
+
+Dentro del límite
+
+Datos de 12 oct 2026, 15:40 CEST
+
+Ver límites de riesgo
+Exposición
+Por activo
+Por sector
+
+No hay exposición simulada por activo.
+
+Estado por estrategia
+Ver biblioteca
+Cruce de medias
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Reversión RSI/Bollinger
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Ruptura de rangos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Momentum entre activos
+◌ Investigación
+
+v1 · cierre Sin evaluar
+
+Bloqueada por parada
+
+Tradia informa y simula; no ejecuta órdenes reales.
+
+Sin conexión
+Agentes en pausa
+· Pérdida de conexión
+Última comprobación 15:41:25
+Próximo reintento 15:42:41
+Último latido Pendiente
