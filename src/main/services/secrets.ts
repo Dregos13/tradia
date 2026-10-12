@@ -80,7 +80,12 @@ export function createSecretsService(
       if (cleaned === '') {
         throw new SecretsError('la clave está vacía');
       }
-      if (/[\s\x00-\x1F\x7F-\x9F]/.test(cleaned)) {
+      if (
+        [...cleaned].some((char) => {
+          const code = char.codePointAt(0)!;
+          return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
+        })
+      ) {
         throw new SecretsError(
           'la clave contiene espacios o caracteres de control: revisa el copiado',
         );

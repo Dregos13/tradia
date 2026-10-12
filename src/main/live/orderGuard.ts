@@ -158,7 +158,10 @@ export function liveOrderBlockReason(
   // de garantizarlo—. Solo se permite vender lo que ya está en cartera
   // (cierre o reducción, que devuelve capital); la pata 'salida' ya quedó
   // exenta arriba.
-  if (request.side === 'sell' && !snapshot.openTickers.includes(request.ticker.trim().toUpperCase())) {
+  if (
+    request.side === 'sell' &&
+    !snapshot.openTickers.includes(request.ticker.trim().toUpperCase())
+  ) {
     return (
       'las entradas en corto están desactivadas con dinero real en esta fase: ' +
       'ninguna venta puede garantizar el techo por orden ante un hueco alcista'

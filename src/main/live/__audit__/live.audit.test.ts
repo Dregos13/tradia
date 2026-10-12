@@ -697,22 +697,19 @@ describe('auditoría de cierre · techo por orden con hueco de apertura', () => 
     }
   });
 
-  it(
-    'HALLAZGO C4 · una entrada en corto de mercado no puede ejecutarse por encima del techo por orden con un hueco al alza',
-    async () => {
-      const { live } = await activeLiveAccount(limits);
-      // Señal corta calculada con el cierre de ayer (180 USD): el nocional
-      // estimado con el margen del 5 % (189 USD) cabe en el techo de 200.
-      // El mercado abre con hueco al alza y el servidor ejecuta a 250 USD.
-      await sendSignal(live, approved(1, 180), { entry: 180, direction: 'corto' });
+  it('HALLAZGO C4 · una entrada en corto de mercado no puede ejecutarse por encima del techo por orden con un hueco al alza', async () => {
+    const { live } = await activeLiveAccount(limits);
+    // Señal corta calculada con el cierre de ayer (180 USD): el nocional
+    // estimado con el margen del 5 % (189 USD) cabe en el techo de 200.
+    // El mercado abre con hueco al alza y el servidor ejecuta a 250 USD.
+    await sendSignal(live, approved(1, 180), { entry: 180, direction: 'corto' });
 
-      for (const order of executedEntries()) {
-        expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
-          limits.orderUsd,
-        );
-      }
-    },
-  );
+    for (const order of executedEntries()) {
+      expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
+        limits.orderUsd,
+      );
+    }
+  });
 });
 
 describe('auditoría de cierre · prueba de humo con referencia desfasada (P7)', () => {

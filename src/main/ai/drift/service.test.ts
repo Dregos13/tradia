@@ -795,4 +795,23 @@ describe('simulateDrift', () => {
     expect(fichas[0]!.status).toBe('degradada');
     expect(notices.some((n) => n.level === 'critica')).toBe(true);
   });
+
+  it('una ficha degradada muestra los números de la revisión que la degradó, como la propuesta', () => {
+    // La fila y la propuesta leen la misma evidencia: aunque la muestra
+    // en vivo cambie (o no tenga backtest de referencia) la ficha cuenta
+    // lo que la degradó, no un «sin referencia» que la contradiga.
+    fichas = [seedFicha('Cruce de medias')];
+    const service = makeService();
+    const view = service.simulateDrift({ kind: 'rendimiento', streak: 2 });
+
+    const row = view.subjects.find((s) => s.subject === 'estrategia')!;
+    expect(row.state).toBe('degradada');
+    expect(row.strategyEval?.trades).toBe(DEGRADE_MIN_TRADES + 4);
+    expect(row.strategyEval?.deviationPct).toBe(-36);
+    expect(row.strategyEval?.missingReason).toBeNull();
+
+    const proposal = view.proposals[0]!;
+    expect(proposal.reason).toContain('−36,0');
+    expect(proposal.reason).toContain(`${DEGRADE_MIN_TRADES + 4} operaciones`);
+  });
 });

@@ -177,6 +177,24 @@ describe('servicio de claves cifradas', () => {
     await expect(secrets.getKey('p')).rejects.toThrowError(ERR_STORAGE_UNAVAILABLE);
   });
 
+  it('recorta espacios de los bordes y rechaza controles o espacios dentro de la clave', async () => {
+    const { db } = fileDb();
+    const secrets = createSecretsService(db, fakeSafeStorage());
+
+    // El copiado con espacios o un salto al final se guarda limpio.
+    await secrets.setKey('proveedor', `  ${SAMPLE_KEY}\n`);
+    expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+
+    // Un control dentro (p. ej. «clave\rparte») rompería la cabecera
+    // HTTP y su mensaje de error la citaría: no se guarda así.
+    await expect(
+      secrets.setKey('proveedor', 'tk9f8e7d6c5b4a3SECRETO\rtiingo'),
+    ).rejects.toBeInstanceOf(SecretsError);
+    await expect(secrets.setKey('proveedor', 'parte1 parte2')).rejects.toBeInstanceOf(SecretsError);
+    // Nada se guardó: la clave limpia anterior sigue intacta.
+    expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+  });
+
   it('informa si el dato cifrado está corrupto al leerlo (solo main)', async () => {
     const { db } = fileDb();
     const corruptCrypto: SafeStorageLike = {

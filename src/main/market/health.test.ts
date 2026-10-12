@@ -659,6 +659,113 @@ describe('resumen de frescura', () => {
     expect(electron.handlers.has(IPC_CHANNELS.dataStatus.freshness)).toBe(true);
   });
 
+  it('un proveedor en fallo con todos sus hijos al día no marca el resumen desactualizado', async () => {
+    // El refresco o el sondeo del proveedor falló, pero ningún hijo tiene
+    // el dato por detrás: no hay nada que caducar y el «desde» nunca puede
+    // ser posterior a la sesión esperada.
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'desactualizado',
+      consecutiveFailures: 1,
+      reason: 'error del servidor (HTTP 503)',
+    });
+
+    const summary = service.freshness();
+    expect(summary.state).toBe('current');
+    expect(summary.items).toEqual([]);
+    expect(summary.sinceDate).toBeNull();
+  });
+
+  it('un proveedor en fallo con un hijo atrasado sí pesa, con la fecha del hijo más viejo', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('MSFT');
+    seedBars('AAPL', PREV_SESSION);
+    seedBars('MSFT', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'desactualizado',
+      consecutiveFailures: 1,
+      reason: `falta la vela del ${LAST_SESSION}`,
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('MSFT'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.provider('tiingo'),
+      state: 'desactualizado',
+      consecutiveFailures: 1,
+      reason: 'fallo de red',
+    });
+
+    const summary = service.freshness();
+    expect(summary.state).toBe('stale');
+    const providerItem = summary.items.find(
+      (item) => item.key === dataStatusKey.provider('tiingo'),
+    )!;
+    // El «desde» del proveedor es el hijo atrasado, no el más fresco, y
+    // nunca una fecha posterior a la sesión esperada.
+    expect(providerItem.lastDataDate).toBe(PREV_SESSION);
+    expect(providerItem.lastDataDate! <= LAST_SESSION).toBe(true);
+  });
+
+  it('un fallo de sondeo sin datos de hijos no marca atraso ni inventa una fecha', () => {
+    // Catálogo macro registrado (de FRED) pero ninguna serie con
+    // observaciones: «Probar conexión» falló, y eso no convierte la
+    // frescura en stale ni inventa una fecha «desde».
+    repo.upsertMacroSeries([
+      { id: 'DGS10', source: 'fred', name: 'Bono 10 años', frequency: 'daily' },
+    ]);
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.provider('fred'),
+      state: 'desactualizado',
+      consecutiveFailures: 1,
+      reason: 'sin conexión',
+    });
+
+    const summary = service.freshness();
+    expect(summary.state).toBe('current');
+    expect(summary.sinceDate).toBeNull();
+  });
+
+  it('marca el atraso por calendario aunque ninguna pasada lo haya escrito (sin red)', () => {
+    // El estado 'fiable' es de la última pasada con éxito; desde entonces
+    // la app está sin red y ninguna evaluación corrió el nuevo plazo.
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', PREV_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+
+    const summary = service.freshness();
+    expect(summary.state).toBe('stale');
+    expect(summary.sinceDate).toBe(PREV_SESSION);
+    expect(summary.expectedSessionDate).toBe(LAST_SESSION);
+    expect(summary.missingSessions).toBe(1);
+    expect(summary.items.map((item) => item.key)).toContain(dataStatusKey.ticker('AAPL'));
+    expect(summary.items.find((item) => item.key === dataStatusKey.ticker('AAPL'))).toMatchObject({
+      lastDataDate: PREV_SESSION,
+    });
+  });
+
   it('informa el progreso durante la puesta al día: done sube de 0 a total', async () => {
     repo.addWatchlistTicker('AAPL');
     repo.addWatchlistTicker('MSFT');

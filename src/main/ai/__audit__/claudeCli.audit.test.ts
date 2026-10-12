@@ -281,23 +281,20 @@ describe('auditoría de cierre · CLI de Claude: inyección en titulares', () =>
     expect(result.assets.map((asset) => asset.ticker)).toEqual(['AAPL']);
   });
 
-  it(
-    'HALLAZGO C1 · la CLI se lanza con todas las herramientas desactivadas (--tools ""), no solo sin autoaprobar ninguna',
-    async () => {
-      const { spawnFn, calls } = fakeSpawn({ kind: 'reply', stdout: ENVELOPE([]) });
-      const { analyzer } = makeAnalyzer(spawnFn);
-      await analyzer.analyze({ title: INJECTED_TITLE, candidateTickers: [] });
+  it('HALLAZGO C1 · la CLI se lanza con todas las herramientas desactivadas (--tools ""), no solo sin autoaprobar ninguna', async () => {
+    const { spawnFn, calls } = fakeSpawn({ kind: 'reply', stdout: ENVELOPE([]) });
+    const { analyzer } = makeAnalyzer(spawnFn);
+    await analyzer.analyze({ title: INJECTED_TITLE, candidateTickers: [] });
 
-      // `--allowedTools ''` solo vacía la lista de herramientas que se
-      // aprueban sin preguntar: Read, Grep y Glob no piden permiso y las
-      // reglas `permissions.allow` / `defaultMode` del ~/.claude del
-      // usuario siguen aplicando. Lo que desactiva todas es `--tools ""`.
-      const args = calls[0]!.args;
-      const toolsAt = args.indexOf('--tools');
-      expect(toolsAt).toBeGreaterThanOrEqual(0);
-      expect(args[toolsAt + 1]).toBe('');
-    },
-  );
+    // `--allowedTools ''` solo vacía la lista de herramientas que se
+    // aprueban sin preguntar: Read, Grep y Glob no piden permiso y las
+    // reglas `permissions.allow` / `defaultMode` del ~/.claude del
+    // usuario siguen aplicando. Lo que desactiva todas es `--tools ""`.
+    const args = calls[0]!.args;
+    const toolsAt = args.indexOf('--tools');
+    expect(toolsAt).toBeGreaterThanOrEqual(0);
+    expect(args[toolsAt + 1]).toBe('');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -339,24 +336,21 @@ describe('auditoría de cierre · CLI de Claude: tamaño de salida y cuelgues', 
     expect(calls).toHaveLength(0);
   });
 
-  it(
-    'HALLAZGO C2 · una salida por stderr sin fin también se corta por tamaño, sin esperar al timeout',
-    async () => {
-      const { spawnFn, calls } = fakeSpawn({
-        kind: 'flood',
-        stream: 'stderr',
-        bytes: CLAUDE_CLI_STDOUT_MAX_BYTES * 4,
-      });
-      // Timeout largo: la CLI desbocada debe cortarse por tamaño, no por tiempo.
-      const { analyzer } = makeAnalyzer(spawnFn, { timeoutMs: 400 });
-      const pending = settle(analyzer.analyze({ title: 'Apple', candidateTickers: ['AAPL'] }));
-      const first = await Promise.race([pending, sleep(100).then(() => 'sigue-corriendo')]);
+  it('HALLAZGO C2 · una salida por stderr sin fin también se corta por tamaño, sin esperar al timeout', async () => {
+    const { spawnFn, calls } = fakeSpawn({
+      kind: 'flood',
+      stream: 'stderr',
+      bytes: CLAUDE_CLI_STDOUT_MAX_BYTES * 4,
+    });
+    // Timeout largo: la CLI desbocada debe cortarse por tamaño, no por tiempo.
+    const { analyzer } = makeAnalyzer(spawnFn, { timeoutMs: 400 });
+    const pending = settle(analyzer.analyze({ title: 'Apple', candidateTickers: ['AAPL'] }));
+    const first = await Promise.race([pending, sleep(100).then(() => 'sigue-corriendo')]);
 
-      expect(first).not.toBe('sigue-corriendo');
-      expect(calls[0]!.child.killedWith).toBe('SIGKILL');
-      await pending;
-    },
-  );
+    expect(first).not.toBe('sigue-corriendo');
+    expect(calls[0]!.child.killedWith).toBe('SIGKILL');
+    await pending;
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -364,31 +358,28 @@ describe('auditoría de cierre · CLI de Claude: tamaño de salida y cuelgues', 
 // ---------------------------------------------------------------------------
 
 describe('auditoría de cierre · CLI de Claude en Windows', () => {
-  it(
-    'HALLAZGO C3 · con la CLI instalada por npm (claude.cmd) el análisis por suscripción funciona en Windows',
-    async () => {
-      // El módulo path es el del sistema que ejecuta la prueba: ruta sin «C:»
-      // para que el PATH no se parta por el delimitador de POSIX.
-      const winDir = '/Users/audit/AppData/Roaming/npm';
-      const cmdPath = join(winDir, 'claude.cmd');
-      const { spawnFn } = fakeSpawn(
-        {
-          kind: 'reply',
-          stdout: ENVELOPE([{ ticker: 'AAPL', summary: 'Neutro.', sentiment: 'neutro' }]),
-        },
-        { nodeOnWindows: true },
-      );
-      const { analyzer } = makeAnalyzer(spawnFn, {
-        platform: 'win32',
-        env: { USERPROFILE: '/Users/audit', PATH: winDir, PATHEXT: '.COM;.EXE;.BAT;.CMD' },
-        isExecutableFile: (path) => path === cmdPath,
-      });
+  it('HALLAZGO C3 · con la CLI instalada por npm (claude.cmd) el análisis por suscripción funciona en Windows', async () => {
+    // El módulo path es el del sistema que ejecuta la prueba: ruta sin «C:»
+    // para que el PATH no se parta por el delimitador de POSIX.
+    const winDir = '/Users/audit/AppData/Roaming/npm';
+    const cmdPath = join(winDir, 'claude.cmd');
+    const { spawnFn } = fakeSpawn(
+      {
+        kind: 'reply',
+        stdout: ENVELOPE([{ ticker: 'AAPL', summary: 'Neutro.', sentiment: 'neutro' }]),
+      },
+      { nodeOnWindows: true },
+    );
+    const { analyzer } = makeAnalyzer(spawnFn, {
+      platform: 'win32',
+      env: { USERPROFILE: '/Users/audit', PATH: winDir, PATHEXT: '.COM;.EXE;.BAT;.CMD' },
+      isExecutableFile: (path) => path === cmdPath,
+    });
 
-      // La app la da por disponible (proveedor por defecto «Suscripción»)…
-      expect(analyzer.available()).toBe(true);
-      // …pero Node rechaza lanzar un .cmd sin shell (EINVAL).
-      const result = await analyzer.analyze({ title: 'Apple', candidateTickers: ['AAPL'] });
-      expect(result.assets.map((asset) => asset.ticker)).toEqual(['AAPL']);
-    },
-  );
+    // La app la da por disponible (proveedor por defecto «Suscripción»)…
+    expect(analyzer.available()).toBe(true);
+    // …pero Node rechaza lanzar un .cmd sin shell (EINVAL).
+    const result = await analyzer.analyze({ title: 'Apple', candidateTickers: ['AAPL'] });
+    expect(result.assets.map((asset) => asset.ticker)).toEqual(['AAPL']);
+  });
 });

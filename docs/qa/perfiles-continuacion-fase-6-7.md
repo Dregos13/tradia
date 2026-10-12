@@ -196,3 +196,12 @@ El criterio 7 **todavía no se cumple**: quedan 8 `it.fails` (C1 a C8) en `src/m
 ## Fuera de alcance / no comprobado
 
 Claves reales de Tiingo, FRED y Alpaca, el LLM real y la CLI de Claude, los paquetes nativos en los tres sistemas y el reentrenamiento con datos reales. Son comprobaciones del usuario (`docs/tareas-del-usuario.md`).
+
+## Ronda de correcciones de Backend · 12-10-2026
+
+| Hallazgo | Estado en Backend | Detalle y regresión |
+| -------- | ----------------- | ------------------- |
+| N1 | **Corregido (parte Backend)** | El resumen de frescura ya no pasa a `stale` por un `provider:*` en mal estado sin hijos atrasados, ni inventa un «desde» posterior a la sesión esperada. Regresiones: `health.test.ts` («un fallo de sondeo sin datos de hijos no marca atraso ni inventa una fecha» y las dos de proveedor en fallo). La parte Frontend (texto «desde el sin datos») ya estaba corregida en su ronda. |
+| N5 | **Corregido (parte Backend)** | `LiveSmokeTestResult` lleva `referencePrice` (el último cierre de referencia) aparte de `requestedPrice` (el límite de protección sobre él), y el asiento del Diario nombra referencia y límite por separado. Regresión: `smoke.test.ts`. El rótulo del panel («Límite de protección») correspondía a Frontend. |
+| N7 | **Corregido** | Una ficha degradada muestra en «Salud de modelos» los números de la revisión que la degradó —los mismos del motivo de la propuesta— en vez de la muestra en vivo, que podía quedarse sin referencia. Regresión: `drift/service.test.ts` («una ficha degradada muestra los números de la revisión que la degradó, como la propuesta»). |
+| P13 | **Corregido (parte Backend)** | `LiveSmokeTestResult` lleva `buyExecutedAt`/`sellExecutedAt` con la hora de ejecución de cada pata; el panel ya puede fechar «Ejecución de compra». Regresión: `smoke.test.ts`. |

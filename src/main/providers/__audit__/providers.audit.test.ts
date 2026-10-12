@@ -235,44 +235,38 @@ describe('auditoría de cierre · la clave nunca sale de «Probar conexión»', 
     expect(network).not.toHaveBeenCalled();
   });
 
-  it(
-    'HALLAZGO C7 · un 200 de Tiingo con «detail» que repite la clave no la devuelve en el resultado ni en data_status',
-    async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async () =>
-          json({ detail: `Error: token ${KEYS.tiingo} is not valid for this endpoint` }),
-        ),
-      );
-      registerProviders(makeCtx(KEYS), { now: () => NOW });
-      const result = await testConnection('tiingo');
-      expect(everythingObservable([result])).not.toContain(KEYS.tiingo);
-    },
-  );
+  it('HALLAZGO C7 · un 200 de Tiingo con «detail» que repite la clave no la devuelve en el resultado ni en data_status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        json({ detail: `Error: token ${KEYS.tiingo} is not valid for this endpoint` }),
+      ),
+    );
+    registerProviders(makeCtx(KEYS), { now: () => NOW });
+    const result = await testConnection('tiingo');
+    expect(everythingObservable([result])).not.toContain(KEYS.tiingo);
+  });
 
-  it(
-    'HALLAZGO C8 · un fallo de transporte de Tiingo que cita la cabecera no lleva la clave en el error',
-    async () => {
-      // Lo que lanza el fetch de Node (undici) cuando la clave guardada
-      // tiene un carácter de control (p. ej. un retorno de carro pegado
-      // en medio): el mensaje cita la cabecera entera.
-      const key = 'tk9f8e7d6c5b4a3SECRETO\rtiingo';
-      const tiingo = createTiingoProvider({
-        fetch: (async () => {
-          throw new TypeError(
-            `Headers.append: "Token ${key.replace('\r', '')}" is an invalid header value.`,
-          );
-        }) as unknown as typeof fetch,
-        getApiKey: async () => key,
-        now: () => NOW,
-      });
-      const outcome = await tiingo.getQuote('SPY').then(
-        () => 'resuelto',
-        (error: unknown) => String((error as Error).message),
-      );
-      // Ese mensaje es el `reason` que la ingesta guarda en data_status y
-      // registra con logger.warn.
-      expect(outcome).not.toContain('SECRETO');
-    },
-  );
+  it('HALLAZGO C8 · un fallo de transporte de Tiingo que cita la cabecera no lleva la clave en el error', async () => {
+    // Lo que lanza el fetch de Node (undici) cuando la clave guardada
+    // tiene un carácter de control (p. ej. un retorno de carro pegado
+    // en medio): el mensaje cita la cabecera entera.
+    const key = 'tk9f8e7d6c5b4a3SECRETO\rtiingo';
+    const tiingo = createTiingoProvider({
+      fetch: (async () => {
+        throw new TypeError(
+          `Headers.append: "Token ${key.replace('\r', '')}" is an invalid header value.`,
+        );
+      }) as unknown as typeof fetch,
+      getApiKey: async () => key,
+      now: () => NOW,
+    });
+    const outcome = await tiingo.getQuote('SPY').then(
+      () => 'resuelto',
+      (error: unknown) => String((error as Error).message),
+    );
+    // Ese mensaje es el `reason` que la ingesta guarda en data_status y
+    // registra con logger.warn.
+    expect(outcome).not.toContain('SECRETO');
+  });
 });

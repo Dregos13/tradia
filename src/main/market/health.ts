@@ -754,8 +754,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         const lastObs = repo.lastMacroObservationDate(series.id);
         if (
           lastObs !== null &&
-          lastObs <
-            expectedMacroMinDate(series.id, series.frequency, lastExpectedForBehind.date)
+          lastObs < expectedMacroMinDate(series.id, series.frequency, lastExpectedForBehind.date)
         ) {
           behind.add(dataStatusKey.macro(series.id));
         }

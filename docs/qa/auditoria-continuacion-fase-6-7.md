@@ -243,3 +243,20 @@ Ninguno es de Frontend.
 ## Ronda de correcciones de Frontend · 12-10-2026
 
 Revisados C1 a C8: este informe no contiene hallazgos de Frontend. Las correcciones y regresiones del renderer para los informes E2E y QA están registradas en sus secciones «Ronda de correcciones de Frontend». No se modifica `src/main` ni se retiran las pruebas esperadas de Backend en esta ronda.
+
+## Ronda de correcciones de Backend · 12-10-2026
+
+Los ocho hallazgos están corregidos y sus pruebas pasan como `it` ordinarias: `grep -rn "it.fails" src e2e` ya no devuelve ninguna. Verificación de la ronda en verde: `npm run typecheck`, `npm run lint` y `npm test` (181 archivos, 2.477 pruebas).
+
+| Hallazgo | Corrección | Regresión |
+| -------- | ---------- | --------- |
+| C1 | `CLAUDE_CLI_ARGS` lleva `--tools ''` (sin herramientas) y `--setting-sources ''` (sin settings del proyecto ni del usuario); el hijo arranca en un `cwd` neutro propio. | `claudeCli.audit.test.ts:284` |
+| C2 | stderr se acumula hasta 1 MiB como stdout; al superarlo se mata el proceso y el análisis falla con `bad-data`, sin esperar al timeout. | `claudeCli.audit.test.ts:342` |
+| C3 | En Windows se resuelve `claude.exe` directo o `claude.cmd`/`claude.bat` vía `cmd.exe /d /s /c` con el script entrecomillado (CVE-2024-27980). | `claudeCli.audit.test.ts:367` |
+| C4 | La entrada real en corto se comprueba con margen de hueco sobre el techo por orden; las salidas siempre pasan y el capital solo lo consumen las compras (una venta de cartera libera). | `live.audit.test.ts:700` |
+| C5 | `Prediction.sessionDate` viaja hasta la señal y el motor solo la aplica si es de la sesión evaluada o de la inmediatamente anterior esperada (calendario NYSE vía `previousExpectedSession`). | `ai.audit.test.ts:784` |
+| C6 | La ventana de frescura del sentimiento se mide desde `news_items.publicado` (`NewsAnalysis.publishedAt`), no desde `analizado_en`. | `ai.audit.test.ts:505` |
+| C7 | El `detail` de un 200 de Tiingo se redacta con la clave real, no con `null`. | `providers.audit.test.ts:238` |
+| C8 | El fallo de transporte de Tiingo se redacta, incluida la variante de la clave ya normalizada por la capa HTTP; `secrets:set-key` recorta los bordes y rechaza espacios o caracteres de control dentro de la clave (igual en FRED). | `providers.audit.test.ts:253`, `secrets.test.ts` («recorta espacios…») |
+
+El resto del informe (pasos, evidencias y contexto de cada hallazgo) sigue describiendo el estado previo a la corrección, a título de memoria.

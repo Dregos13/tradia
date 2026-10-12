@@ -186,3 +186,13 @@ Ninguno rompe la batería. Los tres son del producto: los he documentado sin cam
 
 - Claves reales de Tiingo y FRED (`npm run qa:providers`) y la app empaquetada. Las hace el usuario.
 - El progreso «Descargando n de m activos» es transitorio y en E2E dura menos de lo que tarda en leerse. Está cubierto en las pruebas de Vitest de `DataFreshness`, no en el E2E.
+
+## Ronda de correcciones de Backend · 12-10-2026
+
+- **H1 corregido (parte Backend):**
+  - `freshness()` solo deja pesar un `provider:*` en mal estado cuando alguno de sus hijos tiene el último dato por detrás de lo exigible, y la fecha «desde» del proveedor es la del hijo atrasado más viejo, nunca posterior a la sesión esperada (`src/main/market/health.ts`).
+  - El macro simulado de E2E y los sondeos de «Probar conexión» reciben el reloj de mercado anclado (`registerMacro(ctx, {now: marketClock.now})`, `registerProviders(ctx, {now: marketClock.now})` y `createSimulatedMacroProvider({now: options.now})`), así que ninguna serie «llega» a una fecha posterior al mercado simulado.
+  - Regresiones: `src/main/market/health.test.ts` («un proveedor en fallo con todos sus hijos al día no marca el resumen desactualizado», «…con un hijo atrasado sí pesa, con la fecha del hijo más viejo»).
+- **H2 corregido (parte Backend):** `freshness()` sintetiza el atraso por calendario aunque ninguna pasada lo haya escrito — sin red, o antes de la primera evaluación — comparando el último dato guardado con la sesión esperada. El resumen ya devuelve `stale` con `sinceDate` y `missingSessions` coherentes con `regimeOverview.stale` en vez de `current`.
+  - Regresión: `src/main/market/health.test.ts` («marca el atraso por calendario aunque ninguna pasada lo haya escrito»).
+- **H3:** ya corregido por Frontend en su ronda (un solo punto entre motivo y acción).

@@ -503,102 +503,94 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
     expect(after.confidence).toBeLessThan(withNews.confidence);
   });
 
-  it(
-    'HALLAZGO C6 · un titular publicado hace semanas y analizado hoy no ajusta la confianza de la señal',
-    async () => {
-      // Una fuente nueva (o la vuelta tras días sin conexión) trae titulares
-      // viejos: se guardan con su fecha de publicación y se analizan ahora.
-      const repo = createNewsAnalysisRepository(db);
-      const service = createNewsAiService({
-        repo,
-        localAnalyzer: {
-          analyzer: 'local',
-          model: null,
-          analyze: async () => ({
-            assets: [{ ticker: 'AAPL', summary: 'Apple sube.', sentiment: 'positivo' }],
-          }),
-        },
-        store: { getValue: () => null, setValue: () => undefined },
-        now: () => NOW,
-        logger: { warn: () => undefined },
-      });
-      const old = insertNewsItem(
-        'Apple raises guidance',
-        true,
-        ['AAPL'],
-        '2026-09-10T13:00:00.000Z',
-      );
-      service.enqueueItem({ id: old.id, confirmed: true });
-      await service.drain();
-
-      const signals: Signal[] = [];
-      const engine = createSignalEngine({
-        repo: {
-          insertSignal: (input: NewSignal): InsertSignalResult => {
-            const signal: Signal = {
-              id: signals.length + 1,
-              ticker: input.ticker,
-              direction: input.direction,
-              entry: input.entry,
-              stop: input.stop,
-              target: input.target,
-              confidence: input.confidence,
-              reason: input.reason,
-              strategies: input.strategies,
-              dataUsed: input.dataUsed,
-              decision: input.decision,
-              createdAt: NOW_ISO,
-            };
-            signals.push(signal);
-            return { signal, inserted: true };
-          },
-          signalExists: () => false,
-          getSignal: (id) => signals.find((s) => s.id === id) ?? null,
-          listSignals: () => [...signals],
-        },
-        listEvaluables: () => [{ ficha, create: buyer }],
-        listStrategies: () => [{ id: 1, name: 'Auditada', version: 1, status: 'activa' }],
-        listWatchlistTickers: () => ['AAPL'],
-        barsFor: (_ticker, hasta) => BARS.filter((b) => b.date <= hasta),
-        lastBarDate: () => '2026-10-09',
-        getBatchVersion: () => 1,
-        submitSignal: () => ({
-          status: 'aprobada',
-          size: 1,
-          sizeFactor: 1,
-          riskAmount: 0,
-          notional: 0,
-          reasons: [],
-          decidedAt: NOW_ISO,
+  it('HALLAZGO C6 · un titular publicado hace semanas y analizado hoy no ajusta la confianza de la señal', async () => {
+    // Una fuente nueva (o la vuelta tras días sin conexión) trae titulares
+    // viejos: se guardan con su fecha de publicación y se analizan ahora.
+    const repo = createNewsAnalysisRepository(db);
+    const service = createNewsAiService({
+      repo,
+      localAnalyzer: {
+        analyzer: 'local',
+        model: null,
+        analyze: async () => ({
+          assets: [{ ticker: 'AAPL', summary: 'Apple sube.', sentiment: 'positivo' }],
         }),
-        recordJournal: () => undefined,
-        broadcast: () => undefined,
-        isAgentsPaused: () => false,
-        isOffline: () => false,
-        isKillSwitchActive: () => false,
-        wasProcessed: () => false,
-        markProcessed: () => undefined,
-        ai: {
-          // Misma lectura que signals/index.ts (newsAnalysesFor).
-          newsAnalysesFor: (ticker) =>
-            repo.list({ ticker, limit: SIGNAL_NEWS_MAX_ITEMS }).map((row) => ({
-              newsItemId: row.newsItemId,
-              sentiment: row.sentiment,
-              analyzedAt: row.analyzedAt,
-              publishedAt: row.publishedAt,
-            })),
-        },
-        now: () => NOW,
-        logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
-      });
+      },
+      store: { getValue: () => null, setValue: () => undefined },
+      now: () => NOW,
+      logger: { warn: () => undefined },
+    });
+    const old = insertNewsItem('Apple raises guidance', true, ['AAPL'], '2026-09-10T13:00:00.000Z');
+    service.enqueueItem({ id: old.id, confirmed: true });
+    await service.drain();
 
-      expect(engine.evaluateTicker('AAPL', '2026-10-09')).toBe('emitted');
-      const signal = signals.at(-1)!;
-      // Publicado el 10 de septiembre: un mes antes de la vela evaluada.
-      expect(signal.dataUsed.ai?.newsItemIds ?? []).not.toContain(old.id);
-      expect(signal.confidence).toBe(SIGNAL_DEFAULT_CONFIDENCE);
-    },
-  );
+    const signals: Signal[] = [];
+    const engine = createSignalEngine({
+      repo: {
+        insertSignal: (input: NewSignal): InsertSignalResult => {
+          const signal: Signal = {
+            id: signals.length + 1,
+            ticker: input.ticker,
+            direction: input.direction,
+            entry: input.entry,
+            stop: input.stop,
+            target: input.target,
+            confidence: input.confidence,
+            reason: input.reason,
+            strategies: input.strategies,
+            dataUsed: input.dataUsed,
+            decision: input.decision,
+            createdAt: NOW_ISO,
+          };
+          signals.push(signal);
+          return { signal, inserted: true };
+        },
+        signalExists: () => false,
+        getSignal: (id) => signals.find((s) => s.id === id) ?? null,
+        listSignals: () => [...signals],
+      },
+      listEvaluables: () => [{ ficha, create: buyer }],
+      listStrategies: () => [{ id: 1, name: 'Auditada', version: 1, status: 'activa' }],
+      listWatchlistTickers: () => ['AAPL'],
+      barsFor: (_ticker, hasta) => BARS.filter((b) => b.date <= hasta),
+      lastBarDate: () => '2026-10-09',
+      getBatchVersion: () => 1,
+      submitSignal: () => ({
+        status: 'aprobada',
+        size: 1,
+        sizeFactor: 1,
+        riskAmount: 0,
+        notional: 0,
+        reasons: [],
+        decidedAt: NOW_ISO,
+      }),
+      recordJournal: () => undefined,
+      broadcast: () => undefined,
+      isAgentsPaused: () => false,
+      isOffline: () => false,
+      isKillSwitchActive: () => false,
+      wasProcessed: () => false,
+      markProcessed: () => undefined,
+      ai: {
+        // Misma lectura que signals/index.ts (newsAnalysesFor).
+        newsAnalysesFor: (ticker) =>
+          repo.list({ ticker, limit: SIGNAL_NEWS_MAX_ITEMS }).map((row) => ({
+            newsItemId: row.newsItemId,
+            sentiment: row.sentiment,
+            analyzedAt: row.analyzedAt,
+            publishedAt: row.publishedAt,
+          })),
+      },
+      now: () => NOW,
+      logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+    });
+
+    expect(engine.evaluateTicker('AAPL', '2026-10-09')).toBe('emitted');
+    const signal = signals.at(-1)!;
+    // Publicado el 10 de septiembre: un mes antes de la vela evaluada.
+    expect(signal.dataUsed.ai?.newsItemIds ?? []).not.toContain(old.id);
+    expect(signal.confidence).toBe(SIGNAL_DEFAULT_CONFIDENCE);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -783,26 +775,23 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
     expect(open.submitted).toHaveLength(1);
   });
 
-  it(
-    'HALLAZGO C5 · una predicción de hace semanas no ajusta la señal de la sesión actual',
-    () => {
-      // Última predicción guardada de AAPL: la del 1 de septiembre (el
-      // servicio de predicción no predice con la serie atrasada, y el motor
-      // de señales evalúa la vela nueva antes de que se recalcule). Lleva la
-      // sesión para que el motor pueda descartarla.
-      const stalePrediction = { ...extremePrediction, probUp: 0.95, sessionDate: '2026-09-01' };
-      const { engine, submitted } = harness(card(), buyer, {
-        ai: {
-          marketRegime: () => ({ direction: 'tendencia', volatility: 'volatilidad-baja' }),
-          eligibleModel: () => ELIGIBLE,
-          latestPrediction: () => stalePrediction,
-          newsAnalysesFor: () => [],
-        },
-      });
-      expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
-      expect(submitted[0]!.ai?.probability ?? null).toBeNull();
-    },
-  );
+  it('HALLAZGO C5 · una predicción de hace semanas no ajusta la señal de la sesión actual', () => {
+    // Última predicción guardada de AAPL: la del 1 de septiembre (el
+    // servicio de predicción no predice con la serie atrasada, y el motor
+    // de señales evalúa la vela nueva antes de que se recalcule). Lleva la
+    // sesión para que el motor pueda descartarla.
+    const stalePrediction = { ...extremePrediction, probUp: 0.95, sessionDate: '2026-09-01' };
+    const { engine, submitted } = harness(card(), buyer, {
+      ai: {
+        marketRegime: () => ({ direction: 'tendencia', volatility: 'volatilidad-baja' }),
+        eligibleModel: () => ELIGIBLE,
+        latestPrediction: () => stalePrediction,
+        newsAnalysesFor: () => [],
+      },
+    });
+    expect(engine.evaluateTicker('AAPL', BAR_DATE)).toBe('emitted');
+    expect(submitted[0]!.ai?.probability ?? null).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

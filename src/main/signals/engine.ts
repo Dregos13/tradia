@@ -443,10 +443,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
    * descarta. Sin `sessionDate` no se puede acotar: el llamador que la
    * sirve sin fecha (pruebas) la trata como vigente.
    */
-  const predictionIsCurrent = (
-    prediction: SignalPredictionRef,
-    barDate: SessionDate,
-  ): boolean => {
+  const predictionIsCurrent = (prediction: SignalPredictionRef, barDate: SessionDate): boolean => {
     const session = prediction.sessionDate;
     if (session === undefined) return true;
     if (session === barDate) return true;

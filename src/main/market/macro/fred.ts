@@ -72,13 +72,19 @@ interface FredObservationRow {
   value?: unknown;
 }
 
+/** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
+const isUnsafeKeyChar = (char: string): boolean => {
+  const code = char.codePointAt(0)!;
+  return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
+};
+
 /** Quita la clave de cualquier texto externo antes de meterla en un error. */
 function redact(text: string, apiKey: string | null): string {
   if (!apiKey) return text;
   let out = text.split(apiKey).join('***');
   // La capa de transporte puede citar la credencial ya normalizada (sin
   // espacios ni controles): también se cubre la variante saneada.
-  const sanitized = apiKey.replace(/[\s\x00-\x1F\x7F-\x9F]+/g, '');
+  const sanitized = [...apiKey].filter((char) => !isUnsafeKeyChar(char)).join('');
   if (sanitized !== '' && sanitized !== apiKey) {
     out = out.split(sanitized).join('***');
   }

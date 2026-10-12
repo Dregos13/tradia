@@ -342,6 +342,11 @@ describe('live:smoke-test — flujo completo', () => {
     expect(result.steps.every((s) => s.at !== null)).toBe(true);
     // La compra salió limitada con tope: referencia × (1 + 300 pb) = 515.
     expect(result.requestedPrice).toBe(515);
+    // La referencia viaja aparte del límite de protección, y cada pata
+    // lleva su hora de ejecución: las tres superficies ven lo mismo.
+    expect(result.referencePrice).toBe(500);
+    expect(result.buyExecutedAt).not.toBeNull();
+    expect(result.sellExecutedAt).not.toBeNull();
     expect(result.buyExecutedPrice).toBe(500);
     expect(result.sellExecutedPrice).toBe(500);
     expect(result.slippageBps).toBe(0);
@@ -372,7 +377,17 @@ describe('live:smoke-test — flujo completo', () => {
     expect(emits).toBeGreaterThan(0);
     expect(suspensions).toHaveLength(0);
 
-    // El Diario lleva el paso a paso y el resumen con los precios.
+    // El Diario lleva el paso a paso y el resumen con los precios:
+    // referencia y límite de protección, cada uno con su rótulo.
+    const resumenCompra = journal.find(
+      (j) => j.type === 'resumen' && String(j.reason).includes('compra de'),
+    )!;
+    expect(resumenCompra.dataUsed).toMatchObject({
+      precioReferencia: 500,
+      precioLimite: 515,
+      precioEjecutado: 500,
+    });
+    expect(resumenCompra.reason).toContain('límite de protección');
     expect(
       journal.filter((j) => j.type === 'resumen' && j.reason.includes('Prueba de humo')),
     ).toHaveLength(2);

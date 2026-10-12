@@ -74,12 +74,22 @@ export interface ProvidersServiceDeps {
   broadcast(channel: string, payload: unknown): void;
   /** Conectividad local; `false` responde 'sin-red' sin llamar a la red. */
   isOnline?: () => boolean;
-  /** Reloj inyectable; por defecto Date.now. */
+  /**
+   * Reloj del dominio (mercado): gobierna las fechas de datos del sondeo
+   * y de los proveedores simulados. Por defecto Date.now.
+   */
   now?: () => number;
+  /**
+   * Reloj de pared para `checkedAt` y la latencia: «cuándo se pulsó
+   * Probar» es el tiempo real del usuario, no el del mercado simulado.
+   * Por defecto Date.now.
+   */
+  wallNow?: () => number;
 }
 
 export function createProvidersService(deps: ProvidersServiceDeps): ProvidersService {
   const now = deps.now ?? (() => Date.now());
+  const wallNow = deps.wallNow ?? (() => Date.now());
   /** Estados armados por el gancho E2E; se consumen en la próxima prueba. */
   const armed = new Map<DataProviderId, ProviderTestStatus>();
 
@@ -152,7 +162,7 @@ export function createProvidersService(deps: ProvidersServiceDeps): ProvidersSer
             ? 'El proveedor no respondió como se esperaba.'
             : PROVIDER_TEST_MESSAGES[status],
       latestDataDate: status === 'ok' ? today : null,
-      checkedAt: new Date(now()).toISOString(),
+      checkedAt: new Date(wallNow()).toISOString(),
       latencyMs: status === 'ok' ? 1 : null,
     };
   };
@@ -172,7 +182,10 @@ export function createProvidersService(deps: ProvidersServiceDeps): ProvidersSer
           : await testProviderConnection(request.provider, {
               probe: deps.probes[request.provider],
               isOnline: deps.isOnline,
-              now,
+              // `checkedAt` y la latencia van con el reloj de pared: la
+              // fecha del sondeo es la del clic, no la del mercado
+              // simulado (en E2E el reloj de datos va anclado atrás).
+              now: wallNow,
             });
       applyToDataStatus(result);
       return result;

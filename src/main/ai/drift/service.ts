@@ -744,12 +744,10 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     const degraded = ficha.status === 'degradada';
     const storedTrades = degraded ? detailNumber(last?.detail ?? {}, 'trades') : null;
     const storedDeviation = degraded ? detailNumber(last?.detail ?? {}, 'deviationPct') : null;
-    const deviationPct =
-      degraded && storedDeviation !== null ? storedDeviation : live.deviationPct;
+    const deviationPct = degraded && storedDeviation !== null ? storedDeviation : live.deviationPct;
     const backtestMax = ficha.metricsSummary?.maxLosingStreak ?? null;
     const strategyEval: StrategyDriftSummary = {
-      trades:
-        degraded && storedTrades !== null ? storedTrades : live.trades.length,
+      trades: degraded && storedTrades !== null ? storedTrades : live.trades.length,
       deviationPct,
       consecutiveReviews: last?.streak ?? 0,
       losingStreak: live.losingStreak,
