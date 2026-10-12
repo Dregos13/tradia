@@ -46,6 +46,7 @@ import {
   type MarketUpdatedEvent,
   type WatchlistItem,
 } from '../../shared/ipc';
+import { sessionDateLabel } from '../../shared/dates';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
@@ -493,7 +494,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     publishStatus({
       key: statusKey,
       state: 'actualizando',
-      reason: `descargando velas del ${desde} al ${hasta} en '${provider.id}'`,
+      reason: `descargando velas del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
     });
 
     let newBars: Bar[];
@@ -531,7 +532,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
       publishStatus({
         key: statusKey,
         state: current?.state ?? 'desactualizado',
-        reason: `esperando la vela del ${hasta} en '${provider.id}'`,
+        reason: `esperando la vela del ${sessionDateLabel(hasta)} en '${provider.id}'`,
       });
       return {
         ticker,
@@ -539,7 +540,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         stored: 0,
         lastDate: lastStored,
         retryable: true,
-        reason: `sin la vela de ${hasta} todavía`,
+        reason: `sin la vela de ${sessionDateLabel(hasta)} todavía`,
       };
     }
 

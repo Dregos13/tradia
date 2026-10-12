@@ -146,6 +146,7 @@ Resultado: **23 archivos, 397/397** (`comandos/regresiones.txt`). Las pruebas E2
 - **Arreglo sugerido:**
   - Validar la clave en `getKey` o justo antes de la petición: con controles, dar un `auth` con un motivo claro y no hacer la petición.
   - O clasificar el `TypeError` de cabecera inválida como `clave-rechazada`.
+- **Corregido en be-fix-cierre-r1-r2:** `src/main/providers/tester.test.ts` («una clave guardada con un carácter de control es «clave-rechazada», nunca «sin-red»» en `classifyProbeError`, y «clave-rechazada: una clave guardada con un carácter de control no sale a la red y pide volver a pegarla» en Tiingo y FRED); `src/main/providers/index.test.ts` («una clave guardada con un carácter de control da «clave-rechazada» y pide volver a pegarla, nunca «sin-red»» y «una clave que secrets marca no válida propaga su motivo, no «sin clave»»); `src/main/services/secrets.test.ts` («marca como no válida una clave guardada con caracteres de control (anterior a setKey)»); `src/main/market/providers/tiingo.test.ts` y `src/main/market/macro/fred.test.ts` (clave con controles rechazada antes de la petición); `src/main/market/ingestion.test.ts` y `src/main/market/macro/service.test.ts` («una clave guardada no válida marca el activo/la serie con el motivo de clave, no «sin conexión»»).
 
 ### R2 · Baja · Backend: los motivos transitorios de «actualizando» escriben fechas ISO y llegan a Inicio
 
@@ -156,6 +157,7 @@ Resultado: **23 archivos, 397/397** (`comandos/regresiones.txt`). Las pruebas E2
   - Viene de `src/main/market/macro/service.ts:233`.
   - La ingesta tiene los mismos motivos en ISO: `src/main/market/ingestion.ts:496` («descargando velas del … al …») y `:534` («esperando la vela del …»). Backend ya lo había avisado en be-motivos-frescura-sin-iso.
 - **Evidencia:** `docs/qa/cierre-fallos/app-real/c1-sin-red-80s.png` y `.txt:120-135`.
+- **Corregido en be-fix-cierre-r1-r2:** `src/main/market/ingestion.test.ts` («los motivos de «actualizando» escriben las fechas en formato local, nunca AAAA-MM-DD») y `src/main/market/macro/service.test.ts` (mismo nombre).
 
 ### R3 · Baja · Frontend: sin red, Inicio se queda con un «Actualizando» transitorio que el backend ya no tiene
 

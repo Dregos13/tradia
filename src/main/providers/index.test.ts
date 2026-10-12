@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IPC_CHANNELS, dataStatusKey, type ProviderTestResult } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
+import { InvalidStoredKeyError } from '../market/providers/types';
 import { createMarketRepository } from '../market/repository';
 import type { ServiceContext } from '../services';
 import { registerProviders } from './index';
@@ -139,6 +140,48 @@ describe('registerProviders — producción', () => {
     expect(repo.lastBarDate('SPY')).toBeNull();
     expect(repo.lastMacroObservationDate('VIXCLS')).toBeNull();
     expect(dataStatusEntries()).toHaveLength(0);
+  });
+
+  it('una clave guardada con un carácter de control da «clave-rechazada» y pide volver a pegarla, nunca «sin-red»', async () => {
+    const fetchSpy = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', fetchSpy);
+    // Como la clave de antes de la validación de setKey: el \r rompería la
+    // cabecera Authorization y el TypeError la citaría (fallo R1).
+    keys.set('tiingo', 'tk-SECRETO-de-prueba\r12345');
+    keys.set('fred', 'abcdef0123456789\rabcdef');
+    register(makeCtx());
+
+    for (const provider of ['tiingo', 'fred'] as const) {
+      const result = (await invoke(IPC_CHANNELS.providers.testConnection, {
+        provider,
+      })) as ProviderTestResult;
+
+      expect(result.status).toBe('clave-rechazada');
+      expect(result.message).toContain('vuelve a pegarla');
+      expect(result.message).not.toContain('Sin conexión');
+      expect(result.latencyMs).toBeNull();
+      expect(JSON.stringify(result)).not.toContain('SECRETO');
+      expect(JSON.stringify(result)).not.toContain('abcdef0123456789');
+    }
+    // La clave inválida se rechaza antes de la petición: la red no se toca.
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('una clave que secrets marca no válida propaga su motivo, no «sin clave»', async () => {
+    const ctx = makeCtx();
+    (ctx.services.secrets as unknown as { getKey: () => Promise<string | null> }).getKey =
+      async () => {
+        throw new InvalidStoredKeyError({ provider: 'tiingo' });
+      };
+    register(ctx);
+
+    const result = (await invoke(IPC_CHANNELS.providers.testConnection, {
+      provider: 'tiingo',
+    })) as ProviderTestResult;
+
+    expect(result.status).toBe('clave-rechazada');
+    expect(result.message).toContain('vuelve a pegarla');
+    expect(result.latencyMs).toBeNull();
   });
 
   it('ok con clave guardada: «fiable» en provider:<id> emitido por data-status', async () => {

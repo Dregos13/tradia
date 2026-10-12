@@ -18,6 +18,7 @@
  */
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
 import {
+  InvalidStoredKeyError,
   ISO_DATE_PATTERN,
   MarketDataError,
   assertValidDateRange,
@@ -179,6 +180,13 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     const apiKey = await deps.getApiKey();
     if (!apiKey) {
       throw fail('auth', `sin clave de API guardada (secrets['${TIINGO_SECRETS_KEY}'])`, ticker);
+    }
+    // Una clave con controles o espacios dentro (guardada antes de la
+    // validación de setKey, o inyectada) rompería la cabecera
+    // Authorization y el TypeError de fetch la citaría: se rechaza antes
+    // de la petición como clave no válida, no como fallo de red.
+    if ([...apiKey].some(isUnsafeKeyChar)) {
+      throw new InvalidStoredKeyError({ provider: TIINGO_PROVIDER_ID, ticker });
     }
 
     await limiter.acquire();

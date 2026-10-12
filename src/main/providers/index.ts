@@ -38,6 +38,7 @@ import {
 } from '../../shared/ipc';
 import { createSimulatedMacroProvider } from '../market/macro/simulated';
 import { createSimulatedProvider } from '../market/providers/simulated';
+import { isInvalidStoredKeyError } from '../market/providers/types';
 import type { MarketRepository } from '../market/repository';
 import { createMarketRepository } from '../market/repository';
 import type { ServiceContext } from '../services';
@@ -244,7 +245,10 @@ export function registerProviders(
           try {
             // La clave de secrets se llama como el proveedor ('tiingo', 'fred').
             return await secrets.getKey(provider);
-          } catch {
+          } catch (error) {
+            // Una clave guardada no válida se propaga: el sondeo debe
+            // decir «vuelve a pegarla», no «sin clave» ni «sin red».
+            if (isInvalidStoredKeyError(error)) throw error;
             // Sin almacén o sin cifrado equivale a no tener clave.
             return null;
           }

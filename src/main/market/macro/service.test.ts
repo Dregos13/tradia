@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC_CHANNELS, dataStatusKey } from '../../../shared/ipc';
 import { MIGRATIONS } from '../../db/migrations';
 import { migrate } from '../../db/migrator';
-import { isMarketDataError } from '../providers/types';
+import { InvalidStoredKeyError, isMarketDataError } from '../providers/types';
 import { createMarketRepository, type MarketRepository } from '../repository';
 import { createMacroService, type MacroService, type TimerHandle } from './service';
 import { createSimulatedMacroProvider, type SimulatedMacroProvider } from './simulated';
+import { MACRO_SERIES_CATALOG, type MacroDataProvider } from './types';
 
 let db: Database.Database;
 let repo: MarketRepository;
@@ -156,6 +157,43 @@ describe('servicio macro: refresco', () => {
     const entry = repo.getDataStatus(dataStatusKey.macro('DFF'))!;
     expect(entry).toMatchObject({ state: 'fiable', consecutiveFailures: 0, reason: null });
     expect(entry.lastOkAt).not.toBeNull();
+  });
+
+  it('los motivos de «actualizando» escriben las fechas en formato local, nunca AAAA-MM-DD', async () => {
+    const broadcast = vi.fn();
+    const service = makeService({ broadcast });
+    await service.refreshAll();
+
+    const actualizando = broadcast.mock.calls
+      .filter((call) => call[0] === IPC_CHANNELS.dataStatus.changed)
+      .map((call) => call[1] as { state: string; reason?: string | null })
+      .filter((entry) => entry.state === 'actualizando');
+    // Un «descargando observaciones del … al …» por serie refrescada.
+    expect(actualizando.length).toBe(6);
+    for (const entry of actualizando) {
+      expect(entry.reason ?? '').toContain('descargando observaciones');
+      expect(entry.reason ?? '').not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    }
+  });
+
+  it('una clave guardada no válida marca la serie con el motivo de clave, no «sin conexión»', async () => {
+    // El proveedor rechaza la clave guardada antes de la petición (R1):
+    // el motivo de la serie lo dice, no un fallo de red.
+    const failing: MacroDataProvider = {
+      id: 'fred',
+      rateLimits: { perHour: 60, perDay: 500 },
+      listSeries: () => MACRO_SERIES_CATALOG,
+      getObservations: async () => {
+        throw new InvalidStoredKeyError({ provider: 'fred' });
+      },
+    };
+    const service = makeService({ provider: failing });
+
+    await service.refreshAll();
+
+    const entry = repo.getDataStatus(dataStatusKey.macro('VIXCLS'))!;
+    expect(entry.reason).toContain('vuelve a pegarla');
+    expect(entry.reason).not.toContain('Sin conexión');
   });
 
   it('emite data-status:changed en cada cambio de estado', async () => {

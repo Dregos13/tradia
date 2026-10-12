@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import vixclsObservations from '../market/macro/__fixtures__/vixcls-observations.json';
 import fredError400ApiKey from '../market/macro/__fixtures__/error-400-apikey.json';
 import aaplLatest from '../market/providers/__fixtures__/aapl-latest.json';
-import { MarketDataError } from '../market/providers/types';
+import {
+  INVALID_STORED_KEY_MESSAGE,
+  InvalidStoredKeyError,
+  MarketDataError,
+} from '../market/providers/types';
 import type { DataProviderId } from '../../shared/ipc';
 import {
   classifyProbeError,
@@ -135,6 +139,21 @@ describe('providers tester — Tiingo', () => {
     expect(probe).not.toHaveBeenCalled();
   });
 
+  it('clave-rechazada: una clave guardada con un carácter de control no sale a la red y pide volver a pegarla', async () => {
+    const dirtyKey = 'tk-SECRETO-de-prueba\r12345';
+    const { fetch, calls } = fetchReturning(() => jsonResponse(aaplLatest));
+    const result = await runProbe('tiingo', realProbes(fetch, dirtyKey).tiingo);
+
+    expect(result.status).toBe('clave-rechazada');
+    expect(result.message).toBe(INVALID_STORED_KEY_MESSAGE);
+    expect(result.message).toContain('vuelve a pegarla');
+    expect(result.message).not.toContain('Sin conexión');
+    expect(result.latestDataDate).toBeNull();
+    expect(result.latencyMs).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect(JSON.stringify(result)).not.toContain('SECRETO');
+  });
+
   it('error: una respuesta malformada se clasifica con el motivo saneado', async () => {
     const { fetch } = fetchReturning(() => new Response('<html>caído</html>', { status: 200 }));
     const result = await runProbe('tiingo', realProbes(fetch).tiingo);
@@ -196,6 +215,21 @@ describe('providers tester — FRED', () => {
     expect(result.message).toBe(PROVIDER_TEST_MESSAGES['clave-rechazada']);
     expect(result.latencyMs).not.toBeNull();
     expect(JSON.stringify(result)).not.toContain(FRED_KEY);
+  });
+
+  it('clave-rechazada: una clave guardada con un carácter de control no sale a la red y pide volver a pegarla', async () => {
+    const dirtyKey = 'abcdef0123456789\rabcdef0123456789';
+    const { fetch, calls } = fetchReturning(() => jsonResponse(vixclsObservations));
+    const result = await runProbe('fred', realProbes(fetch, dirtyKey).fred);
+
+    expect(result.status).toBe('clave-rechazada');
+    expect(result.message).toBe(INVALID_STORED_KEY_MESSAGE);
+    expect(result.message).toContain('vuelve a pegarla');
+    expect(result.message).not.toContain('Sin conexión');
+    expect(result.latestDataDate).toBeNull();
+    expect(result.latencyMs).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect(JSON.stringify(result)).not.toContain('abcdef');
   });
 
   it('cuota: un 429 se clasifica como cuota agotada', async () => {
@@ -267,5 +301,18 @@ describe('classifyProbeError', () => {
     }
     expect(classifyProbeError(new Error('otro')).status).toBe('error');
     expect(classifyProbeError('texto').status).toBe('error');
+  });
+
+  it('una clave guardada con un carácter de control es «clave-rechazada», nunca «sin-red»', () => {
+    // Reproduce el fallo del cierre R1: la clave de antes de la validación
+    // de setKey provocaba un TypeError de cabecera clasificado como
+    // 'sin-red'. Ahora se rechaza antes de la petición con su propio motivo.
+    const classified = classifyProbeError(new InvalidStoredKeyError({ provider: 'tiingo' }));
+
+    expect(classified.status).toBe('clave-rechazada');
+    expect(classified.message).toBe(INVALID_STORED_KEY_MESSAGE);
+    expect(classified.message).toContain('vuelve a pegarla');
+    expect(classified.message).not.toContain('Sin conexión');
+    expect(classified.reachedNetwork).toBe(false);
   });
 });

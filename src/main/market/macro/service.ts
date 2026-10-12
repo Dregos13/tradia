@@ -28,6 +28,7 @@ import {
   type MacroSeriesQuery,
   type MacroSeriesSnapshot,
 } from '../../../shared/ipc';
+import { sessionDateLabel } from '../../../shared/dates';
 import { nextUpdateAt } from '../calendar';
 import { MarketDataError, type MarketDataErrorKind } from '../providers/types';
 import type { MarketRepository } from '../repository';
@@ -230,7 +231,7 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
     publishStatus({
       key: dataStatusKey.macro(seriesId),
       state: 'actualizando',
-      reason: `descargando observaciones del ${desde} al ${hasta} en '${provider.id}'`,
+      reason: `descargando observaciones del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
     });
     try {
       observations = await provider.getObservations(seriesId, desde, hasta);

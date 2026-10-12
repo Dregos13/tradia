@@ -27,6 +27,8 @@ import { createFredProvider, type FredProviderDeps } from '../market/macro/fred'
 import type { MacroDataProvider } from '../market/macro/types';
 import { createTiingoProvider, type TiingoProviderDeps } from '../market/providers/tiingo';
 import {
+  INVALID_STORED_KEY_MESSAGE,
+  isInvalidStoredKeyError,
   isMarketDataError,
   type MarketDataProvider,
   type SessionDate,
@@ -127,6 +129,15 @@ export interface ProviderTestClassification {
  *   motivo saneado (los adaptadores ya redactan la clave de sus textos).
  */
 export function classifyProbeError(error: unknown): ProviderTestClassification {
+  // Una clave guardada con caracteres no válidos no llegó a la red y no
+  // es «sin clave»: el motivo pide volver a pegarla y nunca la contiene.
+  if (isInvalidStoredKeyError(error)) {
+    return {
+      status: 'clave-rechazada',
+      message: INVALID_STORED_KEY_MESSAGE,
+      reachedNetwork: false,
+    };
+  }
   if (isMarketDataError(error)) {
     switch (error.kind) {
       case 'auth':

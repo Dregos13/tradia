@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
+import { InvalidStoredKeyError } from '../market/providers/types';
 import {
   createSecretsService,
   ERR_ENCRYPTION_UNAVAILABLE,
@@ -193,6 +194,27 @@ describe('servicio de claves cifradas', () => {
     await expect(secrets.setKey('proveedor', 'parte1 parte2')).rejects.toBeInstanceOf(SecretsError);
     // Nada se guardó: la clave limpia anterior sigue intacta.
     expect(await secrets.getKey('proveedor')).toBe(SAMPLE_KEY);
+  });
+
+  it('marca como no válida una clave guardada con caracteres de control (anterior a setKey)', async () => {
+    const { db } = fileDb();
+    const crypto = fakeSafeStorage();
+    const secrets = createSecretsService(db, crypto);
+    // Una clave guardada antes de la validación de setKey (fila escrita a
+    // mano, como la del fallo R1) puede llevar un control dentro: getKey
+    // la marca como no válida en vez de entregarla a una cabecera HTTP.
+    const dirty = 'tk-SECRETO\rtiingo';
+    const ciphertext = crypto.encryptString(dirty).toString('base64');
+    const now = new Date().toISOString();
+    db.prepare(
+      'INSERT INTO secrets (provider, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    ).run('tiingo', ciphertext, now, now);
+
+    const error = await secrets.getKey('tiingo').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(InvalidStoredKeyError);
+    expect((error as Error).message).toContain('vuelve a pegarla');
+    // Ni el mensaje ni el tipo de error llevan la clave.
+    expect((error as Error).message).not.toContain('SECRETO');
   });
 
   it('informa si el dato cifrado está corrupto al leerlo (solo main)', async () => {

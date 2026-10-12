@@ -17,6 +17,7 @@ import {
   isMacroSeriesQuery,
 } from '../../../shared/ipc';
 import type { ServiceContext } from '../../services';
+import { isInvalidStoredKeyError } from '../providers/types';
 import { createMarketRepository } from '../repository';
 import { FRED_SECRETS_KEY, createFredProvider } from './fred';
 import { createMacroService, type MacroService } from './service';
@@ -59,7 +60,10 @@ export function registerMacro(
             if (!secrets) return null;
             try {
               return await secrets.getKey(FRED_SECRETS_KEY);
-            } catch {
+            } catch (error) {
+              // Una clave guardada no válida se propaga con su motivo
+              // («vuelve a pegarla»), no se disfraza de «sin clave».
+              if (isInvalidStoredKeyError(error)) throw error;
               // Sin almacén o sin cifrado equivale a no tener clave.
               return null;
             }

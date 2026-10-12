@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { ipcMain, safeStorage } from 'electron';
 
 import { IPC_CHANNELS, IpcValidationError, isNonEmptyString } from '../../shared/ipc';
+import { InvalidStoredKeyError } from '../market/providers/types';
 import type { ServiceContext } from './index';
 
 /**
@@ -43,9 +44,21 @@ export interface SecretsService {
   setKey(provider: string, apiKey: string): Promise<void>;
   hasKey(provider: string): Promise<boolean>;
   deleteKey(provider: string): Promise<void>;
-  /** Solo uso interno del proceso principal; nunca se expone por IPC. */
+  /**
+   * Solo uso interno del proceso principal; nunca se expone por IPC.
+   * Una clave guardada con controles o espacios dentro (anterior a la
+   * validación de `setKey`) se marca como no válida: rechaza con
+   * `InvalidStoredKeyError` en vez de devolver una credencial que rompe
+   * las cabeceras HTTP y se cita en el error de transporte.
+   */
   getKey(provider: string): Promise<string | null>;
 }
+
+/** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
+const isUnsafeKeyChar = (char: string): boolean => {
+  const code = char.codePointAt(0)!;
+  return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
+};
 
 export function createSecretsService(
   db: Database.Database | null,
@@ -80,12 +93,7 @@ export function createSecretsService(
       if (cleaned === '') {
         throw new SecretsError('la clave está vacía');
       }
-      if (
-        [...cleaned].some((char) => {
-          const code = char.codePointAt(0)!;
-          return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
-        })
-      ) {
+      if ([...cleaned].some(isUnsafeKeyChar)) {
         throw new SecretsError(
           'la clave contiene espacios o caracteres de control: revisa el copiado',
         );
@@ -118,13 +126,22 @@ export function createSecretsService(
         .get(provider) as { ciphertext: string } | undefined;
       if (!row) return null;
       requireRealEncryption();
+      let key: string;
       try {
-        return crypto.decryptString(Buffer.from(row.ciphertext, 'base64'));
+        key = crypto.decryptString(Buffer.from(row.ciphertext, 'base64'));
       } catch {
         throw new SecretsError(
           `no se pudo descifrar la clave de '${provider}': el cifrado del sistema cambió o el dato está corrupto`,
         );
       }
+      // Claves guardadas antes de la validación de `setKey` (o por otra
+      // vía) pueden llevar controles: devolverlas rompería la cabecera
+      // HTTP y el error de transporte las citaría. Se marcan como no
+      // válidas: hay que volver a pegarlas, no hay «sin conexión».
+      if ([...key].some(isUnsafeKeyChar)) {
+        throw new InvalidStoredKeyError({ provider });
+      }
+      return key;
     },
   };
 }

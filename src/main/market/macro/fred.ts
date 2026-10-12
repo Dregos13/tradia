@@ -22,6 +22,7 @@
  */
 import { createRateLimiter, type RateLimiter } from '../providers/rateLimiter';
 import {
+  InvalidStoredKeyError,
   MarketDataError,
   type MarketDataErrorKind,
   type RateLimits,
@@ -171,6 +172,12 @@ export function createFredProvider(deps: FredProviderDeps): MacroDataProvider {
     const apiKey = await deps.getApiKey();
     if (!apiKey) {
       throw fail('auth', `sin clave de API guardada (secrets['${FRED_SECRETS_KEY}'])`);
+    }
+    // Una clave con controles o espacios dentro no sirve como api_key:
+    // se rechaza antes de la petición como clave no válida, no como
+    // fallo de red (el mensaje de transporte podría citarla).
+    if ([...apiKey].some(isUnsafeKeyChar)) {
+      throw new InvalidStoredKeyError({ provider: FRED_PROVIDER_ID });
     }
 
     await limiter.acquire();
