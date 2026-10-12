@@ -235,7 +235,7 @@ describe('auditoría de cierre · la clave nunca sale de «Probar conexión»', 
     expect(network).not.toHaveBeenCalled();
   });
 
-  it.fails(
+  it(
     'HALLAZGO C7 · un 200 de Tiingo con «detail» que repite la clave no la devuelve en el resultado ni en data_status',
     async () => {
       vi.stubGlobal(
@@ -250,7 +250,7 @@ describe('auditoría de cierre · la clave nunca sale de «Probar conexión»', 
     },
   );
 
-  it.fails(
+  it(
     'HALLAZGO C8 · un fallo de transporte de Tiingo que cita la cabecera no lleva la clave en el error',
     async () => {
       // Lo que lanza el fetch de Node (undici) cuando la clave guardada

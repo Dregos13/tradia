@@ -309,7 +309,7 @@ it('muestra degradación y volatilidad ausente sin sustituirla por cero', async 
   expect(screen.getByText('No calculada')).toBeInTheDocument();
 });
 
-it('cubre apertura sin conexión y no solicita estimaciones nuevas', async () => {
+it('H2: al abrir sin conexión lee la instantánea persistida sin solicitar cálculos nuevos', async () => {
   adapter.emitConnectivity({
     status: 'offline',
     lastCheckedAt: null,
@@ -317,8 +317,9 @@ it('cubre apertura sin conexión y no solicita estimaciones nuevas', async () =>
     attempt: 1,
   });
   await mount();
-  expect(adapter.api.ai.regimeOverview).not.toHaveBeenCalled();
-  expect(screen.getByText(/sin una instantánea disponible/)).toBeInTheDocument();
+  expect(adapter.api.ai.regimeOverview).toHaveBeenCalledOnce();
+  expect(screen.queryByText(/sin una instantánea disponible/)).not.toBeInTheDocument();
+  expect(screen.getByRole('table', { name: 'Régimen por activo' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Actualizar' })).toBeDisabled();
 });
 
@@ -388,4 +389,55 @@ it('expone Régimen desconocido como estado y motivo de la estrategia desactivad
   await mount();
   expect(screen.getByText('Régimen desconocido')).toBeInTheDocument();
   expect(screen.getByText(/Régimen desconocido: la estrategia/)).toBeInTheDocument();
+});
+
+it('H2: una instantánea caducada pausa IA aunque el resumen de frescura aún diga current', async () => {
+  const overview = await adapter.api.ai.regimeOverview();
+  vi.mocked(adapter.api.ai.regimeOverview).mockResolvedValue({
+    ...overview,
+    stale: true,
+    expectedSessionDate: '2026-10-12',
+  });
+  vi.spyOn(adapter.api.dataStatus, 'freshness').mockResolvedValue({
+    state: 'current',
+    sinceDate: null,
+    expectedSessionDate: '2026-10-12',
+    missingSessions: 0,
+    items: [],
+    updatedAt: '2026-10-12T22:00:00Z',
+  });
+  adapter.emitConnectivity({
+    status: 'offline',
+    lastCheckedAt: null,
+    nextRetryAt: null,
+    attempt: 1,
+  });
+  await mount();
+  expect(screen.getByText('Datos desactualizados desde el 9 oct 2026')).toBeVisible();
+  expect(
+    screen.getByText(/En pausa: datos desactualizados. No se calcula el régimen/),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/sin una instantánea disponible|Al día|Datos al día/),
+  ).not.toBeInTheDocument();
+});
+
+it('H2: sin conexión y sin datos persistidos informa que no hay instantánea', async () => {
+  vi.mocked(adapter.api.ai.regimeOverview).mockResolvedValue({
+    market: null,
+    assets: [],
+    strategies: [],
+    computedAt: null,
+    expectedSessionDate: null,
+    stale: false,
+  });
+  vi.mocked(adapter.api.ai.predictions).mockResolvedValue([]);
+  adapter.emitConnectivity({
+    status: 'offline',
+    lastCheckedAt: null,
+    nextRetryAt: null,
+    attempt: 1,
+  });
+  await mount();
+  expect(screen.getByText(/sin una instantánea disponible/)).toBeVisible();
 });

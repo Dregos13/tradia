@@ -215,3 +215,10 @@ it('rotula operaciones y prueba de humo reales en la tabla, el botón y el detal
   expect(await within(dialog).findByText('Dinero real · Resumen')).toBeVisible();
   expect(within(dialog).queryByText('Operación simulada')).not.toBeInTheDocument();
 });
+
+it('QA 16: el filtro de operaciones abarca paper y dinero real sin llamarlo simulación', async () => {
+  render(<JournalPage />);
+  const option = await screen.findByRole('option', { name: 'Operación (paper o dinero real)' });
+  expect(option).toHaveValue('operacion');
+  expect(screen.queryByRole('option', { name: 'Operación simulada' })).not.toBeInTheDocument();
+});

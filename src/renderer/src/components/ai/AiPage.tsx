@@ -14,7 +14,9 @@ export interface AiPageProps {
 export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}) {
   const state = useAi();
   const { summary } = useDataFreshness();
-  const paused = !!summary && summary.state !== 'current' && summary.state !== 'no-data';
+  const paused =
+    !!state.overview?.stale ||
+    (!!summary && summary.state !== 'current' && summary.state !== 'no-data');
   const pauseReason =
     summary?.state === 'catching-up' ? 'puesta al día en curso' : 'datos desactualizados';
   const hasData = !!state.overview || state.predictions.length > 0 || !!state.model;
@@ -43,7 +45,11 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
           </button>
         </div>
       </header>
-      <DataFreshness offline={state.offline} />
+      <DataFreshness
+        offline={state.offline}
+        snapshotSessionDate={state.overview?.market?.sessionDate}
+        snapshotStale={state.overview?.stale}
+      />
       <p className="ai-notice">
         Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el
         motor de riesgo.

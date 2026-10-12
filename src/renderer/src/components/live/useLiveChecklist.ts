@@ -207,7 +207,15 @@ export function useLiveChecklist() {
       offRisk();
     };
   }, [reload]);
+  const acceptDeactivation = (next: LiveState) => {
+    generation.current++;
+    setSnapshot((previous) => previous && { ...previous, state: next });
+    // Apply the action result even when a push event started another read.
+    if (working.current) pendingRead.current = true;
+    else void read();
+  };
   return {
+    acceptDeactivation,
     snapshot,
     limits,
     loading,

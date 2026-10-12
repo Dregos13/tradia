@@ -56,24 +56,49 @@ export function affectedProviders(summary: DataFreshnessSummary) {
 export function DataFreshness({
   variant = 'inline',
   offline = false,
+  snapshotSessionDate,
+  snapshotStale = false,
 }: {
   variant?: 'banner' | 'inline';
   offline?: boolean;
+  snapshotSessionDate?: string;
+  snapshotStale?: boolean;
 }) {
-  const { summary, error, reload } = useDataFreshness();
+  const { summary: storedSummary, error, reload } = useDataFreshness();
+  const summary =
+    storedSummary?.state === 'current' && snapshotStale
+      ? { ...storedSummary, state: 'stale' as const, sinceDate: snapshotSessionDate ?? null }
+      : storedSummary;
+  const incident = JSON.stringify([summary?.state, summary?.sinceDate, summary?.items, offline]);
+  const attempt = useRef(0);
+  const refreshing = useRef(false);
+  useEffect(() => {
+    // Intermediate download events belong to this refresh, not a new incident.
+    if (!refreshing.current || summary?.state === 'current' || offline) {
+      attempt.current++;
+      setMessages([]);
+    }
+  }, [incident, summary?.state, offline]);
   const [messages, setMessages] = useState<string[]>([]);
   const [retrying, setRetrying] = useState(false);
   const previous = useRef(summary?.state);
   const [announcement, setAnnouncement] = useState('');
   useEffect(() => {
-    if (summary?.state === 'current' && previous.current && previous.current !== 'current')
+    if (
+      !offline &&
+      summary?.state === 'current' &&
+      previous.current &&
+      previous.current !== 'current'
+    )
       setAnnouncement('Datos al día.');
     else setAnnouncement('');
     previous.current = summary?.state;
-  }, [summary?.state]);
+  }, [summary?.state, offline]);
   const retry = async () => {
-    if (!summary) return;
+    if (!summary || refreshing.current) return;
+    refreshing.current = true;
     const providers = affectedProviders(summary);
+    const request = ++attempt.current;
     setRetrying(true);
     setMessages([]);
     const requests: Promise<MarketRefreshResult | MacroRefreshResult>[] = [];
@@ -81,15 +106,17 @@ export function DataFreshness({
     if (providers.macro) requests.push(window.tradia.macro.refreshNow());
     try {
       const results = await Promise.allSettled(requests);
-      setMessages(
-        results.map((result) =>
-          result.status === 'fulfilled'
-            ? refreshResultMessage(result.value)
-            : 'No pudimos iniciar la actualización. Inténtalo de nuevo.',
-        ),
-      );
+      if (request === attempt.current)
+        setMessages(
+          results.map((result) =>
+            result.status === 'fulfilled'
+              ? refreshResultMessage(result.value)
+              : 'No pudimos iniciar la actualización. Inténtalo de nuevo.',
+          ),
+        );
       await reload();
     } finally {
+      refreshing.current = false;
       setRetrying(false);
     }
   };
@@ -104,6 +131,16 @@ export function DataFreshness({
             Reintentar
           </button>
         )}
+      </p>
+    );
+  if (summary.state === 'current' && offline)
+    return (
+      <p role="status">
+        Sin conexión
+        {snapshotSessionDate
+          ? ` · datos del ${sessionDateLabel(snapshotSessionDate)}`
+          : ' · última instantánea local conservada'}
+        . No se pudo comprobar si hay datos más recientes.
       </p>
     );
   if (summary.state === 'current')
@@ -126,9 +163,13 @@ export function DataFreshness({
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
   const title =
     summary.state === 'stale'
-      ? `Datos desactualizados desde el ${since}`
+      ? summary.sinceDate
+        ? `Datos desactualizados desde el ${since}`
+        : 'Datos desactualizados · fecha del último dato no disponible'
       : summary.state === 'unreliable'
-        ? `Datos no fiables desde el ${since}`
+        ? summary.sinceDate
+          ? `Datos no fiables desde el ${since}`
+          : 'Datos no fiables · fecha del último dato no disponible'
         : summary.state === 'catching-up'
           ? 'Poniéndose al día…'
           : 'Aún no hay datos de mercado';

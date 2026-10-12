@@ -1570,6 +1570,7 @@ export function createSimulatedAdapter() {
               ? 'claude-code-cli'
               : null,
         analyzedAt: item.publishedAt,
+        publishedAt: item.publishedAt,
       };
     });
   };

@@ -128,6 +128,7 @@ it('muestra resumen y sentimiento por activo con método y fecha', async () => {
             analyzer: 'llm',
             model: 'modelo-prueba',
             analyzedAt: items[0]!.publishedAt,
+            publishedAt: items[0]!.publishedAt,
           },
           {
             id: 2,
@@ -138,6 +139,7 @@ it('muestra resumen y sentimiento por activo con método y fecha', async () => {
             analyzer: 'local',
             model: null,
             analyzedAt: items[0]!.publishedAt,
+            publishedAt: items[0]!.publishedAt,
           },
         ]
       : [],
@@ -195,6 +197,8 @@ it('actualiza el análisis al recibir ai:changed sin sustituir el titular', asyn
       analyzer: 'local',
       model: null,
       analyzedAt: new Date().toISOString(),
+      publishedAt: (await simulation.api.news.list()).find((item) => item.id === newsItemId)!
+        .publishedAt,
     },
   ]);
   act(() => simulation.emitAiChanged('noticias'));
@@ -232,6 +236,8 @@ it('identifica los resúmenes de suscripción como Claude Code', async () => {
       analyzer: 'suscripcion',
       model: 'claude-code',
       analyzedAt: '2026-10-11T12:00:00Z',
+      publishedAt: (await simulation.api.news.list()).find((item) => item.id === newsItemId)!
+        .publishedAt,
     },
   ]);
   render(<NewsFeed />);

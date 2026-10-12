@@ -256,6 +256,20 @@ export function registerSignals(
     // no se evalúa (datos viejos de una puesta al día atrasada).
     expectedSessionDate: () =>
       nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
+    // Sesión inmediatamente anterior a la vela evaluada: es la frescura
+    // mínima que el motor exige a la predicción que ajusta la señal.
+    previousExpectedSession: (barDate) => {
+      const dayMs = Date.parse(`${barDate}T00:00:00.000Z`);
+      if (!Number.isFinite(dayMs)) return null;
+      return (
+        nyseCalendar
+          .expectedSessionsBetween(
+            new Date(dayMs - 40 * 86_400_000).toISOString().slice(0, 10),
+            new Date(dayMs - 86_400_000).toISOString().slice(0, 10),
+          )
+          .at(-1)?.date ?? null
+      );
+    },
     ai: {
       // El régimen del mercado (referencia SPY) habilita o desactiva las
       // estrategias: misma referencia que la página «IA» y el backtest.
@@ -274,6 +288,8 @@ export function registerSignals(
       eligibleModel: () => aiPrediction?.service.eligibleModel() ?? null,
       latestPrediction: (ticker) => {
         const prediction = aiPrediction?.service.latestPrediction(ticker) ?? null;
+        // La sesión viaja con la predicción: el motor descarta una
+        // predicción de una sesión ya pasada (serie que estuvo atrasada).
         return prediction === null
           ? null
           : {
@@ -281,6 +297,7 @@ export function registerSignals(
               modelVersion: prediction.modelVersion,
               modelHash: prediction.modelHash,
               horizonDays: prediction.horizonDays,
+              sessionDate: prediction.sessionDate,
             };
       },
       // `news_analysis` solo tiene filas de titulares confirmados: un
@@ -290,6 +307,7 @@ export function registerSignals(
           newsItemId: item.newsItemId,
           sentiment: item.sentiment,
           analyzedAt: item.analyzedAt,
+          publishedAt: item.publishedAt,
         })),
     },
   });

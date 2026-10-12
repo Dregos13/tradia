@@ -10,8 +10,8 @@ export function useAi() {
   const [errors, setErrors] = useState<string[]>([]);
   const generation = useRef(0);
   const disconnected = useRef(false);
-  const reload = useCallback(async () => {
-    if (disconnected.current) return;
+  const reload = useCallback(async (readLocalOffline = false) => {
+    if (disconnected.current && !readLocalOffline) return;
     const id = ++generation.current;
     setLoading(true);
     setErrors([]);
@@ -53,12 +53,14 @@ export function useAi() {
   useEffect(() => {
     let active = true;
     let connectionVersion = 0;
-    const applyConnection = (status: string) => {
+    const applyConnection = (status: string, initial = false) => {
       disconnected.current = status !== 'online';
       setOffline(disconnected.current);
       if (disconnected.current) {
         generation.current++;
         setLoading(false);
+        // These IPC methods read persisted snapshots; they do not request new calculations.
+        if (initial) void reload(true);
       } else void reload();
     };
     const offConnection = window.tradia.connectivity.onChanged((state) => {
@@ -71,7 +73,7 @@ export function useAi() {
     void window.tradia.connectivity
       .getState()
       .then((state) => {
-        if (active && connectionVersion === 0) applyConnection(state.status);
+        if (active && connectionVersion === 0) applyConnection(state.status, true);
       })
       .catch(() => {
         if (active && connectionVersion === 0) {

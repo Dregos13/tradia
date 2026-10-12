@@ -49,7 +49,7 @@ analizador local en Ajustes y salta esta tarea.
 
 2. Inicia sesión con tu suscripción: ejecuta `claude`, escribe `/login`,
    sigue el navegador y sal con `/exit`.
-3. En la app, ve a **Ajustes › Análisis de noticias**, elige
+3. En la app, ve a **Ajustes › Análisis de noticias**, en **«Proveedor de análisis»** elige
    «Suscripción (Claude Code)» y pulsa **«Probar»**.
    - Esperado: correcto con la latencia.
    - «CLI no encontrada»: indica la ruta de `claude` en el campo de la
@@ -82,7 +82,7 @@ analizador local en Ajustes y salta esta tarea.
 ## 2. Claves de Tiingo y FRED
 
 1. Consigue las claves en las webs de Tiingo y de FRED (St. Louis Fed).
-2. En **Ajustes › Datos de mercado**, guarda cada clave y pulsa
+2. En **Ajustes › Proveedores de datos**, guarda cada clave y pulsa
    **«Probar conexión»** en cada proveedor.
    - Esperado: «Conectado» con la fecha del último dato disponible.
    - Si no, el motivo exacto: sin clave, clave rechazada, cuota agotada o

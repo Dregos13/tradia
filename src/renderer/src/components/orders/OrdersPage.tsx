@@ -11,7 +11,7 @@ import { useStrategies } from '../../hooks/useStrategies';
 import { useSystemState } from '../../hooks/useSystemState';
 import { ReconcileStatus } from './ReconcileStatus';
 import {
-  number,
+  quantity,
   orderStatuses,
   orderTypes,
   ordersTokenStylesheet,
@@ -340,7 +340,7 @@ export function OrdersPage() {
         >
           <h2 id="cancel-order-title">
             Cancelar la orden {orderTypes[selected.type].toLowerCase()} de{' '}
-            {number(selected.quantity - selected.filledQuantity)} {selected.ticker}
+            {quantity(selected.quantity - selected.filledQuantity)} {selected.ticker}
             {selected.execution.requestedPrice !== null
               ? ` a ${price(selected.execution.requestedPrice)}`
               : ''}
@@ -431,7 +431,7 @@ export function OrdersPage() {
                 {key.startsWith('oco:') && (
                   <tr className="orders-oco-parent">
                     <th scope="rowgroup" colSpan={12}>
-                      Protección OCO · {group[0]?.ticker} · {number(group[0]?.quantity ?? 0)} ·{' '}
+                      Protección OCO · {group[0]?.ticker} · {quantity(group[0]?.quantity ?? 0)} ·{' '}
                       {group.length} {group.length === 1 ? 'orden vinculada' : 'órdenes vinculadas'}{' '}
                       ·{' '}
                       {group.some(cancelable)

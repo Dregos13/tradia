@@ -68,7 +68,14 @@ interface TiingoPriceRow {
 /** Quita la clave de cualquier texto externo antes de meterla en un error. */
 function redact(text: string, apiKey: string | null): string {
   if (!apiKey) return text;
-  return text.split(apiKey).join('***');
+  let out = text.split(apiKey).join('***');
+  // La capa de transporte puede citar la cabecera ya normalizada (sin
+  // espacios ni controles): también se cubre la variante saneada.
+  const sanitized = apiKey.replace(/[\s\x00-\x1F\x7F-\x9F]+/g, '');
+  if (sanitized !== '' && sanitized !== apiKey) {
+    out = out.split(sanitized).join('***');
+  }
+  return out;
 }
 
 const truncate = (text: string, max = 300): string =>
@@ -179,7 +186,16 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      throw fail('network', `fallo de transporte: ${String(error)}`, ticker, undefined, undefined);
+      // El mensaje de Node puede citar la cabecera entera (con la clave)
+      // —p. ej. «Headers.append: "Token …" is an invalid header value»—:
+      // se redacta siempre antes de que llegue a data_status o al log.
+      throw fail(
+        'network',
+        `fallo de transporte: ${redact(String(error), apiKey)}`,
+        ticker,
+        undefined,
+        undefined,
+      );
     }
 
     if (!response.ok) {
@@ -230,10 +246,11 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     const payload = await request(path, ticker);
 
     if (!Array.isArray(payload)) {
-      // Tiingo a veces responde 200 con {"detail":"…"} en vez de lista.
+      // Tiingo a veces responde 200 con {"detail":"…"} en vez de lista, y
+      // ese detalle puede repetir la clave: se redacta con la clave real.
       const detail =
         typeof payload === 'object' && payload !== null && 'detail' in payload
-          ? redact(String((payload as { detail: unknown }).detail), null)
+          ? redact(String((payload as { detail: unknown }).detail), await deps.getApiKey())
           : '';
       throw fail('bad-data', `respuesta sin lista de precios: ${truncate(detail)}`, ticker);
     }

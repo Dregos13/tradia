@@ -510,3 +510,63 @@ it('bloquea una segunda prueba después de un error cuyo envío podría haber ll
     screen.getByText('Revisa la orden y su conciliación antes de repetir una prueba.'),
   ).toBeVisible();
 });
+
+it.each(['activo', 'suspendido'] as const)(
+  'N6: franja %s vuelve a paper con confirmación, Escape y foco restaurado',
+  async (mode) => {
+    const stop = vi.spyOn(adapter.api.risk, 'activateKillSwitch');
+    const next = { ...active(), mode: 'listo' as const };
+    const deactivate = vi.spyOn(adapter.api.live, 'deactivate').mockResolvedValue(next);
+    render(<LiveBanner />);
+    act(() => emit({ ...active(), mode }));
+    const trigger = screen.getByRole('button', { name: 'Volver a paper' });
+    await userEvent.click(trigger);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(
+      'No cierra las posiciones abiertas y no sustituye a la parada de emergencia',
+    );
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole('button', { name: 'Confirmar vuelta a paper' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(trigger).toHaveFocus();
+    expect(deactivate).not.toHaveBeenCalled();
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));
+    expect(deactivate).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Aviso de dinero real')).not.toBeInTheDocument();
+    expect(stop).not.toHaveBeenCalled();
+  },
+);
+
+it('N6: desactivar se envía una sola vez y conserva el diálogo si falla', async () => {
+  const pending = deferred<LiveState>();
+  const deactivate = vi.spyOn(adapter.api.live, 'deactivate').mockReturnValue(pending.promise);
+  render(<LiveBanner />);
+  act(() => emit(active()));
+  await userEvent.click(screen.getByRole('button', { name: 'Volver a paper' }));
+  await userEvent.dblClick(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));
+  expect(deactivate).toHaveBeenCalledOnce();
+  await userEvent.keyboard('{Escape}');
+  expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  await act(async () => pending.reject(new Error('IPC')));
+  expect(within(screen.getByRole('alertdialog')).getByRole('alert')).toHaveTextContent(
+    'No se pudo desactivar dinero real',
+  );
+  expect(screen.getByText('DINERO REAL')).toBeVisible();
+});
+
+it('N5: el precio enviado en la prueba de humo se rotula como límite, separado del slippage', async () => {
+  vi.spyOn(adapter.api.live, 'state').mockResolvedValue({
+    ...active(),
+    smokeTest: { ...smoke, requestedPrice: 1544.03, buyExecutedPrice: 1499.06, slippageBps: 0 },
+  });
+  render(<SmokeTestPanel />);
+  const label = await screen.findByText('Límite de protección de la compra');
+  expect(label.closest('div')).toHaveTextContent('1.544,03 USD');
+  expect(
+    screen.getByText('Slippage de compra respecto a la referencia').closest('div'),
+  ).toHaveTextContent('0 pb · sin desviación');
+  expect(screen.getByText(/El límite de protección no es la referencia/)).toBeVisible();
+  expect(screen.queryByText('Precio pedido compra')).not.toBeInTheDocument();
+});

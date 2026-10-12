@@ -567,3 +567,25 @@ it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmon
   cleanup();
   expect(adapter.listenerCount()).toBe(initial);
 });
+
+it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', async () => {
+  await complete();
+  await adapter.api.live.activate({ phrase: liveConfirmationPhrase(limits) });
+  const deactivate = vi.spyOn(adapter.api.live, 'deactivate');
+  await mount();
+  expect(screen.getByText('Dinero real activo', { exact: true })).toBeVisible();
+  const trigger = screen.getByRole('button', { name: 'Volver a paper (desactivar dinero real)' });
+  await userEvent.click(trigger);
+  await userEvent.keyboard('{Escape}');
+  expect(trigger).toHaveFocus();
+  expect(deactivate).not.toHaveBeenCalled();
+  await userEvent.click(trigger);
+  await userEvent.click(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));
+  await waitFor(() =>
+    expect(
+      screen.getByText('Listo para confirmar · revisa los límites una última vez'),
+    ).toBeVisible(),
+  );
+  expect(deactivate).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('button', { name: /Volver a paper/ })).not.toBeInTheDocument();
+});

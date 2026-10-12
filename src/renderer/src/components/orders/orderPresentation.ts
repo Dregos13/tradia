@@ -15,6 +15,8 @@ export const orderStatuses: Record<
 export const orderTypes = { market: 'Mercado', limit: 'Limitada', stop: 'Stop', oco: 'OCO' };
 export const number = (value: number) =>
   value.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+export const quantity = (value: number) =>
+  value.toLocaleString('es-ES', { maximumFractionDigits: 9 });
 export const price = (value: number | null) => (value === null ? '—' : `${number(value)} USD`);
 export const time = (value: string) =>
   new Date(value).toLocaleString('es-ES', { timeZoneName: 'short' });

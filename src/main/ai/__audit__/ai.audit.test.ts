@@ -479,6 +479,7 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
             newsItemId: row.newsItemId,
             sentiment: row.sentiment,
             analyzedAt: row.analyzedAt,
+            publishedAt: row.publishedAt,
           })),
       },
       now: () => NOW,
@@ -502,7 +503,7 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
     expect(after.confidence).toBeLessThan(withNews.confidence);
   });
 
-  it.fails(
+  it(
     'HALLAZGO C6 · un titular publicado hace semanas y analizado hoy no ajusta la confianza de la señal',
     async () => {
       // Una fuente nueva (o la vuelta tras días sin conexión) trae titulares
@@ -584,6 +585,7 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
               newsItemId: row.newsItemId,
               sentiment: row.sentiment,
               analyzedAt: row.analyzedAt,
+              publishedAt: row.publishedAt,
             })),
         },
         now: () => NOW,
@@ -781,7 +783,7 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
     expect(open.submitted).toHaveLength(1);
   });
 
-  it.fails(
+  it(
     'HALLAZGO C5 · una predicción de hace semanas no ajusta la señal de la sesión actual',
     () => {
       // Última predicción guardada de AAPL: la del 1 de septiembre (el

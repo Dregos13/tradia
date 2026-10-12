@@ -12,7 +12,7 @@ import { AiPage } from './ai/AiPage';
 import { strategies as strategyFixtures } from './dashboard/testFixtures';
 import { regimeLabels } from './strategies/regimeLabels';
 import { DataProvidersSettings } from './DataProvidersSettings';
-import type { DataFreshnessSummary } from '../../../shared/ipc';
+import type { DataFreshnessSummary, MarketRefreshResult } from '../../../shared/ipc';
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 const stale = {
   key: 'ticker:AAPL',
@@ -234,4 +234,92 @@ it('un fallo del estado detallado de Mercado mantiene un único indicador de fre
   await screen.findByText(/No pudimos comprobar el estado del dato/);
   expect(screen.getAllByLabelText('Frescura de datos')).toHaveLength(1);
   expect(document.querySelector('p section')).toBeNull();
+});
+
+it.each(['stale', 'unreliable'] as const)(
+  'N1: %s sin fecha nunca compone «desde el sin datos»',
+  async (state) => {
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+      state,
+      sinceDate: null,
+      expectedSessionDate: '2026-10-09',
+      missingSessions: 0,
+      items: [
+        {
+          key: 'provider:fred',
+          label: 'FRED',
+          state: 'desactualizado',
+          lastDataDate: null,
+          reason: 'Error del proveedor',
+        },
+      ],
+      updatedAt: stale.updatedAt,
+    });
+    render(<DataFreshness />);
+    expect(await screen.findByText(/fecha del último dato no disponible/)).toBeVisible();
+    expect(screen.queryByText(/desde el sin datos/)).not.toBeInTheDocument();
+  },
+);
+
+it('N2: limpia el resultado anterior al recuperarse y no lo lleva al siguiente aviso', async () => {
+  simulation.emitDataStatus(stale);
+  vi.spyOn(simulation.api.market, 'refreshNow').mockResolvedValue({
+    accepted: true,
+    ok: false,
+    detail: 'fallo anterior',
+    reason: null,
+  });
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
+  expect(await screen.findByText('No se pudo actualizar: fallo anterior')).toBeVisible();
+  await act(async () => simulation.emitDataStatus({ ...stale, state: 'fiable' }));
+  await screen.findByText('Al día');
+  await act(async () => simulation.emitDataStatus(stale));
+  expect(await screen.findByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
+  expect(screen.queryByText('No se pudo actualizar: fallo anterior')).not.toBeInTheDocument();
+});
+
+it('N2: una petición antigua no repone su error tras recuperarse', async () => {
+  simulation.emitDataStatus(stale);
+  let resolve!: (value: MarketRefreshResult) => void;
+  vi.spyOn(simulation.api.market, 'refreshNow').mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
+  await act(async () => simulation.emitDataStatus({ ...stale, state: 'fiable' }));
+  await screen.findByText('Al día');
+  await act(async () => simulation.emitDataStatus(stale));
+  await act(async () =>
+    resolve({ accepted: true, ok: false, detail: 'respuesta antigua', reason: null }),
+  );
+  expect(screen.queryByText(/respuesta antigua/)).not.toBeInTheDocument();
+});
+
+it('H2: sin conexión no anuncia datos al día con un resumen current', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    state: 'current',
+    sinceDate: null,
+    expectedSessionDate: '2026-10-07',
+    missingSessions: 0,
+    items: [],
+    updatedAt: stale.updatedAt,
+  });
+  render(<DataFreshness offline snapshotSessionDate="2026-10-06" />);
+  expect(await screen.findByText(/Sin conexión · datos del 6 oct 2026/)).toBeVisible();
+  expect(screen.queryByText(/Al día|Datos al día/)).not.toBeInTheDocument();
+});
+
+it('N2: los eventos de la propia descarga no descartan su resultado de error', async () => {
+  simulation.emitDataStatus(stale);
+  vi.spyOn(simulation.api.market, 'refreshNow').mockImplementation(async () => {
+    await act(async () => simulation.emitDataStatus({ ...stale, state: 'actualizando' }));
+    await act(async () => simulation.emitDataStatus(stale));
+    return { accepted: true, ok: false, detail: 'fallo de esta descarga', reason: null };
+  });
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
+  expect(await screen.findByText('No se pudo actualizar: fallo de esta descarga')).toBeVisible();
 });

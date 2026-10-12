@@ -2,6 +2,30 @@
 
 _Claude · Predeterminado · 12-10-2026 (00:20–00:45 CEST)_
 
+## Ronda de correcciones de Frontend · 12-10-2026
+
+Los textos «Observado» y las capturas inferiores documentan la sesión original. Estado tras la corrección:
+
+| Hallazgo | Estado de Frontend | Regresión |
+| --- | --- | --- |
+| N1 | **Corregido (parte Frontend)**: sin fecha no se escribe «desde el sin datos». El origen del resumen y la pausa falsa corresponden a Backend. | `DataFreshness.test.tsx`: stale y unreliable sin fecha. |
+| N2 | **Corregido**: se limpian los mensajes al recuperarse o cambiar de incidente; las respuestas tardías no contaminan el siguiente aviso y los eventos de la propia descarga no descartan su resultado. | `DataFreshness.test.tsx`: recuperación, respuesta tardía y eventos durante la descarga. |
+| N3 / E2E H3 | **Corregido**: un solo punto separa el motivo y la acción; el responsable de la composición era Frontend. | `ProviderConnectionResult.test.tsx` y `provider-connection.spec.ts`, expresión estricta `\.`. |
+| N4 | **Corregido**: las cantidades y ejecuciones parciales conservan hasta nueve decimales. | `OrdersPage.test.tsx`: cantidad 0,000667 y parcial 0,000123; `orders-live-mode.spec.ts`. |
+| N5 | **Corregido (parte Frontend)**: el panel rotula el límite de protección; Órdenes separa límite y referencia, y el slippage se identifica respecto a la referencia. | `live.test.tsx`, `OrdersPage.test.tsx` y `orders-live-mode.spec.ts`. |
+| N6 | **Corregido**: «Volver a paper» en pantalla y franja para modo activo o suspendido; confirmación, Escape, foco restaurado, envío único y recuperación del error. Aplica el resultado de `live:deactivate` y conserva posiciones abiertas. | `ChecklistPage.test.tsx`, `live.test.tsx`, `live-gate.spec.ts` (incluye entrada en Diario) y `orders-live-mode.spec.ts`. |
+| Fallo anterior 16 (etiqueta del filtro) | **Corregido**: el filtro se llama «Operación (paper o dinero real)». | `JournalPage.test.tsx`. |
+| N7 y P13 | Backend; sin cambios en esta ronda. | Corresponden a `be-correcciones-ronda`. |
+
+Verificación de esta ronda: `npm run typecheck`, `npm run lint`, `npm run format:check` y `npx vitest run src/renderer` en verde (**38 archivos, 426 pruebas**). `npm test` en verde (**181 archivos, 2.463 aprobadas y 8 fallos esperados de Backend**); no hay `it.fails`, `skip` ni `fixme` en renderer/E2E. `npm run test:e2e`: **47/47**; `live-gate.spec.ts --repeat-each=5`: **10/10**, incluidos confirmación, vuelta a paper y entrada en Diario. Las capturas E2E existentes se regeneraron al ejecutar los recorridos.
+
+
+### Revalidación con cambios concurrentes de Backend
+
+Después de las ejecuciones verdes anteriores, `be-correcciones-ronda` cambió `src/main` y añadió `NewsAnalysis.publishedAt`. El adaptador simulado y las fixtures de `NewsFeed.test.tsx` se alinearon a la fecha de publicación del titular; tipos pasan. Tras esa adaptación, `npx eslint src/renderer e2e`, las **426 pruebas de renderer** y Prettier sobre los archivos de Frontend/E2E vuelven a pasar.
+
+La última comprobación global sobre ese árbol en edición deja **tres errores de lint** (`no-control-regex` en `market/macro/fred.ts:81`, `market/providers/tiingo.ts:74` y `services/secrets.ts:83`) y **cinco fallos de auditoría** C1–C5 por «Expect test to fail»: sus arreglos ya satisfacen la prueba, pero aún conserva `it.fails`. Quedan tres fallos esperados C6–C8. Esas correcciones y la revalidación conjunta corresponden a Backend y a la verificación final; no se modifica `src/main` en esta ronda de Frontend. Los resultados globales verdes anteriores documentan el árbol previo a esos cambios concurrentes.
+
 ## Entorno y método
 
 - App construida con `npm run build` (typecheck incluido, en verde) y abierta con Playwright para Electron en modo E2E (`TRADIA_E2E=1`). Cada sesión arranca con un **perfil vacío** (`userData` temporal nuevo) y con el reloj de mercado anclado al 06-10-2026 22:00 UTC. Proveedores simulados, broker real simulado y ninguna clave real.
@@ -119,7 +143,7 @@ El criterio 7 **todavía no se cumple**: quedan 8 `it.fails` (C1 a C8) en `src/m
 - **Observado:** aparecen «No se pudo actualizar: fallo simulado del proveedor (network)» y «…proveedor macro (network)» de la incidencia anterior. Causa: el estado `messages` de `DataFreshness` no se limpia al cambiar el resumen.
 - **Evidencia:** `/tmp/qa-cont/perfil-a2.log` (paso 14, «franja inicio»); `qa-continuacion-a-no-fiable-tras-prueba-fallida.png`.
 
-### N3 · Baja · Backend — El estado «Error del proveedor» sale con doble punto
+### N3 · Baja · Frontend — El estado «Error del proveedor» sale con doble punto
 
 - **Pasos:** Ajustes › «Probar conexión» con resultado `error`.
 - **Esperado:** «…no ha respondido como esperábamos: El proveedor no respondió como se esperaba. Vuelve a probar…»
@@ -150,7 +174,7 @@ El criterio 7 **todavía no se cumple**: quedan 8 `it.fails` (C1 a C8) en `src/m
 - **Esperado:** una acción explícita «Desactivar dinero real» o «Volver a paper» (`live:deactivate` existe y `docs/dinero-real.md` registra «la vuelta a paper» en el Diario).
 - **Observado:** la franja solo ofrece «Ver límites» y «Parada», y «Dinero real» no tiene ningún control. Las únicas salidas son la parada de emergencia o retirar una declaración. Ningún componente del renderer llama a `window.tradia.live.deactivate`.
 - **Evidencia:** `/tmp/qa-cont/perfil-b.log` (paso 10); `grep -rn deactivate src/renderer/src` (solo en el adaptador simulado).
-- **Nota:** el diseño de la fase 6-7 no define este control; puede requerir antes a Diseño.
+- **Decisión de supervisión:** Frontend añade el control usando los botones, diálogo y tokens aprobados; no requiere otra tarea de Diseño.
 
 ### N7 · Baja · Backend — Salud de modelos contradice la propuesta en la estrategia degradada
 

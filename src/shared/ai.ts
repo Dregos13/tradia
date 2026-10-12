@@ -324,6 +324,13 @@ export interface NewsAnalysis {
   model: string | null;
   /** Instantáneo del análisis (ISO 8601). */
   analyzedAt: string;
+  /**
+   * Instantáneo de publicación del titular (`news_items.publicado`,
+   * ISO 8601). Es la fecha que gobierna la ventana de frescura con la
+   * que el análisis puede ajustar una señal: un análisis reciente de un
+   * titular viejo no lo rejuvenece.
+   */
+  publishedAt: string;
 }
 
 /** Filtros de `ai:news-analysis`; todos opcionales y combinables. */

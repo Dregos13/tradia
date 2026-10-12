@@ -75,7 +75,14 @@ interface FredObservationRow {
 /** Quita la clave de cualquier texto externo antes de meterla en un error. */
 function redact(text: string, apiKey: string | null): string {
   if (!apiKey) return text;
-  return text.split(apiKey).join('***');
+  let out = text.split(apiKey).join('***');
+  // La capa de transporte puede citar la credencial ya normalizada (sin
+  // espacios ni controles): también se cubre la variante saneada.
+  const sanitized = apiKey.replace(/[\s\x00-\x1F\x7F-\x9F]+/g, '');
+  if (sanitized !== '' && sanitized !== apiKey) {
+    out = out.split(sanitized).join('***');
+  }
+  return out;
 }
 
 const truncate = (text: string, max = 300): string =>

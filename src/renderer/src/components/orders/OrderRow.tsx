@@ -1,7 +1,7 @@
 import { OrderModeBadge } from './OrderModeBadge';
 import type { BrokerOrder } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES } from '../../../../shared/broker';
-import { number, orderStatuses, orderTypes, price, slippage, time } from './orderPresentation';
+import { quantity, orderStatuses, orderTypes, price, slippage, time } from './orderPresentation';
 const cancelable = (order: BrokerOrder) =>
   order.mode === 'paper' && BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
 function Status({ order }: { order: BrokerOrder }) {
@@ -13,7 +13,7 @@ function Status({ order }: { order: BrokerOrder }) {
       </span>
       {order.status === 'parcial' && (
         <small>
-          {number(order.filledQuantity)} de {number(order.quantity)} ejecutadas
+          {quantity(order.filledQuantity)} de {quantity(order.quantity)} ejecutadas
         </small>
       )}
       {order.rejectReason && <small>{order.rejectReason}</small>}
@@ -64,8 +64,17 @@ export function OrderRow({
         <span aria-hidden="true">{order.side === 'buy' ? '↑' : '↓'}</span>{' '}
         {order.side === 'buy' ? 'Compra' : 'Venta'}
       </td>
-      <td className="orders-number">{number(order.quantity)}</td>
-      <td className="orders-number">{price(order.execution.requestedPrice)}</td>
+      <td className="orders-number">{quantity(order.quantity)}</td>
+      <td className="orders-number">
+        {order.type === 'limit' ? (
+          <>
+            Límite {price(order.limitPrice)}
+            <small>Referencia {price(order.execution.requestedPrice)}</small>
+          </>
+        ) : (
+          price(order.execution.requestedPrice)
+        )}
+      </td>
       <td className="orders-number">
         {price(order.execution.executedPrice)}
         {order.execution.executedPrice === null && <small>Aún no ejecutada</small>}
@@ -74,6 +83,7 @@ export function OrderRow({
         className={`orders-number ${order.execution.slippageBps === null ? '' : order.execution.slippageBps > 0 ? 'orders-adverse' : order.execution.slippageBps < 0 ? 'orders-favorable' : ''}`}
       >
         {slippage(order.execution.slippageBps)}
+        <small>Respecto a la referencia</small>
       </td>
       <td>
         {order.strategyId === null

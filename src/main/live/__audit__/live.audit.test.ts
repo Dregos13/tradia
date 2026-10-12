@@ -697,7 +697,7 @@ describe('auditoría de cierre · techo por orden con hueco de apertura', () => 
     }
   });
 
-  it.fails(
+  it(
     'HALLAZGO C4 · una entrada en corto de mercado no puede ejecutarse por encima del techo por orden con un hueco al alza',
     async () => {
       const { live } = await activeLiveAccount(limits);

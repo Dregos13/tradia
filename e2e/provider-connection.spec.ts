@@ -39,12 +39,9 @@ const EXPECTED: Record<Exclude<ProviderTestStatus, 'ok'>, (name: string) => RegE
     ),
   'sin-red': () =>
     /^Sin red · No hay conexión a internet\. Tradia volverá a intentarlo al recuperar la red\.$/,
-  // Hallazgo abierto (docs/qa/e2e-continuacion-fase-6-7.md, H3): el motivo del backend
-  // ya acaba en punto y la interfaz añade otro («esperaba.. Vuelve»). Se acepta `\.+`
-  // para no esconder el resto del texto; al corregirlo, cambiar a `\.`.
   error: (name) =>
     new RegExp(
-      `^Error del proveedor · ${name} no ha respondido como esperábamos: El proveedor no respondió como se esperaba\\.+ Vuelve a probar; si se repite, revisa el estado del servicio\\.$`,
+      `^Error del proveedor · ${name} no ha respondido como esperábamos: El proveedor no respondió como se esperaba\\. Vuelve a probar; si se repite, revisa el estado del servicio\\.$`,
     ),
 };
 

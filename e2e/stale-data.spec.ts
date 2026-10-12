@@ -221,6 +221,13 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     }, DAY_MS);
     await expect(page.getByText('Sin conexión', { exact: false }).first()).toBeVisible();
     expect(await lastBar(page, 'SPY')).toBe('2026-10-06');
+    await openPage(page, 'IA');
+    await expect(page.locator('.ai-page')).not.toContainText('sin una instantánea disponible');
+    await expect(page.locator('.ai-page')).not.toContainText('Al día');
+    await expect(page.getByRole('region', { name: 'Régimen del mercado' })).toContainText(
+      'En pausa:',
+    );
+    await expect(page.getByRole('group', { name: 'Frescura de datos' })).toContainText(STALE_TITLE);
     await capturePhaseScreenshot(page, 'continuacion-datos-sin-red.png');
     await page.evaluate(() => window.tradia.testing!.simulateOffline(false));
     await expect.poll(() => lastBar(page, 'SPY'), { timeout: 30_000 }).toBe('2026-10-07');

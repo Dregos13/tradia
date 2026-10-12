@@ -352,3 +352,34 @@ it('relee las órdenes tras un cambio live y aplica eventos sin pisar la cuenta 
   view.unmount();
   expect(off).toHaveBeenCalledOnce();
 });
+
+it('N4: conserva cantidades fraccionarias en la orden y en su ejecución parcial', async () => {
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    { ...order(1, 'parcial'), mode: 'live', quantity: 0.000667, filledQuantity: 0.000123 },
+  ]);
+  render(<OrdersPage />);
+  const row = await screen.findByRole('row', { name: /AAPL.*0,000667/ });
+  expect(within(row).getAllByRole('cell')[5]).toHaveTextContent('0,000667');
+  expect(row).toHaveTextContent('0,000123 de 0,000667 ejecutadas');
+});
+it('N5: separa límite y referencia de ejecución sin atribuir el slippage al límite', async () => {
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    {
+      ...order(1),
+      mode: 'live',
+      limitPrice: 1544.03,
+      execution: {
+        ...order(1).execution,
+        requestedPrice: 1499.06,
+        executedPrice: 1499.06,
+        slippageBps: 0,
+      },
+    },
+  ]);
+  render(<OrdersPage />);
+  const row = await screen.findByRole('row', { name: /AAPL.*Límite/ });
+  expect(row).toHaveTextContent('Límite 1544,03 USD');
+  expect(row).toHaveTextContent('Referencia 1499,06 USD');
+  expect(row).toHaveTextContent('0 pb · sin desviación');
+  expect(row).toHaveTextContent('Respecto a la referencia');
+});

@@ -737,15 +737,25 @@ export function createDriftService(deps: DriftServiceDeps): DriftService {
     // que haya backtest de referencia, y cuando falta `missingReason`
     // lo dice.
     const live = strategyMetrics(ficha, allTrades);
+    // En una ficha degradada la fila cuenta la evidencia que la degradó
+    // —los números de la última revisión, los mismos de la propuesta—:
+    // la muestra en vivo puede haber cambiado (o no tener backtest de
+    // referencia) y contradeciría el motivo de la degradación.
+    const degraded = ficha.status === 'degradada';
+    const storedTrades = degraded ? detailNumber(last?.detail ?? {}, 'trades') : null;
+    const storedDeviation = degraded ? detailNumber(last?.detail ?? {}, 'deviationPct') : null;
+    const deviationPct =
+      degraded && storedDeviation !== null ? storedDeviation : live.deviationPct;
     const backtestMax = ficha.metricsSummary?.maxLosingStreak ?? null;
     const strategyEval: StrategyDriftSummary = {
-      trades: live.trades.length,
-      deviationPct: live.deviationPct,
+      trades:
+        degraded && storedTrades !== null ? storedTrades : live.trades.length,
+      deviationPct,
       consecutiveReviews: last?.streak ?? 0,
       losingStreak: live.losingStreak,
       maxLosingStreakBacktest: backtestMax,
       missingReason:
-        live.deviationPct === null
+        deviationPct === null
           ? 'Sin backtest de referencia: no hay expectativa con la que comparar la desviación.'
           : null,
     };

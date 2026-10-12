@@ -5,8 +5,11 @@
  *
  * Ejecuta el binario `claude` con `spawn` SIN shell, en modo una sola
  * pasada (`-p`, `--output-format json`) y sin herramientas
- * (`--allowedTools ''` más un MCP estricto vacío): el titular viaja por
- * stdin cercado como dato no fiable con el MISMO prompt que la API
+ * (`--tools ''`, que retira TODO el conjunto de herramientas —Read,
+ * Grep, Bash…—, más `--setting-sources ''` para que ni los ajustes de
+ * `~/.claude` ni los del proyecto puedan reactivar permisos, hooks o
+ * herramientas, y un MCP estricto vacío): el titular viaja por stdin
+ * cercado como dato no fiable con el MISMO prompt que la API
  * (`SYSTEM_PROMPT` + `buildUserContent` de `anthropic.ts`), así una
  * instrucción inyectada nunca cambia los argumentos del proceso ni
  * habilita herramientas. La respuesta se valida con el mismo esquema
@@ -16,6 +19,14 @@
  * Garantías:
  * - Localización: `cliPath` de Ajustes, `claude` en PATH y rutas
  *   típicas (nvm, Homebrew, instalación nativa, npm global en Windows).
+ *   En Windows se prefiere el `claude.exe` nativo; un `claude.cmd` de
+ *   npm se ejecuta vía el `cli.js` del paquete con el runtime del
+ *   proceso (ELECTRON_RUN_AS_NODE) o, en último caso, por la shell —
+ *   Node ≥ 18.20.2 / 20.12.2 rechaza lanzar `.cmd`/`.bat` sin ella.
+ * - Salidas acotadas: stdout y stderr comparten el tope de 1 MiB; la
+ *   CLI que lo supera se mata (SIGKILL) sin esperar al timeout.
+ * - cwd neutro: el proceso corre en el temporal del sistema, no en el
+ *   directorio de la app ni en el proyecto del usuario.
  * - Concurrencia 1: las llamadas se encolan en serie (la suscripción y
  *   la sesión de la CLI no admiten ráfagas).
  * - Timeout con kill: la CLI no puede bloquear la cola de análisis.
@@ -29,9 +40,10 @@
  * - `ping()` (`ai:test-llm`): distingue «CLI no encontrada», «sesión no
  *   iniciada» y éxito, sin consumir el tope.
  */
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { accessSync, constants as fsConstants, readdirSync, statSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { delimiter, dirname, join } from 'node:path';
 
 import { buildUserContent, parseNewsAnalysisOutput, SYSTEM_PROMPT } from './anthropic';
 import {
@@ -48,19 +60,29 @@ import {
 export const CLAUDE_CLI_TIMEOUT_MS = 120_000;
 /** Tope de salida capturada por stream (la respuesta JSON es pequeña). */
 export const CLAUDE_CLI_STDOUT_MAX_BYTES = 1_048_576;
+/** Mismo tope para stderr: un flood por error no bloquea la cola. */
+export const CLAUDE_CLI_STDERR_MAX_BYTES = 1_048_576;
 /** Etiqueta persistida como `modelo` en news_analysis. */
 export const CLAUDE_CLI_MODEL_LABEL = 'claude-code-cli';
 
 /**
  * Argumentos fijos de cada ejecución: una sola pasada en JSON y sin
- * herramientas ni MCP. NUNCA llevan datos del titular: eso viaja por
- * stdin, así una inyección no puede alterar la línea de comandos.
+ * herramientas ni MCP. `--tools ''` retira TODO el conjunto de
+ * herramientas (`--allowedTools ''` solo vacía la autoaprobación: Read,
+ * Grep o Glob no piden permiso) y `--setting-sources ''` evita que los
+ * ajustes del usuario o del proyecto —permissions.allow, hooks, skills—
+ * vuelvan a abrir superficie. NUNCA llevan datos del titular: eso viaja
+ * por stdin, así una inyección no puede alterar la línea de comandos.
  */
 export const CLAUDE_CLI_ARGS = [
   '-p',
   '--output-format',
   'json',
+  '--tools',
+  '',
   '--allowedTools',
+  '',
+  '--setting-sources',
   '',
   '--strict-mcp-config',
   '--mcp-config',
@@ -149,9 +171,11 @@ const defaultListDir = (path: string): string[] => {
   }
 };
 
-/** Nombres del ejecutable según plataforma (Windows añade .cmd/.exe). */
+/** Nombres del ejecutable según plataforma (Windows añade .exe/.cmd). */
 const cliFileNames = (platform: NodeJS.Platform): readonly string[] =>
-  platform === 'win32' ? ['claude.cmd', 'claude.exe', 'claude.bat', 'claude'] : ['claude'];
+  // En Windows primero el binario nativo: el .cmd de npm no se puede
+  // lanzar sin shell (Node ≥ 18.20.2/20.12.2 lanza EINVAL).
+  platform === 'win32' ? ['claude.exe', 'claude.cmd', 'claude.bat', 'claude'] : ['claude'];
 
 /** Ubicaciones habituales de `claude` fuera del PATH (Electron hereda un PATH corto). */
 function knownCliCandidates(
@@ -162,6 +186,10 @@ function knownCliCandidates(
   const home = env.HOME ?? env.USERPROFILE ?? '';
   const candidates: string[] = [];
   if (platform === 'win32') {
+    if (home) {
+      // Instalación nativa (`claude install`): un .exe real, sin shim.
+      candidates.push(join(home, '.local', 'bin', 'claude.exe'));
+    }
     const appData = env.APPDATA ?? env.LOCALAPPDATA;
     if (appData) {
       for (const name of cliFileNames(platform)) candidates.push(join(appData, 'npm', name));
@@ -250,6 +278,8 @@ export interface ClaudeCliAnalyzerDeps {
   dailyCap: () => number;
   now?: () => number;
   timeoutMs?: number;
+  /** Directorio de trabajo neutro del hijo (por defecto el temporal del SO). */
+  tmpDir?: () => string;
 }
 
 export interface ClaudeCliAnalyzer extends NewsHeadlineAnalyzer {
@@ -295,6 +325,49 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
   };
 
   /**
+   * Plan de ejecución para `cliPath`. En Windows un shim `.cmd`/`.bat`
+   * no se puede lanzar directo (Node ≥ 18.20.2/20.12.2 lanza EINVAL sin
+   * shell): si el shim es el de npm, se ejecuta el `cli.js` del paquete
+   * con el runtime del proceso (ELECTRON_RUN_AS_NODE convierte el
+   * binario Electron en Node); si no, última vía `shell: true` —los
+   * argumentos son siempre los fijos de CLAUDE_CLI_ARGS—. En el resto de
+   * plataformas el ejecutable va directo.
+   */
+  const spawnPlan = (
+    cliPath: string,
+  ): { command: string; args: string[]; options: SpawnOptions } => {
+    const base: SpawnOptions = {
+      env: childEnv(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      // cwd neutro: ni el directorio de la app ni el del usuario, así la
+      // CLI no descubre ajustes de proyecto por ubicación.
+      cwd: deps.tmpDir?.() ?? tmpdir(),
+    };
+    if (platform === 'win32' && /\.(?:cmd|bat)$/i.test(cliPath)) {
+      const cliJs = join(
+        dirname(cliPath),
+        'node_modules',
+        '@anthropic-ai',
+        'claude-code',
+        'cli.js',
+      );
+      if (isExecutableFile(cliJs)) {
+        return {
+          command: process.execPath,
+          args: [cliJs, ...CLAUDE_CLI_ARGS],
+          options: {
+            ...base,
+            env: { ...childEnv(), ELECTRON_RUN_AS_NODE: '1' },
+          },
+        };
+      }
+      return { command: cliPath, args: [...CLAUDE_CLI_ARGS], options: { ...base, shell: true } };
+    }
+    return { command: cliPath, args: [...CLAUDE_CLI_ARGS], options: base };
+  };
+
+  /**
    * Una ejecución de `claude` con prompt por stdin. Rechaza con
    * NewsLlmError clasificado; nunca deja el proceso colgado.
    */
@@ -302,11 +375,8 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
     new Promise<CliRunResult>((resolvePromise, reject) => {
       let child: ChildProcess;
       try {
-        child = spawnFn(cliPath, [...CLAUDE_CLI_ARGS], {
-          env: childEnv(),
-          stdio: ['pipe', 'pipe', 'pipe'],
-          windowsHide: true,
-        });
+        const plan = spawnPlan(cliPath);
+        child = spawnFn(plan.command, plan.args, plan.options);
       } catch (error) {
         reject(
           new NewsLlmError(
@@ -357,6 +427,12 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
       });
       child.stderr?.on('data', (chunk: Buffer | string) => {
         stderr += chunk;
+        if (stderr.length > CLAUDE_CLI_STDERR_MAX_BYTES) {
+          kill();
+          finish(() =>
+            reject(new NewsLlmError('bad-data', 'la salida de error de la CLI supera el tope')),
+          );
+        }
       });
       child.on('close', (code) => {
         finish(() => resolvePromise({ stdout, stderr, code }));

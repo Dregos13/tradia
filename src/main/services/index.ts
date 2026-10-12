@@ -125,9 +125,10 @@ export function initServices(ctx: ServiceContext): MainServices {
   // si no, parte del tiempo real.
   const marketClock = createMarketClock(e2eMarketClockBase(app.isPackaged));
   services.health = registerHealth(ctx, { clock: marketClock });
-  // Prueba de conexión de los proveedores de datos (Ajustes): stub del
-  // contrato hasta que llegue la implementación real.
-  services.providers = registerProviders(ctx);
+  // Prueba de conexión de los proveedores de datos (Ajustes). Comparte el
+  // reloj de mercado: en E2E los sondeos simulados publican datos hasta
+  // el instante simulado, no hasta la fecha real.
+  services.providers = registerProviders(ctx, { now: marketClock.now });
   // Fase 3: la parada necesita scheduler (pausa), notifications (aviso
   // crítico), connectivity (sondeo), tray (repintado) y storage (historial
   // de kill_switch_events); envuelve ctx.broadcast antes de macro/market.
@@ -136,7 +137,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.killSwitch = registerKillSwitch(ctx, {
     getLimits: () => services.risk?.getLimits() ?? RISK_DEFAULTS,
   });
-  services.macro = registerMacro(ctx);
+  services.macro = registerMacro(ctx, { now: marketClock.now });
   services.market = registerMarket(ctx, { clock: marketClock });
   // Tras secrets: los conectores piden sus claves por getApiKey. La app
   // real siembra las fuentes oficiales predefinidas (una vez por conector).

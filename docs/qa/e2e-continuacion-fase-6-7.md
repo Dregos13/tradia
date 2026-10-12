@@ -2,6 +2,25 @@
 
 _Testing · Playwright sobre la app Electron real · 12-10-2026_
 
+## Ronda de correcciones de Frontend · 12-10-2026
+
+- **H2, parte Frontend corregida:** al abrir IA sin conexión se lee la instantánea persistida mediante los canales locales. `DataFreshness` no muestra ni anuncia «Al día» sin red; una instantánea caducada mantiene IA en pausa aunque el resumen aún diga `current`. Regresiones: `AiPage.test.tsx`, `DataFreshness.test.tsx` y recorrido sin red de `stale-data.spec.ts`. El cálculo global del resumen sigue asignado a Backend.
+- **H3 corregido:** se normaliza la puntuación entre motivo y acción. Regresión parametrizada en `ProviderConnectionResult.test.tsx`; `provider-connection.spec.ts` exige ahora exactamente un punto (`\.`).
+- **N6 de QA corregido y añadido al E2E:** `live-gate.spec.ts` desactiva desde la pantalla, comprueba Escape/foco, desaparición de la franja, estado listo y entrada en el Diario; `orders-live-mode.spec.ts` desactiva desde la franja y conserva el modo de las órdenes históricas.
+
+Verificación posterior a las correcciones: `npm run test:e2e`, **47 passed**, código 0 (4,4 min), sin reintentos. `npx playwright test e2e/live-gate.spec.ts --repeat-each=5`: **10 passed**, código 0 (43,2 s). Tipos, lint, formato y las **426 pruebas de renderer** pasan.
+
+Evidencia nueva: [confirmación de vuelta a paper](capturas/continuacion-volver-paper-dialogo.png), revisada visualmente con los tokens y el diálogo existentes.
+
+Las sesiones, resultados y capturas que siguen corresponden a la ejecución original del informe.
+
+
+### Revalidación con cambios concurrentes de Backend
+
+Después de las ejecuciones verdes anteriores, `be-correcciones-ronda` cambió `src/main` y añadió `NewsAnalysis.publishedAt`. El adaptador simulado y las fixtures de `NewsFeed.test.tsx` se alinearon a la fecha de publicación del titular; tipos pasan. Tras esa adaptación, `npx eslint src/renderer e2e`, las **426 pruebas de renderer** y Prettier sobre los archivos de Frontend/E2E vuelven a pasar.
+
+La última comprobación global sobre ese árbol en edición deja **tres errores de lint** (`no-control-regex` en `market/macro/fred.ts:81`, `market/providers/tiingo.ts:74` y `services/secrets.ts:83`) y **cinco fallos de auditoría** C1–C5 por «Expect test to fail»: sus arreglos ya satisfacen la prueba, pero aún conserva `it.fails`. Quedan tres fallos esperados C6–C8. Esas correcciones y la revalidación conjunta corresponden a Backend y a la verificación final; no se modifica `src/main` en esta ronda de Frontend. Los resultados globales verdes anteriores documentan el árbol previo a esos cambios concurrentes.
+
 ## Resultado
 
 | Comando | Resultado |

@@ -317,11 +317,22 @@ export interface LiveSmokeTestResult {
   /**
    * Precio limit con el que salió la compra (la prueba envía una
    * limitada con tope sobre la referencia y los techos, nunca una
-   * orden de mercado a ciegas); null si no llegó a enviarse.
+   * orden de mercado a ciegas); null si no llegó a enviarse. Es el
+   * «límite de protección», NO la referencia: puede superarla hasta el
+   * margen de slippage y es contra `referencePrice` contra lo que se
+   * mide el slippage.
    */
   requestedPrice: number | null;
+  /**
+   * Último cierre usado como referencia para dimensionar la fracción y
+   * medir el slippage; null si la prueba no llegó a tener precio.
+   */
+  referencePrice: number | null;
   buyExecutedPrice: number | null;
   sellExecutedPrice: number | null;
+  /** Instantáneos de ejecución de cada pata (ISO 8601); null si no ejecutó. */
+  buyExecutedAt: string | null;
+  sellExecutedAt: string | null;
   /** Slippage de la compra en puntos básicos (positivo = desfavorable). */
   slippageBps: number | null;
   /** Ejecución de conciliación de la prueba (`reconcile_runs.id`). */

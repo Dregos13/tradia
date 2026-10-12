@@ -326,9 +326,36 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await capturePhaseScreenshot(page, 'fase-6-7-diario-prueba-humo.png');
 
     // Una orden por encima del techo por orden se frena antes del broker.
+    // N6: volver a paper desde la pantalla, con cancelación y confirmación accesibles.
+    await openPage(page, 'Dinero real');
+    const deactivate = page.getByRole('button', {
+      name: 'Volver a paper (desactivar dinero real)',
+      exact: true,
+    });
+    await deactivate.click();
+    const deactivateDialog = page.getByRole('alertdialog', { name: 'Confirmar vuelta a paper' });
+    await expect(deactivateDialog).toContainText(
+      'No cierra las posiciones abiertas y no sustituye a la parada de emergencia',
+    );
+    await capturePhaseScreenshot(page, 'continuacion-volver-paper-dialogo.png', deactivateDialog);
+    await page.keyboard.press('Escape');
+    await expect(deactivate).toBeFocused();
+    await expect(banner).toBeVisible();
+    await deactivate.click();
+    await deactivateDialog.getByRole('button', { name: 'Confirmar vuelta a paper' }).click();
+    await expect(deactivateDialog).toHaveCount(0);
+    await expect(banner).toHaveCount(0);
+    await expect(page.locator('.live-mode-status')).toContainText('Listo para confirmar');
+    const deactivationJournal = await page.evaluate(() =>
+      window.tradia.journal.list({ limit: 100 }),
+    );
+    expect(
+      deactivationJournal.entries.some(
+        (entry) => entry.reason === 'Modo real desactivado por el usuario; la app vuelve a paper.',
+      ),
+    ).toBe(true);
     const capped: LiveLimits = { ...LIMITS, orderUsd: 0.5 };
     await page.evaluate(async (limits) => {
-      await window.tradia.live.deactivate();
       await window.tradia.live.setLimits(limits);
     }, capped);
     const reactivated = await page.evaluate(

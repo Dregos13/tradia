@@ -65,6 +65,8 @@ interface AnalysisRow {
   analizador: NewsAnalyzer;
   modelo: string | null;
   analizado_en: string;
+  /** `news_items.publicado` del titular unido (frescura del análisis). */
+  publicado: string;
 }
 
 const toNewsAnalysis = (row: AnalysisRow): NewsAnalysis => ({
@@ -76,6 +78,7 @@ const toNewsAnalysis = (row: AnalysisRow): NewsAnalysis => ({
   analyzer: row.analizador,
   model: row.modelo,
   analyzedAt: row.analizado_en,
+  publishedAt: row.publicado,
 });
 
 export function createNewsAnalysisRepository(db: Database.Database): NewsAnalysisRepository {
@@ -145,7 +148,7 @@ export function createNewsAnalysisRepository(db: Database.Database): NewsAnalysi
       const limit = query.limit ?? NEWS_ANALYSIS_MAX_LIMIT;
       const rows = db
         .prepare(
-          `SELECT na.* FROM news_analysis na
+          `SELECT na.*, ni.publicado FROM news_analysis na
            JOIN news_items ni ON ni.id = na.noticia_id
            WHERE ${conditions.join(' AND ')}
            ORDER BY na.analizado_en DESC, na.id DESC LIMIT ?`,

@@ -151,6 +151,20 @@ export function liveOrderBlockReason(
     return 'los límites escritos del modo real no están confirmados';
   }
 
+  // Una venta sobre un ticker sin posición abre un CORTO. Con dinero real
+  // el corto no sale en esta fase: una venta a mercado ejecuta a
+  // cualquier precio y ninguna limitada de venta puede acotar el nocional
+  // por arriba —un hueco alcista superaría el techo por orden sin forma
+  // de garantizarlo—. Solo se permite vender lo que ya está en cartera
+  // (cierre o reducción, que devuelve capital); la pata 'salida' ya quedó
+  // exenta arriba.
+  if (request.side === 'sell' && !snapshot.openTickers.includes(request.ticker.trim().toUpperCase())) {
+    return (
+      'las entradas en corto están desactivadas con dinero real en esta fase: ' +
+      'ninguna venta puede garantizar el techo por orden ante un hueco alcista'
+    );
+  }
+
   const notional = estimateOrderNotionalUsd(request, context.requestedPrice);
   if (notional === null) {
     return 'no se pudo estimar el importe de la orden (falta precio de referencia)';
@@ -162,10 +176,19 @@ export function liveOrderBlockReason(
     );
   }
 
+  const ticker = request.ticker.trim().toUpperCase();
+  const opensNewPosition = !snapshot.openTickers.includes(ticker);
+
   // Una venta de entrada no admite precio tope —su notional crece con el
   // precio de ejecución—: se exige un margen de hueco sobre la referencia
-  // por debajo del límite por orden.
-  if (request.side === 'sell' && notional * (1 + LIVE_ORDER_PRICE_MARGIN) > limits.orderUsd) {
+  // por debajo del límite por orden. Solo alcanza a ventas que abren
+  // posición; las entradas en corto ya están bloqueadas arriba y vender
+  // cartera devuelve capital.
+  if (
+    request.side === 'sell' &&
+    opensNewPosition &&
+    notional * (1 + LIVE_ORDER_PRICE_MARGIN) > limits.orderUsd
+  ) {
     return (
       `el importe estimado de ${fmtUsd(notional)} con margen de hueco ` +
       `(${fmtUsd(notional * (1 + LIVE_ORDER_PRICE_MARGIN))}) supera el límite ` +
@@ -173,8 +196,6 @@ export function liveOrderBlockReason(
     );
   }
 
-  const ticker = request.ticker.trim().toUpperCase();
-  const opensNewPosition = !snapshot.openTickers.includes(ticker);
   if (opensNewPosition && snapshot.openTickers.length >= limits.openPositions) {
     return (
       `ya hay ${snapshot.openTickers.length} posición(es) abierta(s) en real ` +
@@ -182,7 +203,9 @@ export function liveOrderBlockReason(
     );
   }
 
-  if (snapshot.capitalInUseUsd + notional > limits.capitalUsd) {
+  // El límite de capital mide capital comprometido: solo lo consume una
+  // compra. Vender lo que ya está en cartera lo libera, nunca lo gasta.
+  if (request.side === 'buy' && snapshot.capitalInUseUsd + notional > limits.capitalUsd) {
     return (
       `supera el límite de capital real: ${fmtUsd(snapshot.capitalInUseUsd)} en uso ` +
       `+ ${fmtUsd(notional)} de la orden > ${fmtUsd(limits.capitalUsd)}`

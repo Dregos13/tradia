@@ -136,6 +136,14 @@ export interface SignalPredictionRef {
   modelVersion: string;
   modelHash: string;
   horizonDays: number;
+  /**
+   * Sesión del cierre sobre el que se calculó ('YYYY-MM-DD'). Solo
+   * ajusta la señal si es la de la vela evaluada o la inmediatamente
+   * anterior: una predicción de una sesión ya pasada (p. ej. la que
+   * quedó mientras la serie estuvo atrasada semanas) no toca la
+   * confianza. Ausente solo en pruebas que no la conocen.
+   */
+  sessionDate?: SessionDate;
 }
 
 /** Análisis de un titular confirmado ligado al activo (`news_analysis`). */
@@ -145,6 +153,12 @@ export interface SignalNewsRef {
   sentiment: NewsSentiment;
   /** ISO 8601 del análisis; fuera de `SIGNAL_NEWS_WINDOW_MS` no participa. */
   analyzedAt: string;
+  /**
+   * ISO 8601 de publicación del titular (`news_items.publicado`). Cuando
+   * existe es la fecha que gobierna la ventana de frescura: un análisis
+   * reciente de un titular viejo no rejuvenece la noticia.
+   */
+  publishedAt?: string | null;
 }
 
 /**
@@ -169,7 +183,11 @@ export interface SignalAiSources {
   marketRegime?(): ActiveRegime | null;
   /** Modelo apto vigente; null si no hay servible o la ficha no lo es. */
   eligibleModel?(): EligibleModelRef | null;
-  /** Última predicción guardada del ticker (de cualquier sesión). */
+  /**
+   * Última predicción guardada del ticker (de cualquier sesión): el
+   * motor solo la aplica si su `sessionDate` es la sesión evaluada o la
+   * inmediatamente anterior.
+   */
   latestPrediction?(ticker: string): SignalPredictionRef | null;
   /** Análisis de titulares confirmados del activo, más recientes primero. */
   newsAnalysesFor?(ticker: string): SignalNewsRef[];
@@ -212,6 +230,16 @@ export interface SignalEngineDeps {
    * viejos. Sin la dependencia el motor no aplica la guarda de frescura.
    */
   expectedSessionDate?(nowMs: number): SessionDate | null;
+  /**
+   * Sesión de negociación inmediatamente anterior a `barDate`
+   * ('YYYY-MM-DD'), según el calendario de mercado. Es la frescura
+   * mínima exigible a una predicción: al evaluar la vela de `barDate` la
+   * última predicción disponible es la del cierre previo (el cálculo de
+   * la sesión en curso es asíncrono); una más vieja llega de una serie
+   * que estuvo atrasada y no debe ajustar la confianza. Sin la
+   * dependencia se exige la sesión exacta de la vela.
+   */
+  previousExpectedSession?(barDate: SessionDate): SessionDate | null;
   /**
    * Fuentes de IA de la fase 6 (régimen, modelo apto y noticias
    * confirmadas). Sin el bloque el motor replica la fase 4 a la letra.
@@ -405,6 +433,27 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
 
   const blocked = (): boolean =>
     deps.isAgentsPaused() || deps.isOffline() || deps.isKillSwitchActive();
+
+  /**
+   * Frescura de la predicción que ajusta la señal de `barDate`: solo
+   * cuenta una predicción calculada sobre el cierre de esa sesión o de
+   * la inmediatamente anterior (al evaluar la vela nueva el recálculo de
+   * su propia sesión aún está encolado). Una predicción de sesiones ya
+   * pasadas —la que quedó mientras la serie estuvo atrasada— se
+   * descarta. Sin `sessionDate` no se puede acotar: el llamador que la
+   * sirve sin fecha (pruebas) la trata como vigente.
+   */
+  const predictionIsCurrent = (
+    prediction: SignalPredictionRef,
+    barDate: SessionDate,
+  ): boolean => {
+    const session = prediction.sessionDate;
+    if (session === undefined) return true;
+    if (session === barDate) return true;
+    if (session > barDate) return false;
+    const previous = deps.previousExpectedSession?.(barDate) ?? null;
+    return previous !== null && session >= previous;
+  };
 
   const recordJournal = (input: JournalRecordInput): void => {
     try {
@@ -709,12 +758,15 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       const eligible = ai.eligibleModel?.() ?? null;
       const prediction = eligible === null ? null : (ai.latestPrediction?.(ticker) ?? null);
       // La predicción solo cuenta si la emitió el modelo apto vigente
-      // (misma versión y hash): una de otra versión no es del pipeline.
+      // (misma versión y hash) y es de la sesión evaluada o la
+      // inmediatamente anterior —una más vieja quedó de una serie
+      // atrasada y no toca la confianza—.
       const usable =
         eligible !== null &&
         prediction !== null &&
         prediction.modelVersion === eligible.version &&
-        prediction.modelHash === eligible.hash;
+        prediction.modelHash === eligible.hash &&
+        predictionIsCurrent(prediction, barDate);
       if (usable) {
         const factor = modelDirectionFactor(prediction!.probUp, direction);
         if (factor === null) {
@@ -755,10 +807,13 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
       }
 
       // Titulares confirmados frescos que ajustan la confianza; un
-      // análisis nunca crea la señal, solo modula la de los votos.
+      // análisis nunca crea la señal, solo modula la de los votos. La
+      // ventana la gobierna la publicación del titular (un análisis
+      // reciente de una noticia vieja no la rejuvenece); `analyzedAt`
+      // queda como respaldo cuando la fuente no da fecha.
       const newsCutoff = now() - SIGNAL_NEWS_WINDOW_MS;
       const analyses = (ai.newsAnalysesFor?.(ticker) ?? [])
-        .filter((item) => Date.parse(item.analyzedAt) >= newsCutoff)
+        .filter((item) => Date.parse(item.publishedAt ?? item.analyzedAt) >= newsCutoff)
         .slice(0, SIGNAL_NEWS_MAX_ITEMS);
       if (analyses.length > 0) {
         newsFactor = newsSentimentFactor(analyses, direction);

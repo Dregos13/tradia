@@ -72,7 +72,20 @@ export function createSecretsService(
     setKey: async (provider, apiKey) => {
       const database = requireDb();
       requireRealEncryption();
-      const ciphertext = crypto.encryptString(apiKey).toString('base64');
+      // Una clave pegada con espacios o controles alrededor se recorta;
+      // si el resto lleva controles/espacios dentro es un error de
+      // copiado: se rechaza en vez de guardar una credencial que rompe
+      // las cabeceras HTTP y cita su valor en el error de transporte.
+      const cleaned = apiKey.trim();
+      if (cleaned === '') {
+        throw new SecretsError('la clave está vacía');
+      }
+      if (/[\s\x00-\x1F\x7F-\x9F]/.test(cleaned)) {
+        throw new SecretsError(
+          'la clave contiene espacios o caracteres de control: revisa el copiado',
+        );
+      }
+      const ciphertext = crypto.encryptString(cleaned).toString('base64');
       const now = new Date().toISOString();
       database
         .prepare(

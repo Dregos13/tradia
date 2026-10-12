@@ -502,8 +502,14 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
       ticker: LIVE_SMOKE_TICKER,
       notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
       requestedPrice: null,
+      // La referencia se conoce desde antes del envío: es contra ella
+      // (no contra el límite de protección) contra lo que se mide el
+      // slippage, y las tres superficies la ven igual.
+      referencePrice,
       buyExecutedPrice: null,
       sellExecutedPrice: null,
+      buyExecutedAt: null,
+      sellExecutedAt: null,
       slippageBps: null,
       reconcileRunId: null,
       discrepancies: null,
@@ -562,6 +568,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
         );
       }
       result.buyExecutedPrice = buyExecuted;
+      result.buyExecutedAt = buy.execution.executedAt;
       result.slippageBps = buy.execution.slippageBps;
       if (
         result.slippageBps !== null &&
@@ -583,7 +590,8 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
         reason:
           `Prueba de humo · compra de ${fmtQty(buy.filledQuantity)} uds de ` +
           `${LIVE_SMOKE_TICKER} ejecutada a ${fmtPrice(buy.execution.executedPrice!)} USD ` +
-          `(referencia ${fmtPrice(referencePrice)} USD` +
+          `(referencia ${fmtPrice(referencePrice)} USD, límite de protección ` +
+          `${fmtPrice(buy.limitPrice ?? 0)} USD` +
           (result.slippageBps !== null ? `, slippage ${fmtBps(result.slippageBps)}` : '') +
           ').',
         dataUsed: {
@@ -592,6 +600,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
           lado: 'buy',
           cantidad: buy.filledQuantity,
           precioReferencia: referencePrice,
+          precioLimite: buy.limitPrice,
           precioEjecutado: buy.execution.executedPrice,
           slippageBps: result.slippageBps,
           notionalUsd: LIVE_SMOKE_NOTIONAL_USD,
@@ -614,6 +623,7 @@ export function createLiveSmokeTest(deps: LiveSmokeDeps): LiveSmokeTestService {
       const sell = await waitForFill(adapter, 'posicion-cerrada', sellSent);
       markStep('posicion-cerrada');
       result.sellExecutedPrice = sell.execution.executedPrice;
+      result.sellExecutedAt = sell.execution.executedAt;
       persist();
       journal({
         type: 'resumen',

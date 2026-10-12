@@ -137,6 +137,9 @@ export function SmokeTestPanel({
       )}
       <SmokeProgress result={result} running={running} />
       {result && (
+        <p>El límite de protección no es la referencia usada para calcular el slippage.</p>
+      )}
+      {result && (
         <dl className="live-result-facts">
           <div>
             <dt>Hora de inicio</dt>
@@ -159,8 +162,8 @@ export function SmokeTestPanel({
             </dd>
           </div>
           <div>
-            <dt>Precio pedido compra</dt>
-            <dd>{result.requestedPrice === null ? 'Mercado' : usd(result.requestedPrice)}</dd>
+            <dt>Límite de protección de la compra</dt>
+            <dd>{result.requestedPrice === null ? 'No disponible' : usd(result.requestedPrice)}</dd>
           </div>
           <div>
             <dt>Precio ejecutado compra</dt>
@@ -173,7 +176,7 @@ export function SmokeTestPanel({
             </dd>
           </div>
           <div>
-            <dt>Slippage</dt>
+            <dt>Slippage de compra respecto a la referencia</dt>
             <dd>{slippage(result.slippageBps)}</dd>
           </div>
           <div>

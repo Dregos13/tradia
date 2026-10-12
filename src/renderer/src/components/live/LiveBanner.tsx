@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { LiveIcon, liveTokens, usd } from './presentation';
+import { LiveDeactivationButton } from './LiveDeactivationButton';
 import { LiveNavigation } from './LiveNavigation';
 import { useLiveState } from './useLiveState';
 import { useLiveSafety } from './useLiveSafety';
@@ -66,6 +67,7 @@ export function LiveBanner({ onOpenLimits, onOpenStop, onOpenConnection }: LiveB
           <span>Límites no disponibles · revisa Dinero real</span>
         )}
         <LiveNavigation label="Ver límites" href="#dinero-real" onOpen={onOpenLimits} />
+        <LiveDeactivationButton onDeactivated={live.accept} />
         {stopped ? (
           <LiveNavigation label="Ver parada" href="#riesgo" onOpen={onOpenStop} />
         ) : (

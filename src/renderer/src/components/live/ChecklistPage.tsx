@@ -3,6 +3,7 @@ import type { DeliveryTestableChannel } from '../../../../shared/journal';
 import { liveConfirmationPhrase, type LiveLimits } from '../../../../shared/live';
 import { ChecklistRow } from './ChecklistRow';
 import { LimitsForm } from './LimitsForm';
+import { LiveDeactivationButton } from './LiveDeactivationButton';
 import { LiveActivationDialog } from './LiveActivationDialog';
 import { LiveIcon, liveTokens, timestamp } from './presentation';
 import { checklistReasons, useLiveChecklist } from './useLiveChecklist';
@@ -95,6 +96,13 @@ export function ChecklistPage({
                 ? 'Lista completa · revisa los motivos antes de activar dinero real'
                 : `Dinero real bloqueado${checklist ? ` · faltan ${checklist.total - checklist.completedCount} de ${checklist.total} requisitos` : ''}`}
       </p>
+      {(active || suspended) && (
+        <LiveDeactivationButton
+          label="Volver a paper (desactivar dinero real)"
+          disabled={state.busy}
+          onDeactivated={state.acceptDeactivation}
+        />
+      )}
       {state.notice && <p role="status">{state.notice}</p>}
       {state.snapshot?.state.suspension && (
         <p className="live-warning" role="alert">

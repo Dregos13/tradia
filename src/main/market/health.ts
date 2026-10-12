@@ -737,6 +737,31 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // La pasada terminada (o caducada por silencio) cierra la ventana.
     if (!catchUpActive()) catchUpTouched.clear();
 
+    // Hijos cuyo último dato guardado queda por detrás de lo exigible
+    // ahora (sin requerir que una pasada los haya marcado). Un hijo sin
+    // datos todavía no cuenta: no hay «último dato» que caducar —el
+    // estado 'sin datos' lo da el conjunto, no el fallo del proveedor.
+    const behind = new Set<string>();
+    const lastExpectedForBehind = calendar.lastExpectedSession(now());
+    if (lastExpectedForBehind !== null) {
+      for (const { ticker } of repo.listWatchlist()) {
+        const last = repo.lastBarDate(ticker);
+        if (last !== null && last < lastExpectedForBehind.date) {
+          behind.add(dataStatusKey.ticker(ticker));
+        }
+      }
+      for (const series of repo.listMacroSeries()) {
+        const lastObs = repo.lastMacroObservationDate(series.id);
+        if (
+          lastObs !== null &&
+          lastObs <
+            expectedMacroMinDate(series.id, series.frequency, lastExpectedForBehind.date)
+        ) {
+          behind.add(dataStatusKey.macro(series.id));
+        }
+      }
+    }
+
     const items: DataFreshnessItem[] = [];
     let updating = catchUpTouched.size > 0;
     for (const entry of entries) {
@@ -746,6 +771,31 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         continue;
       }
       if (!isBad(entry.state)) continue;
+      if (entry.key.startsWith('provider:')) {
+        // Un proveedor en mal estado solo pesa en la frescura cuando a
+        // alguno de sus hijos le falta dato: con los datos al día su
+        // fallo queda en data_status y en Ajustes, pero no hay nada
+        // desactualizado —y menos con una fecha «desde» posterior a la
+        // sesión esperada—.
+        const behindChildren = providerChildKeys(entry.key.slice('provider:'.length)).filter(
+          (child) => behind.has(child),
+        );
+        if (behindChildren.length === 0) continue;
+        items.push({
+          key: entry.key,
+          label: freshnessLabel(entry.key),
+          state: entry.state,
+          // «Desde cuándo falta dato»: el hijo atrasado más viejo, no el
+          // más fresco que sirvió el proveedor.
+          lastDataDate:
+            behindChildren
+              .map((child) => lastDataDateFor(child))
+              .filter((date): date is string => date !== null)
+              .sort()[0] ?? null,
+          reason: entry.reason,
+        });
+        continue;
+      }
       items.push({
         key: entry.key,
         label: freshnessLabel(entry.key),
@@ -754,6 +804,40 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         reason: entry.reason,
       });
     }
+
+    // Atraso por calendario aunque ninguna pasada lo haya escrito: sin
+    // red o antes de la primera evaluación, un dato viejo no espera a
+    // que observe/evaluate lo marque — la frescura lo calcula igual.
+    const covered = new Set(items.map((item) => item.key));
+    for (const { ticker } of repo.listWatchlist()) {
+      const key = dataStatusKey.ticker(ticker);
+      if (covered.has(key)) continue;
+      const desired = computeTicker(ticker);
+      if (desired !== null && isBad(desired.state)) {
+        items.push({
+          key,
+          label: ticker,
+          state: desired.state,
+          lastDataDate: repo.lastBarDate(ticker),
+          reason: desired.reason,
+        });
+      }
+    }
+    for (const series of repo.listMacroSeries()) {
+      const key = dataStatusKey.macro(series.id);
+      if (covered.has(key)) continue;
+      const desired = computeMacro(series.id, series.frequency);
+      if (desired !== null && isBad(desired.state)) {
+        items.push({
+          key,
+          label: series.name,
+          state: desired.state,
+          lastDataDate: repo.lastMacroObservationDate(series.id),
+          reason: desired.reason,
+        });
+      }
+    }
+
     // Las más antiguas primero: el último dato más viejo marca el «desde».
     items.sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
 

@@ -48,7 +48,10 @@ export function registerMacro(
   const provider =
     options.provider ??
     (e2e
-      ? createSimulatedMacroProvider({ seed: 'tradia-e2e' })
+      ? // El reloj de mercado gobierna qué observaciones «ya existen»:
+        // con el reloj real el simulado serviría fechas futuras al
+        // mercado de la prueba.
+        createSimulatedMacroProvider({ seed: 'tradia-e2e', now: options.now })
       : createFredProvider({
           fetch: (...args) => globalThis.fetch(...args),
           getApiKey: async () => {

@@ -281,7 +281,7 @@ describe('auditoría de cierre · CLI de Claude: inyección en titulares', () =>
     expect(result.assets.map((asset) => asset.ticker)).toEqual(['AAPL']);
   });
 
-  it.fails(
+  it(
     'HALLAZGO C1 · la CLI se lanza con todas las herramientas desactivadas (--tools ""), no solo sin autoaprobar ninguna',
     async () => {
       const { spawnFn, calls } = fakeSpawn({ kind: 'reply', stdout: ENVELOPE([]) });
@@ -339,7 +339,7 @@ describe('auditoría de cierre · CLI de Claude: tamaño de salida y cuelgues', 
     expect(calls).toHaveLength(0);
   });
 
-  it.fails(
+  it(
     'HALLAZGO C2 · una salida por stderr sin fin también se corta por tamaño, sin esperar al timeout',
     async () => {
       const { spawnFn, calls } = fakeSpawn({
@@ -364,7 +364,7 @@ describe('auditoría de cierre · CLI de Claude: tamaño de salida y cuelgues', 
 // ---------------------------------------------------------------------------
 
 describe('auditoría de cierre · CLI de Claude en Windows', () => {
-  it.fails(
+  it(
     'HALLAZGO C3 · con la CLI instalada por npm (claude.cmd) el análisis por suscripción funciona en Windows',
     async () => {
       // El módulo path es el del sistema que ejecuta la prueba: ruta sin «C:»

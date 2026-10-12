@@ -51,7 +51,7 @@ export function ProviderConnectionResult({
             : status === 'sin-red'
               ? 'No hay conexión a internet. Tradia volverá a intentarlo al recuperar la red.'
               : status === 'error'
-                ? `${name} no ha respondido como esperábamos: ${result?.message ?? 'no se pudo comprobar el proveedor'}. Vuelve a probar; si se repite, revisa el estado del servicio.`
+                ? `${name} no ha respondido como esperábamos: ${(result?.message ?? 'no se pudo comprobar el proveedor').trim().replace(/[.!?…]+$/, '')}. Vuelve a probar; si se repite, revisa el estado del servicio.`
                 : 'Aún no has probado la conexión.';
   return (
     <div

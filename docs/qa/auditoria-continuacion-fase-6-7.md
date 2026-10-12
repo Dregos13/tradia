@@ -239,3 +239,7 @@ Ninguno es de Frontend.
 
 - Corregir los hallazgos (be-correcciones-ronda).
 - Ejecutar la CLI real o llamar a Tiingo, FRED o Alpaca de verdad: son comprobaciones del usuario.
+
+## Ronda de correcciones de Frontend · 12-10-2026
+
+Revisados C1 a C8: este informe no contiene hallazgos de Frontend. Las correcciones y regresiones del renderer para los informes E2E y QA están registradas en sus secciones «Ronda de correcciones de Frontend». No se modifica `src/main` ni se retiran las pruebas esperadas de Backend en esta ronda.

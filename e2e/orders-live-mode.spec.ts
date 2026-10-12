@@ -111,6 +111,8 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(liveRows).toHaveCount(ipcOrders.filter((order) => order.ticker === 'SPY').length);
     for (const row of await liveRows.all()) {
       await expect(row).toContainText('Dinero real');
+      await expect(row.getByRole('cell').nth(5)).not.toHaveText('0');
+      await expect(row.getByRole('cell').nth(8)).toContainText('Respecto a la referencia');
       await expect(row).not.toContainText('Paper · sin dinero real');
       // El canal de cancelación solo admite paper: una orden real no lo ofrece.
       await expect(row.getByRole('button', { name: /Cancelar orden/ })).toHaveCount(0);
@@ -132,7 +134,13 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(liveRows.first()).toBeVisible();
 
     // Volver a paper no reetiqueta el histórico: cada orden conserva su modo.
-    await page.evaluate(() => window.tradia.live.deactivate());
+    const liveBanner = page.getByRole('complementary', { name: 'Aviso de dinero real' });
+    await liveBanner.getByRole('button', { name: 'Volver a paper', exact: true }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Confirmar vuelta a paper' })
+      .getByRole('button', { name: 'Confirmar vuelta a paper' })
+      .click();
+    await expect(liveBanner).toHaveCount(0);
     await expect(
       page.getByRole('banner').getByText('Señales + paper trading', { exact: true }),
     ).toBeVisible();
