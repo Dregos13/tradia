@@ -1,11 +1,14 @@
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   capturePhaseScreenshot,
   closePhaseApp,
   launchPhaseApp,
   openPage,
+  recordNotifications,
+  recordedNotifications,
   watchTickers,
   type LocalRoute,
   type PhaseApp,
@@ -302,4 +305,84 @@ test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mo
   await retry.focus();
   await force('ok');
   await expect(notice).toHaveCount(0);
+});
+
+/**
+ * Recorrido real del proceso principal, sin dobles del IPC: una CLI falsa
+ * de Claude Code (el mismo fixture que las pruebas de `claudeCli.ts`)
+ * responde «sesión no iniciada» y después vuelve a responder. TMPDIR
+ * propio para que su configuración no choque con otras pruebas.
+ */
+test.describe('Responsable de equipo que revisa entregas', () => {
+  test('sin sesión de Claude Code: un solo aviso del sistema, motivo en Ajustes y Noticias y vuelta a ok', async () => {
+    test.setTimeout(180_000);
+    await closePhaseApp(context);
+    const fakeTmp = mkdtempSync(join(tmpdir(), 'tradia-fake-claude-e2e-'));
+    const cliPath = join(fakeTmp, 'bin', process.platform === 'win32' ? 'claude.cmd' : 'claude');
+    mkdirSync(join(fakeTmp, 'bin'), { recursive: true });
+    const fixture = resolve('src/main/ai/news/__fixtures__/fake-claude-cli.mjs');
+    if (process.platform === 'win32') {
+      copyFileSync(fixture, join(fakeTmp, 'bin', 'fake-claude-cli.mjs'));
+      writeFileSync(cliPath, `@echo off\r\nnode "%~dp0fake-claude-cli.mjs" %*\r\n`);
+    } else {
+      copyFileSync(fixture, cliPath);
+      chmodSync(cliPath, 0o755);
+    }
+    const mode = (value: 'noauth' | 'ok') =>
+      writeFileSync(join(fakeTmp, 'tradia-fake-claude.json'), JSON.stringify({ mode: value }));
+    mode('noauth');
+    try {
+      context = await launchPhaseApp('tradia-news-subscription-e2e', {
+        env: { TMPDIR: fakeTmp, TEMP: fakeTmp, TMP: fakeTmp },
+      });
+      const { app, page } = context;
+      await recordNotifications(app);
+      const failure = (calls: { title: string }[]) =>
+        calls.filter((call) => call.title === 'Tradia usa el analizador local');
+
+      // Ajustes: solo los dos proveedores sin API, ruta de la CLI y «Probar de nuevo».
+      await openPage(page, 'Ajustes');
+      const section = page.getByRole('region', { name: 'Análisis de noticias', exact: true });
+      await expect(section.getByRole('radio')).toHaveCount(2);
+      await section.getByRole('radio', { name: /Suscripción \(Claude Code\)/ }).check();
+      await section.getByLabel('Ruta de Claude Code (opcional)').fill(cliPath);
+      await section.getByRole('button', { name: 'Probar de nuevo', exact: true }).click();
+      const notice = section.getByRole('status', { name: 'Estado de la suscripción' });
+      await expect(notice).toContainText('Suscripción no disponible · sesión no iniciada', {
+        timeout: 30_000,
+      });
+      await expect(notice).toContainText('ejecuta claude y después /login');
+      await expect.poll(async () => failure(await recordedNotifications(app)).length).toBe(1);
+      await capturePhaseScreenshot(page, 'suscripcion-sin-sesion-ajustes.png', notice);
+
+      // Noticias muestra el mismo motivo; reintentar sin sesión no repite el aviso.
+      await openPage(page, 'Noticias');
+      const newsNotice = page.getByRole('status', { name: 'Estado de la suscripción' });
+      await expect(newsNotice).toContainText('Suscripción no disponible · sesión no iniciada');
+      await expect(newsNotice).toContainText('las noticias se analizan con el analizador local');
+      await capturePhaseScreenshot(page, 'suscripcion-sin-sesion-noticias.png');
+      await newsNotice.getByRole('button', { name: 'Probar de nuevo', exact: true }).click();
+      await expect(newsNotice).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+      await expect(newsNotice).toContainText('sesión no iniciada');
+
+      // Tras /login la CLI responde: vuelta a 'ok' y un aviso de recuperación.
+      mode('ok');
+      await newsNotice.getByRole('button', { name: 'Probar de nuevo', exact: true }).click();
+      await expect(newsNotice).toContainText('Suscripción recuperada', { timeout: 30_000 });
+      expect(await page.evaluate(() => window.tradia.ai.newsStatus())).toMatchObject({
+        provider: 'suscripcion',
+        state: 'ok',
+      });
+      await capturePhaseScreenshot(page, 'suscripcion-recuperada-noticias.png');
+      const calls = await recordedNotifications(app);
+      expect(failure(calls)).toHaveLength(1);
+      expect(
+        calls.filter((call) => call.title === 'Suscripción de Claude recuperada'),
+      ).toHaveLength(1);
+    } finally {
+      await closePhaseApp(context);
+      context = undefined;
+      rmSync(fakeTmp, { recursive: true, force: true });
+    }
+  });
 });
