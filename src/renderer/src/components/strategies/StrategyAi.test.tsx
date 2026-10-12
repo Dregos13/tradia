@@ -14,7 +14,7 @@ import type { RegimeComparison } from '../../../../shared/ai';
 const draft: StrategyDraft = {
   name: 'Régimen probado',
   hypothesis: 'Tendencia persistente',
-  rules: { entry: 'Comprar', exit: 'Vender', stop: 'Cinco por ciento', target: 'Salida por señal' },
+  rules: { entry: 'cierre > sma(20)', exit: 'cierre < sma(20)', stop: '5%', target: 'ninguno' },
   markets: ['SPY'],
   parameters: {},
   regime: 'Tendencia',

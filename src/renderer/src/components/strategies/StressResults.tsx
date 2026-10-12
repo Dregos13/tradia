@@ -3,7 +3,8 @@ import type { StressResultDto } from '../../../../shared/backtest';
 import { useIpcList } from '../../hooks/useIpcList';
 import { number } from './model';
 
-import { ExecutionNotice } from './ExecutionNotice';
+import { ExecutionNotice, RULES_BLOCKED_HELP } from './ExecutionNotice';
+import { executionError, isInvalidRulesError } from './ruleValidation';
 
 const crises = ['2008', '2020', '2022'] as const;
 const percent = (value: number | null) => number(value == null ? null : value * 100, ' %');
@@ -108,6 +109,7 @@ export function StressResults({
   const [results, setResults] = useState<StressResultDto[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [rulesInvalid, setRulesInvalid] = useState(false);
   const [success, setSuccess] = useState(false);
   const mounted = useRef(false);
   const running = useRef(false);
@@ -119,7 +121,7 @@ export function StressResults({
   }, []);
   const items = results ?? state.items;
   const run = async () => {
-    if (!executable || readOnly || running.current) return;
+    if (!executable || rulesInvalid || readOnly || state.loading || running.current) return;
     running.current = true;
     setBusy(true);
     setError('');
@@ -131,10 +133,10 @@ export function StressResults({
         setSuccess(true);
       }
     } catch (cause) {
-      if (mounted.current)
-        setError(
-          `No se pudieron completar las pruebas de estrés. ${cause instanceof Error ? cause.message : 'Inténtalo de nuevo.'}`,
-        );
+      if (mounted.current) {
+        setRulesInvalid(isInvalidRulesError(cause));
+        setError(executionError(cause, 'No se pudieron completar las pruebas de estrés.'));
+      }
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);
@@ -147,7 +149,7 @@ export function StressResults({
       aria-busy={state.loading || busy}
     >
       <h3 id="stress-heading">Comportamiento en crisis</h3>
-      {!executable && <ExecutionNotice />}
+      {rulesInvalid && <ExecutionNotice strategyId={strategyId} readOnly={readOnly} />}
       {state.loading && <p role="status">Cargando pruebas de estrés…</p>}
       {state.error && results === null && (
         <div role="alert">
@@ -181,10 +183,16 @@ export function StressResults({
       {readOnly ? (
         <p>Versión histórica · pruebas guardadas en solo lectura.</p>
       ) : (
-        <button disabled={!executable || state.loading || busy} onClick={() => void run()}>
+        <button
+          disabled={state.loading || busy}
+          aria-disabled={!executable || rulesInvalid}
+          aria-describedby={!executable || rulesInvalid ? 'stress-blocked' : undefined}
+          onClick={() => void run()}
+        >
           {busy ? 'Ejecutando pruebas de estrés…' : 'Ejecutar pruebas de estrés'}
         </button>
       )}
+      {(!executable || rulesInvalid) && <p id="stress-blocked">{RULES_BLOCKED_HELP}</p>}
       {busy && (
         <p role="status">
           Evaluando las crisis de 2008, 2020 y 2022. El resultado se guardará en esta versión.

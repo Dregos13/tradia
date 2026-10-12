@@ -45,10 +45,10 @@ test('biblioteca, edición versionada y ventana de 700 px', async () => {
     for (const [label, value] of Object.entries({
       Nombre: 'Evidencia E2E',
       'Hipótesis económica': 'Persistencia de tendencias',
-      Entrada: 'Cruce alcista',
-      Salida: 'Cruce bajista',
-      Stop: 'Stop de cinco por ciento',
-      Objetivo: 'Salida por señal',
+      Entrada: 'cruza_arriba(sma(20), sma(50))',
+      Salida: 'cruza_abajo(sma(20), sma(50))',
+      Stop: '5%',
+      Objetivo: 'ninguno',
       'Mercados (separados por comas)': 'SPY',
       'Régimen favorable y limitaciones': 'Tendencial',
     }))
@@ -62,15 +62,14 @@ test('biblioteca, edición versionada y ventana de 700 px', async () => {
     await page.screenshot({ path: 'test-results/strategy-form-700.png' });
     await page.getByRole('button', { name: 'Crear estrategia', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Evidencia E2E' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Reglas ejecutables' })).toContainText(
+      'Reglas listas para ejecutar',
+    );
+    for (const name of ['Lanzar backtest', 'Ejecutar pruebas de estrés'])
+      await expect(page.getByRole('button', { name, exact: true })).toBeEnabled();
     await expect(
-      page
-        .getByText(
-          'Sin implementación ejecutable: el backtest de estrategias propias llegará en la próxima fase',
-        )
-        .first(),
-    ).toBeVisible();
-    for (const name of ['Lanzar backtest', 'Ejecutar prueba final', 'Ejecutar pruebas de estrés'])
-      await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
+      page.getByRole('button', { name: 'Ejecutar prueba final', exact: true }),
+    ).toBeDisabled();
     await page.getByRole('link', { name: 'Editar', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Editar estrategia' })).toBeVisible({
       timeout: 5000,

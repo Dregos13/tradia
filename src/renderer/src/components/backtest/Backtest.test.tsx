@@ -271,17 +271,19 @@ it('mantiene el historial consultable en versiones históricas y deshabilita el 
   expect(screen.getByRole('button', { name: 'Ejecutar prueba final' })).toBeDisabled();
 });
 
-it('avisa y bloquea backtest y prueba final sin implementación, incluso con historial', async () => {
+it('explica el bloqueo de las reglas antes de lanzar, incluso con historial', async () => {
   const run = vi.spyOn(window.tradia.backtest, 'run');
   const final = vi.spyOn(window.tradia.backtest, 'runFinalTest');
   render(<BacktestLauncher strategy={{ ...strategy, executable: false }} />);
   expect(
-    screen.getByText(/Sin implementación ejecutable: el backtest de estrategias propias/),
+    screen.getByText(/Desactivado hasta que las reglas se puedan ejecutar/),
   ).toBeInTheDocument();
   const launch = screen.getByRole('button', { name: 'Lanzar backtest' });
   const finalButton = screen.getByRole('button', { name: 'Ejecutar prueba final' });
   await waitFor(() => expect(window.tradia.backtest.list).toHaveBeenCalled());
-  expect(launch).toBeDisabled();
+  expect(launch).toHaveAttribute('aria-disabled', 'true');
+  launch.focus();
+  expect(launch).toHaveFocus();
   expect(finalButton).toBeDisabled();
   await userEvent.click(launch);
   await userEvent.click(finalButton);

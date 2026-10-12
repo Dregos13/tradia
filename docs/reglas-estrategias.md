@@ -168,3 +168,19 @@ rango, paréntesis o llamada sin cerrar, campo vacío, pareja de corto a
 medias (`entryShort` escrita sin `exitShort` o al revés), texto libre de
 versiones anteriores, condición donde va un número (o al revés) y
 niveles mal formados.
+
+## Ejecución
+
+El servicio de backtest (`src/main/backtest/service.ts`) trata una ficha
+propia como una clásica: si no tiene clave en `strategy_implementations`
+compila las reglas de la versión pedida con `parseStrategyRules` y las
+ejecuta con `createCustomStrategy` — backtest, walk-forward, mapa de
+sensibilidad sobre los `parameterRanges` de la ficha, Monte Carlo, las
+tres crisis de estrés y la comparación con y sin filtro de régimen.
+
+Si las reglas no compilan (texto libre anterior al lenguaje, pareja de
+corto a medias…), el servicio rechaza con `BacktestError` código
+`'reglas-invalidas'` y el mensaje del primer error del análisis — tipado
+en `src/shared/ipc.ts` (`BACKTEST_ERROR_CODES`) y llega al renderer— en
+lugar del antiguo `'sin-implementacion'`, que queda reservado a claves
+registradas sin implementación conocida.

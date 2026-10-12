@@ -29,9 +29,16 @@ al reanudarse puede evaluarse si vuelve a dispararse el evento.
 
 ## Evaluación por estrategia
 
-- Solo emiten las estrategias en estado `activa` o `paper` que además
-  tienen una implementación ejecutable registrada
-  (`strategy_implementations` ↔ catálogo de `backtest/strategies`).
+- Solo emiten las estrategias en estado `activa` o `paper`. Cada ficha se
+  resuelve a su ejecutable:
+  - **Clásica**: implementación registrada en `strategy_implementations`
+    ↔ catálogo de `backtest/strategies` (los mismos módulos del backtest).
+  - **Propia**: sus reglas del lenguaje propio se compilan con
+    `parseStrategyRules` a la `Strategy` del motor
+    (`createCustomStrategy`, la misma que corre el backtest). Una ficha
+    cuyas reglas no compilan —o cuyos parámetros no resuelven los
+    periodos/niveles del programa— se **omite con un único aviso por
+    versión** en el registro y no detiene la evaluación de las demás.
 - **Filtro de régimen (fase 6)**: además, cada ficha se resuelve con
   `resolveStrategyRegime` contra el **régimen del mercado** (referencia
   SPY, el mismo que usa la página «IA» y el backtest con filtro). Si la
@@ -50,7 +57,10 @@ al reanudarse puede evaluarse si vuelve a dispararse el evento.
   disparador, o la más reciente del activo) en su **serie ajustada**
   (`adj*` con respaldo crudo), truncadas a la fecha de la vela evaluada.
 - El resultado son las órdenes de la última sesión: `buy` → propuesta
-  `largo` (compra), `sell` → propuesta `corto` (venta). Una estrategia que
+  `largo` (compra), `sell` → propuesta `corto` (venta). En las propias,
+  una apertura en corto (`entryShort`) sale como `sell` de entrada y su
+  recompra (`exitShort`) como `buy` de salida (la pata `leg` de la sonda
+  decide qué regla de la ficha se cita en el motivo). Una estrategia que
   no ordena nada sobre el activo simplemente no vota.
 
 ## Agregación por activo

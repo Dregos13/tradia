@@ -150,16 +150,18 @@ it('muestra drawdown cero en un resultado antiguo sin operaciones y con curva pl
   expect(crisis.queryByText('Sin datos')).not.toBeInTheDocument();
 });
 
-it('avisa y bloquea estrés sin implementación ejecutable', async () => {
+it('explica el bloqueo del estrés y conserva el botón enfocable', async () => {
   vi.spyOn(window.tradia.stress, 'get').mockResolvedValue([]);
   const run = vi.spyOn(window.tradia.stress, 'run');
   render(<StressResults executable={false} strategyId={7} version={1} />);
   expect(
-    screen.getByText(/Sin implementación ejecutable: el backtest de estrategias propias/),
+    screen.getByText('Desactivado hasta que las reglas se puedan ejecutar.'),
   ).toBeInTheDocument();
   await screen.findByText(/Aún no hay pruebas/);
   const button = screen.getByRole('button', { name: 'Ejecutar pruebas de estrés' });
-  expect(button).toBeDisabled();
+  expect(button).toHaveAttribute('aria-disabled', 'true');
+  button.focus();
+  expect(button).toHaveFocus();
   await userEvent.click(button);
   expect(run).not.toHaveBeenCalled();
 });

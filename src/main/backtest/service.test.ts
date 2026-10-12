@@ -116,6 +116,31 @@ const createExecutable = (h: Harness, seed: CreateStrategyRequest = CUSTOM_SEED)
   return strategy;
 };
 
+/**
+ * Ficha propia ejecutable: las reglas del cruce de medias escritas en el
+ * lenguaje de reglas (ver docs/reglas-estrategias.md). No se registra en
+ * `strategy_implementations`: el servicio las compila al vuelo.
+ */
+const DSL_SEED: CreateStrategyRequest = {
+  name: 'Cruce propio de prueba',
+  hypothesis: 'La tendencia persiste en el corto plazo.',
+  rules: {
+    entry: 'cruza_arriba(sma(rapida), sma(lenta))',
+    exit: 'cruza_abajo(sma(rapida), sma(lenta))',
+    stop: 'stopAtr * atr(atrPeriod)',
+    target: 'targetR * stopAtr * atr(atrPeriod)',
+  },
+  parameters: { rapida: 5, lenta: 20, atrPeriod: 14, stopAtr: 3, targetR: 2.5 },
+  parameterRanges: {
+    rapida: { min: 5, max: 15, step: 5 },
+    lenta: { min: 20, max: 40, step: 10 },
+  },
+  markets: ['SPY'],
+  trainingPeriod: { desde: '2020-01-02', hasta: '2022-12-31' },
+  outOfSamplePeriod: { desde: '2023-01-02', hasta: '2024-12-31' },
+  regime: 'Cualquiera (prueba)',
+};
+
 beforeEach(() => {
   electronMock.handlers.clear();
 });
@@ -402,7 +427,9 @@ describe('run completo', () => {
       code: 'not-found',
     });
 
+    // Clave registrada que no corresponde a ninguna clásica conocida.
     const orphan = h.strategies.create(CUSTOM_SEED);
+    h.runs.setImplementation(orphan.id, 'clave-inexistente');
     await expect(h.service.run({ strategyId: orphan.id })).rejects.toMatchObject({
       code: 'sin-implementacion',
     });
@@ -413,6 +440,204 @@ describe('run completo', () => {
       code: 'sin-datos',
     });
   });
+});
+
+// ---------------------------------------------------------------------------
+// Estrategias propias (reglas compiladas al vuelo)
+// ---------------------------------------------------------------------------
+
+describe('estrategia propia: run completo', () => {
+  it('guarda el informe en el historial con versión, procedencia y métricas', async () => {
+    const h = makeService();
+    const own = h.strategies.create(DSL_SEED);
+    expect(own.executable).toBe(false); // sin clave registrada: se compila al vuelo
+
+    const report = await h.service.run({
+      strategyId: own.id,
+      monteCarlo: { seed: 42, simulations: 200 },
+      walkForward: { trainSize: 60, testSize: 30 },
+    });
+
+    expect(report.strategyId).toBe(own.id);
+    expect(report.version).toBe(1);
+    expect(report.kind).toBe('completo');
+    expect(report.dataSource).toBe('simulated');
+    expect(report.providerId).toBe(SIMULATED_PROVIDER_ID);
+    expect(h.service.getRun(report.id)).toEqual(report);
+    expect(h.service.listRuns({ strategyId: own.id })).toHaveLength(1);
+    expect(report.metrics.tradeCount).toBeGreaterThanOrEqual(0);
+    expect(report.equityCurve.length).toBeGreaterThan(0);
+    expect(report.monteCarlo!.seed).toBe(42);
+    // La ficha muestra el resumen de métricas del run.
+    const detail = h.strategies.get(own.id);
+    expect(detail?.metricsSummary?.trades).toBe(report.metrics.tradeCount);
+  }, 60_000);
+
+  it('la sensibilidad y el walk-forward usan los parameterRanges de la ficha', async () => {
+    const h = makeService();
+    const own = h.strategies.create(DSL_SEED);
+    const report = await h.service.run({
+      strategyId: own.id,
+      walkForward: { trainSize: 60, testSize: 30 },
+      monteCarlo: false,
+    });
+
+    // Los dos ejes salen de los dos primeros rangos de la ficha propia.
+    expect(report.sensitivity).not.toBeNull();
+    expect(report.sensitivity!.xParam).toBe('rapida');
+    expect(report.sensitivity!.yParam).toBe('lenta');
+    expect(report.sensitivity!.xValues).toEqual([5, 10, 15]);
+    expect(report.sensitivity!.yValues).toEqual([20, 30, 40]);
+    expect(report.walkForward).not.toBeNull();
+    expect(report.walkForward!.windows.length).toBeGreaterThan(0);
+    for (const window of report.walkForward!.windows) {
+      expect(window.params).toHaveProperty('rapida');
+      expect(window.params).toHaveProperty('lenta');
+    }
+  }, 60_000);
+
+  it('una versión concreta compila sus reglas: la v2 con texto libre da reglas-invalidas y la v1 corre', async () => {
+    const h = makeService();
+    const own = h.strategies.create(DSL_SEED);
+    const v2 = h.strategies.update({
+      id: own.id,
+      rules: {
+        entry: 'Texto libre antiguo',
+        exit: 'Salida libre',
+        stop: 'Ninguno',
+        target: 'Ninguno',
+      },
+      note: 'Reescribo las reglas en texto libre',
+    });
+    expect(v2.version).toBe(2);
+
+    // La versión pedida es la que se compila.
+    await expect(h.service.run({ strategyId: own.id, version: 2 })).rejects.toMatchObject({
+      code: 'reglas-invalidas',
+    });
+    const report = await h.service.run({
+      strategyId: own.id,
+      version: 1,
+      walkForward: false,
+      sensitivity: false,
+      monteCarlo: false,
+    });
+    expect(report.version).toBe(1);
+    expect(h.service.listRuns({ strategyId: own.id, version: 2 })).toEqual([]);
+  }, 60_000);
+
+  it('el cruce de medias propio produce las mismas operaciones que la clásica sma-cross', async () => {
+    const h = makeService();
+    const classic = createExecutable(h, {
+      ...DSL_SEED,
+      rules: {
+        entry: 'Texto descriptivo (la clásica no compila sus reglas).',
+        exit: 'Texto descriptivo.',
+        stop: 'Texto descriptivo.',
+        target: 'Texto descriptivo.',
+      },
+      parameters: {
+        fastPeriod: 50,
+        slowPeriod: 200,
+        atrPeriod: 14,
+        stopAtr: 3,
+        targetR: 2.5,
+      },
+      parameterRanges: {},
+    });
+    const own = h.strategies.create({
+      ...DSL_SEED,
+      parameters: { rapida: 50, lenta: 200, atrPeriod: 14, stopAtr: 3, targetR: 2.5 },
+      parameterRanges: {},
+    });
+
+    const [propia, clasica] = await Promise.all([
+      h.service.run({
+        strategyId: own.id,
+        walkForward: false,
+        sensitivity: false,
+        monteCarlo: false,
+      }),
+      h.service.run({
+        strategyId: classic.id,
+        walkForward: false,
+        sensitivity: false,
+        monteCarlo: false,
+      }),
+    ]);
+
+    expect(propia.trades.length).toBeGreaterThan(0);
+    expect(propia.trades).toHaveLength(clasica.trades.length);
+    for (const [i, trade] of propia.trades.entries()) {
+      const other = clasica.trades[i]!;
+      for (const field of [
+        'ticker',
+        'side',
+        'signalDate',
+        'entryDate',
+        'exitDate',
+        'exitReason',
+        'shares',
+      ] as const) {
+        expect(trade[field], `operación ${i} · ${field}`).toEqual(other[field]);
+      }
+      for (const field of ['entryPrice', 'exitPrice', 'pnl'] as const) {
+        expect(trade[field], `operación ${i} · ${field}`).toBeCloseTo(other[field], 8);
+      }
+    }
+    expect(propia.metrics.tradeCount).toBe(clasica.metrics.tradeCount);
+    expect(propia.metrics.totalReturn).toBeCloseTo(clasica.metrics.totalReturn!, 8);
+  }, 60_000);
+
+  it('reglas que no compilan: reglas-invalidas con el primer motivo y sin guardar nada', async () => {
+    const h = makeService();
+    const broken = h.strategies.create({
+      ...DSL_SEED,
+      rules: {
+        entry: 'compra cuando sube mucho',
+        exit: 'vende cuando baja',
+        stop: 'ninguno',
+        target: 'ninguno',
+      },
+    });
+
+    await expect(h.service.run({ strategyId: broken.id })).rejects.toMatchObject({
+      name: 'BacktestError',
+      code: 'reglas-invalidas',
+    });
+    // El mensaje es el primer error del análisis, no un texto genérico.
+    await expect(h.service.run({ strategyId: broken.id })).rejects.toThrowError(
+      /compra|token|desconocido/i,
+    );
+    // Nada queda persistido: ni run ni métricas en la ficha.
+    expect(h.service.listRuns({ strategyId: broken.id })).toEqual([]);
+    expect(h.strategies.get(broken.id)!.metricsSummary).toBeNull();
+
+    // La prueba final comparte la misma puerta.
+    await expect(h.service.runFinalTest({ strategyId: broken.id })).rejects.toMatchObject({
+      code: 'reglas-invalidas',
+    });
+  });
+
+  it('una estrategia propia con reglas de corto opera en ambos lados', async () => {
+    const h = makeService();
+    const own = h.strategies.create({
+      ...DSL_SEED,
+      rules: {
+        ...DSL_SEED.rules,
+        entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+        exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+      },
+    });
+    const report = await h.service.run({
+      strategyId: own.id,
+      walkForward: false,
+      sensitivity: false,
+      monteCarlo: false,
+    });
+    expect(report.metrics.tradeCount).toBeGreaterThan(0);
+    expect(report.trades.some((t) => t.side === 'corto')).toBe(true);
+  }, 60_000);
 });
 
 // ---------------------------------------------------------------------------
@@ -495,12 +720,28 @@ describe('pruebas de estrés', () => {
     expect(h.service.getStress({ strategyId: strategy.id })).toHaveLength(3);
   }, 60_000);
 
-  it('rechaza estrés sobre estrategia sin implementación ejecutable', async () => {
+  it('ejecuta y guarda las tres crisis de una estrategia propia válida', async () => {
+    const h = makeService();
+    // Sin clave en strategy_implementations: se compilan las reglas DSL.
+    const own = h.strategies.create(DSL_SEED);
+
+    const rows = await h.service.runStress({ strategyId: own.id });
+    expect(rows.map((r) => r.crisisId).sort()).toEqual(['2008', '2020', '2022']);
+    for (const row of rows) {
+      expect(row.dataSource).toBe('simulated');
+      expect(row.providerId).toBe(SIMULATED_PROVIDER_ID);
+      expect(row.sessions).toBeGreaterThan(0);
+    }
+    expect(h.service.getStress({ strategyId: own.id })).toEqual(rows);
+  }, 60_000);
+
+  it('rechaza estrés de una estrategia propia con reglas que no compilan', async () => {
     const h = makeService();
     const orphan = h.strategies.create(CUSTOM_SEED);
     await expect(h.service.runStress({ strategyId: orphan.id })).rejects.toMatchObject({
-      code: 'sin-implementacion',
+      code: 'reglas-invalidas',
     });
+    expect(h.service.getStress({ strategyId: orphan.id })).toEqual([]);
   });
 });
 

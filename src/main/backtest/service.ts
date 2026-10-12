@@ -89,6 +89,7 @@ import {
   type StrategyMetricsSummary,
   type StrategyParameterRange,
 } from '../../shared/strategy';
+import { parseStrategyRules } from '../../shared/strategyRules';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import type { SessionDate } from '../market/providers';
@@ -111,6 +112,7 @@ import {
   type StressDataSource,
 } from './stress';
 import { CLASSIC_STRATEGIES, type ClassicStrategyDefinition } from './strategies';
+import { createCustomStrategy } from './strategies/custom';
 import {
   buildWalkForwardWindows,
   evaluateOverfitting,
@@ -124,7 +126,13 @@ import {
   type ObjectiveMetric,
   type WalkForwardWindowOptions,
 } from './validation';
-import type { BacktestInput, CostConfig, EngineBar, StrategyParams } from './types';
+import type {
+  BacktestInput,
+  CostConfig,
+  EngineBar,
+  Strategy as EngineStrategy,
+  StrategyParams,
+} from './types';
 import { DEFAULT_INITIAL_CASH, DEFAULT_MAX_POSITIONS, DEFAULT_RISK_PER_TRADE } from './types';
 
 // ---------------------------------------------------------------------------
@@ -221,10 +229,21 @@ export interface BacktestService {
 // Utilidades internas
 // ---------------------------------------------------------------------------
 
+/**
+ * Implementación ejecutable resuelta para una ficha: una clásica
+ * registrada en `strategy_implementations` o una estrategia propia
+ * compilada al vuelo desde las reglas de la versión pedida.
+ */
+interface ExecutableImpl {
+  /** Clave de la implementación ('sma-cross'… o 'propia'). */
+  key: string;
+  create: () => EngineStrategy;
+}
+
 /** Configuración resuelta de una ejecución (petición fusionada con la ficha). */
 interface ResolvedRunConfig {
   strategy: Strategy;
-  impl: ClassicStrategyDefinition;
+  impl: ExecutableImpl;
   params: StrategyParams;
   markets: string[];
   costs: StrategyCosts;
@@ -366,16 +385,31 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     return strategy;
   };
 
-  const resolveImpl = (strategyId: number): ClassicStrategyDefinition => {
-    const key = runs.implementationKey(strategyId);
-    const impl = key === null ? undefined : impls.find((entry) => entry.key === key);
-    if (impl === undefined) {
+  /**
+   * Resuelve la implementación ejecutable de la versión pedida. Con clave
+   * registrada se usa el catálogo de clásicas; sin clave (estrategia
+   * propia) se compilan sus reglas con el lenguaje seguro — si no
+   * compilan se rechaza con 'reglas-invalidas' y el primer motivo, en
+   * lugar de 'sin-implementacion'.
+   */
+  const resolveImpl = (strategy: Strategy): ExecutableImpl => {
+    const key = runs.implementationKey(strategy.id);
+    if (key !== null) {
+      const impl = impls.find((entry) => entry.key === key);
+      if (impl !== undefined) return impl;
       throw new BacktestError(
         'sin-implementacion',
-        `la estrategia ${strategyId} no tiene una implementación ejecutable registrada`,
+        `la estrategia ${strategy.id} no tiene una implementación ejecutable registrada`,
       );
     }
-    return impl;
+    const parsed = parseStrategyRules(strategy.rules, strategy.parameters);
+    if (!parsed.ok) {
+      throw new BacktestError('reglas-invalidas', parsed.errors[0]!.message);
+    }
+    return {
+      key: 'propia',
+      create: () => createCustomStrategy(parsed.program, strategy.parameters),
+    };
   };
 
   /**
@@ -417,7 +451,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   const resolveConfig = (request: BacktestRunRequest): ResolvedRunConfig => {
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(request.strategyId);
+    const impl = resolveImpl(strategy);
     const params: StrategyParams = { ...strategy.parameters, ...request.params };
     const markets = request.universe
       ? executableMarkets(request.universe)
@@ -1159,7 +1193,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
   /** Config efectiva de un run guardado: la comparación repite exactamente su base. */
   const configFromRun = (
     strategy: Strategy,
-    impl: ClassicStrategyDefinition,
+    impl: ExecutableImpl,
     base: BacktestReport,
   ): ResolvedRunConfig => ({
     strategy,
@@ -1290,7 +1324,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
   ): Promise<RegimeComparison> => {
     const started = now();
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(strategy.id);
+    const impl = resolveImpl(strategy);
     const emit = makeEmitter(strategy.id);
 
     try {
@@ -1403,7 +1437,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   const runStressPipeline = async (request: StressRequest): Promise<StressResultDto[]> => {
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(strategy.id);
+    const impl = resolveImpl(strategy);
     const markets = executableMarkets(strategy.markets);
     if (markets.length === 0) {
       throw new BacktestError(

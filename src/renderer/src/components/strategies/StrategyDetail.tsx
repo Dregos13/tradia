@@ -1,3 +1,5 @@
+import { ExecutionNotice } from './ExecutionNotice';
+import { strategyExecution } from './ruleValidation';
 import { StrategyHealth } from './StrategyHealth';
 import { RegimeBacktestComparison } from './RegimeBacktestComparison';
 import { regimeLabels } from './regimeLabels';
@@ -37,6 +39,8 @@ export function StrategyDetail({
     'No pudimos consultar la evidencia guardada.',
   );
   const report = evidence.items[0];
+  const execution = strategyExecution(s);
+  const runnable = { ...s, executable: execution.executable };
   const historical = s.version !== latest.version;
   const [status, setStatus] = useState(s.status);
   const [busy, setBusy] = useState(false);
@@ -76,6 +80,14 @@ export function StrategyDetail({
         </div>
       </header>
       {historical && <p className="strategy-section">Versión histórica · solo lectura</p>}
+      {(!s.executable || execution.parsed.ok) && (
+        <ExecutionNotice
+          executable={execution.executable}
+          reason={execution.reason}
+          strategyId={s.id}
+          readOnly={historical}
+        />
+      )}
       <StrategyHealth strategy={latest} />
       <section className="strategy-section" aria-labelledby="strategy-evidence">
         <h3 id="strategy-evidence">Resumen de evidencia</h3>
@@ -179,7 +191,7 @@ export function StrategyDetail({
       </section>
       <RegimeBacktestComparison
         key={`regime:${s.id}:${s.version}`}
-        strategy={s}
+        strategy={runnable}
         readOnly={historical}
       />
       <section className="strategy-section">
@@ -253,12 +265,12 @@ export function StrategyDetail({
       )}
       <StressResults
         key={`${s.id}:${s.version}`}
-        executable={s.executable}
+        executable={execution.executable}
         strategyId={s.id}
         version={s.version}
         readOnly={historical}
       />
-      <BacktestLauncher strategy={s} readOnly={historical} />
+      <BacktestLauncher strategy={runnable} readOnly={historical} />
       <section className="strategy-section">
         <h3>Registro de cambios</h3>
         <ol className="strategy-history">

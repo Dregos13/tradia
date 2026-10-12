@@ -1,3 +1,5 @@
+import { parseStrategyRules } from '../../../shared/strategyRules';
+import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
@@ -616,9 +618,20 @@ export function createSimulatedAdapter() {
     progressListeners.forEach((listener) => listener(event));
   };
 
-  // El adaptador no registra implementaciones para las fichas creadas por el usuario.
+  // Las clásicas conservan su implementación; las propias compilan sus reglas.
   const implementations = new Map<number, (typeof CLASSIC_STRATEGIES)[number]>();
-  const implForStrategy = (strategy: Strategy) => implementations.get(strategy.id) ?? null;
+  const implForStrategy = (strategy: Strategy, parameters = strategy.parameters) => {
+    const classic = implementations.get(strategy.id);
+    if (classic) return classic;
+    const parsed = parseStrategyRules(strategy.rules, parameters);
+    if (!parsed.ok) {
+      const first = parsed.errors[0]!;
+      throw Object.assign(new Error(`[reglas-invalidas] ${first.message}`), {
+        code: 'reglas-invalidas',
+      });
+    }
+    return { create: () => createCustomStrategy(parsed.program, parameters) };
+  };
 
   const findStrategyVersion = (id: number, version?: number): Strategy | null =>
     version !== undefined
@@ -715,7 +728,7 @@ export function createSimulatedAdapter() {
     kind: 'completo' | 'prueba-final',
     progress: { ticket: string; percentBase: number },
   ): BacktestReport => {
-    const impl = implForStrategy(strategy);
+    const impl = implForStrategy(strategy, { ...strategy.parameters, ...request.params });
     if (impl === null) {
       throw new Error(
         `La estrategia ${strategy.id} no tiene una implementación ejecutable registrada.`,
@@ -2170,7 +2183,7 @@ export function createSimulatedAdapter() {
         const note = request.note?.trim() || 'Alta de la estrategia';
         const strategy: Strategy = {
           id: nextStrategyId++,
-          executable: false,
+          executable: parseStrategyRules(request.rules, request.parameters).ok,
           version: 1,
           name: request.name.trim(),
           hypothesis: request.hypothesis,
@@ -2211,6 +2224,9 @@ export function createSimulatedAdapter() {
         const version: Strategy = {
           ...current,
           version: current.version + 1,
+          executable:
+            implementations.has(current.id) ||
+            parseStrategyRules(merged.rules, merged.parameters).ok,
           name: merged.name.trim(),
           hypothesis: merged.hypothesis,
           rules: merged.rules,
@@ -2383,6 +2399,7 @@ export function createSimulatedAdapter() {
         if (strategy === null) {
           throw new Error(`No existe la estrategia ${request.strategyId}.`);
         }
+        implForStrategy(strategy);
         const key = `${strategy.id}:${strategy.version}`;
         const existing = regimeComparisons.get(key);
         if (existing !== undefined) return existing;
@@ -2430,7 +2447,10 @@ export function createSimulatedAdapter() {
         const strategy = findStrategyVersion(request.strategyId, request.version);
         if (strategy === null || !strategy.executable) return [];
         // Como la semilla real: la primera lectura calcula las tres crisis.
-        return stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ?? runFakeStress(strategy);
+        return (
+          stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ??
+          (implementations.has(strategy.id) ? runFakeStress(strategy) : [])
+        );
       },
       run: async (request) => {
         if (!isStressRequest(request)) {

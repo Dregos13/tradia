@@ -7,9 +7,14 @@
  * - Disparo: `market.onBarsStored` (evento interno de market/ingestion,
  *   se emite al guardarse un lote con velas nuevas de un activo).
  * - Estrategias: `services.strategies` (fichas versionadas) filtradas a
- *   estado 'activa'/'paper' y ejecutables; la implementación se resuelve
+ *   estado 'activa'/'paper'; la implementación de cada ficha se resuelve
  *   por `strategy_implementations` (repositorio de backtest) contra el
- *   catálogo `CLASSIC_STRATEGIES` — los mismos módulos del backtest.
+ *   catálogo `CLASSIC_STRATEGIES` — los mismos módulos del backtest — y,
+ *   sin implementación clásica, la ficha es una estrategia propia: sus
+ *   reglas se compilan con `parseStrategyRules` a la `Strategy` del
+ *   motor (`createCustomStrategy`). Una propia que no compila (reglas
+ *   inválidas o parámetros que no resuelven el programa) se omite con un
+ *   único aviso por versión en el registro; no detiene a las demás.
  * - Pasarela única: `services.risk.submitSignal`. Sin motor de riesgo la
  *   evaluación se bloquea (degradación segura: mejor no emitir que
  *   emitir sin veto).
@@ -40,9 +45,12 @@ import {
 } from '../../shared/ipc';
 import { SIGNAL_EMITTING_STRATEGY_STATUSES } from '../../shared/signals';
 import type { JournalRecordInput } from '../../shared/journal';
+import type { Strategy } from '../../shared/strategy';
+import { parseStrategyRules } from '../../shared/strategyRules';
 import { openDatabase } from '../db/database';
 import { createBacktestRepository } from '../backtest/repository';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
+import { createCustomStrategy } from '../backtest/strategies/custom';
 import { createNewsAnalysisRepository } from '../ai/news/repository';
 import * as nyseCalendar from '../market/calendar';
 import { createMarketRepository, type StoredBar } from '../market/repository';
@@ -152,6 +160,19 @@ export function registerSignals(
     }
   };
 
+  // Propias omitidas ya avisadas (id:version): la evaluación se repite en
+  // cada vela y la misma ficha rota no debe llenar el registro.
+  const warnedCustom = new Set<string>();
+  const warnCustomSkipped = (ficha: Strategy, detail: string): void => {
+    const key = `${ficha.id}:${ficha.version}`;
+    if (warnedCustom.has(key)) return;
+    warnedCustom.add(key);
+    console.warn(
+      `[signals] la estrategia propia '${ficha.name}' v${ficha.version} ` +
+        `se omite de la evaluación: ${detail}`,
+    );
+  };
+
   const listEvaluables = (): EvaluableStrategy[] => {
     const strategies = ctx.services.strategies;
     if (!strategies) return [];
@@ -161,12 +182,44 @@ export function registerSignals(
         continue;
       }
       const ficha = strategies.get(summary.id);
-      if (ficha === null || !ficha.executable) continue;
+      if (ficha === null) continue;
       const implKey = runs.implementationKey(ficha.id);
       const impl =
         implKey === null ? undefined : CLASSIC_STRATEGIES.find((entry) => entry.key === implKey);
-      if (impl === undefined) continue;
-      evaluables.push({ ficha, create: impl.create });
+      if (impl !== undefined) {
+        if (ficha.executable) evaluables.push({ ficha, create: impl.create });
+        continue;
+      }
+      // Estrategia propia: sin implementación clásica, el ejecutable es su
+      // programa de reglas (el mismo que corre el backtest). La compilación
+      // se revalida aquí —la ficha admite texto libre— y también el `init`
+      // con sus parámetros: un periodo-parámetro inválido compila pero no
+      // ejecuta, y sin esta guarda fallaría en cada vela sin marcarla.
+      const parsed = parseStrategyRules(ficha.rules, ficha.parameters);
+      if (!parsed.ok) {
+        warnCustomSkipped(
+          ficha,
+          `sus reglas no compilan (${parsed.errors
+            .map((error) => `${error.field}: ${error.message}`)
+            .join('; ')})`,
+        );
+        continue;
+      }
+      try {
+        createCustomStrategy(parsed.program, ficha.parameters).init(ficha.parameters);
+      } catch (error: unknown) {
+        warnCustomSkipped(
+          ficha,
+          `sus parámetros no resuelven el programa compilado ` +
+            `(${error instanceof Error ? error.message : String(error)})`,
+        );
+        continue;
+      }
+      const program = parsed.program;
+      evaluables.push({
+        ficha,
+        create: () => createCustomStrategy(program, ficha.parameters),
+      });
     }
     return evaluables;
   };

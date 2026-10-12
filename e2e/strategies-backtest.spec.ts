@@ -144,10 +144,10 @@ test('biblioteca, versiones, backtest completo, sobreajuste, prueba final y cris
       Nombre: 'Hipótesis de prueba fase 2',
       'Hipótesis económica':
         'La persistencia de tendencias puede capturar movimientos prolongados.',
-      Entrada: 'Entrar al cierre de una ruptura confirmada.',
-      Salida: 'Salir cuando el cierre pierda la tendencia.',
-      Stop: 'Cerrar si la pérdida alcanza el dos por ciento.',
-      Objetivo: 'Cerrar al duplicar el riesgo inicial.',
+      Entrada: 'cruza_arriba(sma(rapida), sma(lenta))',
+      Salida: 'cruza_abajo(sma(rapida), sma(lenta))',
+      Stop: '2%',
+      Objetivo: '6%',
       'Mercados (separados por comas)': 'SPY',
       'Régimen favorable y limitaciones': 'Tendencial; falla en rangos laterales.',
     }))
@@ -157,11 +157,46 @@ test('biblioteca, versiones, backtest completo, sobreajuste, prueba final y cris
     await page.getByLabel('Fuera de muestra · desde', { exact: true }).fill('2021-01-01');
     await page.getByLabel('Fuera de muestra · hasta', { exact: true }).fill('2024-12-31');
     await expectNoHorizontalOverflow(page);
-    await page.screenshot({ path: resolve('docs/qa/capturas/fase-2-formulario-700.png') });
+    await page.getByLabel('Parámetros (objeto JSON de números)').fill('{"rapida":20,"lenta":50}');
+    await page.getByLabel('Entrenamiento · desde').fill('2015-01-01');
+    await page.getByLabel('Entrenamiento · hasta').fill('2020-12-31');
+    await page.getByLabel('Fuera de muestra · desde').fill('2021-01-01');
+    await page.getByLabel('Fuera de muestra · hasta').fill('2024-12-31');
+    await expect(page.getByRole('status').filter({ hasText: 'Reglas válidas' })).toBeVisible();
+    await page.screenshot({ path: 'test-results/editor-reglas-700.png' });
     await page.getByRole('button', { name: 'Crear estrategia', exact: true }).click();
     await expect(
       page.getByRole('heading', { name: 'Hipótesis de prueba fase 2', exact: true }),
     ).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Reglas ejecutables' })).toContainText(
+      'Reglas listas para ejecutar',
+    );
+    const ownStress = page.getByRole('region', { name: 'Comportamiento en crisis' });
+    await expect(ownStress).toHaveAttribute('aria-busy', 'false');
+    await ownStress
+      .getByRole('button', { name: 'Ejecutar pruebas de estrés', exact: true })
+      .click();
+    await expect(ownStress.getByRole('status')).toHaveText('Pruebas de estrés guardadas.', {
+      timeout: 60_000,
+    });
+    await page.getByLabel('Simulaciones Monte Carlo').fill('100');
+    await page.getByRole('button', { name: 'Lanzar backtest', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Informe de backtest', exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    const ownRunId = await page.evaluate(() => Number(location.hash.split('/').at(-1)));
+    await page.getByRole('link', { name: 'Volver a la ficha · v1', exact: true }).click();
+    const ownHistory = page
+      .getByRole('heading', { name: 'Historial de backtests · v1', exact: true })
+      .locator('..');
+    await expect(
+      ownHistory.getByRole('link', { name: new RegExp(`^Informe #${ownRunId} ·`) }),
+    ).toBeVisible();
+    await ownHistory.getByRole('link', { name: new RegExp(`^Informe #${ownRunId} ·`) }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Informe de backtest', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Volver a la ficha · v1', exact: true }).click();
     await page.getByRole('link', { name: 'Editar', exact: true }).click();
     await page.getByLabel('Nombre', { exact: true }).fill('Hipótesis de prueba fase 2 revisada');
     await page
@@ -292,6 +327,103 @@ test('biblioteca, versiones, backtest completo, sobreajuste, prueba final y cris
     await expect(
       page.getByRole('button', { name: 'Ejecutar prueba final', exact: true }),
     ).toHaveCount(0);
+  } finally {
+    await app.close();
+    rmSync(userData, { recursive: true, force: true });
+  }
+});
+
+test('reglas antiguas: motivo previo, acciones bloqueadas y corrección por teclado', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'tradia-rule-editor-'));
+  const app = await electron.launch({
+    args: process.platform === 'linux' ? ['.', '--no-sandbox'] : ['.'],
+    cwd: resolve('.'),
+    env: { ...process.env, TRADIA_E2E: '1', TRADIA_E2E_USER_DATA: userData },
+  });
+  try {
+    const page = await app.firstWindow();
+    await acceptRisk(page);
+    await page.getByRole('link', { name: 'Estrategias', exact: true }).click();
+    // Ficha heredada: las nuevas altas por interfaz ya impiden guardar texto libre.
+    const id = await page.evaluate(async () => {
+      const legacy = await window.tradia.strategies.create({
+        name: 'Reglas heredadas',
+        hypothesis: 'Tendencia persistente',
+        rules: {
+          entry: 'Comprar al cruce',
+          exit: 'cruza_abajo(sma(rapida), sma(lenta))',
+          stop: '2%',
+          target: '6%',
+        },
+        parameters: { rapida: 20, lenta: 50 },
+        markets: ['SPY'],
+        regime: 'Tendencial',
+      });
+      location.hash = `estrategias/${legacy.id}`;
+      return legacy.id;
+    });
+    const ipcError = await page.evaluate(async (strategyId) => {
+      try {
+        await window.tradia.backtest.run({ strategyId });
+        return '';
+      } catch (cause) {
+        return cause instanceof Error ? cause.message : String(cause);
+      }
+    }, id);
+    expect(ipcError).toContain('reglas-invalidas');
+    const notice = page.getByRole('status', { name: 'Reglas no ejecutables' });
+    await expect(notice).toContainText(/Estas reglas no se pueden ejecutar:.*Entrada, caracteres/);
+    for (const name of ['Lanzar backtest', 'Ejecutar pruebas de estrés', 'Ejecutar comparación']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toHaveAttribute('aria-disabled', 'true');
+      await button.focus();
+      await expect(button).toBeFocused();
+      await button.press('Enter');
+    }
+    expect(
+      await page.evaluate(async (strategyId) => window.tradia.backtest.list({ strategyId }), id),
+    ).toEqual([]);
+    await notice.getByRole('link', { name: 'Editar reglas' }).focus();
+    await page.keyboard.press('Enter');
+    const entry = page.getByLabel('Entrada', { exact: true });
+    await expect(entry).toHaveAttribute('aria-invalid', 'true');
+    await expect(entry).toHaveAccessibleDescription(/caracteres 1–7/);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: 'test-results/editor-reglas-error-1440.png' });
+    const examples = page.getByRole('button', { name: 'Insertar cruce de medias', exact: true });
+    await examples.focus();
+    await page.keyboard.press('Enter');
+    await expect(entry).toBeFocused();
+    await expect(entry).toHaveValue('cruza_arriba(sma(rapida), sma(lenta))');
+    await expect(entry).toHaveAttribute('aria-invalid', 'false');
+    expect(await entry.evaluate((element: HTMLTextAreaElement) => element.selectionStart)).toBe(37);
+    await page.getByRole('button', { name: 'Revisar parámetros', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByLabel('Parámetros (objeto JSON de números)')).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Editar estrategia' })).toBeVisible();
+    for (const theme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: theme });
+      await page.locator('.main').evaluate((element) => {
+        element.scrollTop = 0;
+      });
+      await page.screenshot({ path: `test-results/editor-reglas-${theme}-1440.png` });
+      await page.setViewportSize({ width: 700, height: 900 });
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({ path: `test-results/editor-reglas-${theme}-700.png` });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page
+      .getByLabel('Nota del cambio')
+      .fill('Sustituyo el texto antiguo por reglas ejecutables.');
+    await page.getByRole('button', { name: 'Guardar nueva versión' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('status', { name: 'Reglas ejecutables' })).toContainText(
+      'Reglas listas para ejecutar',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Lanzar backtest', exact: true }),
+    ).toHaveAttribute('aria-disabled', 'false');
   } finally {
     await app.close();
     rmSync(userData, { recursive: true, force: true });

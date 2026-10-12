@@ -111,6 +111,14 @@ const createExecutable = (h: Harness, seed: CreateStrategyRequest = REGIME_SEED)
   return strategy;
 };
 
+/** Reglas ejecutables de una ficha propia (cruce de medias en el DSL). */
+const DSL_RULES: CreateStrategyRequest['rules'] = {
+  entry: 'cruza_arriba(sma(rapida), sma(lenta))',
+  exit: 'cruza_abajo(sma(rapida), sma(lenta))',
+  stop: 'stopAtr * atr(atrPeriod)',
+  target: 'targetR * stopAtr * atr(atrPeriod)',
+};
+
 const fakeStorage = (db: Database.Database): StorageService => ({
   ready: true,
   dbPath: ':memory:',
@@ -232,12 +240,48 @@ describe('comparación con y sin filtro de régimen', () => {
     expect(comparison!.comparable).toBe(false);
   }, 60_000);
 
+  it('ejecuta el par emparejado de una estrategia propia (reglas DSL)', async () => {
+    const h = makeService();
+    // Sin clave en strategy_implementations: se compilan las reglas.
+    const own = h.strategies.create({
+      ...REGIME_SEED,
+      rules: DSL_RULES,
+      parameters: { rapida: 5, lenta: 20, atrPeriod: 14, stopAtr: 3, targetR: 2.5 },
+      parameterRanges: {},
+    });
+
+    const comparison = await h.service.runRegimeComparison({ strategyId: own.id });
+    expect(comparison.strategyId).toBe(own.id);
+    expect(comparison.version).toBe(1);
+    expect(comparison.comparable).toBe(true);
+    expect(comparison.withoutFilter.runId).not.toBeNull();
+    expect(comparison.withFilter.runId).not.toBeNull();
+    expect(comparison.withoutFilter.runId).not.toBe(comparison.withFilter.runId);
+    const withFilter = h.service.getRun(comparison.withFilter.runId!)!;
+    expect(withFilter.config.regimeFilter).toBe(true);
+    expect(withFilter.warnings.map((w) => w.rule)).toContain('filtro-regimen');
+    expect(h.service.getRegimeComparison({ strategyId: own.id })).toEqual(comparison);
+  }, 60_000);
+
+  it('una estrategia propia con reglas que no compilan da reglas-invalidas', async () => {
+    const h = makeService();
+    const broken = h.strategies.create(REGIME_SEED); // texto libre anterior al DSL
+    await expect(h.service.runRegimeComparison({ strategyId: broken.id })).rejects.toMatchObject({
+      code: 'reglas-invalidas',
+    });
+    // Ni runs ni comparación guardados.
+    expect(h.service.listRuns({ strategyId: broken.id })).toEqual([]);
+    expect(h.service.getRegimeComparison({ strategyId: broken.id })).toBeNull();
+  });
+
   it('rechaza estrategias inexistentes o sin implementación', async () => {
     const h = makeService();
     await expect(h.service.runRegimeComparison({ strategyId: 999 })).rejects.toMatchObject({
       code: 'not-found',
     });
+    // Clave registrada que no corresponde a ninguna clásica conocida.
     const orphan = h.strategies.create(REGIME_SEED);
+    h.runs.setImplementation(orphan.id, 'clave-inexistente');
     await expect(h.service.runRegimeComparison({ strategyId: orphan.id })).rejects.toMatchObject({
       code: 'sin-implementacion',
     });

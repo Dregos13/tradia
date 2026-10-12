@@ -2467,6 +2467,23 @@ export function isSetStrategyStatusRequest(value: unknown): value is SetStrategy
 // Guardas: backtest y pruebas de estrés (fase 2)
 // ---------------------------------------------------------------------------
 
+/**
+ * Códigos de `BacktestError` (src/main/backtest): los lanzan los canales
+ * `backtest:*` y `stress:*` y el `code` viaja al renderer con el error.
+ * 'reglas-invalidas' es el rechazo de una estrategia propia cuyas reglas
+ * de la versión pedida no compilan (`parseStrategyRules`); su mensaje es
+ * el primer error del análisis. 'sin-implementacion' queda para claves
+ * registradas que no corresponden a ninguna implementación conocida.
+ */
+export const BACKTEST_ERROR_CODES = [
+  'not-found',
+  'invalid-input',
+  'sin-implementacion',
+  'reglas-invalidas',
+  'sin-datos',
+] as const;
+export type BacktestErrorCode = (typeof BACKTEST_ERROR_CODES)[number];
+
 /** Id entero positivo de una ejecución guardada (`backtest:get`). */
 export function isBacktestRunId(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;

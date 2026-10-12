@@ -12,10 +12,10 @@ const draft: StrategyDraft = {
   name: 'Cruce de medias',
   hypothesis: 'Persistencia de tendencias',
   rules: {
-    entry: 'Cruce alcista',
-    exit: 'Cruce bajista',
-    stop: 'Stop del 5 %',
-    target: 'Salida por señal',
+    entry: 'cruza_arriba(sma(fast), sma(slow))',
+    exit: 'cruza_abajo(sma(fast), sma(slow))',
+    stop: '5%',
+    target: 'ninguno',
   },
   markets: ['SPY'],
   parameters: { fast: 20, slow: 50 },
@@ -101,10 +101,10 @@ describe('Biblioteca y ficha versionada', () => {
     for (const [label, value] of Object.entries({
       Nombre: 'Mi estrategia',
       'Hipótesis económica': 'Tendencia persistente',
-      Entrada: 'Comprar al cruce',
-      Salida: 'Vender al cruce',
-      Stop: 'Cinco por ciento',
-      Objetivo: 'Salida por señal',
+      Entrada: 'cruza_arriba(sma(20), sma(50))',
+      Salida: 'cruza_abajo(sma(20), sma(50))',
+      Stop: '5%',
+      Objetivo: 'ninguno',
       'Mercados (separados por comas)': 'SPY',
       'Régimen favorable y limitaciones': 'Tendencial',
     }))
@@ -165,9 +165,9 @@ describe('Biblioteca y ficha versionada', () => {
     await userEvent.clear(parameters);
     await userEvent.type(parameters, 'invalido');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar nueva versión' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('JSON válidos');
+    expect(screen.getByRole('alert')).toHaveTextContent('objeto JSON de números finitos');
     await userEvent.clear(parameters);
-    await userEvent.type(parameters, '{{}');
+    await userEvent.type(parameters, '{{"fast":20,"slow":50}');
     vi.spyOn(window.tradia.strategies, 'update').mockRejectedValue(new Error('IPC'));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar nueva versión' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Tus cambios se conservan');
@@ -227,9 +227,10 @@ it('permite reintentar una consulta de evidencia fallida', async () => {
   ).toBeInTheDocument();
 });
 
-it('el adaptador no ejecuta una estrategia propia aunque copie parámetros clásicos', async () => {
+it('el adaptador rechaza reglas antiguas aunque copien parámetros clásicos', async () => {
   const own = await window.tradia.strategies.create({
     ...draft,
+    rules: { entry: 'Cruce alcista', exit: 'Cruce bajista', stop: '5%', target: 'ninguno' },
     parameters: { fastPeriod: 50, slowPeriod: 200, atrPeriod: 14, stopAtr: 3 },
   });
   expect(own.executable).toBe(false);
@@ -242,6 +243,8 @@ it('el adaptador no ejecuta una estrategia propia aunque copie parámetros clás
   expect((await window.tradia.strategies.get({ id: own.id, version: 1 }))?.executable).toBe(false);
   await expect(
     window.tradia.backtest.run({ strategyId: own.id, desde: '2020-01-01', hasta: '2024-01-01' }),
-  ).rejects.toThrow(/implementación ejecutable/);
-  await expect(window.tradia.stress.run({ strategyId: own.id })).rejects.toThrow(/implementación/);
+  ).rejects.toThrow(/reglas-invalidas/);
+  await expect(window.tradia.stress.run({ strategyId: own.id })).rejects.toThrow(
+    /reglas-invalidas/,
+  );
 });
