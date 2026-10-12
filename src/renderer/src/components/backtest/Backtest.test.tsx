@@ -291,3 +291,24 @@ it('explica el bloqueo de las reglas antes de lanzar, incluso con historial', as
   expect(run).not.toHaveBeenCalled();
   expect(final).not.toHaveBeenCalled();
 });
+
+it('cada operación del informe muestra su lado, incluso después de paginar', async () => {
+  render(
+    <Report
+      report={{
+        ...report,
+        trades: report.trades.map((trade, index) => ({
+          ...trade,
+          side: index % 2 ? 'corto' : 'largo',
+        })),
+      }}
+    />,
+  );
+  const table = screen.getByRole('table', { name: /Operaciones cerradas/ });
+  expect(table).toHaveTextContent('Lado');
+  expect(table.querySelectorAll('tbody tr')[0]).toHaveTextContent('Largo');
+  expect(table.querySelectorAll('tbody tr')[1]).toHaveTextContent('Corto');
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  expect(table.querySelectorAll('tbody tr')[0]).toHaveTextContent('Largo');
+  expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
+});

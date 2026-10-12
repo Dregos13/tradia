@@ -53,13 +53,19 @@ civil local del usuario («Última prueba hoy (11 oct 2026)»).
 
 ## Límites escritos y techos fijos
 
-`live:set-limits` guarda los cuatro límites siempre que sean positivos y
-no superen los techos fijos de la fase (`LIVE_FIXED_CAPS`: 1 000 USD de
-capital, 200 USD por orden, 20 USD de pérdida diaria y 2 posiciones). La
-validación se aplica tres veces: guarda `isLiveLimitsInput` en el borde,
-doble comprobación en el servicio y CHECK en `live_limits`. Guardarlos
-reinicia la confirmación escrita y devuelve la frase exacta generada con
-esos valores (`liveConfirmationPhrase`).
+`live:set-limits` guarda los cuatro límites del largo siempre que sean
+positivos y no superen los techos fijos de la fase (`LIVE_FIXED_CAPS`:
+1 000 USD de capital, 200 USD por orden, 20 USD de pérdida diaria y 2
+posiciones), y admite además los **límites del corto**
+(`LIVE_FIXED_SHORT_CAPS`: 100 USD por orden en corto, 200 USD de
+exposición corta y 1 posición corta), opcionales y ≥ 0 — a 0 el corto
+queda desactivado (un campo ausente vale 0, así una interfaz que aún no
+lo expone nunca lo habilita sin querer). La validación se aplica tres
+veces: guarda `isLiveLimitsInput` en el borde, doble comprobación en el
+servicio y CHECK en `live_limits`. Guardarlos reinicia la confirmación
+escrita y devuelve la frase exacta generada con esos valores
+(`liveConfirmationPhrase`), que incluye los límites del corto —
+cambiarlos exige confirmar de nuevo.
 
 `live:activate` exige, en este orden: lista completa, límites guardados
 y la frase escrita literal (solo ignora espacios en los extremos). Con
@@ -115,9 +121,56 @@ compra de mercado sale **convertida en limitada con tope**
 cantidad`, acotado además por la referencia × (1 +
 `LIVE_ORDER_PRICE_MARGIN` = 5 %) y redondeado a la baja en centavos. Ni
 un hueco de apertura ni una referencia desfasada pueden ejecutarla por
-encima del límite escrito. Una venta de entrada no admite precio tope —
-su nocional crece con el precio — y se bloquea si el estimado con ese
-mismo margen de hueco del 5 % supera el límite por orden.
+encima del límite escrito.
+
+### La puerta propia del corto
+
+Una venta sin largo en ese ticker es una entrada en corto y tiene puerta
+propia, más estricta que la del largo porque su pérdida potencial no
+tiene tope natural. Se exige, además de lo común (modo `activo`, límites
+confirmados, nocional con margen de hueco dentro del límite por orden,
+posiciones abiertas, pérdida diaria — compartida por largos y cortos):
+
+- los **límites del corto** escritos y confirmados con los tres valores
+  > 0 (a 0 la entrada se rechaza: «el corto no está habilitado»);
+- el **nocional del corto** con margen ≤ `shortOrderUsd` y también ≤ el
+  `orderUsd` general;
+- la **exposición corta total** tras la orden — la abierta en el broker
+  al precio actual (`listPositions`) más las entradas en corto
+  pendientes en el libro — ≤ `shortExposureUsd`;
+- el **recuento de cortos** ≤ `shortPositions` (ampliar un corto ya
+  abierto en el mismo ticker no cuenta como posición nueva, pero suma
+  exposición);
+- que la **cuenta del broker permita el corto** (`shorting_enabled`) y
+  que el **título sea prestable** (`shortable` y `easy_to_borrow`,
+  consultados por `GET /v2/assets/{símbolo}`; una lectura inalcanzable
+  bloquea por conservador);
+- un **stop de compra de protección** explícito, por encima de la
+  entrada y a no más del 5 % (`LIVE_FIXED_SHORT_CAPS.shortMaxStopPct`).
+
+Además, una entrada en corto **nunca sale a mercado** (hallazgo C4):
+una venta a mercado — o una limitada, que con un hueco al alza ejecuta
+por encima del límite y no puede acotar el nocional — sale convertida
+en **venta stop con activación en la referencia**. Así solo se dispara
+con el mercado a ese nivel o por debajo y el nominal real jamás supera
+el estimado. Las órdenes que reducen riesgo no se bloquean jamás:
+comprar para recomprar un corto (incluso con el modo suspendido) pasa
+siempre, como cerrar un largo. Y no se permite la vuelta de posición:
+vender más de un largo abre un corto (pasa por la puerta del corto) y
+comprar por encima de un corto abre un largo (rechazada).
+
+La parada de emergencia también cubre los cortos: al activarse, el modo
+se suspende y el servicio live recompra cada corto abierto — primero
+cancela las salidas vivas de ese ticker y después envía la compra a
+mercado que lo cierra — dejando cada paso en el Diario.
+
+**Requisitos de Alpaca para el corto real.** El corto solo funciona en
+una cuenta **de margen** con el préstamo de valores habilitado
+(`shorting_enabled` en la cuenta), un capital en cuenta de **al menos
+2 000 USD** — el suelo reglamentario de margen en Estados Unidos — y
+títulos **prestables** (`shortable` y `easy_to_borrow` en el activo).
+Sin cualquiera de las tres condiciones la puerta rechaza la entrada con
+el motivo exacto.
 
 ## Prueba de humo con el importe mínimo
 

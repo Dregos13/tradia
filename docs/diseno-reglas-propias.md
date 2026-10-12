@@ -225,3 +225,23 @@ El color siempre se acompaña de texto. Foco visible de 3 px con separación de 
 - `.orquesta/design/7d9830c6/04-aviso-suscripcion.html`: aviso en Noticias, cuatro motivos y notificación del sistema.
 
 Los valores de mercado, fechas y titulares de las maquetas son ilustrativos. Los textos de control, estado, error y recuperación de este documento son finales y comprobables. Si el analizador devuelve un mensaje técnico, se registra; la interfaz usa el texto seguro definido aquí.
+
+## Extensión: reglas de corto
+
+El editor de estrategias propias añade `Entrada en corto` y `Salida del corto` entre
+Salida y Stop, con los mismos tokens, editores y validación. Son opcionales: dejar
+ambas vacías conserva una estrategia de largo. Si se escribe una, la otra debe
+completarse y muestra su error aunque esté vacía, con `aria-describedby`, posición
+y anuncio `aria-live="polite"`.
+
+- `Insertar cruce de medias en corto` inserta `cruza_abajo(sma(rapida), sma(lenta))`.
+- `Insertar salida del corto por cruce` inserta `cruza_arriba(sma(rapida), sma(lenta))`.
+- Ambos botones funcionan por teclado y devuelven el foco y el cursor al editor.
+- La ficha muestra `Opera en: largo`, `Opera en: corto` o `Opera en: largo y corto`
+  según `strategySide`, y las dos reglas de corto; vacías se leen `No configurada`.
+- El informe incluye la columna `Lado` con `Largo` o `Corto` en cada operación.
+
+El aviso de dinero real es provisional en esta entrega: la tarea `fe-corto-real`
+lo sustituye por el estado de los límites confirmados cuando el backend termine
+la puerta del corto real. No representa un cambio de la decisión del usuario de
+permitir cortos con los techos conservadores.

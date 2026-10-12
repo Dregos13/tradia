@@ -170,3 +170,34 @@ Revisa que cada fallo del objetivo tiene su cierre comprobable.
 **Corrección pendiente de backend:** preservar `reglas-invalidas` en el mensaje transportado por IPC (o en un envoltorio tipado). El renderer reconoce tanto `cause.code` como el código en `cause.message`. No se ha cambiado `src/main` en esta tarea ni se ha marcado la regresión como omitida o fallo esperado. El caso está comunicado a `be-backtest-propias`; la evidencia reproducible es `e2e/strategies-backtest.spec.ts`, comprobación `ipcError`.
 
 **Actualización (Backend, 12-10-2026):** resuelto. `src/main/backtest/service.ts:1578-1597` envuelve los ocho manejadores `backtest:*`/`stress:*` con `withBacktestErrorCode`, que reenvía cualquier `BacktestError` como `[<code>] <motivo>` dentro del mensaje (Electron solo transporta `name`+`message`). Prueba: `service.test.ts` «conserva el code de BacktestError al cruzar el IPC ([code] motivo)» y la comprobación `ipcError` de `e2e/strategies-backtest.spec.ts:373`.
+
+## Editor y ficha propia con reglas de corto · Frontend
+
+- **Hecho:** `RuleEditor.tsx:13` añade Entrada en corto y Salida del corto,
+  opcionales, con ejemplos insertables por teclado. El error en la pareja vacía
+  se conserva en `StrategyForm.tsx:254`; cada campo enlaza ayuda, error y posición
+  con `aria-describedby` y anuncia cambios con `aria-live="polite"`.
+- **Hecho:** `StrategyDetail.tsx:46` usa `strategySide` (clásicas solo en largo),
+  muestra la dirección y las reglas de corto. Su aviso de dinero real en `:135`
+  es provisional y debe sustituirlo `fe-corto-real` por los límites confirmados,
+  según la decisión del usuario. Esta entrega no modifica esa puerta.
+- **Hecho:** `TradesTable.tsx:25` muestra el lado de cada operación y conserva la
+  paginación y los rótulos de la vista estrecha.
+- **Pruebas:** `RuleEditor.test.tsx:257` cubre error y posición en ambos campos,
+  anuncio y selección por teclado; `:293` cubre pareja opcional y guardado;
+  `:349` ejecuta y persiste cortos mediante el adaptador simulado ya existente.
+  `Backtest.test.tsx` comprueba el lado antes y después de paginar.
+- **E2E:** `e2e/strategies-backtest.spec.ts:439` crea una propia con
+  `cruza_abajo(sma(rapida), sma(lenta))`, comprueba el error de pareja y de
+  parámetro, ejecuta el backtest y consulta el informe desde el historial;
+  todas sus operaciones son de lado corto. El largo usa `0 > 1` en este caso
+  para aislar las operaciones de corto sin cambiar la gramática compartida.
+- **Accesibilidad:** pruebas de Testing Library y Electron para nombres,
+  descripciones, región viva, foco y teclado; vista de 700 px sin desbordamiento
+  horizontal en temas claro y oscuro. Reutiliza los tokens AA documentados en
+  `docs/diseno-reglas-propias.md`; no añade colores ni estilos. No se ha realizado
+  una prueba manual con lector de pantalla ni una auditoría axe.
+- **Verificación:** typecheck, lint y format:check en verde; `npm test` en verde:
+  **2.619 pruebas, 187 archivos**. `npm run test:e2e` completo en verde:
+  **50/50**, incluido el nuevo recorrido de corto y la regresión IPC. No quedan
+  pruebas omitidas en `src` ni `e2e`; `git ls-files .venv-ml` sigue vacío.

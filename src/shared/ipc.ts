@@ -3575,15 +3575,28 @@ export function isLiveDeclareRequest(value: unknown): value is LiveDeclareReques
 }
 
 /**
- * Límites escritos del modo real (`live:set-limits`): los cuatro valores,
- * todos positivos y sin superar los techos fijos de `LIVE_FIXED_CAPS`.
+ * Límites escritos del modo real (`live:set-limits`): los siete valores,
+ * los del largo todos positivos y los del corto a 0 o más —0 es cómo se
+ * deja el corto desactivado—, ninguno por encima de los techos fijos de
+ * `LIVE_FIXED_CAPS`.
  */
 export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  const allowed = [
+    'capitalUsd',
+    'orderUsd',
+    'dailyLossUsd',
+    'openPositions',
+    'shortOrderUsd',
+    'shortExposureUsd',
+    'shortPositions',
+  ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
-  if (allowed.some((k) => !(k in v))) return false;
+  // Los del largo son obligatorios; los del corto son opcionales y, si
+  // vienen, deben estar acotados (ausente = 0 = corto desactivado).
+  const required = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  if (required.some((k) => !(k in v))) return false;
   const usdField = (key: 'capitalUsd' | 'orderUsd' | 'dailyLossUsd', cap: number): boolean =>
     typeof v[key] === 'number' &&
     Number.isFinite(v[key] as number) &&
@@ -3592,10 +3605,22 @@ export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
   if (!usdField('capitalUsd', LIVE_FIXED_CAPS.capitalUsd)) return false;
   if (!usdField('orderUsd', LIVE_FIXED_CAPS.orderUsd)) return false;
   if (!usdField('dailyLossUsd', LIVE_FIXED_CAPS.dailyLossUsd)) return false;
+  const shortUsdField = (key: 'shortOrderUsd' | 'shortExposureUsd', cap: number): boolean =>
+    !(key in v) ||
+    (typeof v[key] === 'number' &&
+      Number.isFinite(v[key] as number) &&
+      (v[key] as number) >= 0 &&
+      (v[key] as number) <= cap);
+  if (!shortUsdField('shortOrderUsd', LIVE_FIXED_CAPS.shortOrderUsd)) return false;
+  if (!shortUsdField('shortExposureUsd', LIVE_FIXED_CAPS.shortExposureUsd)) return false;
   return (
     Number.isInteger(v.openPositions) &&
     (v.openPositions as number) >= 1 &&
-    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions
+    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions &&
+    (!('shortPositions' in v) ||
+      (Number.isInteger(v.shortPositions) &&
+        (v.shortPositions as number) >= 0 &&
+        (v.shortPositions as number) <= LIVE_FIXED_CAPS.shortPositions))
   );
 }
 

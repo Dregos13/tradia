@@ -2986,15 +2986,26 @@ export function createSimulatedAdapter() {
             'Límites inválidos: los cuatro valores deben ser positivos y no superar los techos.',
           );
         }
-        const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(input);
-        liveLimitsSaved = { ...input };
+        // Los límites del corto son opcionales en la entrada: ausentes
+        // quedan a 0 —corto desactivado—, igual que en el servicio real.
+        const resolved: LiveLimits = {
+          capitalUsd: input.capitalUsd,
+          orderUsd: input.orderUsd,
+          dailyLossUsd: input.dailyLossUsd,
+          openPositions: input.openPositions,
+          shortOrderUsd: input.shortOrderUsd ?? 0,
+          shortExposureUsd: input.shortExposureUsd ?? 0,
+          shortPositions: input.shortPositions ?? 0,
+        };
+        const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(resolved);
+        liveLimitsSaved = resolved;
         // Los límites nuevos generan una frase nueva: la confirmación
         // anterior ya no vale (guardar los mismos valores la conserva).
         if (changed) liveLimitsConfirmedAt = null;
         emitLiveChanged();
         return {
-          limits: { ...input },
-          confirmationPhrase: liveConfirmationPhrase(input),
+          limits: { ...resolved },
+          confirmationPhrase: liveConfirmationPhrase(resolved),
           confirmed: liveLimitsConfirmedAt !== null,
           savedAt: nowIso(),
         };

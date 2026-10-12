@@ -21,6 +21,7 @@ export function TradesTable({ trades }: { trades: TradeDto[] }) {
             caption={`Operaciones cerradas · página ${page + 1} de ${pages}`}
             headers={[
               'Activo',
+              'Lado',
               'Señal',
               'Entrada',
               'Salida',
@@ -36,6 +37,7 @@ export function TradesTable({ trades }: { trades: TradeDto[] }) {
               .slice(page * 20, (page + 1) * 20)
               .map((t) => [
                 t.ticker,
+                t.side === 'corto' ? 'Corto' : 'Largo',
                 t.signalDate,
                 t.entryDate,
                 t.exitDate,

@@ -16,8 +16,21 @@
  * - Las claves live viven en su propia ranura de `secrets`
  *   (`LIVE_BROKER_SECRET_KEYS`) y jamás salen del proceso principal.
  *
+ * **Corto con dinero real**: las estrategias propias pueden operar en
+ * corto y ejecutarse en la cuenta real, pero con techos propios
+ * (`LIVE_FIXED_SHORT_CAPS`), aparte de los del largo: nocional por
+ * orden (`shortOrderUsd`), exposición corta total (`shortExposureUsd`),
+ * posiciones cortas (`shortPositions`) y distancia máxima del stop de
+ * protección sobre la entrada (`shortMaxStopPct`). Con los tres límites
+ * a 0 —como quedan las cuentas migradas— el corto está desactivado;
+ * habilitarlo exige confirmar una frase nueva que ya los incluye. La
+ * pérdida en corto no tiene tope natural, así que cada corto real sale
+ * siempre limitado (nunca a mercado) y con su stop de compra de
+ * protección, y la parada de emergencia recompra los cortos abiertos.
+ * Estos techos tampoco se escalan nunca de forma automática.
+ *
  * Persistencia: migración 011 (`live_checklist`, `live_limits`,
- * `live_mode`).
+ * `live_mode`); la 016 añade los límites del corto a `live_limits`.
  */
 
 // ---------------------------------------------------------------------------
@@ -128,9 +141,34 @@ export interface LiveDeclareRequest {
 // ---------------------------------------------------------------------------
 
 /**
+ * Techos fijos del corto con dinero real, aparte de los del largo. En
+ * corto la pérdida no tiene tope natural, así que los techos son aún más
+ * conservadores y la puerta exige además orden limitada y stop de compra
+ * de protección. El corto nace desactivado (límites a 0 en las cuentas
+ * migradas) y habilitarlo exige escribir una frase de confirmación nueva
+ * que ya los incluye. Ningún escalado automático los sube nunca.
+ */
+export const LIVE_FIXED_SHORT_CAPS = {
+  /** Nocional máximo de una entrada en corto: 100 USD. */
+  shortOrderUsd: 100,
+  /** Exposición corta total abierta, al precio actual: 200 USD. */
+  shortExposureUsd: 200,
+  /** Posiciones cortas abiertas simultáneas: 1. */
+  shortPositions: 1,
+  /**
+   * Distancia máxima del stop de compra de protección sobre la entrada,
+   * en % (en corto el stop queda por encima): 5 %.
+   */
+  shortMaxStopPct: 5,
+} as const;
+export type LiveFixedShortCaps = typeof LIVE_FIXED_SHORT_CAPS;
+
+/**
  * Techos fijos de esta fase: el código nunca admite más capital real que
  * estos valores, y los límites escritos del usuario solo pueden ser
- * iguales o menores. El escalado queda para la fase 8.
+ * iguales o menores. Los tres del corto son los de
+ * `LIVE_FIXED_SHORT_CAPS`, repetidos aquí para que la validación y la
+ * interfaz indexen por nombre de límite. El escalado queda para la fase 8.
  */
 export const LIVE_FIXED_CAPS = {
   /** Capital total en real: máximo 1 000 USD. */
@@ -139,21 +177,51 @@ export const LIVE_FIXED_CAPS = {
   orderUsd: 200,
   /** Pérdida diaria máxima: 20 USD. */
   dailyLossUsd: 20,
-  /** Posiciones abiertas simultáneas: 2. */
+  /** Posiciones abiertas simultáneas (largos y cortos): 2. */
   openPositions: 2,
+  /** Nocional máximo de una entrada en corto: 100 USD. */
+  shortOrderUsd: LIVE_FIXED_SHORT_CAPS.shortOrderUsd,
+  /** Exposición corta total abierta, al precio actual: 200 USD. */
+  shortExposureUsd: LIVE_FIXED_SHORT_CAPS.shortExposureUsd,
+  /** Posiciones cortas abiertas simultáneas: 1. */
+  shortPositions: LIVE_FIXED_SHORT_CAPS.shortPositions,
 } as const;
 export type LiveFixedCaps = typeof LIVE_FIXED_CAPS;
 
-/** Límites escritos por el usuario (`live_limits`); todos > 0 y ≤ el techo. */
+/**
+ * Límites escritos por el usuario (`live_limits`): los del largo > 0 y ≤
+ * el techo; los del corto ≥ 0 y ≤ el techo —a 0 el corto queda
+ * desactivado (los tres deben ser > 0 para que una entrada en corto
+ * pueda pasar la puerta).
+ */
 export interface LiveLimits {
   capitalUsd: number;
   orderUsd: number;
   dailyLossUsd: number;
   openPositions: number;
+  /** Nocional máximo de una entrada en corto; 0 = corto desactivado. */
+  shortOrderUsd: number;
+  /** Exposición corta total abierta al precio actual; 0 = desactivado. */
+  shortExposureUsd: number;
+  /** Posiciones cortas abiertas simultáneas; 0 = desactivado. */
+  shortPositions: number;
 }
 
-/** Entrada de `live:set-limits`: los cuatro límites, ya elegidos. */
-export type LiveLimitsInput = LiveLimits;
+/**
+ * Entrada de `live:set-limits`: los cuatro límites del largo son
+ * obligatorios; los del corto son opcionales —ausentes valen 0 y el
+ * corto queda desactivado— así una interfaz que aún no expone sus
+ * campos guarda con el corto cerrado, nunca abierto por defecto.
+ */
+export interface LiveLimitsInput {
+  capitalUsd: number;
+  orderUsd: number;
+  dailyLossUsd: number;
+  openPositions: number;
+  shortOrderUsd?: number;
+  shortExposureUsd?: number;
+  shortPositions?: number;
+}
 
 /**
  * Respuesta de `live:set-limits`: los límites guardados y la frase de
@@ -174,17 +242,25 @@ const liveUsd = (value: number): string =>
 
 /**
  * Frase exacta que el usuario escribe en el diálogo de activación; cambia
- * si cambia cualquier límite (p. ej. «ACTIVO DINERO REAL CON 500 USD,
- * 100 USD POR ORDEN, 10 USD DE PÉRDIDA DIARIA Y 1 POSICIÓN»). La
- * comparación ignora solo espacios sobrantes en los extremos.
+ * si cambia cualquier límite —largo o corto— (p. ej. «ACTIVO DINERO REAL
+ * CON 500 USD, 100 USD POR ORDEN, 10 USD DE PÉRDIDA DIARIA Y 1 POSICIÓN;
+ * CORTO 50 USD POR ORDEN, 100 USD DE EXPOSICIÓN Y 1 POSICIÓN EN CORTO»).
+ * La comparación ignora solo espacios sobrantes en los extremos.
  */
-export function liveConfirmationPhrase(limits: LiveLimits): string {
+export function liveConfirmationPhrase(limits: LiveLimitsInput): string {
   const positions =
     limits.openPositions === 1 ? '1 POSICIÓN' : `${limits.openPositions} POSICIONES`;
+  const shortPositionsCount = limits.shortPositions ?? 0;
+  const shortPositions =
+    shortPositionsCount === 1
+      ? '1 POSICIÓN EN CORTO'
+      : `${shortPositionsCount} POSICIONES EN CORTO`;
   return (
     `ACTIVO DINERO REAL CON ${liveUsd(limits.capitalUsd)} USD, ` +
     `${liveUsd(limits.orderUsd)} USD POR ORDEN, ` +
-    `${liveUsd(limits.dailyLossUsd)} USD DE PÉRDIDA DIARIA Y ${positions}`
+    `${liveUsd(limits.dailyLossUsd)} USD DE PÉRDIDA DIARIA Y ${positions}; ` +
+    `CORTO ${liveUsd(limits.shortOrderUsd ?? 0)} USD POR ORDEN, ` +
+    `${liveUsd(limits.shortExposureUsd ?? 0)} USD DE EXPOSICIÓN Y ${shortPositions}`
   );
 }
 

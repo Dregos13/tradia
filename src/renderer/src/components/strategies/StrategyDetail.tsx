@@ -1,4 +1,6 @@
 import { ExecutionNotice } from './ExecutionNotice';
+import { strategySide } from '../../../../shared/strategyRules';
+import { ruleLabels } from './ruleValidation';
 import { strategyExecution } from './ruleValidation';
 import { StrategyHealth } from './StrategyHealth';
 import { RegimeBacktestComparison } from './RegimeBacktestComparison';
@@ -41,6 +43,7 @@ export function StrategyDetail({
   const report = evidence.items[0];
   const execution = strategyExecution(s);
   const runnable = { ...s, executable: execution.executable };
+  const side = s.executable ? 'largo' : strategySide(s.rules);
   const historical = s.version !== latest.version;
   const [status, setStatus] = useState(s.status);
   const [busy, setBusy] = useState(false);
@@ -128,11 +131,18 @@ export function StrategyDetail({
       </section>
       <section className="strategy-section">
         <h3>Reglas reproducibles</h3>
+        <p>Opera en: {side === 'ambos' ? 'largo y corto' : side}.</p>
+        {side !== 'largo' && (
+          <p>
+            Por ahora, con dinero real solo se ejecutan las entradas en largo; el corto está
+            bloqueado. Las reglas de corto se ejecutan en backtest y paper.
+          </p>
+        )}
         <dl className="strategy-grid">
-          {(['entry', 'exit', 'stop', 'target'] as const).map((key) => (
+          {(['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'] as const).map((key) => (
             <div key={key}>
-              <dt>{{ entry: 'Entrada', exit: 'Salida', stop: 'Stop', target: 'Objetivo' }[key]}</dt>
-              <dd>{s.rules[key]}</dd>
+              <dt>{ruleLabels[key]}</dt>
+              <dd>{s.rules[key]?.trim() || 'No configurada'}</dd>
             </div>
           ))}
         </dl>

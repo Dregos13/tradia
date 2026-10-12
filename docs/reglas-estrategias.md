@@ -58,8 +58,19 @@ Reglas de la posición en corto (idénticas al largo, espejadas):
   y el nominal del corto cuenta para la exposición de la cartera.
 - En el paper trading la venta en corto llega como señal de lado
   `'corto'` y su cierre como `'largo'`, igual que las clásicas. **Con
-  dinero real las entradas en corto siguen bloqueadas** por
-  `src/main/live/orderGuard.ts` hasta la tarea del corto real.
+  dinero real el corto también llega**, pero por su puerta propia:
+  `src/main/live/orderGuard.ts` exige los límites del corto confirmados
+  (`shortOrderUsd` ≤ 100 USD por orden, `shortExposureUsd` ≤ 200 USD de
+  exposición total, `shortPositions` ≤ 1 — a 0 el corto queda
+  desactivado), la cuenta del broker con corto habilitado
+  (`shorting_enabled`), el título prestable (`shortable` y
+  `easy_to_borrow`) y un stop de compra por encima de la entrada a no
+  más del 5 %. La entrada sale como venta stop a la referencia —nunca a
+  mercado— y la recompra, incluida la de la parada de emergencia, no se
+  bloquea por ningún techo.
+- Alpaca además exige lo suyo: cuenta **de margen** con el préstamo
+  habilitado, **≥ 2 000 USD** de capital en cuenta (suelo reglamentario
+  de margen de EE. UU.) y valores prestables.
 
 ## Entrada y salida (`entry`, `exit`, `entryShort`, `exitShort`)
 

@@ -449,7 +449,7 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
     mode: 'activo',
     hasCredentials: true,
     accountMasked: '•••• 4821',
-    limits: { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 },
+    limits: { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1, shortOrderUsd: 0, shortExposureUsd: 0, shortPositions: 0 },
     activatedAt: '2026-10-10T14:00:00Z',
   };
   vi.spyOn(simulation.api.live, 'state').mockResolvedValue(active);

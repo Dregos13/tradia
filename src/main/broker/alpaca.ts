@@ -42,6 +42,7 @@ import type {
 } from '../../shared/broker';
 import {
   assertValidOrderRequest,
+  BROKER_TICKER_PATTERN,
   BrokerError,
   type BrokerAdapter,
   type BrokerOrderRequest,
@@ -381,6 +382,9 @@ export function createAlpacaAdapter(
         equity: reqNum(raw, 'equity', 'cuenta'),
         buyingPower: optNum(raw, 'buying_power', 'cuenta'),
         paper: profile.paper,
+        // 'shorting_enabled' es booleano en Alpaca; ausente = no se sabe.
+        shortingEnabled:
+          typeof raw['shorting_enabled'] === 'boolean' ? raw['shorting_enabled'] : null,
       };
       return account;
     },
@@ -406,6 +410,36 @@ export function createAlpacaAdapter(
           currency: 'USD',
         };
       });
+    },
+
+    getAsset: async (ticker) => {
+      const symbol = ticker.trim().toUpperCase();
+      if (!BROKER_TICKER_PATTERN.test(symbol)) {
+        throw fail('bad-data', `ticker inválido: ${JSON.stringify(ticker)}`);
+      }
+      let raw: unknown;
+      try {
+        raw = await request(`/v2/assets/${encodeURIComponent(symbol)}`);
+      } catch (error) {
+        // Un 404 es «el broker no conoce el título»: null, no error.
+        if (error instanceof BrokerError && error.kind === 'not-found') return null;
+        throw error;
+      }
+      const obj = asRecord(raw, `activo ${symbol}`);
+      const ctx = `activo ${symbol}`;
+      const boolField = (field: string): boolean => {
+        const value = obj[field];
+        if (typeof value !== 'boolean') {
+          badData(`${ctx} con '${field}' no booleano: ${JSON.stringify(value)}`);
+        }
+        return value as boolean;
+      };
+      return {
+        ticker: symbol,
+        tradable: boolField('tradable'),
+        shortable: boolField('shortable'),
+        easyToBorrow: boolField('easy_to_borrow'),
+      };
     },
 
     listOrders: async (req?: ListOrdersRequest) => {

@@ -10,7 +10,8 @@
  *
  * En esta fase el estado NUNCA es accionable: 'elegible' solo marca la
  * evidencia para la evaluación de la fase 8; no existe ninguna vía para
- * subir los techos desde aquí.
+ * subir los techos desde aquí —ni los del largo ni los del corto
+ * (`LIVE_FIXED_SHORT_CAPS` en shared/live.ts), que son fijos—.
  */
 import { BROKER_ORDERS_MAX_LIMIT, type BrokerOrder } from '../../shared/broker';
 import {

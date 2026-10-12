@@ -15,6 +15,7 @@
 import type {
   BrokerAccount,
   BrokerAdapterId,
+  BrokerAsset,
   BrokerOrderSide,
   BrokerOrderStatus,
   BrokerOrderType,
@@ -104,6 +105,12 @@ export interface BrokerAdapter {
   getAccount(): Promise<BrokerAccount>;
   /** Posiciones abiertas en la cuenta. */
   listPositions(): Promise<BrokerPosition[]>;
+  /**
+   * Aptitud de un título (operable, cortable, fácil de tomar prestado);
+   * null si el broker no lo conoce. La puerta del corto con dinero real
+   * la exige; un adaptador sin `getAsset` no puede abrir cortos.
+   */
+  getAsset?(ticker: string): Promise<BrokerAsset | null>;
   /** Órdenes conocidas por el broker; filtrable a las abiertas. */
   listOrders(request?: ListOrdersRequest): Promise<RemoteOrder[]>;
   /**

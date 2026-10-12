@@ -9,11 +9,14 @@ import {
 } from '../../../../shared/strategyRules';
 import { ruleErrorText, ruleLabels } from './ruleValidation';
 
-type RuleField = 'entry' | 'exit' | 'stop' | 'target';
-const fields: RuleField[] = ['entry', 'exit', 'stop', 'target'];
+type RuleField = keyof StrategyRules;
+const fields: RuleField[] = ['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'];
 const help: Record<RuleField, string> = {
   entry: 'Una condición que indique cuándo abrir una posición larga.',
   exit: 'Una condición que indique cuándo cerrar la posición.',
+  entryShort: 'Opcional. Condición para abrir una posición corta. Completa también su salida.',
+  exitShort:
+    'Opcional. Condición para recomprar y cerrar el corto. Deja ambas vacías para operar solo en largo.',
   stop: 'Distancia máxima de pérdida: porcentaje, múltiplo de ATR o ninguno.',
   target: 'Distancia para tomar beneficio: porcentaje, múltiplo de ATR o ninguno.',
 };
@@ -29,6 +32,15 @@ const examples: Record<RuleField, { label: string; value: string }[]> = {
     {
       label: 'Insertar salida RSI o cruce',
       value: 'rsi(14) > 70 o cruza_abajo(sma(rapida), sma(lenta))',
+    },
+  ],
+  entryShort: [
+    { label: 'Insertar cruce de medias en corto', value: 'cruza_abajo(sma(rapida), sma(lenta))' },
+  ],
+  exitShort: [
+    {
+      label: 'Insertar salida del corto por cruce',
+      value: 'cruza_arriba(sma(rapida), sma(lenta))',
     },
   ],
   stop: [
@@ -78,7 +90,7 @@ function RuleFieldEditor({
       <textarea
         ref={editor}
         id={id}
-        required
+        required={field !== 'entryShort' && field !== 'exitShort'}
         disabled={busy}
         maxLength={RULES_FIELD_MAX_LENGTH}
         spellCheck={false}
@@ -100,6 +112,8 @@ function RuleFieldEditor({
             </button>
           ) : value.trim() ? (
             'Válida'
+          ) : field === 'entryShort' || field === 'exitShort' ? (
+            'Sin corto en este campo.'
           ) : (
             'Escribe una regla o inserta un ejemplo.'
           )}
@@ -148,7 +162,7 @@ export function RuleEditor({
           <RuleFieldEditor
             key={field}
             field={field}
-            value={rules[field]}
+            value={rules[field] ?? ''}
             error={errors.find((error) => error.field === field)}
             change={(value) => change({ ...rules, [field]: value })}
             busy={busy}

@@ -229,6 +229,27 @@ export interface BrokerAccount {
   buyingPower: number | null;
   /** true en una cuenta paper; false en la cuenta live del modo real. */
   paper: boolean;
+  /**
+   * La cuenta permite vender en corto (margen habilitado;
+   * `shorting_enabled` en Alpaca). null si el broker no lo reporta —la
+   * puerta del dinero real lo trata como «no se pudo comprobar».
+   */
+  shortingEnabled?: boolean | null;
+}
+
+/**
+ * Aptitud de un título para operar (`GET /v2/assets/{symbol}` en Alpaca).
+ * La puerta del corto exige `shortable` y `easyToBorrow`: que el broker
+ * admita cortarlo y que haya títulos fáciles de tomar prestados.
+ */
+export interface BrokerAsset {
+  ticker: string;
+  /** El título se puede negociar. */
+  tradable: boolean;
+  /** El broker admite posiciones cortas sobre él. */
+  shortable: boolean;
+  /** Hay inventario fácil de tomar prestado para el corto. */
+  easyToBorrow: boolean;
 }
 
 // ---------------------------------------------------------------------------

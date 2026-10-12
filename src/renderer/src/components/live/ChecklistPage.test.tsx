@@ -9,14 +9,19 @@ import {
   LIVE_REQUIREMENT_TITLES,
   liveConfirmationPhrase,
   type LiveChecklist,
-  type LiveLimits,
+  type LiveLimitsInput,
 } from '../../../../shared/live';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { ChecklistPage } from './ChecklistPage';
 import { evaluateKillSwitchTest } from '../../../../main/live/checklist';
 
 let adapter: ReturnType<typeof createSimulatedAdapter>;
-const limits: LiveLimits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+const limits: LiveLimitsInput = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+};
 beforeEach(() => {
   adapter = createSimulatedAdapter();
   window.tradia = adapter.api;
@@ -48,7 +53,7 @@ async function openDialog() {
   await userEvent.click(screen.getByRole('button', { name: 'Activar dinero real' }));
   return screen.findByRole('alertdialog');
 }
-function fillLimits(values: LiveLimits = limits) {
+function fillLimits(values: LiveLimitsInput = limits) {
   for (const [label, key] of [
     ['Capital total en real', 'capitalUsd'],
     ['Máximo por orden', 'orderUsd'],

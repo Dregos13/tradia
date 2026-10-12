@@ -174,6 +174,7 @@ describe('adaptador Alpaca paper', () => {
       equity: 100_250.55,
       buyingPower: 200_501.1,
       paper: true,
+      shortingEnabled: true,
     });
   });
 
@@ -191,6 +192,56 @@ describe('adaptador Alpaca paper', () => {
       currency: 'USD',
     });
     expect(positions[1]!.side).toBe('short');
+  });
+
+  describe('getAsset — aptitud del título para el corto', () => {
+    it('mapea shortable y easy_to_borrow del activo', async () => {
+      const { fetch, calls } = fetchReturning(() =>
+        jsonResponse({
+          symbol: 'AAPL',
+          status: 'active',
+          tradable: true,
+          shortable: true,
+          easy_to_borrow: true,
+        }),
+      );
+      const broker = make(fetch);
+      const asset = await broker.getAsset?.('aapl');
+      expect(asset).toEqual({
+        ticker: 'AAPL',
+        tradable: true,
+        shortable: true,
+        easyToBorrow: true,
+      });
+      expect(calls[0]!.url).toBe(`${ALPACA_PAPER_BASE_URL}/v2/assets/AAPL`);
+    });
+
+    it('un 404 del activo devuelve null', async () => {
+      const { fetch } = fetchReturning(
+        () => new Response(JSON.stringify({ message: 'asset not found' }), { status: 404 }),
+      );
+      await expect(make(fetch).getAsset?.('XXXX')).resolves.toBeNull();
+    });
+
+    it.each([{ shortable: 'sí' }, { easy_to_borrow: null }, { tradable: 1 }])(
+      'un campo mal formado se rechaza como bad-data: %o',
+      async (patch) => {
+        const { fetch } = fetchReturning(() =>
+          jsonResponse({
+            symbol: 'AAPL',
+            status: 'active',
+            tradable: true,
+            shortable: true,
+            easy_to_borrow: true,
+            ...patch,
+          }),
+        );
+        await expect(make(fetch).getAsset?.('AAPL')).rejects.toMatchObject({
+          name: 'BrokerError',
+          kind: 'bad-data',
+        });
+      },
+    );
   });
 
   describe('submitOrder', () => {

@@ -72,6 +72,9 @@ const LIVE_LIMITS: LiveLimits = {
   orderUsd: 100,
   dailyLossUsd: 20,
   openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
 };
 /** Precio al que el servidor falso ejecuta las órdenes de mercado. */
 const FAKE_FILL_PRICE = 250;
@@ -159,7 +162,13 @@ const approved = (size: number, notional: number): RiskDecision => ({
   decidedAt: new Date(NOW).toISOString(),
 });
 
-type SignalPatch = { ticker?: string; entry?: number; direction?: 'largo' | 'corto' };
+type SignalPatch = {
+  ticker?: string;
+  entry?: number;
+  direction?: 'largo' | 'corto';
+  stop?: number;
+  target?: number;
+};
 
 const signalInput = (decision: RiskDecision, patch: SignalPatch = {}): NewSignal => {
   const entry = patch.entry ?? 50;
@@ -169,8 +178,8 @@ const signalInput = (decision: RiskDecision, patch: SignalPatch = {}): NewSignal
     ticker: patch.ticker ?? 'AAPL',
     direction,
     entry,
-    stop: short ? entry * 1.1 : entry * 0.9,
-    target: short ? entry * 0.7 : entry * 1.3,
+    stop: patch.stop ?? (short ? entry * 1.1 : entry * 0.9),
+    target: patch.target ?? (short ? entry * 0.7 : entry * 1.3),
     confidence: 0.8,
     reason: 'orden de auditoría',
     strategies: [
@@ -455,6 +464,9 @@ describe('auditoría · guarda de órdenes reales', () => {
       orderUsd: 200,
       dailyLossUsd: 20,
       openPositions: 2,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
     };
     const { live } = await activeLiveAccount(limits);
 
@@ -477,6 +489,9 @@ describe('auditoría · guarda de órdenes reales', () => {
       orderUsd: 200,
       dailyLossUsd: 20,
       openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
     };
     const { live } = await activeLiveAccount(limits);
     await sendSignal(live, approved(0.4, 100), { ticker: 'AAPL', entry: FAKE_FILL_PRICE });
@@ -542,6 +557,9 @@ describe('auditoría · guarda de órdenes reales', () => {
       orderUsd: 200,
       dailyLossUsd: 20,
       openPositions: 2,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
     };
     const { live } = await activeLiveAccount(limits);
     // La señal se calculó con el cierre de ayer (199 USD); el mercado
@@ -678,6 +696,9 @@ describe('auditoría de cierre · techo por orden con hueco de apertura', () => 
     orderUsd: 200,
     dailyLossUsd: 20,
     openPositions: 2,
+    shortOrderUsd: 0,
+    shortExposureUsd: 0,
+    shortPositions: 0,
   };
 
   it('con una referencia muy desfasada a la baja, la compra sale limitada y no ejecuta por encima del techo', async () => {
@@ -697,18 +718,37 @@ describe('auditoría de cierre · techo por orden con hueco de apertura', () => 
     }
   });
 
-  it('HALLAZGO C4 · una entrada en corto de mercado no puede ejecutarse por encima del techo por orden con un hueco al alza', async () => {
-    const { live } = await activeLiveAccount(limits);
-    // Señal corta calculada con el cierre de ayer (180 USD): el nocional
-    // estimado con el margen del 5 % (189 USD) cabe en el techo de 200.
-    // El mercado abre con hueco al alza y el servidor ejecuta a 250 USD.
-    await sendSignal(live, approved(1, 180), { entry: 180, direction: 'corto' });
+  it('HALLAZGO C4 · con el corto habilitado la entrada en corto sale como stop a la referencia y un hueco al alza no la ejecuta', async () => {
+    const limitsConCorto: LiveLimits = {
+      ...limits,
+      shortOrderUsd: 100,
+      shortExposureUsd: 200,
+      shortPositions: 1,
+    };
+    const { live } = await activeLiveAccount(limitsConCorto);
+    // Señal corta calculada con el cierre de ayer (180 USD, stop al 5 %):
+    // el mercado abre con hueco al alza y el servidor cotiza a 250 USD.
+    // La entrada sale como venta STOP con activación en 180 —una venta
+    // limitada ejecutaría a 250 y no puede acotar el nocional por arriba—
+    // así que con el mercado por encima no se dispara jamás: el corto no
+    // ejecuta por encima de su referencia y el nominal real nunca supera
+    // el estimado (0,5 × 180 = 90 USD, dentro del techo del corto).
+    await sendSignal(live, approved(0.5, 90), {
+      entry: 180,
+      direction: 'corto',
+      stop: 189,
+      target: 150,
+    });
 
-    for (const order of executedEntries()) {
-      expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
-        limits.orderUsd,
-      );
-    }
+    const entries = liveEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.type).toBe('stop');
+    expect(entries[0]!.stopPrice).toBe(180);
+    // El mercado del falso cotiza por encima de la activación (250 > 180):
+    // la entrada nunca ejecuta —queda enviada, no ejecutada— y ningún
+    // corto abre por encima de la referencia ni del techo por orden.
+    expect(entries[0]!.status).toBe('enviada');
+    expect(executedEntries()).toHaveLength(0);
   });
 });
 

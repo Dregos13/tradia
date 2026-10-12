@@ -18,9 +18,9 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     expect(appliedMigrations(db).map((m) => m.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ]);
     db.close();
   });
@@ -30,7 +30,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(15);
+    expect(appliedMigrations(db)).toHaveLength(16);
     db.close();
   });
 
@@ -108,6 +108,12 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(16);
+    const columnas = db.prepare("SELECT name FROM pragma_table_info('live_limits')").all() as {
+      name: string;
+    }[];
+    expect(columnas.map((c) => c.name)).not.toContain('corto_orden_usd');
+
     expect(rollbackLast(db, MIGRATIONS)).toBe(15);
     expect(tableNames(db)).toContain('journal_entries');
     expect(tableNames(db)).toContain('news_analysis');
@@ -177,11 +183,53 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([15]);
+    expect(migrate(db, MIGRATIONS)).toEqual([16]);
     expect(tableNames(db)).toContain('broker_orders_live');
     expect(tableNames(db)).toContain('regimes');
     expect(tableNames(db)).toContain('live_mode');
     expect(tableNames(db)).toContain('watchlist');
+    db.close();
+  });
+
+  it('la migración 016 deja el corto a 0 sin tocar los límites del largo ya confirmados', () => {
+    const db = new Database(':memory:');
+    // Esquema hasta la 015: live_limits con las cuatro columnas del largo.
+    migrate(db, MIGRATIONS.slice(0, 15));
+    db.prepare(
+      `INSERT INTO live_limits
+         (id, capital_usd, orden_usd, perdida_diaria_usd, posiciones_max,
+          confirmados, guardados_en, confirmados_en)
+       VALUES (1, 500, 100, 10, 1, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:01:00.000Z')`,
+    ).run();
+
+    expect(migrate(db, MIGRATIONS)).toEqual([16]);
+
+    const row = db.prepare('SELECT * FROM live_limits WHERE id = 1').get() as Record<
+      string,
+      number | string | null
+    >;
+    // El largo queda intacto y sigue confirmado; el corto arranca a 0
+    // (desactivado hasta que el usuario lo confirme por escrito).
+    expect(row['capital_usd']).toBe(500);
+    expect(row['orden_usd']).toBe(100);
+    expect(row['perdida_diaria_usd']).toBe(10);
+    expect(row['posiciones_max']).toBe(1);
+    expect(row['confirmados']).toBe(1);
+    expect(row['confirmados_en']).toBe('2026-10-01T00:01:00.000Z');
+    expect(row['corto_orden_usd']).toBe(0);
+    expect(row['corto_exposicion_usd']).toBe(0);
+    expect(row['corto_posiciones_max']).toBe(0);
+
+    // Los CHECK del corto acotan igual que los del largo.
+    expect(() =>
+      db.prepare('UPDATE live_limits SET corto_exposicion_usd = 201 WHERE id = 1').run(),
+    ).toThrowError();
+    expect(() =>
+      db.prepare('UPDATE live_limits SET corto_posiciones_max = 2 WHERE id = 1').run(),
+    ).toThrowError();
+    expect(() =>
+      db.prepare('UPDATE live_limits SET corto_orden_usd = -1 WHERE id = 1').run(),
+    ).toThrowError();
     db.close();
   });
 

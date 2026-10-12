@@ -27,6 +27,12 @@
  *   de techos de `orderGuard.ts` (modo activo, límites confirmados,
  *   nocional, posiciones, capital y pérdida diaria), siempre antes de la
  *   red; las patas 'salida' pasan siempre (cierran riesgo).
+ * - Una entrada en corto pasa además su puerta propia (límites del corto
+ *   confirmados, cuenta con margen, título prestable, exposición a precio
+ *   actual leída del broker, orden limitada y stop de compra de
+ *   protección) — `orderGuard.ts`. La parada de emergencia recompra los
+ *   cortos abiertos: su pérdida no tiene tope y no pueden quedar
+ *   abiertos con el sistema parado.
  */
 import {
   BROKER_ORDER_OPEN_STATUSES,
@@ -34,7 +40,7 @@ import {
   type BrokerOrder,
   type ReconcileDiscrepancyEvent,
 } from '../../shared/broker';
-import { IPC_CHANNELS } from '../../shared/ipc';
+import { IPC_CHANNELS, type RiskOverview } from '../../shared/ipc';
 import type { DeliveryEventKind, JournalRecordInput } from '../../shared/journal';
 import {
   LIVE_BROKER_SECRET_KEYS,
@@ -54,8 +60,8 @@ import { createOrderManager, type OrderManager } from '../broker/orderManager';
 import { positionsFromOrders } from '../broker/reconcile';
 import { createReconcileService, type ReconcileService } from '../broker/reconcileService';
 import type { BrokerRepository } from '../broker/repository';
-import { isBrokerError, type BrokerAdapter } from '../broker/types';
-import { liveOrderBlockReason, liveOrderWirePrice } from './orderGuard';
+import { isBrokerError, type BrokerAdapter, type BrokerOrderRequest } from '../broker/types';
+import { liveOrderBlockReason, liveOrderWirePrice, type LiveOrderSnapshot } from './orderGuard';
 import { createLiveSmokeTest, type LiveSmokeTestService } from './smoke';
 import type { LiveService, LiveStore } from './service';
 
@@ -190,6 +196,12 @@ export interface LiveBrokerService {
   runSmokeTest(request: LiveSmokeTestRequest): Promise<LiveSmokeTestResult>;
   /** Entrada del evento `signals:new` (envoltura de broadcast). */
   handleSignalEvent(payload: unknown): Promise<void>;
+  /**
+   * Evento `risk:changed`: con la parada de emergencia activa recompra
+   * los cortos abiertos (un corto no puede quedar abierto con el
+   * sistema parado: su pérdida no tiene tope).
+   */
+  handleRiskChanged(payload: unknown): void;
   /** Reconecta con las claves guardadas si la puerta está abierta. */
   restore(): Promise<void>;
   stop(): void;
@@ -242,11 +254,16 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
   };
 
   /**
-   * Lectura de la exposición real para la guarda de techos: posiciones
-   * abiertas (coste medio), nocional de las compras aún abiertas y la
-   * pérdida realizada en la sesión de Nueva York de hoy.
+   * Lectura local de la exposición real para la guarda de techos:
+   * posiciones abiertas con su lado (`positionsFromOrders` sobre
+   * `broker_orders_live`), nocional de las compras y de las ventas de
+   * entrada aún abiertas, y la pérdida realizada en la sesión de Nueva
+   * York de hoy (con el signo del lado de la entrada, así que las
+   * pérdidas en corto cuentan igual que las de largo). Los datos del
+   * broker (cuenta, prestabilidad del título y exposición corta al
+   * precio actual) los añade `orderSnapshot` solo cuando hace falta.
    */
-  const orderSnapshot = (): Parameters<typeof liveOrderBlockReason>[0] => {
+  const localSnapshot = (): LiveOrderSnapshot => {
     const all = deps.repository.listOrders();
     const positions = positionsFromOrders(all);
     const positionUsd = positions.reduce(
@@ -254,13 +271,23 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       0,
     );
     const openStatuses = new Set<string>(BROKER_ORDER_OPEN_STATUSES);
-    const pendingUsd = all
+    const pending = all.filter(
+      (order) => openStatuses.has(order.status) && order.filledQuantity < order.quantity,
+    );
+    const pendingUsd = pending
+      .filter((order) => order.side === 'buy' && order.leg !== 'salida')
+      .reduce((sum, order) => {
+        const price = order.limitPrice ?? order.execution.requestedPrice;
+        if (price === null || !(price > 0)) return sum;
+        return sum + (order.quantity - order.filledQuantity) * price;
+      }, 0);
+    // Las ventas de entrada aún abiertas sobre un ticker sin largo son
+    // cortos pendientes de ejecutar: cuentan para la exposición futura.
+    const longTickers = new Set(positions.filter((p) => p.side === 'long').map((p) => p.ticker));
+    const pendingShortUsd = pending
       .filter(
         (order) =>
-          order.side === 'buy' &&
-          order.leg !== 'salida' &&
-          openStatuses.has(order.status) &&
-          order.filledQuantity < order.quantity,
+          order.side === 'sell' && order.leg !== 'salida' && !longTickers.has(order.ticker),
       )
       .reduce((sum, order) => {
         const price = order.limitPrice ?? order.execution.requestedPrice;
@@ -289,16 +316,75 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
             orderUsd: limitsRow.orden_usd,
             dailyLossUsd: limitsRow.perdida_diaria_usd,
             openPositions: limitsRow.posiciones_max,
+            shortOrderUsd: limitsRow.corto_orden_usd,
+            shortExposureUsd: limitsRow.corto_exposicion_usd,
+            shortPositions: limitsRow.corto_posiciones_max,
           }
         : null;
 
     return {
       mode: deps.store.getMode().estado,
       limits,
-      openTickers: positions.map((position) => position.ticker),
+      openPositions: positions.map((position) => ({
+        ticker: position.ticker,
+        side: position.side,
+        quantity: position.quantity,
+      })),
+      shortExposureUsd: null,
+      pendingShortUsd,
+      accountShorting: null,
+      asset: null,
       capitalInUseUsd: positionUsd + pendingUsd,
       realizedLossTodayUsd,
     };
+  };
+
+  /**
+   * Snapshot completo con lectura del broker para la guarda: solo se
+   * consulta la red cuando la orden podría abrir o ampliar un corto
+   * (venta sobre un ticker sin largo en cartera). Una lectura que falla
+   * deja el dato en null y la guarda rechaza el corto con motivo claro.
+   */
+  const orderSnapshot = async (request: BrokerOrderRequest): Promise<LiveOrderSnapshot> => {
+    const snapshot = localSnapshot();
+    const position = snapshot.openPositions.find(
+      (p) => p.ticker === request.ticker.trim().toUpperCase(),
+    );
+    if (request.side !== 'sell' || position?.side === 'long' || adapter === null) {
+      return snapshot;
+    }
+    const candidate = adapter;
+    try {
+      const account = await candidate.getAccount();
+      snapshot.accountShorting = account.shortingEnabled ?? null;
+    } catch (error: unknown) {
+      logger.warn?.(
+        `[live-broker] no se pudo leer la cuenta para la puerta del corto: ${errorMessage(error)}`,
+      );
+    }
+    try {
+      const read = candidate.getAsset ? await candidate.getAsset(request.ticker) : null;
+      snapshot.asset =
+        read === null ? null : { shortable: read.shortable, easyToBorrow: read.easyToBorrow };
+    } catch (error: unknown) {
+      logger.warn?.(
+        `[live-broker] no se pudo leer el activo ${request.ticker} para la puerta del corto: ${errorMessage(error)}`,
+      );
+    }
+    try {
+      const remote = await candidate.listPositions();
+      // La exposición corta va valorada al precio actual: el broker la da
+      // como marketValue (negativo en Alpaca para cortos); si no la trae,
+      // se aproxima con el precio medio de entrada.
+      snapshot.shortExposureUsd = remote
+        .filter((p) => p.side === 'short')
+        .reduce((sum, p) => sum + Math.abs(p.marketValue ?? p.avgEntryPrice * p.quantity), 0);
+    } catch (error: unknown) {
+      logger.warn?.(
+        `[live-broker] no se pudo leer la exposición del broker para la puerta del corto: ${errorMessage(error)}`,
+      );
+    }
+    return snapshot;
   };
 
   /**
@@ -314,9 +400,9 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       getSignal: deps.getSignal,
       isKillSwitchActive: deps.isKillSwitchActive,
       isOnline: deps.isOnline,
-      checkOrderAllowed: (request, context) =>
-        liveOrderBlockReason(orderSnapshot(), request, context),
-      orderWirePrice: (request, context) => liveOrderWirePrice(orderSnapshot(), request, context),
+      checkOrderAllowed: async (request, context) =>
+        liveOrderBlockReason(await orderSnapshot(request), request, context),
+      orderWirePrice: (request, context) => liveOrderWirePrice(localSnapshot(), request, context),
       recordJournal: deps.recordJournal,
       onOrderUpdated: deps.emitOrderUpdated,
       sleep: deps.sleep,
@@ -413,7 +499,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     store: deps.store,
     getChecklist: () => deps.live.getChecklist(),
     checkOrderAllowed: (request, context) =>
-      liveOrderBlockReason(orderSnapshot(), request, context),
+      liveOrderBlockReason(localSnapshot(), request, context),
     referencePrice: deps.referencePrice ?? (() => null),
     marketNow: deps.marketNow ?? now,
     reconcileNow: () => reconcile.runNow('manual'),
@@ -487,6 +573,9 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
             orderUsd: limitsRow.orden_usd,
             dailyLossUsd: limitsRow.perdida_diaria_usd,
             openPositions: limitsRow.posiciones_max,
+            shortOrderUsd: limitsRow.corto_orden_usd,
+            shortExposureUsd: limitsRow.corto_exposicion_usd,
+            shortPositions: limitsRow.corto_posiciones_max,
           };
     journal({
       type: 'resumen',
@@ -500,6 +589,120 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       },
     });
     return emitChanged();
+  };
+
+  /**
+   * La parada de emergencia recompra los cortos abiertos: la pérdida en
+   * corto no tiene tope natural, así que ningún corto real puede quedar
+   * abierto mientras el sistema está parado. Cancela primero las órdenes
+   * abiertas del ticker —su OCO de salida volvería a comprar si se dejara
+   * vivo— y envía la recompra a mercado directamente al adaptador: un
+   * cierre de riesgo no pasa por la guarda de techos ni por la puerta
+   * del gestor (la parada las bloquea a todas). Cada paso queda en el
+   * Diario; un fallo se registra y se sigue con el siguiente corto.
+   */
+  const coverOpenShorts = async (cause: string): Promise<void> => {
+    const candidate = adapter;
+    if (candidate === null || stopped) return;
+    const all = deps.repository.listOrders();
+    const shorts = positionsFromOrders(all).filter(
+      (position) => position.side === 'short' && position.quantity > 0,
+    );
+    if (shorts.length === 0) return;
+    const openStatuses = new Set<string>(BROKER_ORDER_OPEN_STATUSES);
+    for (const position of shorts) {
+      // Las órdenes abiertas del ticker quedan fuera primero: el OCO de
+      // salida del corto es una compra que, si viviera, abriría un largo
+      // al ejecutarse sobre una posición ya cerrada.
+      for (const order of all.filter(
+        (o) => o.ticker === position.ticker && openStatuses.has(o.status),
+      )) {
+        try {
+          if (order.brokerOrderId !== null) {
+            await candidate.cancelOrder(order.brokerOrderId);
+          }
+          deps.repository.updateOrder(order.id, { status: 'cancelada' }, isoNow());
+        } catch (error: unknown) {
+          logger.warn?.(
+            `[live-broker] no se pudo cancelar ${order.clientOrderId} al recomprar el corto: ${errorMessage(error)}`,
+          );
+        }
+      }
+      // La pata va marcada 'salida' con la señal de su entrada (si consta)
+      // para que la operación cerrada se empareje y la pérdida en corto
+      // cuente en la pérdida diaria realizada.
+      const entryOrder = [...all]
+        .reverse()
+        .find((o) => o.ticker === position.ticker && o.leg === 'entrada' && o.signalId !== null);
+      const clientOrderId = `tradia-parada-corto-${position.ticker}-${now()}`;
+      const { order } = deps.repository.insertOrder({
+        clientOrderId,
+        signalId: entryOrder?.signalId ?? null,
+        strategyId: entryOrder?.strategyId ?? null,
+        leg: 'salida',
+        ticker: position.ticker,
+        type: 'market',
+        side: 'buy',
+        quantity: position.quantity,
+        requestedAt: isoNow(),
+        status: 'pendiente',
+        attempts: 1,
+      });
+      try {
+        const remote = await candidate.submitOrder({
+          clientOrderId,
+          ticker: position.ticker,
+          type: 'market',
+          side: 'buy',
+          quantity: position.quantity,
+          timeInForce: 'day',
+        });
+        const updated = deps.repository.updateOrder(
+          order.id,
+          {
+            brokerOrderId: remote.brokerOrderId,
+            status: remote.status,
+            filledQuantity: remote.filledQuantity,
+            executedAt: remote.filledAt,
+            executedPrice: remote.filledAvgPrice,
+          },
+          isoNow(),
+        );
+        deps.emitOrderUpdated?.(updated);
+        journal({
+          type: 'limite',
+          ticker: position.ticker,
+          result: 'completado',
+          reason:
+            `Parada de emergencia (${cause}): recompra del corto de ` +
+            `${position.quantity} uds de ${position.ticker} ` +
+            `(${remote.status === 'ejecutada' ? 'ejecutada' : `enviada, estado ${remote.status}`}).`,
+          dataUsed: {
+            clientOrderId,
+            brokerOrderId: remote.brokerOrderId,
+            cantidad: position.quantity,
+          },
+        });
+      } catch (error: unknown) {
+        deps.repository.updateOrder(
+          order.id,
+          { status: 'rechazada', rejectReason: errorMessage(error), attempts: 1 },
+          isoNow(),
+        );
+        deps.emitOrderUpdated?.(order);
+        journal({
+          type: 'error',
+          ticker: position.ticker,
+          result: 'error',
+          reason: `No se pudo recomprar el corto de ${position.ticker} tras la parada de emergencia.`,
+          errors: [errorMessage(error)],
+          dataUsed: { clientOrderId, cantidad: position.quantity },
+        });
+        logger.warn?.(
+          `[live-broker] la recompra del corto de ${position.ticker} falló: ${errorMessage(error)}`,
+        );
+      }
+    }
   };
 
   const service: LiveBrokerService = {
@@ -548,6 +751,23 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
           );
         },
       );
+    },
+
+    handleRiskChanged: (payload) => {
+      const overview = payload as RiskOverview | null | undefined;
+      if (
+        overview !== null &&
+        typeof overview === 'object' &&
+        overview.killSwitch?.active === true
+      ) {
+        void coverOpenShorts(`causa: ${overview.killSwitch.cause ?? 'desconocida'}`).catch(
+          (error: unknown) => {
+            logger.warn?.(
+              `[live-broker] la recompra de cortos tras la parada falló: ${errorMessage(error)}`,
+            );
+          },
+        );
+      }
     },
 
     restore: async () => {

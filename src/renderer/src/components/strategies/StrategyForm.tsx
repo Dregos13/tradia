@@ -252,7 +252,11 @@ export function StrategyForm({
                   rules={draft.rules}
                   parameters={parsedParameters ?? {}}
                   errors={ruleErrors.filter(
-                    (item) => submitted || !!draft.rules[item.field]?.trim(),
+                    (item) =>
+                      submitted ||
+                      !!draft.rules[item.field]?.trim() ||
+                      (item.field === 'entryShort' && !!draft.rules.exitShort?.trim()) ||
+                      (item.field === 'exitShort' && !!draft.rules.entryShort?.trim()),
                   )}
                   change={(rules) => setDraft({ ...draft, rules })}
                   busy={busy}

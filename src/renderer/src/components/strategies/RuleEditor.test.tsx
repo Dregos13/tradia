@@ -253,3 +253,112 @@ it('conserva la edición de las reglas descriptivas de una implementación clás
   );
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
+
+it.each(['entryShort', 'exitShort'] as const)(
+  'asocia y anuncia el error de %s, y selecciona su posición por teclado',
+  async (field) => {
+    const rules = {
+      ...strategy.rules,
+      entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+      exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+    };
+    render(<StrategyForm strategy={{ ...strategy, rules }} save={vi.fn()} />);
+    const label = field === 'entryShort' ? 'Entrada en corto' : 'Salida del corto';
+    const editor = screen.getByLabelText(label) as HTMLTextAreaElement;
+    expect(editor).not.toBeRequired();
+    editor.focus();
+    fireEvent.change(editor, { target: { value: 'cierre > desconocido' } });
+    const parsed = parseStrategyRules({ ...rules, [field]: editor.value }, strategy.parameters);
+    if (parsed.ok) throw new Error('Se esperaba el error de la regla de corto');
+    const error = parsed.errors.find((item) => item.field === field)!;
+    await waitFor(() => expect(editor).toHaveAttribute('aria-invalid', 'true'));
+    expect(editor).toHaveFocus();
+    expect(editor).toHaveAccessibleDescription(
+      new RegExp(`caracteres ${error.start + 1}–${error.end}`),
+    );
+    expect(document.getElementById(`strategy-rule-${field}-result`)).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
+    screen.getByRole('button', { name: /desconocido.*caracteres/ }).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(editor).toHaveFocus());
+    expect(editor.selectionStart).toBe(error.start);
+    expect(editor.selectionEnd).toBe(error.end);
+    fireEvent.submit(editor.closest('form')!);
+    expect(screen.getByRole('alert')).toHaveTextContent(`Corrige ${label}`);
+  },
+);
+
+it('inserta la pareja de corto, señala el campo que falta y guarda ambas reglas opcionales', async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(<StrategyForm strategy={strategy} save={save} />);
+  const entry = screen.getByLabelText('Entrada en corto');
+  const exit = screen.getByLabelText('Salida del corto');
+  expect(entry).toHaveValue('');
+  expect(exit).toHaveValue('');
+  expect(entry).not.toBeRequired();
+  expect(exit).not.toBeRequired();
+  screen.getByRole('button', { name: 'Insertar cruce de medias en corto' }).focus();
+  await userEvent.keyboard('{Enter}');
+  await waitFor(() => expect(entry).toHaveFocus());
+  expect(entry).toHaveValue('cruza_abajo(sma(rapida), sma(lenta))');
+  await waitFor(() => expect(exit).toHaveAttribute('aria-invalid', 'true'));
+  expect(exit).toHaveAccessibleDescription(/van en pareja.*caracteres 1–1/);
+  screen.getByRole('button', { name: 'Insertar salida del corto por cruce' }).focus();
+  await userEvent.keyboard('{Enter}');
+  await waitFor(() => expect(exit).toHaveFocus());
+  await waitFor(() => expect(exit).toHaveAttribute('aria-invalid', 'false'));
+  fireEvent.change(screen.getByLabelText('Nota del cambio'), {
+    target: { value: 'Añado las reglas de entrada y salida en corto' },
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar nueva versión' }));
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      rules: {
+        ...strategy.rules,
+        entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+        exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+      },
+    }),
+    expect.any(String),
+  );
+});
+
+it.each([
+  ['largo', {}],
+  ['largo y corto', { entryShort: 'cierre < sma(20)', exitShort: 'cierre > sma(20)' }],
+  ['corto', { entry: '', entryShort: 'cierre < sma(20)', exitShort: 'cierre > sma(20)' }],
+] as const)(
+  'la ficha describe %s y muestra las reglas del lado seleccionado',
+  async (side, rules) => {
+    const own = { ...strategy, rules: { ...strategy.rules, ...rules } };
+    render(<StrategyDetail strategy={own} latest={own} history={[]} changeStatus={vi.fn()} />);
+    expect(screen.getByText(`Opera en: ${side}.`)).toBeVisible();
+    if (side !== 'largo') {
+      expect(
+        screen.getByText(/con dinero real solo se ejecutan las entradas en largo/),
+      ).toBeVisible();
+      expect(screen.getByText('cierre < sma(20)')).toBeVisible();
+      expect(screen.getByText('cierre > sma(20)')).toBeVisible();
+    }
+    await waitFor(() => expect(screen.queryByText('Cargando evidencia…')).not.toBeInTheDocument());
+  },
+);
+
+it('el adaptador simulado ejecuta cortos de una propia y persiste el lado en el historial', async () => {
+  const own = await window.tradia.strategies.update({
+    id: strategy.id,
+    note: 'Añado cruce de medias bajista',
+    rules: {
+      ...strategy.rules,
+      entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+      exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+    },
+  });
+  expect(own.executable).toBe(false);
+  const report = await window.tradia.backtest.run({ strategyId: own.id, version: own.version });
+  expect(report.trades.some((trade) => trade.side === 'corto')).toBe(true);
+  expect(await window.tradia.backtest.get(report.id)).toEqual(report);
+  expect(await window.tradia.backtest.list({ strategyId: own.id, version: 2 })).toEqual([report]);
+});
