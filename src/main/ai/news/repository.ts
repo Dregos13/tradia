@@ -36,7 +36,7 @@ export interface NewsAnalysisInsert {
   summary: string;
   sentiment: NewsSentiment;
   analyzer: NewsAnalyzer;
-  /** Modelo exacto del LLM ('claude-haiku-4-5-20251001') o null en 'local'. */
+  /** Modelo exacto del proveedor ('claude-code-cli' en suscripción) o null en 'local'. */
   model: string | null;
   analyzedAt: string;
 }

@@ -50,6 +50,112 @@ export class RollingSma {
   }
 }
 
+/**
+ * Media exponencial rodante del cierre: se siembra con la media simple de
+ * las `period` primeras velas y luego aplica k = 2 / (period + 1), igual
+ * que `ema()` de shared/indicators.
+ */
+export class RollingEma {
+  private readonly k: number;
+  private readonly seed: number[] = [];
+  private sum = 0;
+  private current: number | null = null;
+
+  constructor(private readonly period: number) {
+    assertPeriod(period, 'RollingEma');
+    this.k = 2 / (period + 1);
+  }
+
+  push(close: number): void {
+    if (this.current !== null) {
+      this.current = close * this.k + this.current * (1 - this.k);
+      return;
+    }
+    this.seed.push(close);
+    this.sum += close;
+    if (this.seed.length === this.period) {
+      this.current = this.sum / this.period;
+    }
+  }
+
+  /** EMA de los últimos cierres, o null hasta completar la siembra. */
+  get value(): number | null {
+    return this.current;
+  }
+}
+
+/**
+ * Extremo rodante de las `period` velas ANTERIORES a la última vista —
+ * canal tipo Donchian: la vela que se está evaluando no entra en su propio
+ * canal, que es lo que convierte el extremo en una ruptura de verdad (la
+ * misma convención que `upperChannel`/`lowerChannel` de donchianBreakout).
+ *
+ * Se implementa con un deque monótono alimentado con una vela de retardo:
+ * tras consumir la vela t la ventana cubre los índices [t-period, t-1].
+ * `value` es null hasta haber empujado `period` velas retrasadas (es
+ * decir, hasta la vela con índice `period`).
+ */
+abstract class RollingPriorExtreme {
+  private items: { index: number; value: number }[] = [];
+  private count = 0;
+  private pending: number | null = null;
+
+  constructor(
+    private readonly period: number,
+    label: string,
+  ) {
+    assertPeriod(period, label);
+  }
+
+  /** true si el valor nuevo desplaza a los candidatos anteriores. */
+  protected abstract evicts(candidate: number, incoming: number): boolean;
+
+  push(value: number): void {
+    const incoming = this.pending;
+    this.pending = value;
+    if (incoming === null) return;
+    while (
+      this.items.length > 0 &&
+      this.evicts(this.items[this.items.length - 1]!.value, incoming)
+    ) {
+      this.items.pop();
+    }
+    this.items.push({ index: this.count, value: incoming });
+    const first = this.count - this.period + 1;
+    while (this.items.length > 0 && this.items[0]!.index < first) {
+      this.items.shift();
+    }
+    this.count++;
+  }
+
+  /** Extremo de las `period` velas anteriores a la actual, o null si no hay. */
+  get value(): number | null {
+    return this.count >= this.period ? this.items[0]!.value : null;
+  }
+}
+
+/** Máximo de los `period` máximos anteriores a la vela actual (canal superior). */
+export class RollingPriorMax extends RollingPriorExtreme {
+  constructor(period: number) {
+    super(period, 'RollingPriorMax');
+  }
+
+  protected evicts(candidate: number, incoming: number): boolean {
+    return candidate <= incoming;
+  }
+}
+
+/** Mínimo de los `period` mínimos anteriores a la vela actual (canal inferior). */
+export class RollingPriorMin extends RollingPriorExtreme {
+  constructor(period: number) {
+    super(period, 'RollingPriorMin');
+  }
+
+  protected evicts(candidate: number, incoming: number): boolean {
+    return candidate >= incoming;
+  }
+}
+
 /** RSI de Wilder incremental: primer valor tras `period` cambios de precio. */
 export class WilderRsi {
   private previousClose: number | null = null;

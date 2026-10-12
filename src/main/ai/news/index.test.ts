@@ -129,10 +129,11 @@ afterEach(() => {
 });
 
 describe('canales IPC propios', () => {
-  it('registra los cuatro canales con guardas de entrada', async () => {
+  it('registra los canales con guardas de entrada', async () => {
     setup();
     for (const channel of [
       IPC_CHANNELS.ai.newsAnalysis,
+      IPC_CHANNELS.ai.newsStatus,
       IPC_CHANNELS.ai.getLlmSettings,
       IPC_CHANNELS.ai.setLlmSettings,
       IPC_CHANNELS.ai.testLlm,
@@ -145,19 +146,31 @@ describe('canales IPC propios', () => {
     expect(() => os.handlers.get(IPC_CHANNELS.ai.setLlmSettings)!(null, { dailyCap: -1 })).toThrow(
       /entrada inválida/,
     );
+    // El proveedor 'llm' (API de pago retirada) ya no pasa la guarda.
+    expect(() =>
+      os.handlers.get(IPC_CHANNELS.ai.setLlmSettings)!(null, { provider: 'llm' }),
+    ).toThrow(/entrada inválida/);
     expect(os.handlers.get(IPC_CHANNELS.ai.newsAnalysis)!(null, undefined)).toEqual([]);
   });
 
-  it('setLlmSettings persiste y devuelve el estado con hasKey', async () => {
-    setup({ hasKey: true });
+  it('ai:news-status devuelve el estado del proveedor', async () => {
+    setup();
+    const status = await os.handlers.get(IPC_CHANNELS.ai.newsStatus)!(null);
+    expect(status).toMatchObject({ provider: expect.any(String), state: expect.any(String) });
+  });
+
+  it('setLlmSettings persiste y devuelve el estado sin presupuesto de API', async () => {
+    const { settingsMap } = setup({ hasKey: true });
+    // Sin CLI localizable: una ruta configurada inválida fija la detección.
+    settingsMap.set('newsLlm.cliPath', '/no/existe/claude');
     const saved = await os.handlers.get(IPC_CHANNELS.ai.setLlmSettings)!(null, {
       enabled: true,
       dailyCap: 25,
       monthlyBudgetEur: 10,
     });
-    expect(saved).toMatchObject({ enabled: true, dailyCap: 25, monthlyBudgetEur: 10 });
+    expect(saved).toMatchObject({ dailyCap: 25, monthlyBudgetEur: 0 });
     const settings = await os.handlers.get(IPC_CHANNELS.ai.getLlmSettings)!(null);
-    expect(settings).toMatchObject({ hasKey: true, dailyCap: 25 });
+    expect(settings).toMatchObject({ dailyCap: 25 });
   });
 });
 

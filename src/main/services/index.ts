@@ -77,7 +77,7 @@ export interface MainServices {
   aiRegime: AiRegimeService;
   /** Predicción ONNX (fase 6): probabilidades calibradas, ai:predictions/model-card. */
   aiPrediction: AiPredictionService;
-  /** Noticias con LLM (fase 6): cola de confirmados y ai:news-analysis/llm-*. */
+  /** Noticias con LLM (fase 6): cola de confirmados, ai:news-analysis/status/llm-*. */
   newsAi: NewsAiService;
   /** Salud de modelos (fase 6): drift, degradación y propuestas, ai:health/retrain. */
   aiDrift: AiDriftService;

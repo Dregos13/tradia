@@ -5,9 +5,10 @@
  * Reutiliza el clasificador léxico local (puro y sin azar) para el
  * sentimiento y el resumen, así el resultado es siempre el mismo ante el
  * mismo titular y las pruebas E2E son reproducibles. La etiqueta que se
- * persiste (`analyzer`/`model`) se elige al construirlo: 'llm' para que el
- * E2E vea el método «LLM · claude-haiku-4-5-20251001» del diseño sin gastar
- * llamadas reales, o 'local' para probar el camino sin coste.
+ * persiste (`analyzer`/`model`) se elige al construirlo: 'llm' (etiqueta
+ * histórica admitida por el CHECK de la tabla) para que el E2E vea el
+ * método «LLM · claude-haiku-4-5-20251001» del diseño sin gastar llamadas
+ * reales, o 'local' para probar el camino sin coste.
  *
  * Nunca llama a la red ni crea señales.
  */

@@ -188,7 +188,8 @@ Todos los canales están tipados en `src/shared/ipc.ts`:
   Ajustes) y el gancho de desarrollo `simulate-test` (solo `TRADIA_E2E` y
   sin empaquetar).
 - `ai`: `regime-overview`, `predictions`, `model-card`, `news-analysis`,
-  ajustes del LLM (`get/set/test-llm`), `health`, `retrain-proposals`,
+  `news-status` (estado de la suscripción, con evento push), ajustes del
+  LLM (`get/set/test-llm`), `health`, `retrain-proposals`,
   `resolve-retrain` y evento `changed` (ver `docs/ia.md`).
 - `live`: `checklist`, `state`, `declare`, `set-limits`, `connect`,
   `activate`, `deactivate`, `test-kill-switch`, `smoke-test`, `scaling`
@@ -273,9 +274,10 @@ La capa de IA (`src/main/ai/`, ver `docs/ia.md`) corre en segundo plano
 sobre las velas y los titulares que ingiere la app: clasifica el régimen
 de mercado por activo y de conjunto (referencia SPY), sirve el modelo
 ONNX entrenado fuera de la app (artefactos de `resources/models/`,
-pipeline en `ml/`), resume con LLM o léxico local los titulares
-confirmados y vigila el drift de datos y resultados con propuestas de
-reentrenamiento trimestral. Todo ajusta la confianza de las señales —
+pipeline en `ml/`), resume con la suscripción de Claude Code —o el
+léxico local— los titulares confirmados y vigila el drift de datos y
+resultados con propuestas de reentrenamiento trimestral. Todo ajusta la
+confianza de las señales —
 que siempre pasan por el motor de riesgo — y nada de ello crea órdenes.
 
 El modo real (`src/main/live/`, ver `docs/dinero-real.md`) permanece

@@ -693,7 +693,7 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
  * la conciliación, Órdenes, y la alerta de desviación, Real vs backtest.
  * Son las rutas por hash del renderer (`#noticias`, `#calendario`,
  * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`,
- * `#ia`, `#salud-modelos` y `#dinero-real` de las fases 6-7).
+ * `#ia`, `#salud-modelos`, `#dinero-real` y `#ajustes`).
  */
 export const NOTIFICATION_ROUTES = [
   'noticias',
@@ -706,6 +706,7 @@ export const NOTIFICATION_ROUTES = [
   'ia',
   'salud-modelos',
   'dinero-real',
+  'ajustes',
 ] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 

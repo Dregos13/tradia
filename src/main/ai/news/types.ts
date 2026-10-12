@@ -4,8 +4,9 @@
  * Un `NewsHeadlineAnalyzer` toma un titular CONFIRMADO y devuelve, por
  * activo, un resumen de una o dos frases y un sentimiento ('positivo',
  * 'negativo', 'neutro' o 'mixto'). Implementaciones: el adaptador de la
- * API de Anthropic Messages (`anthropic.ts`), el clasificador léxico
- * local (`local.ts`) y el simulado determinista para E2E (`simulated.ts`).
+ * CLI de Claude Code con la suscripción del usuario (`claudeCli.ts`), el
+ * clasificador léxico local (`local.ts`) y el simulado determinista
+ * para E2E (`simulated.ts`).
  *
  * Regla del dominio: un análisis nunca crea una señal. La interfaz no
  * expone nada que produzca señales ni órdenes; el sentimiento solo puede
@@ -48,12 +49,13 @@ export interface NewsAnalysisResult {
 
 /**
  * Analizador de titulares confirmados. `analyzer` y `model` son lo que se
- * persiste en `news_analysis` ('llm' + nombre del modelo, o 'local').
+ * persiste en `news_analysis` ('suscripcion' + etiqueta de la CLI,
+ * 'local' + null; 'llm' solo queda en filas históricas).
  * Nunca crea señales: solo describe la noticia por activo.
  */
 export interface NewsHeadlineAnalyzer {
   readonly analyzer: NewsAnalyzer;
-  /** Modelo exacto (p. ej. 'claude-haiku-4-5-20251001'); null si es local. */
+  /** Modelo exacto (p. ej. 'claude-code-cli'); null si es local. */
   readonly model: string | null;
   analyze(input: NewsAnalysisInput): Promise<NewsAnalysisResult>;
 }
@@ -62,23 +64,23 @@ export interface NewsHeadlineAnalyzer {
 // Errores del adaptador LLM
 // ---------------------------------------------------------------------------
 
-/** Clases de fallo del adaptador de Anthropic (misma idea que BrokerError). */
+/** Clases de fallo del proveedor LLM (misma idea que BrokerError). */
 export const NEWS_LLM_ERROR_KINDS = [
-  'auth', // 401/403: clave rechazada
-  'rate-limit', // 429 tras reintentos (con retryAfterMs si llega)
-  'server', // 5xx tras reintentos
-  'network', // fallo de transporte tras reintentos
+  'auth', // sesión de la CLI no iniciada (hay que hacer /login)
+  'rate-limit', // cuota rechazada tras reintentos (con retryAfterMs si llega)
+  'server', // la CLI terminó con error tras reintentos
+  'network', // fallo de transporte o de ejecución tras reintentos
   'timeout', // tiempo de espera tras reintentos
   'bad-data', // respuesta que no valida el esquema de salida
-  'no-key', // no hay clave guardada en secrets
-  'quota', // tope diario o presupuesto mensual agotado (local fallback)
+  'no-key', // no hay clave guardada en secrets (histórico de la API retirada)
+  'quota', // tope diario de titulares agotado (local fallback)
 ] as const;
 export type NewsLlmErrorKind = (typeof NEWS_LLM_ERROR_KINDS)[number];
 
 /**
- * Error del adaptador LLM. El mensaje nunca contiene la clave ni datos del
- * titular: cualquier texto externo se sanea con `redact` antes de llegar
- * aquí o al registro.
+ * Error del proveedor LLM. El mensaje nunca contiene secretos ni datos
+ * del titular: cualquier texto externo se sanea (`redactSecret` /
+ * `truncateExternal`) antes de llegar aquí o al registro.
  */
 export class NewsLlmError extends Error {
   readonly kind: NewsLlmErrorKind;
@@ -107,10 +109,11 @@ export function isNewsLlmError(error: unknown): error is NewsLlmError {
 // ---------------------------------------------------------------------------
 
 /**
- * Contadores persistidos del gasto del LLM. `day`/`month` fijan la ventana
- * ('YYYY-MM-DD' y 'YYYY-MM'): al cambiar, el contador correspondiente se
- * reinicia. `usedToday` cuenta titulares analizados con el LLM hoy y
- * `spentMonthEur` acumula el coste estimado del mes en euros.
+ * Contadores persistidos del proveedor LLM. `day`/`month` fijan la
+ * ventana ('YYYY-MM-DD' y 'YYYY-MM'): al cambiar, el contador
+ * correspondiente se reinicia. `usedToday` cuenta titulares analizados
+ * por la suscripción hoy y `spentMonthEur` es un resto del gasto
+ * estimado de la API retirada (ya no crece).
  */
 export interface NewsLlmUsage {
   day: string;

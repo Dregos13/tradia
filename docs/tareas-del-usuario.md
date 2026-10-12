@@ -29,7 +29,6 @@ este orden: las primeras no tienen riesgo y las últimas mueven dinero real.
 | ------------------------------------------------------- | ----------------------------------- | ------------------------------------------- |
 | `npm run eval:news-llm -- --provider local`             | Evalúa con el analizador local      | Comprobar el conjunto etiquetado sin coste  |
 | `npm run eval:news-llm -- --provider suscripcion`       | —                                   | Evaluar con la CLI de Claude Code           |
-| `npm run eval:news-llm -- --provider api`               | —                                   | Evaluar con la API de Anthropic (de pago)   |
 | `npm run qa:providers`                                  | Muestra el uso y sale sin consultar | Probar las claves de Tiingo y FRED          |
 | `npm run qa:alpaca-paper`                               | Muestra el uso y sale sin consultar | Probar el adaptador contra la cuenta paper  |
 | `npm run qa:alpaca-live-smoke`                          | Muestra el uso y sale sin enviar    | Prueba de humo con dinero real (1 USD)      |
@@ -68,16 +67,13 @@ analizador local en Ajustes y salta esta tarea.
    día por debajo del tope diario (`NEWS_LLM_DAILY_CAP`, 200 titulares).
    Como referencia sin coste, `--provider local` debe dar lo mismo.
 
-5. (Opcional, de pago) Con la API de Anthropic: guarda la clave en Ajustes
-   para la app y, para la evaluación, pásala solo en el entorno:
-
-   ```bash
-   read -rs ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY
-   npm run eval:news-llm -- --provider api
-   ```
-
-   Esperado: además de la precisión, el coste estimado por titular y el
-   gasto dentro del presupuesto (`NEWS_LLM_MONTHLY_BUDGET_EUR`, 30 €).
+Si la suscripción falla en uso (sesión caducada, CLI no encontrada o tope
+diario), la app te avisa **una vez** con una notificación del sistema y
+muestra el motivo y el paso para resolverlo en Ajustes y en Noticias;
+mientras tanto los titulares se analizan con el analizador local, sin
+perderse, y al volver la sesión llega otra notificación. No hay API de
+pago: si venías de una versión que la tenía, su clave guardada se borra
+sola la primera vez que la app la encuentra.
 
 ## 2. Claves de Tiingo y FRED
 

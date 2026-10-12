@@ -339,6 +339,8 @@ describe('contrato IPC', () => {
       predictions: 'ai:predictions',
       modelCard: 'ai:model-card',
       newsAnalysis: 'ai:news-analysis',
+      newsStatus: 'ai:news-status',
+      newsStatusChanged: 'ai:news-status-changed',
       getLlmSettings: 'ai:get-llm-settings',
       setLlmSettings: 'ai:set-llm-settings',
       testLlm: 'ai:test-llm',
@@ -1647,6 +1649,8 @@ describe('contrato de la continuación (modo por orden, proveedores, tour, LLM)'
     expect(isNewsAnalyzer('api')).toBe(false);
     expect(isNewsLlmSettingsInput({ provider: 'suscripcion' })).toBe(true);
     expect(isNewsLlmSettingsInput({ provider: 'local' })).toBe(true);
+    // La API de pago se retiró: 'llm' ya no es un proveedor elegible.
+    expect(isNewsLlmSettingsInput({ provider: 'llm' })).toBe(false);
     expect(isNewsLlmSettingsInput({ provider: 'otro' })).toBe(false);
     expect(isNewsLlmSettingsInput({ cliPath: '/usr/local/bin/claude' })).toBe(true);
     expect(isNewsLlmSettingsInput({ cliPath: null })).toBe(true);

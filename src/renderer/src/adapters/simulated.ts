@@ -127,6 +127,7 @@ import type {
   NewsLlmSettings,
   NewsLlmTestResult,
   NewsSentiment,
+  NewsStatus,
   NewsSource,
   NewsUpdatedEvent,
   NotificationPrefs,
@@ -1355,9 +1356,26 @@ export function createSimulatedAdapter() {
   // entre llamadas para que las pruebas sean repetibles. El modelo del
   // falso es sintético y 'no apto', como el que entrega esta fase.
   const aiChangedListeners = new Set<(event: AiChangedEvent) => void>();
+  const newsStatusListeners = new Set<(status: NewsStatus) => void>();
   const liveChangedListeners = new Set<(state: LiveState) => void>();
   const emitAiChanged = (kind: AiChangedEvent['kind']) =>
     aiChangedListeners.forEach((listener) => listener({ kind, at: nowIso() }));
+  const emitNewsStatus = (status: NewsStatus) =>
+    newsStatusListeners.forEach((listener) => listener(status));
+
+  /** Estado del análisis por suscripción del falso (determinista). */
+  const newsStatusNow = (): NewsStatus => ({
+    provider: llmSettings.provider,
+    state:
+      llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+        ? 'cli-no-encontrada'
+        : 'ok',
+    since: nowIso(),
+    message:
+      llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+        ? 'Instala Claude Code y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.'
+        : null,
+  });
 
   /** Última sesión laborable simulada (el cierre que evalúa el régimen). */
   const lastSession = (): string => {
@@ -2896,6 +2914,7 @@ export function createSimulatedAdapter() {
             : {}),
         };
         emitAiChanged('noticias');
+        emitNewsStatus(newsStatusNow());
         return { ...llmSettings };
       },
       testLlm: async (): Promise<NewsLlmTestResult> => {
@@ -2921,6 +2940,8 @@ export function createSimulatedAdapter() {
         throw new Error(`No hay una propuesta pendiente con id ${request.id}.`);
       },
       onChanged: (listener) => subscribe(aiChangedListeners, listener),
+      newsStatus: async () => newsStatusNow(),
+      onNewsStatusChanged: (listener) => subscribe(newsStatusListeners, listener),
     },
     live: {
       checklist: async () => buildLiveChecklist(),
@@ -3157,6 +3178,7 @@ export function createSimulatedAdapter() {
       brokerOrderUpdatedListeners.size +
       reconcileDiscrepancyListeners.size +
       aiChangedListeners.size +
+      newsStatusListeners.size +
       liveChangedListeners.size,
   };
 }

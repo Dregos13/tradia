@@ -5,19 +5,16 @@
  * Empaqueta el analizador elegido con esbuild (ya en node_modules vía
  * vite) y lo ejecuta sobre el mismo `evaluateNewsAnalyzer` que las
  * pruebas: misma ruta de código que la app. Mide acierto en activo y
- * sentimiento, coste estimado por titular (solo la API) y uso del día
- * frente al tope configurado.
+ * sentimiento y uso del día frente al tope configurado.
  *
  * Uso:
  *   npm run eval:news-llm -- --provider local          sin coste ni clave
  *   npm run eval:news-llm -- --provider suscripcion    CLI de Claude Code
- *   npm run eval:news-llm -- --provider api            API de Anthropic
- *   ANTHROPIC_API_KEY=sk-ant-… npm run eval:news-llm   (equivale a --provider api)
  *
  * 'suscripcion' usa el `claude` local con la sesión de la suscripción
  * (sin clave de API; CLAUDE_CLI_PATH fija la ruta si no está en PATH).
- * 'api' exige ANTHROPIC_API_KEY. NEWS_LLM_DAILY_CAP (200) y
- * NEWS_LLM_MONTHLY_BUDGET_EUR (30) acotan la evaluación.
+ * NEWS_LLM_DAILY_CAP (200) acota la evaluación. La API de pago se
+ * retiró: ya no hay proveedor 'api' ni clave de Anthropic.
  */
 import console from 'node:console';
 import { execFileSync } from 'node:child_process';
@@ -27,31 +24,23 @@ import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-const PROVIDERS = ['local', 'suscripcion', 'api'];
+const PROVIDERS = ['local', 'suscripcion'];
 
 const argValue = (name) => {
   const index = process.argv.indexOf(name);
   return index === -1 ? null : (process.argv[index + 1] ?? null);
 };
 
-const provider = argValue('--provider') ?? (process.env.ANTHROPIC_API_KEY ? 'api' : 'local');
+const provider = argValue('--provider') ?? 'local';
 if (!PROVIDERS.includes(provider)) {
   console.error(`Proveedor desconocido «${provider}». Uso:`);
-  console.error('  npm run eval:news-llm -- --provider suscripcion|local|api');
-  process.exit(2);
-}
-
-const apiKey = process.env.ANTHROPIC_API_KEY;
-if (provider === 'api' && !apiKey) {
-  console.error('Falta la clave de Anthropic. Uso:');
-  console.error('  ANTHROPIC_API_KEY=sk-ant-… npm run eval:news-llm -- --provider api');
+  console.error('  npm run eval:news-llm -- --provider suscripcion|local');
   process.exit(2);
 }
 
 const dailyCap = Math.max(1, Number(process.env.NEWS_LLM_DAILY_CAP ?? 200) || 200);
-const monthlyBudget = Number(process.env.NEWS_LLM_MONTHLY_BUDGET_EUR ?? 30) || 30;
 
-const entry = { local: 'local.ts', suscripcion: 'claudeCli.ts', api: 'anthropic.ts' }[provider];
+const entry = { local: 'local.ts', suscripcion: 'claudeCli.ts' }[provider];
 
 const outDir = mkdtempSync(join(tmpdir(), 'tradia-eval-news-'));
 execFileSync(
@@ -79,20 +68,11 @@ const usage = createMemoryUsageStore();
 const analyzer =
   provider === 'local'
     ? bundle.createLocalNewsAnalyzer()
-    : provider === 'suscripcion'
-      ? bundle.createClaudeCliAnalyzer({
-          cliPath: () => process.env.CLAUDE_CLI_PATH ?? null,
-          usage,
-          dailyCap: () => dailyCap,
-        })
-      : bundle.createAnthropicNewsAnalyzer({
-          fetch: globalThis.fetch,
-          getApiKey: async () => apiKey,
-          usage,
-          dailyCap: () => dailyCap,
-          monthlyBudgetEur: () => monthlyBudget,
-          logger: console,
-        });
+    : bundle.createClaudeCliAnalyzer({
+        cliPath: () => process.env.CLAUDE_CLI_PATH ?? null,
+        usage,
+        dailyCap: () => dailyCap,
+      });
 
 const fixture = JSON.parse(
   readFileSync('src/main/ai/news/__fixtures__/headlines.labeled.json', 'utf8'),
@@ -102,10 +82,9 @@ const labeled = fixture.headlines;
 const LABEL = {
   local: 'analizador léxico local',
   suscripcion: 'CLI de Claude Code (suscripción)',
-  api: 'API de Anthropic',
 }[provider];
 console.log(`Evaluación del análisis de noticias con ${LABEL} — ${labeled.length} titulares.`);
-console.log(`Tope diario: ${dailyCap} · Presupuesto mensual: ${monthlyBudget} €\n`);
+console.log(`Tope diario: ${dailyCap}\n`);
 
 let fatal = null;
 const report = await evaluateNewsAnalyzer(analyzer, labeled, (index, error) => {
@@ -128,19 +107,9 @@ if (fatal && report.sentimentHits === 0 && report.assetHits === 0) {
   console.log(
     `  Acierto en sentimiento  ${report.sentimentHits}/${report.total} = ${pct(report.sentimentAccuracy)} (umbral ${pct(NEWS_EVAL_MIN_SENTIMENT_ACCURACY)})`,
   );
-  if (provider === 'api') {
-    const spent = usage.current.spentMonthEur;
-    console.log(`\nUso y coste estimado (tarifas documentadas en anthropic.ts)`);
-    console.log(`  Titulares hoy           ${usage.current.usedToday} de ${dailyCap}`);
-    console.log(`  Gasto del mes           ${spent.toFixed(4)} € de ${monthlyBudget} €`);
-    console.log(
-      `  Coste por titular       ${(report.total > 0 ? spent / report.total : 0).toFixed(5)} €`,
-    );
-  } else {
-    console.log(
-      `\nTitulares analizados por el proveedor: ${usage.current.usedToday} de ${dailyCap} (sin coste de API).`,
-    );
-  }
+  console.log(
+    `\nTitulares analizados por el proveedor: ${usage.current.usedToday} de ${dailyCap} (sin coste de API).`,
+  );
   if (report.failures.length > 0) {
     console.log(`\nFallos (${report.failures.length}):`);
     for (const f of report.failures) {

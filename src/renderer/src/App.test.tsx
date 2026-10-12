@@ -436,7 +436,7 @@ it('monta los ajustes LLM y la conexión live junto a las preferencias existente
   await act(async () => {
     render(<App />);
   });
-  expect(screen.getByRole('region', { name: 'Análisis de noticias con LLM' })).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Análisis de noticias' })).toBeVisible();
   expect(screen.getByRole('region', { name: 'Cuenta de broker · Dinero real' })).toBeVisible();
   expect(await screen.findByRole('region', { name: 'Claves live bloqueadas' })).toBeVisible();
 });

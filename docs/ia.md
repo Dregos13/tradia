@@ -9,7 +9,7 @@ de riesgo (`risk:submit-signal`, ver `docs/senales.md`).
 | ------------------ | ------------------------- | ------------------------------------------------------------------------------- |
 | Régimen de mercado | `src/main/ai/regime/`     | `ai:regime-overview`, `ai:simulate-regime`*                                     |
 | Predicción ONNX    | `src/main/ai/prediction/` | `ai:predictions`, `ai:model-card`                                               |
-| Noticias con LLM   | `src/main/ai/news/`       | `ai:news-analysis`, `ai:get-llm-settings`, `ai:set-llm-settings`, `ai:test-llm` |
+| Noticias con LLM   | `src/main/ai/news/`       | `ai:news-analysis`, `ai:news-status`, `ai:get-llm-settings`, `ai:set-llm-settings`, `ai:test-llm` |
 | Salud de modelos   | `src/main/ai/drift/`      | `ai:health`, `ai:retrain-proposals`, `ai:resolve-retrain`, `ai:simulate-drift`* |
 
 \* Solo con `TRADIA_E2E` y la app sin empaquetar (`isE2eEnabled`); el
@@ -95,41 +95,50 @@ ajusta la confianza vía `news_analysis` y pasa por el motor de riesgo
 como todo lo demás.
 
 Analizador por titular según el proveedor elegido en Ajustes
-(`ai:get-llm-settings` / `ai:set-llm-settings`, campo `provider`):
+(`ai:get-llm-settings` / `ai:set-llm-settings`, campo `provider`): la
+API de pago se retiró, así que solo quedan dos proveedores elegibles
+(`NEWS_PROVIDERS`).
 
-1. **Simulado determinista**: siempre en modo E2E (rotula `llm` para
-   reproducir el método del diseño sin tocar la red).
+1. **Simulado determinista**: siempre en modo E2E (rotula `llm` como
+   etiqueta histórica para reproducir el método del diseño sin tocar
+   la red).
 2. **Suscripción (Claude Code)** (`'suscripcion'`, proveedor por
    defecto cuando hay CLI instalada): el adaptador `claudeCli.ts`
    ejecuta el `claude` local con `spawn` sin shell, una pasada por
    llamada (`-p --output-format json`), **sin herramientas ni MCP**
-   (`--allowedTools ''`, MCP estricto vacío), con el prompt —el mismo
-   de la API— por stdin, concurrencia 1, timeout con kill y un entorno
-   mínimo que jamás reenvía claves (la llamada siempre corre por la
-   sesión de la suscripción, nunca por una API). Busca la ruta de
-   Ajustes (`cliPath`), luego `claude` en el PATH y después las rutas
-   típicas de nvm, Homebrew e instalación nativa. «Probar» devuelve
-   «CLI no encontrada», «sesión no iniciada» o la latencia.
-3. **API de Anthropic** (`'llm'`, `NEWS_LLM_MODEL`, opcional y apagada
-   por defecto): solo con el interruptor activado, clave guardada y
-   presupuesto mensual > 0; vigila además el tope diario y el gasto
-   estimado (`ai:get-llm-settings` expone contadores y `hasKey`, jamás
-   la clave).
-4. **Léxico local** (`'local'`): sin coste ni clave, siempre
-   disponible; es el respaldo de cualquier fallo de otro proveedor —
+   (`--allowedTools ''`, MCP estricto vacío), con el prompt de
+   `prompt.ts` por stdin, concurrencia 1, timeout con kill y un
+   entorno mínimo que jamás reenvía claves (la llamada siempre corre
+   por la sesión de la suscripción, nunca por una API). Busca la ruta
+   de Ajustes (`cliPath`), luego `claude` en el PATH y después las
+   rutas típicas de nvm, Homebrew e instalación nativa. «Probar»
+   devuelve «CLI no encontrada», «sesión no iniciada» o la latencia.
+3. **Léxico local** (`'local'`): sin coste ni clave, siempre
+   disponible; es el respaldo de cualquier fallo de la suscripción —
    tope incluido— con un aviso por clase de error.
 
-El **tope diario se mide en titulares** y vale para cualquier
-proveedor LLM (suscripción y API comparten el contador); el
-presupuesto en euros solo aplica a la API. Para entrar en la CLI:
-`claude` en un terminal y `/login` con la cuenta de la suscripción.
+**Estado de la suscripción** (`ai:news-status` y evento
+`ai:news-status-changed`): `{provider, state, since, message}` con
+`state` en `ok`, `cli-no-encontrada`, `sin-sesion`, `tope-diario` o
+`error` y `message` dando el motivo y el paso para resolverlo. Cuando
+la suscripción cae los titulares se siguen analizando con el léxico
+local —no se pierden— y la app manda **una sola notificación del
+sistema** al pasar de `ok` a fallo (aunque fallen todos los
+titulares seguidos) y otra al volver a `ok`. Un ajuste guardado con
+el proveedor retirado `'llm'` se migra a `'suscripcion'` si hay CLI
+y a `'local'` si no, y la clave cifrada que quedara en el llavero se
+borra.
+
+El **tope diario se mide en titulares** y lo aplica la suscripción.
+Para entrar en la CLI: `claude` en un terminal y `/login` con la
+cuenta de la suscripción.
 
 El resultado es una fila por activo en `news_analysis` (resumen +
 sentimiento `positivo`/`negativo`/`neutro`/`mixto`, método y modelo:
-`'suscripcion'` anota `claude-code-cli`, `'llm'` el modelo exacto,
-`'local'` deja NULL). `npm run eval:news-llm -- --provider
-suscripcion|local|api` mide la precisión sobre el conjunto etiquetado
-con el proveedor elegido.
+`'suscripcion'` anota `claude-code-cli`, `'local'` deja NULL y las
+filas históricas de la API conservan `'llm'` con su modelo). `npm run
+eval:news-llm -- --provider suscripcion|local` mide la precisión sobre
+el conjunto etiquetado con el proveedor elegido.
 
 ## Salud de modelos y reentrenamiento (`ai/drift`)
 
