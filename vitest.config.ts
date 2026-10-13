@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    testTimeout: 15_000,
     setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'out/**'],

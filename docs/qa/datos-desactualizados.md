@@ -36,7 +36,10 @@ npx playwright test -c docs/qa/datos-desactualizados/recorrido -g "B0|B1" # uno 
   Tesoro faltan los días de mercado de bonos cerrado (Columbus Day y Veterans Day).
 - Cada escenario guarda capturas (`.png`), el texto visible de cada pantalla (`.txt`), el estado interno por
   IPC (`.json`: `data-status`, última vela, régimen, predicciones, señales y salud) y el log del proceso
-  principal (`*-main.log`).
+  principal (`*-main-log.txt`). Nota: la pasada original de este diagnóstico escribió los logs como
+  `*-main.log` y `.gitignore` (`*.log`) los dejó fuera del commit, así que no están en la carpeta aunque se
+  citen en las evidencias de abajo; las líneas relevantes de esos logs aparecen reproducidas en cada
+  problema. El arnés ya escribe `-main-log.txt` para que las próximas pasadas sí queden en el repositorio.
 
 Resultado del comando de recorrido (última ejecución completa, más B0 y B3 repetidos después):
 

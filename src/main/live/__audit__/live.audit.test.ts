@@ -702,8 +702,11 @@ describe('auditoría de cierre · techo por orden con hueco de apertura', () => 
     // Señal corta calculada con el cierre de ayer (180 USD): el nocional
     // estimado con el margen del 5 % (189 USD) cabe en el techo de 200.
     // El mercado abre con hueco al alza y el servidor ejecuta a 250 USD.
+    // En esta fase la guarda no envía ninguna entrada en corto con dinero
+    // real: si se rehabilitan, el bucle de abajo vuelve a exigir el techo.
     await sendSignal(live, approved(1, 180), { entry: 180, direction: 'corto' });
 
+    expect(liveEntries()).toHaveLength(0);
     for (const order of executedEntries()) {
       expect(order.filledQuantity * (order.execution.executedPrice ?? 0)).toBeLessThanOrEqual(
         limits.orderUsd,

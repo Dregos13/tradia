@@ -236,7 +236,7 @@ async function launch(
 
 async function close(session: Session | undefined, name: string): Promise<void> {
   if (!session) return;
-  writeFileSync(join(evidenceDir, `${name}-main.log`), session.logs.join(''));
+  writeFileSync(join(evidenceDir, `${name}-main-log.txt`), session.logs.join(''));
   await session.app.close().catch(() => undefined);
 }
 
