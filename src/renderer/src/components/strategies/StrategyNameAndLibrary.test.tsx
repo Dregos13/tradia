@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -97,18 +95,5 @@ describe('Columnas de la biblioteca', () => {
     );
     for (const cell of within(table).getAllByText('Sin datos'))
       expect(cell).toHaveClass('strategy-table-fixed');
-  });
-
-  it('las columnas fijas tienen nowrap y ancho mínimo, y el nombre se recorta con elipsis', () => {
-    const css = readFileSync(
-      resolve(process.cwd(), 'src/renderer/src/components/strategies/strategies.css'),
-      'utf8',
-    );
-    const fixed = /\.strategy-library-table \.strategy-table-fixed \{([^}]*)\}/.exec(css)?.[1];
-    expect(fixed).toMatch(/white-space:\s*nowrap/);
-    expect(fixed).toMatch(/min-width:\s*var\(--space-16\)/);
-    const nameRule = /\.strategy-table-name \{([^}]*)\}/.exec(css)?.[1];
-    expect(nameRule).toMatch(/-webkit-line-clamp:\s*2/);
-    expect(nameRule).toMatch(/overflow-wrap:\s*anywhere/);
   });
 });

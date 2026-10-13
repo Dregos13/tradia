@@ -107,8 +107,12 @@ describe('Biblioteca y ficha versionada', () => {
       Objetivo: 'ninguno',
       'Mercados (separados por comas)': 'SPY',
       'Régimen favorable y limitaciones': 'Tendencial',
-    }))
-      await user.type(screen.getByLabelText(label), value);
+    })) {
+      // Este recorrido verifica el alta y las versiones; la validación por
+      // pulsación se cubre en RuleEditor. Pegar evita cientos de renders aquí.
+      await user.click(screen.getByLabelText(label));
+      await user.paste(value);
+    }
     await user.click(screen.getByRole('button', { name: 'Crear estrategia' }));
     expect(await screen.findByRole('heading', { name: 'Mi estrategia' })).toBeInTheDocument();
     await navigate('#estrategias/1/editar');
@@ -162,12 +166,90 @@ describe('Biblioteca y ficha versionada', () => {
       return history(id);
     });
     await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
+    // El resultado del guardado ya es visible aunque el historial siga pendiente.
+    expect(await screen.findByText('● Paper', { exact: true })).toBeVisible();
     expect(screen.queryByText('Cargando ficha…')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Nuevo estado')).toBe(select);
     await act(async () => release());
     expect(await screen.findByText('Estado actualizado')).toHaveAttribute('role', 'status');
     expect(screen.getByLabelText('Nuevo estado')).toBe(select);
     await waitFor(() => expect(select).toHaveFocus());
+  });
+  it('conserva el estado guardado, el aviso y el foco si falla el historial posterior', async () => {
+    await window.tradia.strategies.create(draft);
+    window.location.hash = '#estrategias/1';
+    const listeners: Array<(event: BacktestProgressEvent) => void> = [];
+    vi.spyOn(window.tradia.backtest, 'onProgress').mockImplementation((listener) => {
+      listeners.push(listener);
+      return () => {};
+    });
+    render(<StrategiesPage />);
+    await screen.findByRole('heading', { name: draft.name });
+    const select = screen.getByLabelText('Nuevo estado');
+    const oldHistory = await window.tradia.strategies.history(1);
+    let release = () => {};
+    const pending = new Promise<void>((resolve) => (release = resolve));
+    const history = vi
+      .spyOn(window.tradia.strategies, 'history')
+      .mockRejectedValue(new Error('IPC'));
+    history.mockImplementationOnce(async () => {
+      await pending;
+      return oldHistory;
+    });
+    await act(async () =>
+      listeners.forEach((listener) =>
+        listener({
+          ticket: 'seed',
+          strategyId: 1,
+          stage: 'completado',
+          percent: 100,
+          detail: null,
+          elapsedMs: 100,
+        }),
+      ),
+    );
+    const save = vi.spyOn(window.tradia.strategies, 'setStatus');
+    await userEvent.selectOptions(select, 'paper');
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
+    expect(await screen.findByText('Estado actualizado')).toHaveAttribute('role', 'status');
+    expect(screen.getByText('● Paper', { exact: true })).toBeVisible();
+    expect(screen.getByLabelText('Nuevo estado')).toBe(select);
+    expect(screen.getByRole('button', { name: 'Cambiar estado' })).toBeDisabled();
+    await waitFor(() => expect(select).toHaveFocus());
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No pudimos cargar la ficha y su historial',
+    );
+    await act(async () => release());
+    // Una lectura iniciada antes del guardado no sobrescribe su resultado.
+    expect(screen.getByText('● Paper', { exact: true })).toBeVisible();
+    history.mockRestore();
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar ficha' }));
+    expect(await screen.findByText('Cambio de estado: investigacion → paper')).toBeVisible();
+    expect(screen.getByLabelText('Nuevo estado')).toBe(select);
+    expect(screen.getByText('Estado actualizado')).toBeVisible();
+    expect(save).toHaveBeenCalledOnce();
+  });
+  it('si falla el cambio conserva la ficha y permite reintentar sin anunciar un guardado', async () => {
+    await window.tradia.strategies.create(draft);
+    window.location.hash = '#estrategias/1';
+    render(<StrategiesPage />);
+    await screen.findByRole('heading', { name: draft.name });
+    const select = screen.getByLabelText('Nuevo estado');
+    const save = vi
+      .spyOn(window.tradia.strategies, 'setStatus')
+      .mockRejectedValueOnce(new Error('IPC'));
+    await userEvent.selectOptions(select, 'paper');
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cambiar el estado');
+    expect(screen.queryByText('Estado actualizado')).not.toBeInTheDocument();
+    expect(screen.getByText('● Investigación', { exact: true })).toBeVisible();
+    expect(select).toHaveValue('paper');
+    await waitFor(() => expect(select).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Cambiar estado' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar estado' }));
+    expect(await screen.findByText('Estado actualizado')).toBeVisible();
+    expect(screen.getByText('● Paper', { exact: true })).toBeVisible();
+    expect(save).toHaveBeenCalledTimes(2);
   });
   it('muestra carga, error recuperable y vacío', async () => {
     const read = vi.spyOn(window.tradia.strategies, 'list').mockRejectedValueOnce(new Error('IPC'));

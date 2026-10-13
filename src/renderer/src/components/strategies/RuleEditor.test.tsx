@@ -364,13 +364,41 @@ it('el adaptador simulado ejecuta cortos de una propia y persiste el lado en el 
   expect(await window.tradia.backtest.list({ strategyId: own.id, version: 2 })).toEqual([report]);
 });
 
-it('avisa en la ayuda del objetivo de que sin objetivo el motor de riesgo vetará la compra', () => {
-  render(<StrategyForm strategy={strategy} save={vi.fn()} />);
-  const target = screen.getByLabelText('Objetivo');
-  expect(target).toHaveAccessibleDescription(
-    /Con «ninguno» \(Sin objetivo\) el motor de riesgo vetará la compra por la relación beneficio\/riesgo\./,
-  );
-});
+it.each(['solo largo', 'largo y corto'])(
+  'avisa del veto sin objetivo antes y después de insertarlo por teclado (%s)',
+  async (direction) => {
+    render(
+      <StrategyForm
+        strategy={{
+          ...strategy,
+          rules: {
+            ...strategy.rules,
+            target: '6%',
+            ...(direction === 'largo y corto'
+              ? {
+                  entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+                  exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+                }
+              : {}),
+          },
+        }}
+        save={vi.fn()}
+      />,
+    );
+    const target = screen.getByLabelText('Objetivo');
+    const warning =
+      /Con «ninguno» \(Sin objetivo\) el motor de riesgo vetará las entradas en largo y en corto por la relación beneficio\/riesgo\./;
+    expect(target).toHaveValue('6%');
+    expect(target).toHaveAccessibleDescription(warning);
+    screen.getByRole('button', { name: 'Sin objetivo' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(target).toHaveFocus());
+    expect(target).toHaveValue('ninguno');
+    expect(target).toHaveAttribute('aria-invalid', 'false');
+    expect(target).toHaveAccessibleDescription(warning);
+    expect(document.getElementById('strategy-rule-target-result')).toHaveTextContent('Válida');
+  },
+);
 
 it.each([
   ['Objetivo', 'Sin objetivo', 'ninguno', 'target'],

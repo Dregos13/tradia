@@ -1,5 +1,9 @@
 # Estado de los puntos pendientes del objetivo
 
+## Revisión de O2 y del grep de saltos · 13-10-2026
+
+**Hecho.** Revisado el cambio provisional `02834ae5`: grep acordado y ampliado vacíos; los comentarios conservan su sentido. La ayuda de Objetivo ahora precisa que el veto afecta a las entradas en largo y en corto (`src/renderer/src/components/strategies/RuleEditor.tsx:22`). Prueba por teclado en ambos casos, antes y después de insertar «Sin objetivo»: `RuleEditor.test.tsx:367`. Evidencia y comprobaciones actuales en [revisión del editor](revision-editor-sin-objetivo.md). Las secciones siguientes conservan los resultados históricos de cada ronda.
+
 _Claude · Predeterminado (Testing) · 12-10-2026 · rama `orquesta/completa-estas-partes-sin-hacer-y-compru-7d9830` sobre `0fdc6eb8` («Notificación del sistema al arrancar sin la CLI de Claude»), con todas las correcciones de código ya en commit. Cada archivo:línea de este documento se ha comprobado con `sed -n` o `grep -n` sobre ese commit_
 
 ## Veredicto
@@ -176,8 +180,8 @@ _Claude · Predeterminado (Testing) · 12-10-2026 · `HEAD` = `f0bf2226` («Rond
 | F1 · ficha sin «Estado actualizado» ni foco | `e2e-reglas-noticias.md` | Corregido | `StrategiesPage.tsx:123`, `StrategyDetail.tsx:252`; `StrategiesPage.test.tsx:149`; E2E `custom-strategy.spec.ts:127` (3/3) |
 | O1 · «Venta» sin posición en una propia solo larga | E2E | Justificado | Riesgo la veta con motivo; igual en las clásicas (`signals-dashboard.spec.ts:152`) |
 | O2 · con `Objetivo: ninguno` Riesgo veta la compra | E2E | **Cerrado** (ver «Cierre de los dos fallos abiertos») | El comportamiento del motor de riesgo no cambia. La ayuda del objetivo avisa de que con «ninguno» (Sin objetivo) el motor de riesgo vetará la compra por la relación beneficio/riesgo: `src/renderer/src/components/strategies/RuleEditor.tsx:21-22`; prueba `RuleEditor.test.tsx:366`; comprobado en la app abierta |
-| P-1 · nombre cortado a 120 | `perfiles-reglas-noticias.md` | Corregido | `StrategyNameAndLibrary.test.tsx:28`, `:41` |
-| P-2 · cabeceras partidas en la biblioteca | perfiles | Corregido | `StrategyNameAndLibrary.test.tsx:83`, `:102` |
+| P-1 · nombre cortado a 120 | `perfiles-reglas-noticias.md` | Corregido y revisado | `StrategyNameAndLibrary.test.tsx:26`, `:39`; E2E `strategy-name-and-columns.spec.ts` (bloqueo por teclado, recuperación y edición); `revision-nombre-biblioteca.md` |
+| P-2 · cabeceras partidas en la biblioteca | perfiles | Corregido y revisado | `StrategyNameAndLibrary.test.tsx:81`; E2E `strategy-name-and-columns.spec.ts` (líneas renderizadas con cifras y «Sin datos», 1440 y 700 px); `revision-nombre-biblioteca.md` |
 | P-3 · `estado-pendientes.md` desfasado | perfiles | Corregido | §1 reescrito; referencias revisadas otra vez en esta verificación |
 | P-4 · faltaban tareas del usuario | perfiles | Corregido | `docs/tareas-del-usuario.md` §0, §1, §4 y §7 |
 | Obs. · sin notificación al arrancar sin CLI | perfiles | Corregido | `news/service.ts:586`; `service.test.ts:595` |

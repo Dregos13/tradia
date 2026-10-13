@@ -55,7 +55,9 @@ La batería completa regenera las capturas que ya estaban versionadas en `docs/q
 - **Pasos:** Estrategias › una ficha › «Nuevo estado» = Paper › «Cambiar estado».
 - **Esperado:** el aviso «Estado actualizado» (`role="status"`, StrategyDetail.tsx:267) y el foco dentro de la ficha.
 - **Observado:** el estado sí cambia (insignia «● Paper» y entrada «Investigación → Paper» en el registro), pero el aviso no aparece nunca. `changeStatus` llama a `detail.reload()` sin modo de fondo (`StrategiesPage.tsx:119-122`). `useIpcList` pone `loading: true` y `StrategiesPage.tsx:85` cambia la ficha por «Cargando ficha…». `StrategyDetail` se desmonta, pierde el mensaje y deja el foco del teclado en `body`.
-- **Evidencia:** primera ejecución de `custom-strategy.spec.ts`, con la espera de `getByRole('status').filter({ hasText: 'Estado actualizado' })` a 5 s, y el árbol de accesibilidad del `error-context.md` (botón «Cambiar estado» deshabilitado, sin estado visible). La spec comprueba ahora la insignia y el registro, y lo indica en un comentario.
+- **Evidencia:** primera ejecución de `custom-strategy.spec.ts`, con la espera de `getByRole('status').filter({ hasText: 'Estado actualizado' })` a 5 s, y el árbol de accesibilidad del `error-context.md` (botón «Cambiar estado» deshabilitado, sin estado visible). Ese era el resultado de la primera ejecución. La spec actual comprueba también el aviso «Estado actualizado» y el foco en «Nuevo estado» (`e2e/custom-strategy.spec.ts:127-132`).
+
+**Cerrado y revisado el 13-10-2026.** La relectura de fondo conserva la ficha. La revisión de Codex añade el caso de historial fallido: aplica primero la estrategia devuelta por `setStatus`, descarta las lecturas anteriores al guardado y muestra un error recuperable sin desmontar la ficha (`StrategiesPage.tsx:83-139`, `useStrategies.ts:56-71`, `useIpcList.ts:38-47`). `StrategiesPage.test.tsx` cubre historial retenido, historial fallido con lectura anterior pendiente y fallo del guardado con reintento. La evidencia completa de esta revisión está en `docs/qa/audit-fe-correcciones.md`.
 
 ### Observaciones (no son fallos de esta misión)
 

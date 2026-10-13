@@ -3,6 +3,7 @@ import type {
   CreateStrategyRequest,
   UpdateStrategyRequest,
   SetStrategyStatusRequest,
+  Strategy,
 } from '../../../shared/strategy';
 import { useIpcList } from './useIpcList';
 const list = () => window.tradia.strategies.list();
@@ -52,5 +53,19 @@ export function useStrategy(id: number, version?: number) {
     'No pudimos cargar la ficha y su historial. Inténtalo de nuevo.',
     true,
   );
-  return { ...state, ...state.items[0] };
+  return {
+    ...state,
+    ...state.items[0],
+    acceptSavedStrategy: (saved: Strategy) =>
+      state.updateItems((items) =>
+        items.map((item) => ({
+          ...item,
+          latest: saved,
+          strategy:
+            item.strategy?.version === saved.version
+              ? saved
+              : item.strategy && { ...item.strategy, status: saved.status },
+        })),
+      ),
+  };
 }
