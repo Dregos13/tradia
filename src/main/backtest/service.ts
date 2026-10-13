@@ -89,6 +89,7 @@ import {
   type StrategyMetricsSummary,
   type StrategyParameterRange,
 } from '../../shared/strategy';
+import { parseStrategyRules } from '../../shared/strategyRules';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import type { SessionDate } from '../market/providers';
@@ -111,6 +112,7 @@ import {
   type StressDataSource,
 } from './stress';
 import { CLASSIC_STRATEGIES, type ClassicStrategyDefinition } from './strategies';
+import { createCustomStrategy } from './strategies/custom';
 import {
   buildWalkForwardWindows,
   evaluateOverfitting,
@@ -124,7 +126,13 @@ import {
   type ObjectiveMetric,
   type WalkForwardWindowOptions,
 } from './validation';
-import type { BacktestInput, CostConfig, EngineBar, StrategyParams } from './types';
+import type {
+  BacktestInput,
+  CostConfig,
+  EngineBar,
+  Strategy as EngineStrategy,
+  StrategyParams,
+} from './types';
 import { DEFAULT_INITIAL_CASH, DEFAULT_MAX_POSITIONS, DEFAULT_RISK_PER_TRADE } from './types';
 
 // ---------------------------------------------------------------------------
@@ -221,10 +229,21 @@ export interface BacktestService {
 // Utilidades internas
 // ---------------------------------------------------------------------------
 
+/**
+ * Implementación ejecutable resuelta para una ficha: una clásica
+ * registrada en `strategy_implementations` o una estrategia propia
+ * compilada al vuelo desde las reglas de la versión pedida.
+ */
+interface ExecutableImpl {
+  /** Clave de la implementación ('sma-cross'… o 'propia'). */
+  key: string;
+  create: () => EngineStrategy;
+}
+
 /** Configuración resuelta de una ejecución (petición fusionada con la ficha). */
 interface ResolvedRunConfig {
   strategy: Strategy;
-  impl: ClassicStrategyDefinition;
+  impl: ExecutableImpl;
   params: StrategyParams;
   markets: string[];
   costs: StrategyCosts;
@@ -366,16 +385,31 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     return strategy;
   };
 
-  const resolveImpl = (strategyId: number): ClassicStrategyDefinition => {
-    const key = runs.implementationKey(strategyId);
-    const impl = key === null ? undefined : impls.find((entry) => entry.key === key);
-    if (impl === undefined) {
+  /**
+   * Resuelve la implementación ejecutable de la versión pedida. Con clave
+   * registrada se usa el catálogo de clásicas; sin clave (estrategia
+   * propia) se compilan sus reglas con el lenguaje seguro — si no
+   * compilan se rechaza con 'reglas-invalidas' y el primer motivo, en
+   * lugar de 'sin-implementacion'.
+   */
+  const resolveImpl = (strategy: Strategy): ExecutableImpl => {
+    const key = runs.implementationKey(strategy.id);
+    if (key !== null) {
+      const impl = impls.find((entry) => entry.key === key);
+      if (impl !== undefined) return impl;
       throw new BacktestError(
         'sin-implementacion',
-        `la estrategia ${strategyId} no tiene una implementación ejecutable registrada`,
+        `la estrategia ${strategy.id} no tiene una implementación ejecutable registrada`,
       );
     }
-    return impl;
+    const parsed = parseStrategyRules(strategy.rules, strategy.parameters);
+    if (!parsed.ok) {
+      throw new BacktestError('reglas-invalidas', parsed.errors[0]!.message);
+    }
+    return {
+      key: 'propia',
+      create: () => createCustomStrategy(parsed.program, strategy.parameters),
+    };
   };
 
   /**
@@ -417,7 +451,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   const resolveConfig = (request: BacktestRunRequest): ResolvedRunConfig => {
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(request.strategyId);
+    const impl = resolveImpl(strategy);
     const params: StrategyParams = { ...strategy.parameters, ...request.params };
     const markets = request.universe
       ? executableMarkets(request.universe)
@@ -1159,7 +1193,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
   /** Config efectiva de un run guardado: la comparación repite exactamente su base. */
   const configFromRun = (
     strategy: Strategy,
-    impl: ClassicStrategyDefinition,
+    impl: ExecutableImpl,
     base: BacktestReport,
   ): ResolvedRunConfig => ({
     strategy,
@@ -1290,7 +1324,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
   ): Promise<RegimeComparison> => {
     const started = now();
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(strategy.id);
+    const impl = resolveImpl(strategy);
     const emit = makeEmitter(strategy.id);
 
     try {
@@ -1403,7 +1437,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 
   const runStressPipeline = async (request: StressRequest): Promise<StressResultDto[]> => {
     const strategy = resolveStrategy(request.strategyId, request.version);
-    const impl = resolveImpl(strategy.id);
+    const impl = resolveImpl(strategy);
     const markets = executableMarkets(strategy.markets);
     if (markets.length === 0) {
       throw new BacktestError(
@@ -1541,6 +1575,27 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
 // ---------------------------------------------------------------------------
 
 /**
+ * Envoltorio único de los manejadores `backtest:*` y `stress:*`: Electron
+ * solo transporta `name: message` de los errores lanzados en
+ * `ipcMain.handle`, así que el `code` de `BacktestError` se perdería al
+ * cruzar al renderer. Para conservarlo, todo `BacktestError` se reenvía
+ * con el mensaje `'[<code>] <motivo>'` (el marcador que reconoce
+ * `ruleValidation.ts`); la instancia mantiene `code` para quien la
+ * inspeccione dentro de main. Cualquier otro error pasa intacto.
+ * Las guardas de entrada quedan fuera: su rechazo sigue siendo síncrono.
+ */
+export async function withBacktestErrorCode<T>(run: () => T | Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    if (cause instanceof BacktestError) {
+      throw new BacktestError(cause.code, `[${cause.code}] ${cause.message}`);
+    }
+    throw cause;
+  }
+}
+
+/**
  * Registra los canales `backtest:*` y `stress:*` y lanza la semilla del
  * primer arranque: fichas de forma síncrona (la biblioteca las muestra al
  * instante) y resultados en segundo plano (`seedResults` es idempotente:
@@ -1581,19 +1636,19 @@ export function registerBacktest(
     if (!isBacktestRunRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.run, 'petición de backtest inválida');
     }
-    return service.run(request);
+    return withBacktestErrorCode(() => service.run(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.list, (_event, query: unknown) => {
     if (!isBacktestListQuery(query)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.list, 'filtros inválidos');
     }
-    return service.listRuns(query);
+    return withBacktestErrorCode(() => service.listRuns(query));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.get, (_event, id: unknown) => {
     if (!isBacktestRunId(id)) {
       throw new IpcValidationError(IPC_CHANNELS.backtest.get, 'id de ejecución inválido');
     }
-    return service.getRun(id);
+    return withBacktestErrorCode(() => service.getRun(id));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.runFinalTest, (_event, request: unknown) => {
     if (!isBacktestFinalTestRequest(request)) {
@@ -1602,19 +1657,19 @@ export function registerBacktest(
         'petición de prueba final inválida',
       );
     }
-    return service.runFinalTest(request);
+    return withBacktestErrorCode(() => service.runFinalTest(request));
   });
   ipcMain.handle(IPC_CHANNELS.stress.get, (_event, request: unknown) => {
     if (!isStressRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.stress.get, 'consulta de estrés inválida');
     }
-    return service.getStress(request);
+    return withBacktestErrorCode(() => service.getStress(request));
   });
   ipcMain.handle(IPC_CHANNELS.stress.run, (_event, request: unknown) => {
     if (!isStressRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.stress.run, 'petición de estrés inválida');
     }
-    return service.runStress(request);
+    return withBacktestErrorCode(() => service.runStress(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.regimeComparison, (_event, request: unknown) => {
     if (!isRegimeComparisonRequest(request)) {
@@ -1623,7 +1678,7 @@ export function registerBacktest(
         'consulta de comparación inválida',
       );
     }
-    return service.getRegimeComparison(request);
+    return withBacktestErrorCode(() => service.getRegimeComparison(request));
   });
   ipcMain.handle(IPC_CHANNELS.backtest.runRegimeComparison, (_event, request: unknown) => {
     if (!isRegimeComparisonRequest(request)) {
@@ -1632,7 +1687,7 @@ export function registerBacktest(
         'petición de comparación inválida',
       );
     }
-    return service.runRegimeComparison(request);
+    return withBacktestErrorCode(() => service.runRegimeComparison(request));
   });
 
   // Semilla del primer arranque: fichas síncronas, resultados en segundo

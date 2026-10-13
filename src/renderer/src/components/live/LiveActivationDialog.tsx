@@ -5,7 +5,7 @@ import {
   livePhraseMatches,
   type LiveLimits,
 } from '../../../../shared/live';
-import { LIMIT_FIELDS } from './LimitsForm';
+import { LIMIT_FIELDS, isPositionLimit } from './LimitsForm';
 import { liveTokens, usd } from './presentation';
 
 export function LiveActivationDialog({
@@ -100,7 +100,7 @@ export function LiveActivationDialog({
           {LIMIT_FIELDS.map(({ key, label }) => (
             <div key={key}>
               <dt>{label}</dt>
-              <dd>{key === 'openPositions' ? limits[key] : usd(limits[key])}</dd>
+              <dd>{isPositionLimit(key) ? limits[key] : usd(limits[key])}</dd>
             </div>
           ))}
         </dl>

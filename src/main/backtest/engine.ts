@@ -14,11 +14,15 @@
  * 2. Si d está dentro del periodo operable (>= `startDate`):
  *    a. Se ejecutan las órdenes pendientes de cada activo a su apertura
  *       (las señales del cierre anterior se llenan hoy, nunca en la misma
- *       vela). Compra: precio × (1 + coste), venta: precio × (1 − coste),
- *       donde coste = (slippageBp + spreadBp) / 10 000.
- *    b. Se evalúan stop y objetivo con el high/low intrabarra. Si la vela
- *       toca los dos, gana el stop (conservador). Un hueco de apertura más
- *       allá del nivel ejecuta a la apertura, no al nivel.
+ *       vela). Compra y recompra de corto: precio × (1 + coste); venta y
+ *       apertura en corto: precio × (1 − coste), donde coste =
+ *       (slippageBp + spreadBp) / 10 000. Si en la misma señal llegan una
+ *       apertura en largo y una en corto del mismo activo, se anulan: no
+ *       hay largo y corto simultáneos ni cambio de lado en una orden.
+ *    b. Se evalúan stop y objetivo con el high/low intrabarra —en el
+ *       corto el stop está por encima y el objetivo por debajo—. Si la
+ *       vela toca los dos, gana el stop (conservador). Un hueco de
+ *       apertura más allá del nivel ejecuta a la apertura, no al nivel.
  *    c. Si la vela procesada es la última del activo y la simulación
  *       continúa, la posición abierta se cierra al cierre ('delisted').
  * 3. Se marca el capital al cierre (efectivo + posiciones a último cierre
@@ -50,7 +54,9 @@ import {
   type EngineBar,
   type EquityPoint,
   type ExitReason,
+  type PositionSide,
   type PositionView,
+  type ShortOptions,
   type StrategyContext,
   type Trade,
 } from './types';
@@ -250,6 +256,8 @@ function buildAsset(
 
 interface Position {
   ticker: string;
+  /** 'largo' comprada; 'corto' vendida (el nominal cuenta como exposición). */
+  side: PositionSide;
   shares: number;
   entryPrice: number;
   entryDate: SessionDate;
@@ -263,7 +271,9 @@ interface Position {
 
 type PendingOrder =
   | { kind: 'buy'; signalDate: SessionDate; stop: number | null; target: number | null }
-  | { kind: 'sell'; signalDate: SessionDate };
+  | { kind: 'sell'; signalDate: SessionDate }
+  | { kind: 'short'; signalDate: SessionDate; stop: number | null; target: number | null }
+  | { kind: 'cover'; signalDate: SessionDate };
 
 // ---------------------------------------------------------------------------
 // Vista truncada de velas (barrera anti look-ahead)
@@ -370,8 +380,8 @@ class EngineContext implements StrategyContext {
   buy(ticker: string, options: BuyOptions = {}): void {
     const key = this.requireMember(ticker);
     if (this.warmup || !this.isListed(key)) return;
-    // Filtro de régimen: la señal de compra de una sesión desactivada se
-    // descarta. Las ventas y los stops nunca se bloquean.
+    // Filtro de régimen: la señal de entrada de una sesión desactivada se
+    // descarta. Las salidas y los stops nunca se bloquean.
     if (this.deps.regimeEnabled?.get(this.date) === false) return;
     const stop = optionalPrice(options.stop, 'stop');
     const target = optionalPrice(options.target, 'target');
@@ -382,6 +392,23 @@ class EngineContext implements StrategyContext {
     const key = this.requireMember(ticker);
     if (this.warmup || !this.isListed(key)) return;
     this.enqueue(key, { kind: 'sell', signalDate: this.date });
+  }
+
+  short(ticker: string, options: ShortOptions = {}): void {
+    const key = this.requireMember(ticker);
+    if (this.warmup || !this.isListed(key)) return;
+    // La apertura en corto es una entrada: el filtro de régimen la
+    // bloquea igual que la compra.
+    if (this.deps.regimeEnabled?.get(this.date) === false) return;
+    const stop = optionalPrice(options.stop, 'stop');
+    const target = optionalPrice(options.target, 'target');
+    this.enqueue(key, { kind: 'short', signalDate: this.date, stop, target });
+  }
+
+  cover(ticker: string): void {
+    const key = this.requireMember(ticker);
+    if (this.warmup || !this.isListed(key)) return;
+    this.enqueue(key, { kind: 'cover', signalDate: this.date });
   }
 
   setStop(ticker: string, price: number): void {
@@ -425,6 +452,7 @@ function optionalPrice(value: number | undefined, field: string): number | null 
 function positionView(position: Position): PositionView {
   return {
     ticker: position.ticker,
+    side: position.side,
     shares: position.shares,
     entryPrice: position.entryPrice,
     entryDate: position.entryDate,
@@ -525,20 +553,53 @@ export function runBacktest(input: BacktestInput): BacktestResult {
   const commission = (notional: number): number =>
     Math.max(config.costs.commissionMin, notional * config.costs.commissionPct);
 
-  /** Máximo de acciones que el efectivo permite, comisión incluida. */
+  /**
+   * Nominal comprometido en cortos abiertos (acciones × precio de
+   * entrada): es la garantía retenida y cuenta para la exposición, así
+   * que ni sus cobros inflan el capital disponible ni se puede abrir un
+   * corto por encima del capital.
+   */
+  const openShortNotional = (): number => {
+    let total = 0;
+    for (const position of positions.values()) {
+      if (position.side === 'corto') {
+        total += position.shares * position.entryPrice;
+      }
+    }
+    return total;
+  };
+
+  /**
+   * Capital usable para una posición nueva: el efectivo, pero nunca más
+   * que el capital menos el nominal corto ya comprometido (el cobro de
+   * una venta en corto se queda de garantía, no es libre). Con solo
+   * largos equivale a `cash`.
+   */
+  const affordCapital = (): number => Math.max(0, Math.min(cash, lastEquity - openShortNotional()));
+
+  /** Máximo de acciones que el capital disponible permite, comisión incluida. */
   const affordableShares = (fill: number): number => {
+    const base = affordCapital();
     const byPct =
       config.costs.commissionPct > 0
-        ? cash / (fill * (1 + config.costs.commissionPct))
+        ? base / (fill * (1 + config.costs.commissionPct))
         : Number.POSITIVE_INFINITY;
     const byMin =
-      config.costs.commissionMin > 0 ? (cash - config.costs.commissionMin) / fill : cash / fill;
+      config.costs.commissionMin > 0 ? (base - config.costs.commissionMin) / fill : base / fill;
     return Math.max(0, Math.floor(Math.min(byPct, byMin)));
   };
 
+  /** Máximo de acciones de un corto: la comisión sale del cobro de la venta. */
+  const shortAffordableShares = (fill: number): number =>
+    Math.max(0, Math.floor(affordCapital() / fill));
+
   /** Acciones por riesgo si el stop es válido; si no, un slot de equity/maxPositions. */
-  const desiredShares = (fill: number, order: Extract<PendingOrder, { kind: 'buy' }>): number => {
-    const perShareRisk = order.stop !== null ? fill - order.stop : 0;
+  const desiredShares = (
+    fill: number,
+    order: Extract<PendingOrder, { kind: 'buy' } | { kind: 'short' }>,
+  ): number => {
+    const perShareRisk =
+      order.stop !== null ? (order.kind === 'buy' ? fill - order.stop : order.stop - fill) : 0;
     if (perShareRisk > 0) {
       return Math.floor((lastEquity * config.riskPerTrade) / perShareRisk);
     }
@@ -556,16 +617,26 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     basePrice: number,
     reason: ExitReason,
   ): void => {
-    const exitPrice = basePrice * sellFactor;
-    const proceeds = position.shares * exitPrice;
-    const exitCommission = commission(proceeds);
-    const exitSlippage = (basePrice - exitPrice) * position.shares;
-    cash += proceeds - exitCommission;
+    const isLong = position.side === 'largo';
+    // El coste siempre en contra: el largo vende por debajo del precio y
+    // el corto recompra por encima.
+    const exitPrice = basePrice * (isLong ? sellFactor : buyFactor);
+    const value = position.shares * exitPrice;
+    const exitCommission = commission(value);
+    const exitSlippage = Math.abs(exitPrice - basePrice) * position.shares;
+    if (isLong) {
+      cash += value - exitCommission;
+    } else {
+      cash -= value + exitCommission;
+    }
     positions.delete(position.ticker);
     const totalCommission = position.entryCommission + exitCommission;
-    const grossPnl = (exitPrice - position.entryPrice) * position.shares;
+    const grossPnl = isLong
+      ? (exitPrice - position.entryPrice) * position.shares
+      : (position.entryPrice - exitPrice) * position.shares;
     trades.push({
       ticker: position.ticker,
+      side: position.side,
       signalDate: position.signalDate,
       entryDate: position.entryDate,
       entryPrice: position.entryPrice,
@@ -594,12 +665,43 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     cash -= notional + entryCommission;
     positions.set(asset.ticker, {
       ticker: asset.ticker,
+      side: 'largo',
       shares,
       entryPrice: fill,
       entryDate: bar.date,
       signalDate: order.signalDate,
       entryCommission,
       entrySlippage: (fill - bar.open) * shares,
+      stop: order.stop,
+      target: order.target,
+    });
+  };
+
+  const fillShort = (
+    asset: AssetState,
+    bar: EngineBar,
+    order: Extract<PendingOrder, { kind: 'short' }>,
+  ): void => {
+    if (positions.has(asset.ticker) || positions.size >= config.maxPositions) return;
+    // Abrir un corto es vender: el precio ejecutado queda por debajo de la
+    // apertura (slippage + spread en contra) y el cobro entra en caja como
+    // garantía retenida —`openShortNotional` lo descuenta de la exposición—.
+    const fill = bar.open * sellFactor;
+    const shares = Math.min(desiredShares(fill, order), shortAffordableShares(fill));
+    if (shares < 1) return;
+    const notional = shares * fill;
+    const entryCommission = commission(notional);
+    if (notional - entryCommission <= 0) return;
+    cash += notional - entryCommission;
+    positions.set(asset.ticker, {
+      ticker: asset.ticker,
+      side: 'corto',
+      shares,
+      entryPrice: fill,
+      entryDate: bar.date,
+      signalDate: order.signalDate,
+      entryCommission,
+      entrySlippage: (bar.open - fill) * shares,
       stop: order.stop,
       target: order.target,
     });
@@ -617,24 +719,57 @@ export function runBacktest(input: BacktestInput): BacktestResult {
       if (warmup) continue;
 
       // (a) Órdenes pendientes: se llenan a la apertura de esta vela.
+      // Si la misma señal trae una apertura en largo y una en corto del
+      // activo se anulan entre sí: no hay largo y corto a la vez ni una
+      // entrada que dependa del orden de emisión.
       const orders = pending.get(asset.ticker) ?? [];
       pending.delete(asset.ticker);
+      const conflictedEntry =
+        orders.some((order) => order.kind === 'buy') &&
+        orders.some((order) => order.kind === 'short');
       for (const order of orders) {
-        if (order.kind === 'buy') {
-          fillBuy(asset, bar, order);
-        } else {
-          const position = positions.get(asset.ticker);
-          if (position !== undefined) closePosition(position, bar.date, bar.open, 'signal');
+        if (conflictedEntry && (order.kind === 'buy' || order.kind === 'short')) continue;
+        switch (order.kind) {
+          case 'buy':
+            fillBuy(asset, bar, order);
+            break;
+          case 'short':
+            fillShort(asset, bar, order);
+            break;
+          case 'sell': {
+            const position = positions.get(asset.ticker);
+            if (position !== undefined && position.side === 'largo') {
+              closePosition(position, bar.date, bar.open, 'signal');
+            }
+            break;
+          }
+          case 'cover': {
+            const position = positions.get(asset.ticker);
+            if (position !== undefined && position.side === 'corto') {
+              closePosition(position, bar.date, bar.open, 'signal');
+            }
+            break;
+          }
         }
       }
 
-      // (b) Stop y objetivo con high/low intrabarra; si toca los dos, el stop primero.
+      // (b) Stop y objetivo con high/low intrabarra; si toca los dos, el
+      // stop primero. En el corto el stop está por encima (lo toca el
+      // high) y el objetivo por debajo (lo toca el low).
       const position = positions.get(asset.ticker);
       if (position !== undefined) {
-        if (position.stop !== null && bar.low <= position.stop) {
-          closePosition(position, bar.date, Math.min(bar.open, position.stop), 'stop');
-        } else if (position.target !== null && bar.high >= position.target) {
-          closePosition(position, bar.date, Math.max(bar.open, position.target), 'target');
+        if (position.side === 'largo') {
+          if (position.stop !== null && bar.low <= position.stop) {
+            closePosition(position, bar.date, Math.min(bar.open, position.stop), 'stop');
+          } else if (position.target !== null && bar.high >= position.target) {
+            closePosition(position, bar.date, Math.max(bar.open, position.target), 'target');
+          }
+        } else {
+          if (position.stop !== null && bar.high >= position.stop) {
+            closePosition(position, bar.date, Math.max(bar.open, position.stop), 'stop');
+          } else if (position.target !== null && bar.low <= position.target) {
+            closePosition(position, bar.date, Math.min(bar.open, position.target), 'target');
+          }
         }
       }
 
@@ -649,10 +784,13 @@ export function runBacktest(input: BacktestInput): BacktestResult {
       }
     }
 
-    // Marca al cierre: último precio conocido de cada posición.
+    // Marca al cierre: último precio conocido de cada posición. El corto
+    // resta: recomprarlo al último cierre es un pasivo.
     let equity = cash;
     for (const position of positions.values()) {
-      equity += position.shares * lastCloseOf(position.ticker);
+      const lastClose = lastCloseOf(position.ticker);
+      equity +=
+        position.side === 'largo' ? position.shares * lastClose : -position.shares * lastClose;
     }
     lastEquity = equity;
     if (!warmup) {

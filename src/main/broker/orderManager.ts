@@ -150,20 +150,34 @@ export interface OrderManagerDeps {
    */
   checkOrderAllowed?(
     request: BrokerOrderRequest,
-    context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
-  ): string | null;
+    context: {
+      leg: BrokerOrderLeg | null;
+      requestedPrice: number | null;
+      /**
+       * Stop de protección de la entrada (el `stop` de la señal): la
+       * puerta del corto lo exige en toda entrada en corto.
+       */
+      entryStopPrice?: number | null;
+    },
+  ): string | null | Promise<string | null>;
   /**
    * Precio limit con el que una orden de mercado debe salir a la red
    * para no poder superar el techo por orden (los techos del modo real,
    * fase 7). Null → sale tal cual. Se consulta tras la puerta: una
    * compra que no cabe con margen de hueco queda bloqueada; la que cabe
    * viaja limitada con tope, así ni un hueco de apertura la ejecuta por
-   * encima del límite escrito.
+   * encima del límite escrito. Una entrada en corto además se consulta
+   * ANTES de la puerta (nunca sale a mercado). Puede ser asíncrona
+   * cuando la guarda lee el broker.
    */
   orderWirePrice?(
     request: BrokerOrderRequest,
-    context: { leg: BrokerOrderLeg | null; requestedPrice: number | null },
-  ): number | null;
+    context: {
+      leg: BrokerOrderLeg | null;
+      requestedPrice: number | null;
+      entryStopPrice?: number | null;
+    },
+  ): number | null | Promise<number | null>;
   /** Entrada del diario automático (`services.journal.record`). */
   recordJournal?(input: JournalRecordInput): void;
   /** Aviso por cada cambio persistido de una orden (`broker:order-updated`). */
@@ -296,7 +310,11 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     request: BrokerOrderRequest,
     leg: BrokerOrderLeg | null,
     requestedPrice: number | null,
-  ): string | null => deps.checkOrderAllowed?.(request, { leg, requestedPrice }) ?? null;
+    entryStopPrice: number | null = null,
+  ): Promise<string | null> =>
+    Promise.resolve(
+      deps.checkOrderAllowed?.(request, { leg, requestedPrice, entryStopPrice }) ?? null,
+    );
 
   /**
    * Precio de referencia para el slippage de una ejecución: en un OCO es
@@ -496,7 +514,12 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       // La protección debe sobrevivir al cierre de sesión: 'gtc'.
       timeInForce: 'gtc',
     };
-    const capped = orderCapReason(request, 'salida', resolvedSignal.target);
+    const capped = await orderCapReason(
+      request,
+      'salida',
+      resolvedSignal.target,
+      resolvedSignal.stop,
+    );
     if (capped !== null) {
       logger.warn?.(`[ordenes] OCO ${clientOrderId} bloqueado: ${capped}`);
       recordJournal({
@@ -577,10 +600,29 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       quantity: decision.size,
       timeInForce: 'day',
     };
+    // Una entrada en corto nunca sale a mercado: la puerta del modo real
+    // la convierte en una venta STOP con activación a la referencia, así
+    // solo se dispara con el mercado a ese nivel o por debajo —un hueco
+    // al alza no la ejecuta por encima de lo estimado y el nominal queda
+    // acotado (una venta limitada no puede acotar el nominal por arriba:
+    // ejecuta a cualquier precio mayor que el límite). Sin tope
+    // computable sigue a mercado y la guarda la rechaza. Una venta sobre
+    // un largo en cartera no toca esta rama (no devuelve tope).
+    if (request.side === 'sell') {
+      const shortWirePrice =
+        (await deps.orderWirePrice?.(request, {
+          leg: 'entrada',
+          requestedPrice: signal.entry,
+          entryStopPrice: signal.stop,
+        })) ?? null;
+      if (shortWirePrice !== null) {
+        request = { ...request, type: 'stop', stopPrice: shortWirePrice };
+      }
+    }
     // La guarda de techos evalúa la orden tal como se pidió: un nocional
     // estimado por encima del límite por orden o del capital libre se
     // bloquea antes de la red, no se «arregla» bajando el precio tope.
-    const capped = orderCapReason(request, 'entrada', signal.entry);
+    const capped = await orderCapReason(request, 'entrada', signal.entry, signal.stop);
     if (capped !== null) {
       logger.warn?.(`[ordenes] señal ${signal.id} no ejecutada: ${capped}`);
       recordJournal({
@@ -599,7 +641,11 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     // referencia desfasada pueden ejecutarla por encima del límite
     // escrito. En paper la puerta no existe y sale de mercado tal cual.
     const wirePrice =
-      deps.orderWirePrice?.(request, { leg: 'entrada', requestedPrice: signal.entry }) ?? null;
+      (await deps.orderWirePrice?.(request, {
+        leg: 'entrada',
+        requestedPrice: signal.entry,
+        entryStopPrice: signal.stop,
+      })) ?? null;
     if (wirePrice !== null) {
       request = { ...request, type: 'limit', limitPrice: wirePrice };
       logger.info?.(
@@ -618,6 +664,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
         side: request.side,
         quantity: decision.size,
         limitPrice: request.limitPrice ?? null,
+        stopPrice: request.stopPrice ?? null,
         requestedPrice: signal.entry,
         requestedAt: isoNow(),
         status: 'pendiente',
@@ -789,7 +836,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
             : null;
       const capped =
         blocked ??
-        orderCapReason(
+        (await orderCapReason(
           {
             clientOrderId: '',
             ticker,
@@ -800,7 +847,7 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
           },
           null,
           request.limitPrice,
-        );
+        ));
       if (capped !== null) {
         logger.warn?.(`[ordenes] orden limitada manual de ${ticker} bloqueada: ${capped}`);
         recordJournal({

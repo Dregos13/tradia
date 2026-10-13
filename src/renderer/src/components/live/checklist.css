@@ -177,6 +177,7 @@
   resize: vertical;
 }
 .live-checklist-page .live-field-error,
+.live-surface .live-field-error,
 .live-dialog .live-field-error {
   color: var(--live-live-text);
   font-size: var(--type-sm);

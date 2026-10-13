@@ -9,3 +9,5 @@ package-lock.json
 .orquesta
 docs
 resources/models
+.venv-ml
+ml/__pycache__

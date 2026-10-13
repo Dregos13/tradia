@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DeviationPeriod, DeviationReport } from '../../../../shared/broker';
@@ -103,7 +103,7 @@ it.each([
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
   await userEvent.click(screen.getByRole('button', { name: 'Guardar márgenes' }));
   expect(screen.getByRole('alert')).toHaveTextContent('Usa un valor entre');
-  expect(screen.getByLabelText(label)).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText(label)).toHaveFocus());
   expect(screen.getByLabelText(label)).toHaveAttribute('aria-invalid', 'true');
   expect(set).not.toHaveBeenCalled();
 });

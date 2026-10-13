@@ -35,5 +35,14 @@ export function useIpcList<T>(
       off?.();
     };
   }, [reload, subscribe, backgroundUpdates]);
-  return { ...state, reload };
+  const updateItems = useCallback((update: (items: T[]) => T[]) => {
+    // A saved mutation supersedes reads started before it completed.
+    generation.current++;
+    setState((previous) => ({
+      items: update(previous.items),
+      loading: false,
+      error: null,
+    }));
+  }, []);
+  return { ...state, reload, updateItems };
 }

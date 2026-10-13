@@ -108,6 +108,10 @@ interface LiveLimitsRow {
   orden_usd: number;
   perdida_diaria_usd: number;
   posiciones_max: number;
+  /** Límites del corto (migración 016): a 0 en las filas migradas. */
+  corto_orden_usd: number;
+  corto_exposicion_usd: number;
+  corto_posiciones_max: number;
   confirmados: number;
   guardados_en: string;
   confirmados_en: string | null;
@@ -191,17 +195,22 @@ export function createLiveStore(db: Database.Database): LiveStore {
   );
   const limitsRow = db.prepare(
     `SELECT capital_usd, orden_usd, perdida_diaria_usd, posiciones_max,
+       corto_orden_usd, corto_exposicion_usd, corto_posiciones_max,
        confirmados, guardados_en, confirmados_en FROM live_limits WHERE id = 1`,
   );
   const saveLimitsStmt = db.prepare(
     `INSERT INTO live_limits (id, capital_usd, orden_usd, perdida_diaria_usd,
-       posiciones_max, confirmados, guardados_en, confirmados_en)
-     VALUES (1, ?, ?, ?, ?, 0, ?, NULL)
+       posiciones_max, corto_orden_usd, corto_exposicion_usd, corto_posiciones_max,
+       confirmados, guardados_en, confirmados_en)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)
      ON CONFLICT (id) DO UPDATE SET
        capital_usd = excluded.capital_usd,
        orden_usd = excluded.orden_usd,
        perdida_diaria_usd = excluded.perdida_diaria_usd,
        posiciones_max = excluded.posiciones_max,
+       corto_orden_usd = excluded.corto_orden_usd,
+       corto_exposicion_usd = excluded.corto_exposicion_usd,
+       corto_posiciones_max = excluded.corto_posiciones_max,
        confirmados = 0,
        guardados_en = excluded.guardados_en,
        confirmados_en = NULL`,
@@ -275,6 +284,9 @@ export function createLiveStore(db: Database.Database): LiveStore {
         limits.orderUsd,
         limits.dailyLossUsd,
         limits.openPositions,
+        limits.shortOrderUsd,
+        limits.shortExposureUsd,
+        limits.shortPositions,
         savedAt,
       );
     },
@@ -518,6 +530,9 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
           orderUsd: row.orden_usd,
           dailyLossUsd: row.perdida_diaria_usd,
           openPositions: row.posiciones_max,
+          shortOrderUsd: row.corto_orden_usd,
+          shortExposureUsd: row.corto_exposicion_usd,
+          shortPositions: row.corto_posiciones_max,
         };
 
   // -- Evaluación de la lista -------------------------------------------------
@@ -796,18 +811,38 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     },
 
     setLimits: (input) => {
+      // Los límites del corto son opcionales en la entrada: ausentes se
+      // resuelven a 0 —corto desactivado—, así una interfaz que aún no
+      // expone esos campos nunca habilita el corto sin querer.
+      const limits: LiveLimits = {
+        capitalUsd: input.capitalUsd,
+        orderUsd: input.orderUsd,
+        dailyLossUsd: input.dailyLossUsd,
+        openPositions: input.openPositions,
+        shortOrderUsd: input.shortOrderUsd ?? 0,
+        shortExposureUsd: input.shortExposureUsd ?? 0,
+        shortPositions: input.shortPositions ?? 0,
+      };
       // Doble comprobación de los techos fijos: el CHECK de la tabla y la
       // guarda del canal ya los exigen, pero un límite fuera de techo no
       // debe llegar nunca a `live_limits`.
       const usdOk = (value: number, cap: number) =>
         Number.isFinite(value) && value > 0 && value <= cap;
+      // Los límites del corto admiten 0: así se deja el corto desactivado.
+      const shortUsdOk = (value: number, cap: number) =>
+        Number.isFinite(value) && value >= 0 && value <= cap;
       const valid =
-        usdOk(input.capitalUsd, LIVE_FIXED_CAPS.capitalUsd) &&
-        usdOk(input.orderUsd, LIVE_FIXED_CAPS.orderUsd) &&
-        usdOk(input.dailyLossUsd, LIVE_FIXED_CAPS.dailyLossUsd) &&
-        Number.isInteger(input.openPositions) &&
-        input.openPositions >= 1 &&
-        input.openPositions <= LIVE_FIXED_CAPS.openPositions;
+        usdOk(limits.capitalUsd, LIVE_FIXED_CAPS.capitalUsd) &&
+        usdOk(limits.orderUsd, LIVE_FIXED_CAPS.orderUsd) &&
+        usdOk(limits.dailyLossUsd, LIVE_FIXED_CAPS.dailyLossUsd) &&
+        Number.isInteger(limits.openPositions) &&
+        limits.openPositions >= 1 &&
+        limits.openPositions <= LIVE_FIXED_CAPS.openPositions &&
+        shortUsdOk(limits.shortOrderUsd, LIVE_FIXED_CAPS.shortOrderUsd) &&
+        shortUsdOk(limits.shortExposureUsd, LIVE_FIXED_CAPS.shortExposureUsd) &&
+        Number.isInteger(limits.shortPositions) &&
+        limits.shortPositions >= 0 &&
+        limits.shortPositions <= LIVE_FIXED_CAPS.shortPositions;
       if (!valid) {
         throw new LiveServiceError(
           'limites-fuera-techo',
@@ -815,43 +850,67 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
         );
       }
       const savedAt = isoNow();
-      deps.store.saveLimits(input, savedAt);
+      deps.store.saveLimits(limits, savedAt);
       journal({
         type: 'resumen',
         result: 'completado',
         reason:
-          `Límites escritos del modo real guardados: capital ${fmtUsd(input.capitalUsd)}, ` +
-          `${fmtUsd(input.orderUsd)} por orden, ${fmtUsd(input.dailyLossUsd)} de pérdida ` +
-          `diaria y ${input.openPositions} posición(es).`,
-        dataUsed: { ...input, techos: { ...LIVE_FIXED_CAPS } },
+          `Límites escritos del modo real guardados: capital ${fmtUsd(limits.capitalUsd)}, ` +
+          `${fmtUsd(limits.orderUsd)} por orden, ${fmtUsd(limits.dailyLossUsd)} de pérdida ` +
+          `diaria y ${limits.openPositions} posición(es). Corto: ` +
+          `${fmtUsd(limits.shortOrderUsd)} por orden, ${fmtUsd(limits.shortExposureUsd)} de ` +
+          `exposición y ${limits.shortPositions} posición(es) en corto` +
+          `${limits.shortOrderUsd > 0 && limits.shortExposureUsd > 0 && limits.shortPositions > 0 ? '' : ' (desactivado)'}.`,
+        dataUsed: { ...limits, techos: { ...LIVE_FIXED_CAPS } },
         ruleChecks: [
           {
             code: 'LIVE_CAP_CAPITAL',
             label: 'Capital real ≤ techo fijo',
-            cumplida: input.capitalUsd <= LIVE_FIXED_CAPS.capitalUsd,
-            observed: fmtUsd(input.capitalUsd),
+            cumplida: limits.capitalUsd <= LIVE_FIXED_CAPS.capitalUsd,
+            observed: fmtUsd(limits.capitalUsd),
             limit: fmtUsd(LIVE_FIXED_CAPS.capitalUsd),
           },
           {
             code: 'LIVE_CAP_ORDER',
             label: 'Nocional por orden ≤ techo fijo',
-            cumplida: input.orderUsd <= LIVE_FIXED_CAPS.orderUsd,
-            observed: fmtUsd(input.orderUsd),
+            cumplida: limits.orderUsd <= LIVE_FIXED_CAPS.orderUsd,
+            observed: fmtUsd(limits.orderUsd),
             limit: fmtUsd(LIVE_FIXED_CAPS.orderUsd),
           },
           {
             code: 'LIVE_CAP_DAILY_LOSS',
             label: 'Pérdida diaria ≤ techo fijo',
-            cumplida: input.dailyLossUsd <= LIVE_FIXED_CAPS.dailyLossUsd,
-            observed: fmtUsd(input.dailyLossUsd),
+            cumplida: limits.dailyLossUsd <= LIVE_FIXED_CAPS.dailyLossUsd,
+            observed: fmtUsd(limits.dailyLossUsd),
             limit: fmtUsd(LIVE_FIXED_CAPS.dailyLossUsd),
           },
           {
             code: 'LIVE_CAP_POSITIONS',
             label: 'Posiciones abiertas ≤ techo fijo',
-            cumplida: input.openPositions <= LIVE_FIXED_CAPS.openPositions,
-            observed: String(input.openPositions),
+            cumplida: limits.openPositions <= LIVE_FIXED_CAPS.openPositions,
+            observed: String(limits.openPositions),
             limit: String(LIVE_FIXED_CAPS.openPositions),
+          },
+          {
+            code: 'LIVE_CAP_SHORT_ORDER',
+            label: 'Nocional por orden en corto ≤ techo fijo',
+            cumplida: limits.shortOrderUsd <= LIVE_FIXED_CAPS.shortOrderUsd,
+            observed: fmtUsd(limits.shortOrderUsd),
+            limit: fmtUsd(LIVE_FIXED_CAPS.shortOrderUsd),
+          },
+          {
+            code: 'LIVE_CAP_SHORT_EXPOSURE',
+            label: 'Exposición corta ≤ techo fijo',
+            cumplida: limits.shortExposureUsd <= LIVE_FIXED_CAPS.shortExposureUsd,
+            observed: fmtUsd(limits.shortExposureUsd),
+            limit: fmtUsd(LIVE_FIXED_CAPS.shortExposureUsd),
+          },
+          {
+            code: 'LIVE_CAP_SHORT_POSITIONS',
+            label: 'Posiciones cortas ≤ techo fijo',
+            cumplida: limits.shortPositions <= LIVE_FIXED_CAPS.shortPositions,
+            observed: String(limits.shortPositions),
+            limit: String(LIVE_FIXED_CAPS.shortPositions),
           },
         ],
       });
@@ -866,8 +925,8 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       evaluate();
       emitChanged();
       return {
-        limits: { ...input },
-        confirmationPhrase: liveConfirmationPhrase(input),
+        limits: { ...limits },
+        confirmationPhrase: liveConfirmationPhrase(limits),
         confirmed: false,
         savedAt,
       };
@@ -943,7 +1002,14 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
         reason:
           `Modo real ACTIVADO con capital ${fmtUsd(written.capitalUsd)}, ` +
           `${fmtUsd(written.orderUsd)} por orden, ${fmtUsd(written.dailyLossUsd)} de ` +
-          `pérdida diaria y ${written.openPositions} posición(es).`,
+          `pérdida diaria y ${written.openPositions} posición(es). Corto: ` +
+          `${fmtUsd(written.shortOrderUsd)} por orden, ${fmtUsd(written.shortExposureUsd)} ` +
+          `de exposición y ${written.shortPositions} posición(es) en corto` +
+          `${
+            written.shortOrderUsd > 0 && written.shortExposureUsd > 0 && written.shortPositions > 0
+              ? ''
+              : ' (desactivado)'
+          }.`,
         dataUsed: { limites: written, fraseConfirmada: true },
       });
       logger.warn('[live] modo real ACTIVADO con límites mínimos');

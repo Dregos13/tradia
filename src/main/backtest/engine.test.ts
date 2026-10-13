@@ -484,6 +484,256 @@ describe('reglas de cartera', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Posiciones cortas
+// ---------------------------------------------------------------------------
+
+describe('posiciones cortas', () => {
+  /*
+   * Misma configuración que el largo del primer describe: capital 10 000,
+   * riesgo 1 %, comisión 0,1 % sin mínimo, slippage 10 pb → factor 0,001.
+   *
+   * Velas AAA:
+   *   2024-01-02  100  → señal de corto con stop 105
+   *   2024-01-03  100  → venta en la apertura: 100 × 0,999 = 99,90
+   *   2024-01-04  100  → señal de recompra
+   *   2024-01-05   90  → cierre en la apertura: 90 × 1,001 = 90,09
+   *
+   * Acciones: floor(10 000 × 0,01 / (105 − 99,90)) = floor(19,6078) = 19
+   * Entrada: cobro 19 × 99,90 = 1 898,10; comisión 1,8981
+   *   efectivo = 10 000 + 1 898,10 − 1,8981 = 11 896,2019
+   *   capital al cierre del 03-01 = 11 896,2019 − 19 × 100 = 9 996,2019
+   * Salida: recompra 19 × 90,09 = 1 711,71; comisión 1,71171
+   *   efectivo = 11 896,2019 − 1 711,71 − 1,71171 = 10 182,78019
+   * Operación: grossPnl = 9,81 × 19 = 186,39; pnl = 186,39 − 3,60981 = 182,78019
+   *   slippage = (0,10 × 19) + (0,09 × 19) = 1,90 + 1,71 = 3,61
+   */
+  const bars = {
+    AAA: [
+      flat('2024-01-02', 100),
+      flat('2024-01-03', 100),
+      flat('2024-01-04', 100),
+      flat('2024-01-05', 90),
+    ],
+  };
+  const strategy = scripted({
+    0: (ctx) => ctx.short('AAA', { stop: 105 }),
+    2: (ctx) => ctx.cover('AAA'),
+  });
+  const result = runBacktest({
+    strategy,
+    bars,
+    initialCash: 10_000,
+    riskPerTrade: 0.01,
+    costs: { commissionPct: 0.001, commissionMin: 0, slippageBp: 10, spreadBp: 0 },
+  });
+
+  it('cierra el corto con precios, costes y PnL invertido calculados a mano', () => {
+    expect(result.trades).toHaveLength(1);
+    const trade = result.trades[0]!;
+    expect(trade.side).toBe('corto');
+    expect(trade.signalDate).toBe('2024-01-02');
+    expect(trade.entryDate).toBe('2024-01-03');
+    expect(trade.entryPrice).toBeCloseTo(99.9, 8);
+    expect(trade.exitDate).toBe('2024-01-05');
+    expect(trade.exitPrice).toBeCloseTo(90.09, 8);
+    expect(trade.shares).toBe(19);
+    expect(trade.commission).toBeCloseTo(3.60981, 6);
+    expect(trade.slippage).toBeCloseTo(3.61, 6);
+    expect(trade.grossPnl).toBeCloseTo(186.39, 6);
+    expect(trade.pnl).toBeCloseTo(182.78019, 6);
+    expect(trade.exitReason).toBe('signal');
+  });
+
+  it('la curva de capital resta el corto marcado al último cierre', () => {
+    expect(result.equityCurve[0]!.equity).toBe(10_000);
+    expect(result.equityCurve[1]).toMatchObject({
+      cash: expect.closeTo(11_896.2019, 6),
+      equity: expect.closeTo(9_996.2019, 6),
+      positions: 1,
+    });
+    expect(result.equityCurve[3]).toMatchObject({
+      cash: expect.closeTo(10_182.78019, 6),
+      equity: expect.closeTo(10_182.78019, 6),
+      positions: 0,
+    });
+    expect(result.finalEquity).toBeCloseTo(10_182.78019, 6);
+  });
+
+  const shortBars = (exitBar: EngineBar): EngineBar[] => [
+    flat('2024-01-02', 100), // señal de corto
+    flat('2024-01-03', 100), // entrada (sin costes: fill = 100)
+    exitBar,
+    flat('2024-01-08', 100),
+  ];
+
+  it('si la misma vela toca stop y objetivo del corto, cuenta primero el stop', () => {
+    const out = runBacktest({
+      strategy: scripted({ 0: (ctx) => ctx.short('AAA', { stop: 105, target: 95 }) }),
+      bars: { AAA: shortBars(flat('2024-01-05', 100, { high: 106, low: 94 })) },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    const trade = out.trades[0]!;
+    expect(trade.exitReason).toBe('stop');
+    // max(apertura 100, stop 105) = 105; riesgo/acción = 5 → 20 acciones.
+    expect(trade.exitPrice).toBeCloseTo(105, 8);
+    expect(trade.shares).toBe(20);
+    expect(trade.pnl).toBeCloseTo(-100, 6);
+  });
+
+  it('el objetivo del corto está por debajo y un hueco más allá ejecuta a la apertura', () => {
+    const out = runBacktest({
+      strategy: scripted({ 0: (ctx) => ctx.short('AAA', { stop: 110, target: 95 }) }),
+      // Hueco por debajo del objetivo: la recompra llena en la apertura (93).
+      bars: { AAA: shortBars(flat('2024-01-05', 100, { open: 93, high: 99, low: 90, close: 94 })) },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    const trade = out.trades[0]!;
+    expect(trade.exitReason).toBe('target');
+    expect(trade.exitPrice).toBeCloseTo(93, 8);
+    expect(trade.grossPnl).toBeCloseTo(7 * trade.shares, 6);
+  });
+
+  it('un hueco por encima del stop del corto ejecuta a la apertura, no al nivel', () => {
+    const out = runBacktest({
+      strategy: scripted({ 0: (ctx) => ctx.short('AAA', { stop: 105 }) }),
+      bars: {
+        AAA: shortBars(flat('2024-01-05', 100, { open: 108, high: 110, low: 107, close: 109 })),
+      },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    const trade = out.trades[0]!;
+    expect(trade.exitReason).toBe('stop');
+    expect(trade.exitPrice).toBeCloseTo(108, 8);
+  });
+
+  it('si la misma señal emite buy y short del mismo activo, no se entra', () => {
+    const out = runBacktest({
+      strategy: scripted({
+        0: (ctx) => {
+          ctx.buy('AAA');
+          ctx.short('AAA');
+        },
+      }),
+      bars: { AAA: [flat('2024-01-02', 100), flat('2024-01-03', 100)] },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(out.trades).toHaveLength(0);
+    expect(out.equityCurve.at(-1)!.positions).toBe(0);
+  });
+
+  it('no hay largo y corto simultáneos ni cambio de lado: la entrada contraria se descarta', () => {
+    const out = runBacktest({
+      strategy: scripted({
+        0: (ctx) => ctx.buy('AAA', { stop: 95 }),
+        // Con el largo abierto el corto no abre ni invierte; y una recompra
+        // (cover) sobre un largo no hace nada.
+        1: (ctx) => ctx.short('AAA'),
+        2: (ctx) => ctx.cover('AAA'),
+      }),
+      bars: {
+        AAA: [
+          flat('2024-01-02', 100),
+          flat('2024-01-03', 100),
+          flat('2024-01-04', 100),
+          flat('2024-01-05', 100),
+        ],
+      },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(out.trades).toHaveLength(1);
+    expect(out.trades[0]!.side).toBe('largo');
+    expect(out.trades[0]!.exitReason).toBe('end-of-data');
+  });
+
+  it('un sell sobre un corto no lo cierra (se cierra con cover)', () => {
+    const out = runBacktest({
+      strategy: scripted({
+        0: (ctx) => ctx.short('AAA'),
+        2: (ctx) => ctx.sell('AAA'),
+      }),
+      bars: {
+        AAA: [
+          flat('2024-01-02', 100),
+          flat('2024-01-03', 100),
+          flat('2024-01-04', 100),
+          flat('2024-01-05', 100),
+        ],
+      },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(out.trades).toHaveLength(1);
+    expect(out.trades[0]!.side).toBe('corto');
+    expect(out.trades[0]!.exitReason).toBe('end-of-data');
+  });
+
+  it('el nominal del corto cuenta para la exposición: su cobro no financia más posiciones', () => {
+    const out = runBacktest({
+      strategy: scripted({
+        0: (ctx) => {
+          ctx.short('AAA', { stop: 105 });
+          ctx.buy('BBB', { stop: 99 });
+        },
+      }),
+      bars: {
+        AAA: [flat('2024-01-02', 100), flat('2024-01-03', 100), flat('2024-01-04', 100)],
+        BBB: [flat('2024-01-02', 100), flat('2024-01-03', 100), flat('2024-01-04', 100)],
+      },
+      initialCash: 10_000,
+      riskPerTrade: 0.01,
+      costs: { commissionPct: 0.001, commissionMin: 0, slippageBp: 10, spreadBp: 0 },
+    });
+    expect(out.trades).toHaveLength(2);
+    const short = out.trades.find((t) => t.side === 'corto')!;
+    const long = out.trades.find((t) => t.side === 'largo')!;
+    // AAA: 19 acciones a 99,90 → nominal 1 898,10; la caja sube a 11 896,20
+    // pero la compra de BBB no puede usarlo de aval:
+    //   base = min(caja, equity − nominal corto) = 10 000 − 1 898,1 = 8 101,9
+    //   acciones = min(⌊100/1,1⌋ = 90 por riesgo, ⌊8 101,9/100,2001⌋ = 80) = 80.
+    expect(short.shares).toBe(19);
+    expect(long.shares).toBe(80);
+  });
+
+  it('un corto abierto cuando el activo deja de cotizar cierra al último cierre (delisted)', () => {
+    const out = runBacktest({
+      strategy: scripted({ 0: (ctx) => ctx.short('AAA') }),
+      bars: {
+        AAA: [
+          flat('2024-01-02', 100),
+          { date: '2024-01-03', open: 100, high: 110, low: 100, close: 110 },
+        ],
+        ZZZ: [flat('2024-01-02', 50), flat('2024-01-03', 50), flat('2024-01-04', 50)],
+      },
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    const trade = out.trades[0]!;
+    expect(trade.side).toBe('corto');
+    expect(trade.exitReason).toBe('delisted');
+    expect(trade.exitDate).toBe('2024-01-03');
+    expect(trade.exitPrice).toBeCloseTo(110, 8);
+  });
+
+  it('las señales de corto emitidas en calentamiento se descartan igual que las de largo', () => {
+    const out = runBacktest({
+      strategy: scripted({ 0: (ctx) => ctx.short('AAA') }),
+      bars: {
+        AAA: [flat('2024-01-02', 100), flat('2024-01-03', 100), flat('2024-01-04', 100)],
+      },
+      startDate: '2024-01-04',
+      initialCash: 10_000,
+      costs: NO_COSTS,
+    });
+    expect(out.trades).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Validación de entrada
 // ---------------------------------------------------------------------------
 

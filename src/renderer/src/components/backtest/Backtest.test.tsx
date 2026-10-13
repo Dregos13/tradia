@@ -271,21 +271,44 @@ it('mantiene el historial consultable en versiones históricas y deshabilita el 
   expect(screen.getByRole('button', { name: 'Ejecutar prueba final' })).toBeDisabled();
 });
 
-it('avisa y bloquea backtest y prueba final sin implementación, incluso con historial', async () => {
+it('explica el bloqueo de las reglas antes de lanzar, incluso con historial', async () => {
   const run = vi.spyOn(window.tradia.backtest, 'run');
   const final = vi.spyOn(window.tradia.backtest, 'runFinalTest');
   render(<BacktestLauncher strategy={{ ...strategy, executable: false }} />);
   expect(
-    screen.getByText(/Sin implementación ejecutable: el backtest de estrategias propias/),
+    screen.getByText(/Desactivado hasta que las reglas se puedan ejecutar/),
   ).toBeInTheDocument();
   const launch = screen.getByRole('button', { name: 'Lanzar backtest' });
   const finalButton = screen.getByRole('button', { name: 'Ejecutar prueba final' });
   await waitFor(() => expect(window.tradia.backtest.list).toHaveBeenCalled());
-  expect(launch).toBeDisabled();
+  expect(launch).toHaveAttribute('aria-disabled', 'true');
+  launch.focus();
+  await waitFor(() => expect(launch).toHaveFocus());
   expect(finalButton).toBeDisabled();
   await userEvent.click(launch);
   await userEvent.click(finalButton);
   fireEvent.submit(launch.closest('form')!);
   expect(run).not.toHaveBeenCalled();
   expect(final).not.toHaveBeenCalled();
+});
+
+it('cada operación del informe muestra su lado, incluso después de paginar', async () => {
+  render(
+    <Report
+      report={{
+        ...report,
+        trades: report.trades.map((trade, index) => ({
+          ...trade,
+          side: index % 2 ? 'corto' : 'largo',
+        })),
+      }}
+    />,
+  );
+  const table = screen.getByRole('table', { name: /Operaciones cerradas/ });
+  expect(table).toHaveTextContent('Lado');
+  expect(table.querySelectorAll('tbody tr')[0]).toHaveTextContent('Largo');
+  expect(table.querySelectorAll('tbody tr')[1]).toHaveTextContent('Corto');
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  expect(table.querySelectorAll('tbody tr')[0]).toHaveTextContent('Largo');
+  expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
 });

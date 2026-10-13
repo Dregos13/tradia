@@ -196,6 +196,9 @@ const VALID_LIMITS: LiveLimitsInput = {
   orderUsd: 100,
   dailyLossUsd: 10,
   openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
 };
 
 beforeEach(() => {
@@ -356,7 +359,7 @@ describe('live:set-limits', () => {
     expect(result.confirmed).toBe(false);
     expect(result.confirmationPhrase).toBe(liveConfirmationPhrase(VALID_LIMITS));
     expect(result.confirmationPhrase).toBe(
-      'ACTIVO DINERO REAL CON 500 USD, 100 USD POR ORDEN, 10 USD DE PÉRDIDA DIARIA Y 1 POSICIÓN',
+      'ACTIVO DINERO REAL CON 500 USD, 100 USD POR ORDEN, 10 USD DE PÉRDIDA DIARIA Y 1 POSICIÓN; CORTO 0 USD POR ORDEN, 0 USD DE EXPOSICIÓN Y 0 POSICIONES EN CORTO',
     );
   });
 
@@ -382,6 +385,39 @@ describe('live:set-limits', () => {
     expect(() => service.setLimits({ ...VALID_LIMITS, openPositions: 9 })).toThrow(
       LiveServiceError,
     );
+    expect(() => service.setLimits({ ...VALID_LIMITS, shortOrderUsd: 101 })).toThrow(
+      LiveServiceError,
+    );
+    expect(() => service.setLimits({ ...VALID_LIMITS, shortExposureUsd: 201 })).toThrow(
+      LiveServiceError,
+    );
+    expect(() => service.setLimits({ ...VALID_LIMITS, shortPositions: 2 })).toThrow(
+      LiveServiceError,
+    );
+  });
+
+  it('los límites del corto entran en la frase: cambiarlos exige confirmar de nuevo', async () => {
+    makeCtx();
+    await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
+    const conCorto = {
+      ...VALID_LIMITS,
+      shortOrderUsd: 50,
+      shortExposureUsd: 100,
+      shortPositions: 1,
+    };
+    const result = (await invoke(IPC_CHANNELS.live.setLimits, conCorto)) as {
+      confirmationPhrase: string;
+      confirmed: boolean;
+    };
+    // La frase nueva incluye los límites del corto y la confirmación de
+    // los límites anteriores ya no vale para esta escritura.
+    expect(result.confirmationPhrase).toBe(liveConfirmationPhrase(conCorto));
+    expect(result.confirmationPhrase).toContain('CORTO 50 USD POR ORDEN');
+    expect(result.confirmed).toBe(false);
+    const activation = (await invoke(IPC_CHANNELS.live.activate, {
+      phrase: liveConfirmationPhrase(VALID_LIMITS),
+    })) as { activated: boolean };
+    expect(activation.activated).toBe(false);
   });
 });
 

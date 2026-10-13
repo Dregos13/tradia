@@ -1,9 +1,14 @@
+import { LiveShortStatus } from './LiveShortStatus';
+import { ExecutionNotice } from './ExecutionNotice';
+import { strategySide } from '../../../../shared/strategyRules';
+import { ruleLabels } from './ruleValidation';
+import { strategyExecution } from './ruleValidation';
 import { StrategyHealth } from './StrategyHealth';
 import { RegimeBacktestComparison } from './RegimeBacktestComparison';
 import { regimeLabels } from './regimeLabels';
 import { StressResults } from './StressResults';
 import { BacktestLauncher } from '../backtest/BacktestLauncher';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useIpcList } from '../../hooks/useIpcList';
 import {
   STRATEGY_STATUSES,
@@ -37,11 +42,15 @@ export function StrategyDetail({
     'No pudimos consultar la evidencia guardada.',
   );
   const report = evidence.items[0];
+  const execution = strategyExecution(s);
+  const runnable = { ...s, executable: execution.executable };
+  const side = s.executable ? 'largo' : strategySide(s.rules);
   const historical = s.version !== latest.version;
   const [status, setStatus] = useState(s.status);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const statusSelect = useRef<HTMLSelectElement>(null);
   return (
     <>
       <a href="#estrategias">Volver a la biblioteca</a>
@@ -76,6 +85,14 @@ export function StrategyDetail({
         </div>
       </header>
       {historical && <p className="strategy-section">Versión histórica · solo lectura</p>}
+      {(!s.executable || execution.parsed.ok) && (
+        <ExecutionNotice
+          executable={execution.executable}
+          reason={execution.reason}
+          strategyId={s.id}
+          readOnly={historical}
+        />
+      )}
       <StrategyHealth strategy={latest} />
       <section className="strategy-section" aria-labelledby="strategy-evidence">
         <h3 id="strategy-evidence">Resumen de evidencia</h3>
@@ -116,11 +133,13 @@ export function StrategyDetail({
       </section>
       <section className="strategy-section">
         <h3>Reglas reproducibles</h3>
+        <p>Opera en: {side === 'ambos' ? 'largo y corto' : side}.</p>
+        {side !== 'largo' && <LiveShortStatus />}
         <dl className="strategy-grid">
-          {(['entry', 'exit', 'stop', 'target'] as const).map((key) => (
+          {(['entry', 'exit', 'entryShort', 'exitShort', 'stop', 'target'] as const).map((key) => (
             <div key={key}>
-              <dt>{{ entry: 'Entrada', exit: 'Salida', stop: 'Stop', target: 'Objetivo' }[key]}</dt>
-              <dd>{s.rules[key]}</dd>
+              <dt>{ruleLabels[key]}</dt>
+              <dd>{s.rules[key]?.trim() || 'No configurada'}</dd>
             </div>
           ))}
         </dl>
@@ -179,7 +198,7 @@ export function StrategyDetail({
       </section>
       <RegimeBacktestComparison
         key={`regime:${s.id}:${s.version}`}
-        strategy={s}
+        strategy={runnable}
         readOnly={historical}
       />
       <section className="strategy-section">
@@ -228,12 +247,16 @@ export function StrategyDetail({
                 setError('No pudimos cambiar el estado. Inténtalo de nuevo.');
               } finally {
                 setBusy(false);
+                // El botón queda desactivado durante el cambio y, si acierta,
+                // también después: el foco vuelve al selector y no cae en body.
+                statusSelect.current?.focus();
               }
             }}
           >
             <label>
               Nuevo estado
               <select
+                ref={statusSelect}
                 aria-label="Nuevo estado"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as StrategyStatus)}
@@ -253,12 +276,12 @@ export function StrategyDetail({
       )}
       <StressResults
         key={`${s.id}:${s.version}`}
-        executable={s.executable}
+        executable={execution.executable}
         strategyId={s.id}
         version={s.version}
         readOnly={historical}
       />
-      <BacktestLauncher strategy={s} readOnly={historical} />
+      <BacktestLauncher strategy={runnable} readOnly={historical} />
       <section className="strategy-section">
         <h3>Registro de cambios</h3>
         <ol className="strategy-history">

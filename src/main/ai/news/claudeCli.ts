@@ -9,12 +9,12 @@
  * Grep, Bash…—, más `--setting-sources ''` para que ni los ajustes de
  * `~/.claude` ni los del proyecto puedan reactivar permisos, hooks o
  * herramientas, y un MCP estricto vacío): el titular viaja por stdin
- * cercado como dato no fiable con el MISMO prompt que la API
- * (`SYSTEM_PROMPT` + `buildUserContent` de `anthropic.ts`), así una
- * instrucción inyectada nunca cambia los argumentos del proceso ni
- * habilita herramientas. La respuesta se valida con el mismo esquema
- * (`parseNewsAnalysisOutput`) y cualquier fallo la anota el servicio
- * para caer al analizador léxico local.
+ * cercado como dato no fiable con el contrato de `prompt.ts`
+ * (`SYSTEM_PROMPT` + `buildUserContent`), así una instrucción inyectada
+ * nunca cambia los argumentos del proceso ni habilita herramientas. La
+ * respuesta se valida con el mismo esquema (`parseNewsAnalysisOutput`)
+ * y cualquier fallo la anota el servicio para caer al analizador léxico
+ * local.
  *
  * Garantías:
  * - Localización: `cliPath` de Ajustes, `claude` en PATH y rutas
@@ -35,8 +35,8 @@
  *   `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` ni otras claves, así la
  *   llamada siempre corre por la sesión de la suscripción y nunca se
  *   factura una API por accidente.
- * - Tope diario en TITULARES (`usage.usedToday`, compartido con la
- *   API): solo un análisis correcto lo descuenta.
+ * - Tope diario en TITULARES (`usage.usedToday`): solo un análisis
+ *   correcto lo descuenta.
  * - `ping()` (`ai:test-llm`): distingue «CLI no encontrada», «sesión no
  *   iniciada» y éxito, sin consumir el tope.
  */
@@ -45,7 +45,7 @@ import { accessSync, constants as fsConstants, readdirSync, statSync } from 'nod
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
-import { buildUserContent, parseNewsAnalysisOutput, SYSTEM_PROMPT } from './anthropic';
+import { buildUserContent, parseNewsAnalysisOutput, SYSTEM_PROMPT } from './prompt';
 import {
   NewsLlmError,
   truncateExternal,
@@ -555,7 +555,7 @@ export function createClaudeCliAnalyzer(deps: ClaudeCliAnalyzerDeps): ClaudeCliA
       const run = await runOnce(resolution.path, prompt);
       if (run.code !== 0) throw classifyRunFailure(run);
       const text = extractResultText(run.stdout);
-      const result = parseNewsAnalysisOutput(text, input.candidateTickers ?? [], null);
+      const result = parseNewsAnalysisOutput(text, input.candidateTickers ?? []);
       // Solo un análisis correcto descuenta el tope diario.
       deps.usage.save({ ...usage, usedToday: usage.usedToday + 1 });
       return result;

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC_CHANNELS, IpcValidationError, type MarketUpdatedEvent } from '../../shared/ipc';
 import type { JournalRecordInput } from '../../shared/journal';
 import type { RiskDecision } from '../../shared/risk';
+import type { CreateStrategyRequest, StrategyStatus } from '../../shared/strategy';
 import { createBacktestRepository } from '../backtest/repository';
 import { openDatabase } from '../db/database';
 import { createMarketRepository } from '../market/repository';
@@ -109,6 +110,52 @@ const seedStrategy = (): number => {
   return created.id;
 };
 
+/**
+ * Ficha propia (sin implementación clásica) con reglas del DSL sobre
+ * AAPL: por defecto el mismo cruce que dispara la clásica en la última
+ * vela de `seedAaplBars`. `executable` queda a false en el repositorio —
+ * el ejecutable de una propia son sus reglas compiladas, no una fila de
+ * `strategy_implementations`.
+ */
+const seedCustomStrategy = (
+  overrides: {
+    name?: string;
+    rules?: Partial<CreateStrategyRequest['rules']>;
+    parameters?: Record<string, number>;
+    status?: StrategyStatus;
+    failsIn?: CreateStrategyRequest['failsIn'];
+  } = {},
+): number => {
+  const runs = createBacktestRepository(db);
+  const strategies = createStrategiesRepository(db, (id) => runs.implementationKey(id) !== null);
+  const created = strategies.create({
+    name: overrides.name ?? 'Propia cruce',
+    hypothesis: 'La tendencia corta persiste.',
+    rules: {
+      entry: 'cruza_arriba(sma(2), sma(3))',
+      exit: 'cruza_abajo(sma(2), sma(3))',
+      stop: '5%',
+      target: 'ninguno',
+      ...overrides.rules,
+    },
+    parameters: overrides.parameters ?? {},
+    markets: ['AAPL'],
+    regime: 'tendencial',
+    ...(overrides.failsIn === undefined ? {} : { failsIn: overrides.failsIn }),
+  });
+  const status = overrides.status ?? 'activa';
+  if (status !== 'investigacion') {
+    strategies.setStatus({ id: created.id, status });
+  }
+  return created.id;
+};
+
+/** Avisos `[signals]` de estrategia propia omitida captados por el espía. */
+const customSkipWarnings = (warn: { mock: { calls: unknown[][] } }): string[] =>
+  warn.mock.calls
+    .map((call) => String(call[0]))
+    .filter((message) => message.includes('estrategia propia'));
+
 const makeCtx = (): ServiceContext => {
   const runs = createBacktestRepository(db);
   const strategies = createStrategiesRepository(db, (id) => runs.implementationKey(id) !== null);
@@ -189,6 +236,7 @@ beforeEach(() => {
 afterEach(() => {
   db.close();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe('registerSignals: cableado en la app', () => {
@@ -386,6 +434,167 @@ describe('registerSignals: cableado en la app', () => {
 
     expect(positions.get(1)?.closedAt).not.toBeNull();
     expect(journalEntries.some((e) => e.type === 'operacion' && e.result === 'perdida')).toBe(true);
+    service.stop();
+  });
+});
+
+describe('registerSignals: estrategias propias', () => {
+  it('una propia en estado emisor genera la señal de su regla de entrada por la pasarela', () => {
+    seedAaplBars();
+    const strategyId = seedCustomStrategy();
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    const signals = invoke(IPC_CHANNELS.signals.list, {}) as {
+      id: number;
+      ticker: string;
+      direction: string;
+      reason: string;
+      strategies: { strategyId: number }[];
+    }[];
+    expect(signals).toHaveLength(1);
+    expect(signals[0]).toMatchObject({ ticker: 'AAPL', direction: 'largo' });
+    expect(signals[0]!.strategies.map((vote) => vote.strategyId)).toEqual([strategyId]);
+    // El motivo cita la regla de entrada de la ficha (texto del DSL).
+    expect(signals[0]!.reason).toContain('cruza_arriba');
+    // La señal pasó por la pasarela única con origen 'estrategia'.
+    expect(submitted).toHaveLength(1);
+    const intent = submitted[0] as { entry: number; stop: number };
+    expect(submitted[0]).toMatchObject({
+      ticker: 'AAPL',
+      direction: 'largo',
+      origin: 'estrategia',
+    });
+    expect(intent.entry).toBe(12);
+    // Stop del 5 % bajo el cierre de la señal, en largo.
+    expect(intent.stop).toBeCloseTo(11.4, 10);
+    service.stop();
+  });
+
+  it('una propia con reglas de corto emite la propuesta en corto por la pasarela', () => {
+    seedAaplBars();
+    seedCustomStrategy({
+      rules: {
+        entry: 'cierre > 100',
+        exit: 'cierre < 9',
+        entryShort: 'cierre > 11',
+        exitShort: 'cierre < 9',
+      },
+    });
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    expect(submitted).toHaveLength(1);
+    const intent = submitted[0] as { direction: string; entry: number; stop: number };
+    expect(submitted[0]).toMatchObject({
+      ticker: 'AAPL',
+      direction: 'corto',
+      origin: 'estrategia',
+    });
+    expect(intent.entry).toBe(12);
+    // El mismo stop del 5 % queda por encima de la entrada en corto.
+    expect(intent.stop).toBeCloseTo(12.6, 10);
+    service.stop();
+  });
+
+  it('una propia que no compila se omite con un único aviso y no rompe a las demás', () => {
+    seedAaplBars();
+    seedStrategy();
+    seedCustomStrategy({ name: 'Propia rota', rules: { entry: 'cruza_arriba(sma(2)' } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    // La clásica siguió evaluando y emitiendo: la propia rota no la detiene.
+    expect(submitted).toHaveLength(1);
+    expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(1);
+    expect(customSkipWarnings(warn)).toHaveLength(1);
+    expect(customSkipWarnings(warn)[0]).toContain('no compilan');
+
+    // Otra vela nueva vuelve a listar evaluables: el aviso sigue siendo único.
+    const market = createMarketRepository(db);
+    market.upsertBars('AAPL', 'simulado', 1, [
+      { date: '2026-10-09', open: 13, high: 14, low: 12, close: 13, volume: 1_000 },
+    ]);
+    fireBarStored('AAPL', '2026-10-09');
+
+    expect(customSkipWarnings(warn)).toHaveLength(1);
+    service.stop();
+  });
+
+  it('una propia con un periodo-parámetro inválido no compila: se omite con aviso', () => {
+    seedAaplBars();
+    seedStrategy();
+    seedCustomStrategy({
+      name: 'Propia sin periodo',
+      rules: { entry: 'cruza_arriba(sma(rapida), sma(lenta))' },
+      parameters: { rapida: 0, lenta: 3 },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    expect(submitted).toHaveLength(1);
+    expect(customSkipWarnings(warn)).toHaveLength(1);
+    expect(customSkipWarnings(warn)[0]).toContain('rapida');
+    service.stop();
+  });
+
+  it('con el régimen fuera de la ficha la propia no vota ni emite', () => {
+    seedAaplBars();
+    seedCustomStrategy({ failsIn: ['lateral'] });
+    const ctx = makeCtx();
+    ctx.services.aiRegime = {
+      service: {
+        marketRegime: () => ({
+          sessionDate: '2026-10-08',
+          direction: 'lateral',
+          volatility: 'volatilidad-baja',
+        }),
+      },
+    } as unknown as ServiceContext['services']['aiRegime'];
+    const service = registerSignals(ctx, SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(0);
+    expect(submitted).toHaveLength(0);
+    expect(
+      journalEntries.some(
+        (entry) => entry.type === 'resumen' && String(entry.reason).includes('no vota'),
+      ),
+    ).toBe(true);
+    service.stop();
+  });
+
+  it('con datos desactualizados no se emite ninguna señal de propias', () => {
+    seedAaplBars();
+    seedCustomStrategy();
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    // La vela del 01-10 es anterior a la última sesión esperada (08-10):
+    // llegó de una puesta al día atrasada y no se evalúa.
+    fireBarStored('AAPL', '2026-10-01');
+
+    expect(submitted).toHaveLength(0);
+    expect(invoke(IPC_CHANNELS.signals.list, {})).toHaveLength(0);
+    service.stop();
+  });
+
+  it('una propia fuera de los estados que emiten no se evalúa ni se avisa', () => {
+    seedAaplBars();
+    seedCustomStrategy({ status: 'investigacion', rules: { entry: '(' } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const service = registerSignals(makeCtx(), SIGNAL_CLOCK);
+
+    fireBarStored();
+
+    expect(submitted).toHaveLength(0);
+    expect(customSkipWarnings(warn)).toHaveLength(0);
     service.stop();
   });
 });

@@ -18,11 +18,12 @@ nunca entrena: consume los artefactos de `resources/models/<version>/`.
   incluyen.
 
 ```bash
-python3 -m venv .venv-ml
-.venv-ml/bin/pip install -r ml/requirements.txt
+python3 -m venv ~/.venvs/tradia-ml
+~/.venvs/tradia-ml/bin/pip install -r ml/requirements.txt
 ```
 
-`.venv-ml/` no se sube al repositorio.
+El entorno vive **fuera del repositorio** (`~/.venvs/tradia-ml/`), así que
+nunca se sube a git.
 
 ## Piezas
 
@@ -39,14 +40,14 @@ python3 -m venv .venv-ml
 1. Exporta las velas limpias de la app:
 
    ```bash
-   .venv-ml/bin/python ml/export_candles.py --out ml/data/velas.csv
+   ~/.venvs/tradia-ml/bin/python ml/export_candles.py --out ml/data/velas.csv
    # o indica la base: --db ~/Library/Application\ Support/tradia/tradia.db
    ```
 
 2. Entrena marcando el origen real:
 
    ```bash
-   .venv-ml/bin/python ml/train.py --data ml/data/velas.csv --origin real
+   ~/.venvs/tradia-ml/bin/python ml/train.py --data ml/data/velas.csv --origin real
    ```
 
    `--origin` es `sintetico` por defecto a propósito: solo se declara `real`
@@ -60,8 +61,8 @@ python3 -m venv .venv-ml
 Para desarrollar sin datos reales:
 
 ```bash
-.venv-ml/bin/python ml/make_synthetic.py --out ml/data/synthetic.csv
-.venv-ml/bin/python ml/train.py --data ml/data/synthetic.csv --origin sintetico
+~/.venvs/tradia-ml/bin/python ml/make_synthetic.py --out ml/data/synthetic.csv
+~/.venvs/tradia-ml/bin/python ml/train.py --data ml/data/synthetic.csv --origin sintetico
 ```
 
 ## Artefactos y cómo entra una versión nueva en la app
@@ -113,7 +114,7 @@ brierOos < brierBaseline`. Con origen sintético la ficha queda
 - Comprobación rápida:
 
   ```bash
-  .venv-ml/bin/python ml/train.py --data <csv> --trained-at 2026-01-01T00:00:00Z
+  ~/.venvs/tradia-ml/bin/python ml/train.py --data <csv> --trained-at 2026-01-01T00:00:00Z
   sha256sum resources/models/0.1.0/model.onnx
   # repetir: el hash y las métricas deben ser idénticos
   ```

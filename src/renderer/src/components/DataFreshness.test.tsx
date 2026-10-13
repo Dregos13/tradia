@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../adapters/simulated';
-import { DataFreshness } from './DataFreshness';
+import { DataFreshness, freshnessTitle } from './DataFreshness';
 import { ProviderBanner } from './ProviderBanner';
 import { Dashboard } from './dashboard/Dashboard';
 import { MarketDataPage } from './MarketDataPage';
@@ -14,6 +14,13 @@ import { regimeLabels } from './strategies/regimeLabels';
 import { DataProvidersSettings } from './DataProvidersSettings';
 import type { DataFreshnessSummary, MarketRefreshResult } from '../../../shared/ipc';
 let simulation: ReturnType<typeof createSimulatedAdapter>;
+it.each([
+  ['2026-09-25', 'Datos desactualizados desde el 25 sept 2026'],
+  ['no-es-fecha', 'Datos desactualizados desde el no-es-fecha'],
+  [null, 'Datos desactualizados · fecha del último dato no disponible'],
+])('conserva el texto de la fecha de sesión (%s)', (sinceDate, expected) => {
+  expect(freshnessTitle({ state: 'stale', sinceDate })).toBe(expected);
+});
 const stale = {
   key: 'ticker:AAPL',
   state: 'desactualizado' as const,

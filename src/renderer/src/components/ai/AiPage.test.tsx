@@ -128,7 +128,7 @@ it('muestra probabilidades, horizonte, volatilidad y versión; filtra y abre cal
   button.focus();
   await user.keyboard('{Enter}');
   expect(button).toHaveAttribute('aria-expanded', 'true');
-  expect(button).toHaveFocus();
+  await waitFor(() => expect(button).toHaveFocus());
   expect(screen.getByRole('table', { name: /Todos los intervalos/ })).toBeVisible();
   await user.keyboard(' ');
   expect(button).toHaveAttribute('aria-expanded', 'false');
@@ -234,7 +234,7 @@ it('navega a la ficha de estrategia mediante callback y Tab', async () => {
   const user = userEvent.setup();
   const first = screen.getAllByRole('button', { name: /Ver ficha de/ })[0]!;
   for (let i = 0; i < 12 && document.activeElement !== first; i++) await user.tab();
-  expect(first).toHaveFocus();
+  await waitFor(() => expect(first).toHaveFocus());
   await user.keyboard('{Enter}');
   expect(open).toHaveBeenCalledWith(expect.any(Number));
 });
@@ -333,7 +333,7 @@ it('abre la ficha con teclado, desplaza y enfoca sin cambiar el hash', async () 
     const button = screen.getAllByRole('button', { name: 'Ver ficha del modelo' })[0]!;
     button.focus();
     await userEvent.keyboard('{Enter}');
-    expect(document.getElementById('ai-model-card')).toHaveFocus();
+    await waitFor(() => expect(document.getElementById('ai-model-card')).toHaveFocus());
     expect(scroll).toHaveBeenCalledWith({ block: 'start' });
     expect(window.location.hash).toBe('#ia');
   } finally {

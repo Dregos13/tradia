@@ -216,7 +216,7 @@ function AppShell() {
         />
       </header>
       <div className="app-banner-stack">
-        <LiveBanner />
+        <LiveBanner live={live} />
         <div className="app-global-banners" hidden={!(stopped || offline || discrepancy)}>
           <div id="risk-global-banner" />
           <OfflineBanner state={state} summary={!stopped ? summary : undefined} />

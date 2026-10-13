@@ -67,6 +67,7 @@ import type {
   ModelHealthOverview,
   NewsAnalysis,
   NewsAnalysisQuery,
+  NewsStatus,
   NewsLlmSettings,
   NewsLlmSettingsInput,
   NewsLlmTestResult,
@@ -334,6 +335,9 @@ const api: TradiaApi = {
     modelCard: (): Promise<ModelCard | null> => ipcRenderer.invoke(IPC_CHANNELS.ai.modelCard),
     newsAnalysis: (query?: NewsAnalysisQuery): Promise<NewsAnalysis[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.ai.newsAnalysis, query),
+    newsStatus: (): Promise<NewsStatus> => ipcRenderer.invoke(IPC_CHANNELS.ai.newsStatus),
+    onNewsStatusChanged: (listener: (status: NewsStatus) => void) =>
+      subscribe<NewsStatus>(IPC_CHANNELS.ai.newsStatusChanged, listener),
     getLlmSettings: (): Promise<NewsLlmSettings> =>
       ipcRenderer.invoke(IPC_CHANNELS.ai.getLlmSettings),
     setLlmSettings: (input: NewsLlmSettingsInput): Promise<NewsLlmSettings> =>

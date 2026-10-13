@@ -5,6 +5,11 @@
  * timeout, binario ausente, sesión no iniciada, inyección en el
  * titular, tope diario y entorno mínimo. Ninguna prueba toca la red ni
  * un `claude` real: la resolución de rutas se acota al árbol temporal.
+ * Corren en macOS, Linux y Windows sin saltos por plataforma: en
+ * Windows la CLI falsa se instala como `claude.cmd` (un shim que lanza
+ * `node` con el fixture, como el de npm) y la resolución de rutas
+ * conocidas recibe la plataforma y el directorio de inicio por
+ * inyección, así las ramas POSIX y Windows se prueban en cualquier SO.
  */
 import {
   accessSync,
@@ -21,10 +26,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { FAKE_CLAUDE_CLI_FIXTURE, installFakeClaudeCli } from './__fixtures__/installFakeCli';
 import {
   CLAUDE_CLI_ARGS,
   createClaudeCliAnalyzer,
@@ -33,7 +38,7 @@ import {
 } from './claudeCli';
 import { createMemoryUsageStore, isNewsLlmError, type NewsLlmUsageStore } from './types';
 
-const FIXTURE = fileURLToPath(new URL('./__fixtures__/fake-claude-cli.mjs', import.meta.url));
+const FIXTURE = FAKE_CLAUDE_CLI_FIXTURE;
 const ON_WINDOWS = process.platform === 'win32';
 
 /** Raíz temporal del escenario (CLI falsa, HOME, config y registro). */
@@ -88,6 +93,8 @@ function makeAnalyzer(
     dailyCap?: number;
     timeoutMs?: number;
     usage?: NewsLlmUsageStore;
+    platform?: NodeJS.Platform;
+    env?: NodeJS.ProcessEnv;
   } = {},
 ): ClaudeCliAnalyzer {
   return createClaudeCliAnalyzer({
@@ -103,7 +110,9 @@ function makeAnalyzer(
       ANTHROPIC_API_KEY: 'sk-ant-secreta-de-prueba',
       OPENAI_API_KEY: 'sk-otra-secreta',
       AWS_SECRET_ACCESS_KEY: 'aws-secreta',
+      ...options.env,
     },
+    platform: options.platform,
     isExecutableFile: sandboxedIsExecutable,
     listDir: readdirSyncSandbox,
     usage: options.usage ?? createMemoryUsageStore(),
@@ -117,11 +126,12 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'tradia-claude-cli-'));
   binDir = join(root, 'bin');
   home = join(root, 'home');
-  mkdirSync(binDir, { recursive: true });
   mkdirSync(home, { recursive: true });
-  cliPath = join(binDir, 'claude');
-  copyFileSync(FIXTURE, cliPath);
-  chmodSync(cliPath, 0o755);
+  // Como una instalación real en el SO anfitrión: `claude` con shebang
+  // en POSIX; en Windows, el `claude.cmd` de npm con el `cli.js` del
+  // paquete (la rama que `spawnPlan` prefiere, así no hace falta
+  // cmd.exe y los argumentos llegan intactos).
+  cliPath = installFakeClaudeCli(binDir);
   configPath = join(root, 'tradia-fake-claude.json');
   recordPath = join(root, 'calls.jsonl');
   writeConfig({ mode: 'ok', recordTo: recordPath });
@@ -131,7 +141,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe.skipIf(ON_WINDOWS)('analizador por suscripción con la CLI falsa', () => {
+describe('analizador por suscripción con la CLI falsa', () => {
   it('produce resumen y sentimiento por activo con salida válida', async () => {
     writeConfig({
       mode: 'ok',
@@ -325,13 +335,15 @@ describe('resolución de la ruta de la CLI', () => {
     expect(viaPath).toMatchObject({ path: cliPath, source: 'path' });
   });
 
-  it.skipIf(ON_WINDOWS)('encuentra `claude` en ubicaciones conocidas (~/.local/bin y nvm)', () => {
+  it('encuentra `claude` en ubicaciones conocidas POSIX (~/.local/bin y nvm)', () => {
+    // platform inyectada: la rama POSIX se prueba en cualquier SO.
     // Sin PATH pero con instalación nativa en ~/.local/bin.
     mkdirSync(join(home, '.local/bin'), { recursive: true });
     copyFileSync(FIXTURE, join(home, '.local/bin/claude'));
     chmodSync(join(home, '.local/bin/claude'), 0o755);
     const viaKnown = resolveClaudeCli({
       env: { HOME: home, PATH: join(root, 'vacio'), TMPDIR: root },
+      platform: 'linux',
       isExecutableFile: sandboxedIsExecutable,
       listDir: readdirSyncSandbox,
     });
@@ -351,9 +363,118 @@ describe('resolución de la ruta de la CLI', () => {
     }
     const viaNvm = resolveClaudeCli({
       env: { HOME: nvmHome, PATH: join(root, 'vacio'), TMPDIR: root },
+      platform: 'linux',
       isExecutableFile: sandboxedIsExecutable,
       listDir: readdirSyncSandbox,
     });
     expect(viaNvm.path).toBe(join(nvmHome, '.nvm/versions/node/v20.0.0/bin/claude'));
+  });
+
+  it('encuentra `claude` en ubicaciones conocidas de Windows (nativa y npm)', () => {
+    // platform inyectada: la rama Windows se prueba en cualquier SO.
+    // Solo npm (%APPDATA%\npm\claude.cmd), sin instalación nativa.
+    const appData = join(root, 'appdata');
+    const npmDir = join(appData, 'npm');
+    mkdirSync(npmDir, { recursive: true });
+    const npmCmd = join(npmDir, 'claude.cmd');
+    writeFileSync(npmCmd, '@echo off\r\n');
+    // isExecutableFile pide X_OK cuando el anfitrión es POSIX.
+    chmodSync(npmCmd, 0o755);
+    const envWin: NodeJS.ProcessEnv = {
+      USERPROFILE: home,
+      APPDATA: appData,
+      PATH: join(root, 'vacio'),
+      TMPDIR: root,
+    };
+    const viaNpm = resolveClaudeCli({
+      env: envWin,
+      platform: 'win32',
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: readdirSyncSandbox,
+    });
+    expect(viaNpm).toMatchObject({ path: npmCmd, source: 'known' });
+
+    // La instalación nativa (`claude install`, un .exe) gana a la de npm.
+    const nativeDir = join(home, '.local', 'bin');
+    mkdirSync(nativeDir, { recursive: true });
+    const nativeExe = join(nativeDir, 'claude.exe');
+    writeFileSync(nativeExe, 'MZ');
+    chmodSync(nativeExe, 0o755);
+    const viaNative = resolveClaudeCli({
+      env: envWin,
+      platform: 'win32',
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: readdirSyncSandbox,
+    });
+    expect(viaNative).toMatchObject({ path: nativeExe, source: 'known' });
+  });
+});
+
+describe('lanzamiento de un shim .cmd (rama Windows)', () => {
+  /**
+   * Instala en `dir` un `claude.cmd` ejecutable en el SO anfitrión que
+   * lanza `node` con el fixture: un batch de verdad en Windows y, en
+   * POSIX, un script sh (allí la vía `shell: true` de `spawnPlan` lo
+   * ejecuta con `/bin/sh`). Con platform 'win32' inyectada ambas ramas
+   * del plan se prueban en cualquier SO.
+   */
+  const installCmdShim = (dir: string): string => {
+    mkdirSync(dir, { recursive: true });
+    copyFileSync(FIXTURE, join(dir, 'fake-claude-cli.mjs'));
+    const cmdPath = join(dir, 'claude.cmd');
+    if (ON_WINDOWS) {
+      writeFileSync(
+        cmdPath,
+        `@echo off\r\n"${process.execPath}" "%~dp0fake-claude-cli.mjs" %*\r\n`,
+      );
+    } else {
+      // Rutas absolutas: el entorno del hijo lleva un PATH mínimo, así
+      // que ni `dirname` ni `node` pueden depender de él.
+      writeFileSync(
+        cmdPath,
+        `#!/bin/sh\nexec "${process.execPath}" "${join(dir, 'fake-claude-cli.mjs')}" "$@"\n`,
+      );
+      chmodSync(cmdPath, 0o755);
+    }
+    return cmdPath;
+  };
+
+  it('lanza `claude.cmd` por shell sin EINVAL cuando no hay `cli.js` del paquete', async () => {
+    const cmdDir = join(root, 'cmd-shell');
+    installCmdShim(cmdDir);
+    const analyzer = makeAnalyzer({
+      cliPath: null,
+      platform: 'win32',
+      env: { PATH: cmdDir },
+    });
+    expect(analyzer.available()).toBe(true);
+
+    const result = await analyzer.analyze({ title: 'Lanzado por shell' });
+    expect(result.assets.length).toBeGreaterThan(0);
+    const calls = readCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.stdin).toContain('Lanzado por shell');
+    expect(calls[0]!.secretEnvKeys).toEqual([]);
+  });
+
+  it('prefiere el `cli.js` del paquete npm junto al shim y los argumentos llegan intactos', async () => {
+    const cmdDir = join(root, 'cmd-cli-js');
+    installCmdShim(cmdDir);
+    const packageDir = join(cmdDir, 'node_modules', '@anthropic-ai', 'claude-code');
+    mkdirSync(packageDir, { recursive: true });
+    const cliJs = join(packageDir, 'cli.js');
+    copyFileSync(FIXTURE, cliJs);
+    chmodSync(cliJs, 0o755);
+    writeFileSync(join(packageDir, 'package.json'), JSON.stringify({ type: 'module' }));
+    const analyzer = makeAnalyzer({
+      cliPath: null,
+      platform: 'win32',
+      env: { PATH: cmdDir },
+    });
+
+    await analyzer.analyze({ title: 'Sin shell' });
+    // argv llega intacto: solo es posible si NO pasó por una shell —
+    // cmd.exe y /bin/sh reescribirían `--mcp-config {"mcpServers":{}}`.
+    expect(readCalls()[0]!.argv).toEqual([...CLAUDE_CLI_ARGS]);
   });
 });

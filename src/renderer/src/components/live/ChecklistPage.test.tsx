@@ -9,14 +9,22 @@ import {
   LIVE_REQUIREMENT_TITLES,
   liveConfirmationPhrase,
   type LiveChecklist,
-  type LiveLimits,
+  type LiveLimitsInput,
 } from '../../../../shared/live';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { ChecklistPage } from './ChecklistPage';
 import { evaluateKillSwitchTest } from '../../../../main/live/checklist';
 
 let adapter: ReturnType<typeof createSimulatedAdapter>;
-const limits: LiveLimits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+const limits: LiveLimitsInput = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
+};
 beforeEach(() => {
   adapter = createSimulatedAdapter();
   window.tradia = adapter.api;
@@ -48,7 +56,7 @@ async function openDialog() {
   await userEvent.click(screen.getByRole('button', { name: 'Activar dinero real' }));
   return screen.findByRole('alertdialog');
 }
-function fillLimits(values: LiveLimits = limits) {
+function fillLimits(values: LiveLimitsInput = limits) {
   for (const [label, key] of [
     ['Capital total en real', 'capitalUsd'],
     ['Máximo por orden', 'orderUsd'],
@@ -162,6 +170,11 @@ it('retirar una declaración suspende las órdenes reales y bloquea una nueva ac
 });
 
 it.each([
+  ['Máximo por orden en corto', '101', /100,00 USD/],
+  ['Exposición corta total máxima', '201', /200,00 USD/],
+  ['Posiciones cortas simultáneas', '2', /1 posiciones/],
+  ['Posiciones cortas simultáneas', '0.5', /número entero/],
+  ['Máximo por orden en corto', '-1', /igual o mayor que cero/],
   ['Capital total en real', '1001', /1.000,00 USD/],
   ['Máximo por orden', '201', /200,00 USD/],
   ['Pérdida diaria máxima', '21', /20,00 USD/],
@@ -177,6 +190,9 @@ it.each([
   fireEvent.change(input, { target: { value } });
   expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(input).toHaveAccessibleDescription(expected);
+  expect(
+    document.getElementById(input.getAttribute('aria-describedby')!.split(' ').at(-1)!),
+  ).toHaveAttribute('role', 'alert');
   expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeDisabled();
   expect(save).not.toHaveBeenCalled();
 });
@@ -198,7 +214,11 @@ it('abre con foco seguro, frase exacta accesible y activa solo tras confirmar lo
   const activate = vi.spyOn(adapter.api.live, 'activate');
   await mount();
   const dialog = await openDialog();
-  expect(within(dialog).getByRole('button', { name: 'Cancelar y seguir en paper' })).toHaveFocus();
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole('button', { name: 'Cancelar y seguir en paper' }),
+    ).toHaveFocus(),
+  );
   const confirm = within(dialog).getByRole('button', {
     name: 'Activar dinero real con estos límites',
   });
@@ -276,12 +296,16 @@ it('Escape cancela, devuelve foco y Tab queda dentro del diálogo', async () => 
   const activate = vi.spyOn(adapter.api.live, 'activate');
   const dialog = await openDialog();
   await userEvent.tab({ shift: true });
-  expect(within(dialog).getByRole('textbox')).toHaveFocus();
+  await waitFor(() => expect(within(dialog).getByRole('textbox')).toHaveFocus());
   await userEvent.tab();
-  expect(screen.getByRole('button', { name: 'Cancelar y seguir en paper' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Cancelar y seguir en paper' })).toHaveFocus(),
+  );
   await userEvent.keyboard('{Escape}');
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Activar dinero real' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Activar dinero real' })).toHaveFocus(),
+  );
   expect(activate).not.toHaveBeenCalled();
 });
 
@@ -296,7 +320,9 @@ it('revalida antes del diálogo y bloquea si la evidencia cambió', async () => 
   vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue(next);
   await userEvent.click(screen.getByRole('button', { name: 'Activar dinero real' }));
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'No se puede activar todavía' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'No se puede activar todavía' })).toHaveFocus(),
+  );
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
 });
 
@@ -577,7 +603,7 @@ it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', asyn
   const trigger = screen.getByRole('button', { name: 'Volver a paper (desactivar dinero real)' });
   await userEvent.click(trigger);
   await userEvent.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(deactivate).not.toHaveBeenCalled();
   await userEvent.click(trigger);
   await userEvent.click(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));
@@ -588,4 +614,29 @@ it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', asyn
   );
   expect(deactivate).toHaveBeenCalledOnce();
   expect(screen.queryByRole('button', { name: /Volver a paper/ })).not.toBeInTheDocument();
+});
+
+it('guarda los tres límites del corto y confirma la frase que los incluye', async () => {
+  await complete();
+  await mount();
+  for (const [label, value] of [
+    ['Máximo por orden en corto', '100'],
+    ['Exposición corta total máxima', '200'],
+    ['Posiciones cortas simultáneas', '1'],
+  ]) {
+    expect(screen.getByLabelText(label!)).toHaveValue(0);
+    fireEvent.change(screen.getByLabelText(label!), { target: { value } });
+  }
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  const shortLimits = { ...limits, shortOrderUsd: 100, shortExposureUsd: 200, shortPositions: 1 };
+  await openDialog();
+  expect(screen.getByRole('alertdialog')).toHaveTextContent('Posiciones cortas simultáneas');
+  fireEvent.change(screen.getByLabelText('Escribe exactamente esta frase para confirmar'), {
+    target: { value: liveConfirmationPhrase(shortLimits) },
+  });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Activar dinero real con estos límites' }),
+  );
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  expect((await adapter.api.live.state()).limits).toEqual(shortLimits);
 });

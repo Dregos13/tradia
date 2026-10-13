@@ -1,36 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  NEWS_LLM_MODEL,
-  NEWS_LLM_SECRET_PROVIDER,
   NEWS_LLM_DAILY_CAP_BOUNDS,
-  NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
   type NewsLlmSettings,
-  type NewsAnalyzer,
+  type NewsProvider,
 } from '../../../../shared/ai';
 import { isNewsLlmSettingsInput } from '../../../../shared/ipc';
+import { SubscriptionNotice } from '../news/SubscriptionNotice';
+import { useNewsStatus } from '../../hooks/useNewsStatus';
 import { useSystemState } from '../../hooks/useSystemState';
 import { SettingsFeedback, SettingsSection } from './SettingsSection';
-import { LlmSpendConfirmation } from './LlmSpendConfirmation';
 import './settings.css';
 
-const llmMoney = (value: number) =>
-  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
 export function AiSettings() {
   const [settings, setSettings] = useState<NewsLlmSettings | null>(null);
-  const [provider, setProvider] = useState<NewsAnalyzer>('local');
+  const [provider, setProvider] = useState<NewsProvider>('local');
   const [cliPath, setCliPath] = useState('');
   const testAfterSave = useRef(false);
   const enabled = provider !== 'local';
   const [cap, setCap] = useState('200');
-  const [budget, setBudget] = useState('0');
-  const [key, setKey] = useState('');
-  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [confirm, setConfirm] = useState(false);
+  const [noticeRetryActive, setNoticeRetryActive] = useState(false);
   const saveButton = useRef<HTMLButtonElement>(null);
+  const newsStatus = useNewsStatus();
+  const failedSubscription =
+    newsStatus.status?.provider === 'suscripcion' && newsStatus.status.state !== 'ok';
   const { connectivity } = useSystemState();
   const offline = connectivity?.status === 'offline';
   const input = {
@@ -38,19 +34,14 @@ export function AiSettings() {
     provider,
     cliPath: cliPath.trim() || null,
     dailyCap: Number(cap),
-    monthlyBudgetEur: Number(budget),
   };
-  const valid =
-    cap.trim() !== '' &&
-    budget.trim() !== '' &&
-    isNewsLlmSettingsInput(input) &&
-    (provider !== 'llm' || !!(settings?.hasKey || key.trim()));
+  const valid = cap.trim() !== '' && isNewsLlmSettingsInput(input);
   function apply(value: NewsLlmSettings) {
     setSettings(value);
-    setProvider(value.provider);
+    // Un 'llm' heredado ya no es elegible: la API de pago se retiró.
+    setProvider(value.provider === 'llm' ? 'local' : value.provider);
     setCliPath(value.cliPath ?? '');
     setCap(String(value.dailyCap));
-    setBudget(String(value.monthlyBudgetEur));
   }
   useEffect(() => {
     let active = true;
@@ -60,7 +51,7 @@ export function AiSettings() {
         if (active) apply(value);
       })
       .catch(() => {
-        if (active) setError('No se pudieron cargar los ajustes del LLM. Reintenta.');
+        if (active) setError('No se pudieron cargar los ajustes de análisis. Reintenta.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -74,7 +65,7 @@ export function AiSettings() {
           })
           .catch(() => {
             if (active)
-              setError('No se pudo actualizar el uso del LLM. Reintenta guardar los ajustes.');
+              setError('No se pudo actualizar el uso del análisis. Reintenta guardar los ajustes.');
           });
     });
     return () => {
@@ -88,37 +79,27 @@ export function AiSettings() {
     try {
       apply(await window.tradia.ai.getLlmSettings());
     } catch {
-      setError('No se pudieron cargar los ajustes del LLM. Reintenta.');
+      setError('No se pudieron cargar los ajustes de análisis. Reintenta.');
     } finally {
       setLoading(false);
     }
   }
   async function save() {
     if (!valid || busy) return;
-    setConfirm(false);
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      if (provider === 'llm' && key.trim()) {
-        const draft = key.trim();
-        setKey('');
-        await window.tradia.secrets.setKey(NEWS_LLM_SECRET_PROVIDER, draft);
-        setSettings((previous) => (previous ? { ...previous, hasKey: true } : previous));
-        setEditing(false);
-      }
       apply(await window.tradia.ai.setLlmSettings(input));
-      setMessage('Ajustes del LLM guardados.');
+      setMessage('Ajustes de análisis guardados.');
       if (testAfterSave.current) await test();
     } catch {
-      setError(
-        'No se pudieron guardar los ajustes. Comprueba los permisos del llavero y reintenta.',
-      );
+      setError('No se pudieron guardar los ajustes. Reintenta.');
     } finally {
+      const probed = testAfterSave.current;
       testAfterSave.current = false;
-      setKey('');
       setBusy(false);
-      saveButton.current?.focus();
+      if (!probed) saveButton.current?.focus();
     }
   }
   async function test() {
@@ -131,14 +112,12 @@ export function AiSettings() {
         setMessage(
           provider === 'local'
             ? 'Análisis local disponible · sin coste.'
-            : 'Conexión correcta · proveedor disponible.',
+            : 'Suscripción disponible · Claude Code responde y la sesión está iniciada. El analizador local queda como respaldo.',
         );
-      else
-        setError(
-          result.error ?? 'No se pudo conectar. Revisa la clave y la conexión antes de reintentar.',
-        );
+      else setError(result.error ?? 'No se pudo usar la suscripción. Reintenta.');
+      await newsStatus.refresh();
     } catch {
-      setError('No se pudo conectar. Revisa tu conexión y reintenta.');
+      setError('No se pudo usar la suscripción. Reintenta.');
     } finally {
       setBusy(false);
     }
@@ -146,22 +125,16 @@ export function AiSettings() {
   function requestSave(probe = false) {
     if (!valid || busy) return;
     testAfterSave.current = probe;
-    if (
-      provider === 'llm' &&
-      Number(budget) > 0 &&
-      (settings?.provider !== 'llm' || Number(budget) > settings.monthlyBudgetEur)
-    ) {
-      setConfirm(true);
-    } else void save();
+    void save();
   }
   return (
     <SettingsSection
-      title="Análisis de noticias con LLM"
-      description="Elige suscripción, análisis local o API opcional. Las noticias nunca crean señales por sí solas."
+      title="Análisis de noticias"
+      description="Elige la suscripción de Claude Code o el analizador local. Las noticias no crean señales por sí solas."
     >
       <div aria-busy={loading || busy}>
         {loading ? (
-          <p role="status">Cargando ajustes del LLM…</p>
+          <p role="status">Cargando ajustes de análisis…</p>
         ) : (
           settings && (
             <form
@@ -170,46 +143,48 @@ export function AiSettings() {
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!valid) {
-                  setError(
-                    'Introduce un máximo diario entero entre 1 y 2000, un tope mensual entre 0 y 30 € y, si eliges la API, una clave.',
-                  );
+                  setError('Introduce un máximo diario entero entre 1 y 2000.');
                   return;
                 }
                 requestSave();
               }}
             >
-              <fieldset className="channel-fields" disabled={busy}>
-                <div className="channel-field">
-                  <label htmlFor="llm-provider">Proveedor de análisis</label>
-                  <select
-                    id="llm-provider"
-                    value={provider}
-                    onChange={(event) => {
-                      setProvider(event.target.value as NewsAnalyzer);
-                      setKey('');
-                      setError('');
-                      setMessage('');
-                    }}
-                  >
-                    <option value="suscripcion">Suscripción (Claude Code)</option>
-                    <option value="local">Local (sin coste)</option>
-                    <option value="llm">API de Anthropic (opcional)</option>
-                  </select>
-                </div>
-                {!settings.cliAvailable && (
-                  <p role="status">
-                    CLI no detectada. Recomendamos Local (sin coste) mientras configuras Claude
-                    Code.
-                  </p>
-                )}
-                <p>
-                  Para iniciar sesión en Claude Code, ejecuta <code>claude</code> y después{' '}
-                  <code>/login</code> con tu suscripción.
-                </p>
+              <fieldset className="channel-fields">
+                <fieldset className="analyzer-choices" disabled={busy}>
+                  <legend>Proveedor de análisis</legend>
+                  {(['suscripcion', 'local'] as const).map((choice) => (
+                    <label key={choice} className="analyzer-choice">
+                      <input
+                        type="radio"
+                        name="news-provider"
+                        value={choice}
+                        checked={provider === choice}
+                        onChange={() => {
+                          setProvider(choice);
+                          setError('');
+                          setMessage('');
+                        }}
+                      />
+                      <span>
+                        <strong>
+                          {choice === 'suscripcion'
+                            ? 'Suscripción (Claude Code)'
+                            : 'Analizador local'}
+                        </strong>
+                        <span>
+                          {choice === 'suscripcion'
+                            ? 'Usa la sesión iniciada en este equipo. Si falla, Tradia continúa con el analizador local.'
+                            : 'Funciona sin sesión. Es más limitado, pero mantiene el análisis básico en el equipo.'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
                 {provider === 'suscripcion' && (
                   <div className="channel-field">
-                    <label htmlFor="llm-cli-path">Ruta de la CLI (opcional)</label>
+                    <label htmlFor="llm-cli-path">Ruta de Claude Code (opcional)</label>
                     <input
+                      disabled={busy}
                       id="llm-cli-path"
                       type="text"
                       value={cliPath}
@@ -217,114 +192,76 @@ export function AiSettings() {
                       aria-describedby="llm-cli-help"
                       onChange={(event) => setCliPath(event.target.value)}
                     />
-                    <p id="llm-cli-help">
-                      Déjala vacía para detectar claude automáticamente. Si falla la suscripción, se
-                      usa el análisis local.
-                    </p>
+                    <p id="llm-cli-help">Déjala vacía para buscar claude automáticamente.</p>
                   </div>
                 )}
                 {provider === 'local' && (
-                  <p>Análisis local sin coste; no necesita clave de API ni sesión de CLI.</p>
+                  <div>
+                    <strong>Analizador local seleccionado</strong>
+                    <p>
+                      No necesita sesión y seguirá funcionando aunque Claude Code no esté
+                      disponible.
+                    </p>
+                  </div>
                 )}
-                {provider === 'llm' && (
-                  <>
-                    <p>Modelo · {NEWS_LLM_MODEL} · puede generar cargos de Anthropic.</p>
-                    {settings.hasKey && !editing ? (
-                      <div className="setting-row">
-                        <strong>Clave guardada de forma cifrada</strong>
-                        <button type="button" className="button" onClick={() => setEditing(true)}>
-                          Reemplazar clave
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="channel-field">
-                        <label htmlFor="llm-key">Clave de API de Anthropic</label>
-                        <input
-                          id="llm-key"
-                          type="password"
-                          autoComplete="off"
-                          spellCheck={false}
-                          value={key}
-                          aria-describedby="llm-key-help"
-                          onChange={(event) => setKey(event.target.value)}
-                        />
-                        <p id="llm-key-help">
-                          Se cifra en el llavero del sistema y no vuelve a mostrarse.
-                        </p>
-                        {editing && (
-                          <button
-                            type="button"
-                            className="button"
-                            onClick={() => {
-                              setEditing(false);
-                              setKey('');
-                            }}
-                          >
-                            Cancelar reemplazo
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="channel-grid">
+                {provider === 'suscripcion' && (
                   <div className="channel-field">
-                    <label htmlFor="llm-cap">Máximo diario de titulares</label>
+                    <label htmlFor="llm-cap">Máximo diario</label>
                     <input
+                      disabled={busy}
                       id="llm-cap"
                       type="number"
                       min={NEWS_LLM_DAILY_CAP_BOUNDS.min}
                       max={NEWS_LLM_DAILY_CAP_BOUNDS.max}
                       step="1"
                       value={cap}
+                      aria-describedby="llm-cap-help"
+                      aria-invalid={!valid}
                       onChange={(event) => setCap(event.target.value)}
                     />
+                    <p id="llm-cap-help">Titulares por día. Introduce un entero entre 1 y 2000.</p>
                   </div>
-                  {provider === 'llm' && (
-                    <div className="channel-field">
-                      <label htmlFor="llm-budget">Tope mensual (€)</label>
-                      <input
-                        id="llm-budget"
-                        type="number"
-                        min={NEWS_LLM_MONTHLY_BUDGET_BOUNDS.min}
-                        max={NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max}
-                        step="0.01"
-                        value={budget}
-                        onChange={(event) => setBudget(event.target.value)}
-                      />
-                    </div>
-                  )}
-                </div>
-                <p className="operational-data">
-                  Hoy: {settings.usedToday} de {settings.dailyCap} titulares
-                </p>
-                {provider === 'llm' && (
+                )}
+                {provider === 'suscripcion' && (
                   <p className="operational-data">
-                    Este mes: {llmMoney(settings.spentThisMonthEur)} de{' '}
-                    {llmMoney(settings.monthlyBudgetEur)}
+                    Hoy: {settings.usedToday} de {settings.dailyCap} titulares
                   </p>
                 )}
-                {settings.usedToday >= settings.dailyCap && (
-                  <p role="status">Tope diario alcanzado · se mantiene el análisis local.</p>
+                {provider === 'suscripcion' && settings.usedToday >= settings.dailyCap && (
+                  <p role="status">Tope diario alcanzado · se mantiene el analizador local.</p>
                 )}
                 {offline && provider !== 'local' && (
-                  <p role="status">Sin conexión · la prueba del LLM está pausada.</p>
+                  <p role="status">Sin conexión · la prueba está pausada.</p>
                 )}
+                <SubscriptionNotice
+                  status={newsStatus.status}
+                  error={newsStatus.error}
+                  busy={busy && testAfterSave.current && noticeRetryActive}
+                  context="ajustes"
+                  canRetry={valid && !(provider !== 'local' && offline)}
+                  onRetry={() => {
+                    setNoticeRetryActive(true);
+                    requestSave(true);
+                  }}
+                />
                 <p>Probar guarda estos ajustes y comprueba el proveedor elegido.</p>
                 <div className="settings-actions">
-                  <button
-                    className="button"
-                    type="button"
-                    disabled={!valid || (provider !== 'local' && offline)}
-                    onClick={() => requestSave(true)}
-                  >
-                    Probar
-                  </button>
+                  {!failedSubscription && !newsStatus.error && !noticeRetryActive && (
+                    <button
+                      className="button"
+                      type="button"
+                      aria-disabled={busy}
+                      disabled={!valid || (provider !== 'local' && offline)}
+                      onClick={() => requestSave(true)}
+                    >
+                      {busy && testAfterSave.current ? 'Probando…' : 'Probar de nuevo'}
+                    </button>
+                  )}
                   <button
                     ref={saveButton}
                     className="button primary"
                     type="submit"
-                    disabled={!valid}
+                    disabled={busy || !valid}
                   >
                     Guardar ajustes
                   </button>
@@ -333,7 +270,7 @@ export function AiSettings() {
             </form>
           )
         )}
-        {busy && <p role="status">Comprobando o guardando el LLM…</p>}
+        {busy && <p role="status">Comprobando o guardando el análisis…</p>}
         <SettingsFeedback error={error} message={message} />
         {!loading && !settings && (
           <button className="button" onClick={() => void reload()}>
@@ -341,18 +278,6 @@ export function AiSettings() {
           </button>
         )}
       </div>
-      {confirm && (
-        <LlmSpendConfirmation
-          budget={Number(budget)}
-          cap={Number(cap)}
-          accept={() => void save()}
-          close={() => {
-            setConfirm(false);
-            testAfterSave.current = false;
-            saveButton.current?.focus();
-          }}
-        />
-      )}
     </SettingsSection>
   );
 }

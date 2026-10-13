@@ -110,6 +110,52 @@ describe('alta de estrategia', () => {
   });
 });
 
+describe('reglas de corto en la ficha', () => {
+  const SHORT_RULES = {
+    entryShort: 'cruza_abajo(sma(rapida), sma(lenta))',
+    exitShort: 'cruza_arriba(sma(rapida), sma(lenta))',
+  };
+
+  it('guarda la pareja de corto y la devuelve tal cual en la ficha', () => {
+    const created = repo.create({ ...BASE, rules: { ...BASE.rules, ...SHORT_RULES } });
+    expect(created.rules.entryShort).toBe(SHORT_RULES.entryShort);
+    expect(created.rules.exitShort).toBe(SHORT_RULES.exitShort);
+    // La edición que no toca las reglas conserva la pareja en la v2.
+    const updated = repo.update({ id: created.id, note: 'solo el nombre', name: 'Nuevo nombre' });
+    expect(updated.rules.entryShort).toBe(SHORT_RULES.entryShort);
+    expect(updated.rules.exitShort).toBe(SHORT_RULES.exitShort);
+    // La v1 intacta también los tiene.
+    expect(repo.get(created.id, 1)?.rules.entryShort).toBe(SHORT_RULES.entryShort);
+  });
+
+  it('en blanco o ausentes cuentan como sin corto', () => {
+    const created = repo.create({
+      ...BASE,
+      rules: { ...BASE.rules, entryShort: '   ', exitShort: '' },
+    });
+    expect(created.rules.entryShort).toBeUndefined();
+    expect(created.rules.exitShort).toBeUndefined();
+    // Y reemplazando rules sin los campos se quita el corto.
+    const withShort = repo.create({ ...BASE, rules: { ...BASE.rules, ...SHORT_RULES } });
+    const updated = repo.update({
+      id: withShort.id,
+      note: 'quito el corto',
+      rules: { ...BASE.rules },
+    });
+    expect(updated.rules.entryShort).toBeUndefined();
+    expect(updated.rules.exitShort).toBeUndefined();
+  });
+
+  it('rechaza la pareja incompleta', () => {
+    expect(() =>
+      repo.create({ ...BASE, rules: { ...BASE.rules, entryShort: SHORT_RULES.entryShort } }),
+    ).toThrowError(/pareja/);
+    expect(() =>
+      repo.create({ ...BASE, rules: { ...BASE.rules, exitShort: SHORT_RULES.exitShort } }),
+    ).toThrowError(/pareja/);
+  });
+});
+
 describe('versionado', () => {
   it('la edición crea la versión 2 con su nota y conserva la 1', () => {
     const created = repo.create(BASE);

@@ -18,7 +18,15 @@ import {
  * modo de la app cambia después.
  */
 
-const LIMITS: LiveLimits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+const LIMITS: LiveLimits = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
+};
 
 let context: PhaseApp | undefined;
 

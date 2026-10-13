@@ -29,7 +29,7 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
       bars: { AAPL: [bar('2026-10-05', 10), bar('2026-10-06', 11), bar('2026-10-07', 12)] },
     });
     expect(orders).toEqual([
-      { ticker: 'AAPL', kind: 'buy', referencePrice: 12, stop: 9, target: 15 },
+      { ticker: 'AAPL', kind: 'buy', leg: 'entrada', referencePrice: 12, stop: 9, target: 15 },
     ]);
   });
 
@@ -58,7 +58,7 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
     });
     // La compra del día 5 llenó a la apertura del 6; en el cierre del 6 vende.
     expect(orders).toEqual([
-      { ticker: 'AAPL', kind: 'sell', referencePrice: 13, stop: null, target: null },
+      { ticker: 'AAPL', kind: 'sell', leg: 'salida', referencePrice: 13, stop: null, target: null },
     ]);
   });
 
@@ -86,7 +86,7 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
       },
     });
     expect(orders).toEqual([
-      { ticker: 'AAPL', kind: 'sell', referencePrice: 10, stop: null, target: null },
+      { ticker: 'AAPL', kind: 'sell', leg: 'salida', referencePrice: 10, stop: null, target: null },
     ]);
   });
 
@@ -107,7 +107,7 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
       bars: { AAPL: [bar('2026-10-07', 12)], MSFT: [] },
     });
     expect(orders).toEqual([
-      { ticker: 'AAPL', kind: 'buy', referencePrice: 12, stop: null, target: null },
+      { ticker: 'AAPL', kind: 'buy', leg: 'entrada', referencePrice: 12, stop: null, target: null },
     ]);
   });
 
@@ -158,7 +158,7 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
       },
     });
     expect(orders).toEqual([
-      { ticker: 'AAPL', kind: 'buy', referencePrice: 10, stop: null, target: null },
+      { ticker: 'AAPL', kind: 'buy', leg: 'entrada', referencePrice: 10, stop: null, target: null },
     ]);
   });
 
@@ -180,6 +180,85 @@ describe('sonda de estrategias (collectLastBarOrders)', () => {
     expect(orders[0]).toMatchObject({ ticker: 'SPY', kind: 'buy', referencePrice: 12 });
     expect(orders[0]!.stop).not.toBeNull();
     expect(orders[0]!.stop!).toBeLessThan(12);
+  });
+
+  it('el corto sale como «sell» de entrada y su cierre como «buy» de salida', () => {
+    const strategy: Strategy = {
+      init: () => undefined,
+      onBar: (ctx) => {
+        const position = ctx.position('AAPL');
+        if (position === null && ctx.date === '2026-10-06') {
+          ctx.short('AAPL', { stop: 13 });
+        }
+        if (position !== null && position.side === 'corto' && ctx.date === '2026-10-07') {
+          ctx.cover('AAPL');
+        }
+      },
+    };
+    // El short de la última sesión es una propuesta en corto.
+    const entering = collectLastBarOrders({
+      strategy,
+      bars: { AAPL: [bar('2026-10-05', 10), bar('2026-10-06', 11)] },
+    });
+    expect(entering).toEqual([
+      { ticker: 'AAPL', kind: 'sell', leg: 'entrada', referencePrice: 11, stop: 13, target: null },
+    ]);
+    // El short del 6 llena en la apertura del 7 y la recompra de ese mismo
+    // cierre sale como 'buy' de salida.
+    const covering = collectLastBarOrders({
+      strategy,
+      bars: { AAPL: [bar('2026-10-05', 10), bar('2026-10-06', 11), bar('2026-10-07', 9)] },
+    });
+    expect(covering).toEqual([
+      { ticker: 'AAPL', kind: 'buy', leg: 'salida', referencePrice: 9, stop: null, target: null },
+    ]);
+  });
+
+  it('el stop del corto lo toca el high y un hueco al alza ejecuta a la apertura', () => {
+    const strategy: Strategy = {
+      init: () => undefined,
+      onBar: (ctx) => {
+        if (ctx.position('AAPL') === null && ctx.bars('AAPL').length === 1) {
+          ctx.short('AAPL', { stop: 11 });
+        }
+        // La última sesión comprueba que el stop ya cerró el corto.
+        if (ctx.date === '2026-10-08' && ctx.position('AAPL') === null) ctx.sell('AAPL');
+      },
+    };
+    const orders = collectLastBarOrders({
+      strategy,
+      bars: {
+        AAPL: [
+          bar('2026-10-05', 10),
+          bar('2026-10-06', 10),
+          // El high salta el stop del corto (11): lo cierra a la apertura (hueco a 12).
+          bar('2026-10-07', 11, { open: 12, high: 12.5, low: 9, close: 11 }),
+          bar('2026-10-08', 10),
+        ],
+      },
+    });
+    expect(orders).toEqual([
+      { ticker: 'AAPL', kind: 'sell', leg: 'salida', referencePrice: 10, stop: null, target: null },
+    ]);
+  });
+
+  it('una entrada en largo y una en corto del mismo activo en la misma señal se anulan', () => {
+    const strategy: Strategy = {
+      init: () => undefined,
+      onBar: (ctx) => {
+        if (ctx.bars('AAPL').length === 1 || ctx.date === '2026-10-07') {
+          ctx.buy('AAPL');
+          ctx.short('AAPL');
+        }
+      },
+    };
+    // Las dos entradas se anulan: al llenar (la señal del día 5 no abre
+    // nada el 6) y al emitir propuestas (las del 7 no salen).
+    const orders = collectLastBarOrders({
+      strategy,
+      bars: { AAPL: [bar('2026-10-05', 10), bar('2026-10-06', 10), bar('2026-10-07', 10)] },
+    });
+    expect(orders).toEqual([]);
   });
 
   it('la estrategia clásica no repite compra si ya mantiene la posición del cruce anterior', () => {

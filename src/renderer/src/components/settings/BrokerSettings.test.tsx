@@ -37,7 +37,7 @@ it('enmascara los dos campos, valida vacíos y no llama al broker', async () => 
   fireEvent.submit(screen.getByLabelText('Clave de API').closest('form')!);
   expect(screen.getByText('Introduce la clave de API')).toBeInTheDocument();
   expect(screen.getByText('Introduce el secreto de API')).toBeInTheDocument();
-  expect(screen.getByLabelText('Clave de API')).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText('Clave de API')).toHaveFocus());
   expect(test).not.toHaveBeenCalled();
 });
 it.each([
@@ -51,7 +51,7 @@ it.each([
   await userEvent.type(screen.getByLabelText('Secreto de API'), secret);
   expect(screen.getByRole('button', { name: 'Probar conexión' })).toBeDisabled();
   fireEvent.submit(screen.getByLabelText('Clave de API').closest('form')!);
-  expect(screen.getByLabelText(field)).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText(field)).toHaveFocus());
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Usa claves de 6 a 256 caracteres alfanuméricos o guiones, sin espacios.',
   );
@@ -64,7 +64,7 @@ it('enfoca el secreto vacío cuando la clave es válida', async () => {
   await mount();
   await userEvent.type(screen.getByLabelText('Clave de API'), 'PKPAPER123');
   fireEvent.submit(screen.getByLabelText('Clave de API').closest('form')!);
-  expect(screen.getByLabelText('Secreto de API')).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText('Secreto de API')).toHaveFocus());
   expect(screen.getByText('Introduce el secreto de API')).toBeInTheDocument();
   expect(test).not.toHaveBeenCalled();
   expect(save).not.toHaveBeenCalled();
@@ -133,9 +133,13 @@ it('confirma desconexión, atrapa foco y permite cancelar con Escape', async () 
   await connect();
   const trigger = screen.getByRole('button', { name: 'Desconectar' });
   await userEvent.click(trigger);
-  expect(screen.getByRole('button', { name: 'Mantener conectada' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Mantener conectada' })).toHaveFocus(),
+  );
   await userEvent.tab({ shift: true });
-  expect(screen.getByRole('button', { name: 'Desconectar y borrar claves' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Desconectar y borrar claves' })).toHaveFocus(),
+  );
   await userEvent.keyboard('{Escape}');
   await waitFor(() => expect(trigger).toHaveFocus());
   expect(disconnect).not.toHaveBeenCalled();

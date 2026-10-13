@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import type { Strategy, StrategyCosts } from '../../../../shared/strategy';
 import { useBacktest, useBacktestHistory } from '../../hooks/useBacktest';
-import { ExecutionNotice } from '../strategies/ExecutionNotice';
+import { ExecutionNotice, RULES_BLOCKED_HELP } from '../strategies/ExecutionNotice';
+import { strategyExecution } from '../strategies/ruleValidation';
 import { BacktestHistory } from './BacktestHistory';
 import './backtest.css';
 const costLabels: Record<keyof StrategyCosts, string> = {
@@ -17,11 +18,13 @@ export function BacktestLauncher({
   strategy: Strategy;
   readOnly?: boolean;
 }) {
+  const execution = strategyExecution(s);
   const state = useBacktest(s.id, s.version);
   const history = useBacktestHistory(s.id, s.version);
   const [confirm, setConfirm] = useState(false);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const [validation, setValidation] = useState('');
+  const executable = execution.executable && !state.rulesInvalid;
   const final = history.items.find((run) => run.kind === 'prueba-final');
   return (
     <>
@@ -31,12 +34,12 @@ export function BacktestLauncher({
           Entrenamiento 60 % · validación 20 % · prueba final reservada 20 %. El backtest deja
           intacta la prueba final.
         </p>
-        {!s.executable && <ExecutionNotice />}
+        {state.rulesInvalid && <ExecutionNotice strategyId={s.id} readOnly={readOnly} />}
         {readOnly && <p>Versión histórica · lanzador en solo lectura.</p>}
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (!s.executable || readOnly || state.busy) return;
+            if (!executable || readOnly || state.busy) return;
             const data = new FormData(event.currentTarget);
             const desde = String(data.get('desde'));
             const hasta = String(data.get('hasta'));
@@ -71,7 +74,7 @@ export function BacktestLauncher({
             });
           }}
         >
-          <fieldset disabled={!s.executable || state.busy || readOnly} className="backtest-fields">
+          <fieldset disabled={!executable || state.busy || readOnly} className="backtest-fields">
             <legend>Periodo, parámetros y costes</legend>
             <div className="strategy-grid">
               <label>
@@ -143,10 +146,21 @@ export function BacktestLauncher({
                 </label>
               ))}
             </div>
-            <button className="strategy-primary" type="submit">
-              Lanzar backtest
-            </button>
           </fieldset>
+          <button
+            className="strategy-primary"
+            type="submit"
+            disabled={state.busy || readOnly}
+            aria-disabled={!executable}
+            aria-describedby={!executable ? 'backtest-blocked' : undefined}
+          >
+            Lanzar backtest
+          </button>
+          {!executable && (
+            <p id="backtest-blocked">
+              {RULES_BLOCKED_HELP} {execution.reason}
+            </p>
+          )}
         </form>
         {validation && <p role="alert">{validation}</p>}
         {state.error && <p role="alert">{state.error}</p>}
@@ -176,7 +190,7 @@ export function BacktestLauncher({
             <button
               ref={confirmButton}
               disabled={
-                !s.executable ||
+                !executable ||
                 readOnly ||
                 state.busy ||
                 history.loading ||
@@ -217,7 +231,7 @@ export function BacktestLauncher({
                   Cancelar
                 </button>
                 <button
-                  disabled={!s.executable || readOnly || state.busy}
+                  disabled={!executable || readOnly || state.busy}
                   onClick={() => {
                     setConfirm(false);
                     if (s.executable && !readOnly) void state.launch();

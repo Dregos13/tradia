@@ -9,3 +9,5 @@ test-results/
 .DS_Store
 .venv-ml/
 ml/__pycache__/
+ml/data/*
+!ml/data/synthetic.csv

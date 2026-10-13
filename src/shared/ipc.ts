@@ -166,6 +166,7 @@ import {
   DRIFT_CHECK_KINDS,
   NEWS_ANALYSIS_MAX_LIMIT,
   NEWS_ANALYZERS,
+  NEWS_PROVIDERS,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
   PREDICTIONS_MAX_LIMIT,
@@ -183,6 +184,7 @@ import type {
   NewsAnalysis,
   NewsAnalysisQuery,
   NewsAnalyzer,
+  NewsStatus,
   NewsLlmSettings,
   NewsLlmSettingsInput,
   NewsLlmTestResult,
@@ -583,6 +585,13 @@ export const IPC_CHANNELS = {
     modelCard: 'ai:model-card',
     /** Análisis de noticias confirmadas por activo (`{newsItemId?, ticker?, limit?}`). */
     newsAnalysis: 'ai:news-analysis',
+    /**
+     * Estado del análisis por suscripción: proveedor elegido, salud de la
+     * CLI de Claude Code y el motivo/paso para resolverlo cuando falla.
+     */
+    newsStatus: 'ai:news-status',
+    /** Evento main → renderer: el estado del análisis por suscripción cambió. */
+    newsStatusChanged: 'ai:news-status-changed',
     /** Ajustes del LLM de noticias (nunca la clave: solo `hasKey`). */
     getLlmSettings: 'ai:get-llm-settings',
     setLlmSettings: 'ai:set-llm-settings',
@@ -684,7 +693,7 @@ export type NotificationLevel = (typeof NOTIFICATION_LEVELS)[number];
  * la conciliación, Órdenes, y la alerta de desviación, Real vs backtest.
  * Son las rutas por hash del renderer (`#noticias`, `#calendario`,
  * `#riesgo`, `#diario`, `#inicio`, `#ordenes`, `#real-vs-backtest`,
- * `#ia`, `#salud-modelos` y `#dinero-real` de las fases 6-7).
+ * `#ia`, `#salud-modelos`, `#dinero-real` y `#ajustes`).
  */
 export const NOTIFICATION_ROUTES = [
   'noticias',
@@ -697,6 +706,7 @@ export const NOTIFICATION_ROUTES = [
   'ia',
   'salud-modelos',
   'dinero-real',
+  'ajustes',
 ] as const;
 export type NotificationRoute = (typeof NOTIFICATION_ROUTES)[number];
 
@@ -1732,6 +1742,14 @@ export interface TradiaApi {
     /** Análisis de noticias confirmadas por activo. */
     newsAnalysis(query?: NewsAnalysisQuery): Promise<NewsAnalysis[]>;
     /**
+     * Estado del análisis por suscripción: si la CLI falla (no encontrada,
+     * sin sesión o tope diario) `state` lo dice y `message` da el paso
+     * para resolverlo mientras los titulares se analizan en local.
+     */
+    newsStatus(): Promise<NewsStatus>;
+    /** Llega una vez por cada cambio del estado del análisis. */
+    onNewsStatusChanged(listener: (status: NewsStatus) => void): () => void;
+    /**
      * Ajustes del análisis LLM de noticias. `hasKey` solo indica si hay
      * clave cifrada guardada; la clave nunca sale del proceso principal.
      */
@@ -2237,14 +2255,21 @@ export function isStrategyNote(value: unknown): value is string {
 export function isStrategyRules(value: unknown): value is StrategyRules {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'entry' && k !== 'exit' && k !== 'stop' && k !== 'target')) {
+  const RULE_KEYS = ['entry', 'exit', 'stop', 'target', 'entryShort', 'exitShort'];
+  if (Object.keys(v).some((k) => !RULE_KEYS.includes(k))) {
     return false;
   }
+  // Los campos de corto son opcionales: ausentes o en blanco valen
+  // («sin corto»); la pareja incompleta la detecta parseStrategyRules.
+  const isOptionalRuleText = (x: unknown): boolean =>
+    x === undefined || (typeof x === 'string' && x.length <= STRATEGY_TEXT_MAX_LENGTH);
   return (
     isStrategyText(v.entry) &&
     isStrategyText(v.exit) &&
     isStrategyText(v.stop) &&
-    isStrategyText(v.target)
+    isStrategyText(v.target) &&
+    isOptionalRuleText(v.entryShort) &&
+    isOptionalRuleText(v.exitShort)
   );
 }
 
@@ -2441,6 +2466,23 @@ export function isSetStrategyStatusRequest(value: unknown): value is SetStrategy
 // ---------------------------------------------------------------------------
 // Guardas: backtest y pruebas de estrés (fase 2)
 // ---------------------------------------------------------------------------
+
+/**
+ * Códigos de `BacktestError` (src/main/backtest): los lanzan los canales
+ * `backtest:*` y `stress:*` y el `code` viaja al renderer con el error.
+ * 'reglas-invalidas' es el rechazo de una estrategia propia cuyas reglas
+ * de la versión pedida no compilan (`parseStrategyRules`); su mensaje es
+ * el primer error del análisis. 'sin-implementacion' queda para claves
+ * registradas que no corresponden a ninguna implementación conocida.
+ */
+export const BACKTEST_ERROR_CODES = [
+  'not-found',
+  'invalid-input',
+  'sin-implementacion',
+  'reglas-invalidas',
+  'sin-datos',
+] as const;
+export type BacktestErrorCode = (typeof BACKTEST_ERROR_CODES)[number];
 
 /** Id entero positivo de una ejecución guardada (`backtest:get`). */
 export function isBacktestRunId(value: unknown): value is number {
@@ -3388,9 +3430,14 @@ export function isNewsAnalysisQuery(value: unknown): value is NewsAnalysisQuery 
   return true;
 }
 
-/** Analizador de titulares registrado ('llm' | 'local' | 'suscripcion'). */
+/** Analizador de titulares persistido ('llm' | 'local' | 'suscripcion'). */
 export function isNewsAnalyzer(value: unknown): value is NewsAnalyzer {
   return typeof value === 'string' && (NEWS_ANALYZERS as readonly string[]).includes(value);
+}
+
+/** Proveedor elegible en Ajustes ('suscripcion' | 'local'); 'llm' se retiró. */
+export function isNewsProvider(value: unknown): value is NewsAnalyzer {
+  return typeof value === 'string' && (NEWS_PROVIDERS as readonly string[]).includes(value);
 }
 
 /** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
@@ -3402,7 +3449,8 @@ export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettings
   const allowed = ['enabled', 'provider', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
   if (keys.some((k) => !allowed.includes(k))) return false;
   if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
-  if ('provider' in v && !isNewsAnalyzer(v.provider)) return false;
+  // El proveedor solo admite los elegibles: 'llm' (API de pago) se retiró.
+  if ('provider' in v && !isNewsProvider(v.provider)) return false;
   if (
     'cliPath' in v &&
     v.cliPath !== null &&
@@ -3527,15 +3575,28 @@ export function isLiveDeclareRequest(value: unknown): value is LiveDeclareReques
 }
 
 /**
- * Límites escritos del modo real (`live:set-limits`): los cuatro valores,
- * todos positivos y sin superar los techos fijos de `LIVE_FIXED_CAPS`.
+ * Límites escritos del modo real (`live:set-limits`): los siete valores,
+ * los del largo todos positivos y los del corto a 0 o más —0 es cómo se
+ * deja el corto desactivado—, ninguno por encima de los techos fijos de
+ * `LIVE_FIXED_CAPS`.
  */
 export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  const allowed = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  const allowed = [
+    'capitalUsd',
+    'orderUsd',
+    'dailyLossUsd',
+    'openPositions',
+    'shortOrderUsd',
+    'shortExposureUsd',
+    'shortPositions',
+  ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
-  if (allowed.some((k) => !(k in v))) return false;
+  // Los del largo son obligatorios; los del corto son opcionales y, si
+  // vienen, deben estar acotados (ausente = 0 = corto desactivado).
+  const required = ['capitalUsd', 'orderUsd', 'dailyLossUsd', 'openPositions'];
+  if (required.some((k) => !(k in v))) return false;
   const usdField = (key: 'capitalUsd' | 'orderUsd' | 'dailyLossUsd', cap: number): boolean =>
     typeof v[key] === 'number' &&
     Number.isFinite(v[key] as number) &&
@@ -3544,10 +3605,22 @@ export function isLiveLimitsInput(value: unknown): value is LiveLimitsInput {
   if (!usdField('capitalUsd', LIVE_FIXED_CAPS.capitalUsd)) return false;
   if (!usdField('orderUsd', LIVE_FIXED_CAPS.orderUsd)) return false;
   if (!usdField('dailyLossUsd', LIVE_FIXED_CAPS.dailyLossUsd)) return false;
+  const shortUsdField = (key: 'shortOrderUsd' | 'shortExposureUsd', cap: number): boolean =>
+    !(key in v) ||
+    (typeof v[key] === 'number' &&
+      Number.isFinite(v[key] as number) &&
+      (v[key] as number) >= 0 &&
+      (v[key] as number) <= cap);
+  if (!shortUsdField('shortOrderUsd', LIVE_FIXED_CAPS.shortOrderUsd)) return false;
+  if (!shortUsdField('shortExposureUsd', LIVE_FIXED_CAPS.shortExposureUsd)) return false;
   return (
     Number.isInteger(v.openPositions) &&
     (v.openPositions as number) >= 1 &&
-    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions
+    (v.openPositions as number) <= LIVE_FIXED_CAPS.openPositions &&
+    (!('shortPositions' in v) ||
+      (Number.isInteger(v.shortPositions) &&
+        (v.shortPositions as number) >= 0 &&
+        (v.shortPositions as number) <= LIVE_FIXED_CAPS.shortPositions))
   );
 }
 

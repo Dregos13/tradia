@@ -688,9 +688,8 @@ describe('registerBroker · envoltura de broadcast', () => {
     await waitFor(() => repo.listOrders({}).length > 0);
 
     const orders = repo.listOrders({});
-    expect(orders).toHaveLength(1);
-    expect(orders[0]).toMatchObject({
-      clientOrderId: `tradia-${signal.id}-entrada`,
+    const entrada = orders.find((o) => o.clientOrderId === `tradia-${signal.id}-entrada`);
+    expect(entrada).toMatchObject({
       ticker: 'AAPL',
       type: 'market',
       side: 'buy',
@@ -730,7 +729,11 @@ describe('registerBroker · envoltura de broadcast', () => {
     ctx.services.live = { liveExecutionActive: () => false } as never;
     const next = seedSignal();
     ctx.broadcast(IPC_CHANNELS.signals.new, { signal: next });
-    await waitFor(() => repo.listOrders({}).length > 0);
-    expect(repo.listOrders({})).toHaveLength(1);
+    await waitFor(() =>
+      repo.listOrders({}).some((o) => o.clientOrderId === `tradia-${next.id}-entrada`),
+    );
+    expect(repo.listOrders({}).some((o) => o.clientOrderId === `tradia-${next.id}-entrada`)).toBe(
+      true,
+    );
   });
 });

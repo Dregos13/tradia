@@ -273,8 +273,12 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
   const innerBroadcast = ctx.broadcast;
   ctx.broadcast = (channel, payload) => {
     innerBroadcast(channel, payload);
-    if (channel === IPC_CHANNELS.risk.changed) service.handleRiskChanged(payload);
-    else if (channel === IPC_CHANNELS.connectivity.changed) {
+    if (channel === IPC_CHANNELS.risk.changed) {
+      service.handleRiskChanged(payload);
+      // La parada de emergencia recompra los cortos abiertos: un corto
+      // real no puede quedar abierto con el sistema parado.
+      liveBroker.handleRiskChanged(payload);
+    } else if (channel === IPC_CHANNELS.connectivity.changed) {
       service.handleConnectivityChange(payload);
     } else if (channel === IPC_CHANNELS.signals.new) {
       liveBroker.handleSignalEvent(payload);
@@ -296,7 +300,7 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
     if (!isLiveLimitsInput(input)) {
       throw new IpcValidationError(
         IPC_CHANNELS.live.setLimits,
-        'se esperaba {capitalUsd, orderUsd, dailyLossUsd, openPositions} dentro de los techos fijos',
+        'se esperaba {capitalUsd, orderUsd, dailyLossUsd, openPositions, shortOrderUsd?, shortExposureUsd?, shortPositions?} dentro de los techos fijos',
       );
     }
     return service.setLimits(input);

@@ -318,8 +318,18 @@ const truncate = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 
 /** Motivo legible del voto: la regla de la ficha que explica la propuesta. */
-export function voteReason(ficha: Strategy, kind: 'buy' | 'sell'): string {
-  const rule = kind === 'buy' ? ficha.rules.entry : ficha.rules.exit;
+export function voteReason(ficha: Strategy, order: Pick<ProbeOrder, 'kind' | 'leg'>): string {
+  const rules = ficha.rules;
+  const written = (text: string | undefined): string | null =>
+    typeof text === 'string' && text.trim() !== '' ? text : null;
+  const rule =
+    order.leg === 'salida'
+      ? order.kind === 'buy'
+        ? (written(rules.exitShort) ?? rules.exit)
+        : rules.exit
+      : order.kind === 'sell'
+        ? (written(rules.entryShort) ?? rules.entry)
+        : rules.entry;
   return truncate(rule.trim().replace(/\s+/g, ' '), SIGNAL_REASON_MAX_LENGTH);
 }
 
@@ -498,7 +508,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         version: evaluable.ficha.version,
         direction: order.kind === 'buy' ? 'largo' : 'corto',
         confidence,
-        reason: voteReason(evaluable.ficha, order.kind),
+        reason: voteReason(evaluable.ficha, order),
       },
     }));
   };

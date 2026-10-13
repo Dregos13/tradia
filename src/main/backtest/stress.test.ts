@@ -12,8 +12,11 @@ import { describe, expect, it } from 'vitest';
 
 import { isTradingDay } from '../market/calendar';
 import { createSimulatedProvider } from '../market/providers';
+import { parseStrategyRules } from '../../shared/strategyRules';
+import type { StrategyRules } from '../../shared/strategy';
 import { runBacktest } from './engine';
 import { CLASSIC_STRATEGIES } from './strategies';
+import { createCustomStrategy } from './strategies/custom';
 import { CROSS_ASSET_MOMENTUM_DEFAULTS } from './strategies/crossAssetMomentum';
 import { bar, sessionDates } from './strategies/testKit';
 import type { EngineBar, Strategy, StrategyContext } from './types';
@@ -117,6 +120,45 @@ describe('las tres crisis con las cuatro estrategias clásicas (proveedor simula
       // margen cubre la contienda de CPU de la suite con --maxWorkers=2.
     }, 60_000);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Estrategias propias compiladas (sin clave en strategy_implementations)
+// ---------------------------------------------------------------------------
+
+describe('las tres crisis con una estrategia propia compilada', () => {
+  // El cruce de medias escrito en el lenguaje de reglas (docs/reglas-estrategias.md).
+  const rules: StrategyRules = {
+    entry: 'cruza_arriba(sma(rapida), sma(lenta))',
+    exit: 'cruza_abajo(sma(rapida), sma(lenta))',
+    stop: 'stopAtr * atr(atrPeriod)',
+    target: 'targetR * stopAtr * atr(atrPeriod)',
+  };
+  const params = { rapida: 20, lenta: 60, atrPeriod: 14, stopAtr: 3, targetR: 2.5 };
+  const parsed = parseStrategyRules(rules, params);
+  if (!parsed.ok)
+    throw new Error(`las reglas de la prueba no compilan: ${JSON.stringify(parsed.errors)}`);
+
+  it('produce resultado en 2008, 2020 y 2022, etiquetado simulado', async () => {
+    const program = parsed.program;
+    const run = await runStressTests({
+      strategy: () => createCustomStrategy(program, params),
+      params,
+      markets: ['SPY'],
+      source: stressSourceFromProvider(simulated()),
+    });
+
+    expect(run.results.map((r) => r.crisis.id)).toEqual(['2008', '2020', '2022']);
+    for (const result of run.results) {
+      expect(result.sessions).toBeGreaterThan(0);
+      expect(result.equityCurve.length).toBe(result.sessions);
+      expect(result.totalReturn).not.toBeNull();
+      expect(result.dataSource).toBe('simulated');
+      expect(Number.isInteger(result.trades)).toBe(true);
+    }
+    // La propia opera de verdad: al menos una ventana cierra operaciones.
+    expect(run.results.reduce((sum, r) => sum + r.trades, 0)).toBeGreaterThan(0);
+  }, 60_000);
 });
 
 // ---------------------------------------------------------------------------

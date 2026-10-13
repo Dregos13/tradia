@@ -35,6 +35,9 @@ const LIMITS: LiveLimitsInput = {
   orderUsd: 100,
   dailyLossUsd: 10,
   openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
 };
 const SILENT = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
@@ -50,7 +53,18 @@ let fetchCalls: { url: string; method: string; body: string }[];
 const iso = (): string => new Date(nowMs).toISOString();
 
 const confirmLimits = (input: LiveLimitsInput = LIMITS): void => {
-  store.saveLimits(input, iso());
+  store.saveLimits(
+    {
+      capitalUsd: input.capitalUsd,
+      orderUsd: input.orderUsd,
+      dailyLossUsd: input.dailyLossUsd,
+      openPositions: input.openPositions,
+      shortOrderUsd: input.shortOrderUsd ?? 0,
+      shortExposureUsd: input.shortExposureUsd ?? 0,
+      shortPositions: input.shortPositions ?? 0,
+    },
+    iso(),
+  );
   store.confirmLimits(iso());
 };
 
@@ -117,9 +131,16 @@ const snapshot = (mode: LiveOrderSnapshot['mode'] = 'activo'): LiveOrderSnapshot
             orderUsd: limitsRow.orden_usd,
             dailyLossUsd: limitsRow.perdida_diaria_usd,
             openPositions: limitsRow.posiciones_max,
+            shortOrderUsd: limitsRow.corto_orden_usd,
+            shortExposureUsd: limitsRow.corto_exposicion_usd,
+            shortPositions: limitsRow.corto_posiciones_max,
           }
         : null,
-    openTickers: positions.map((p) => p.ticker),
+    openPositions: positions.map((p) => ({ ticker: p.ticker, side: p.side, quantity: p.quantity })),
+    shortExposureUsd: null,
+    pendingShortUsd: 0,
+    accountShorting: null,
+    asset: null,
     capitalInUseUsd: positions.reduce((s, p) => s + p.quantity * p.avgEntryPrice, 0),
     realizedLossTodayUsd: 0,
   };

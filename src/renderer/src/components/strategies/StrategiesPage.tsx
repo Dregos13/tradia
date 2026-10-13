@@ -82,13 +82,14 @@ function StrategyRoute({
 }) {
   const detail = useStrategy(id, version);
   const actions = useStrategies();
-  if (detail.loading)
+  const hasDetail = !!detail.strategy && !!detail.latest;
+  if (detail.loading && (!hasDetail || edit))
     return (
       <p role="status" aria-busy="true">
         Cargando ficha…
       </p>
     );
-  if (detail.error)
+  if (detail.error && (!hasDetail || edit))
     return (
       <p role="alert">
         {detail.error} <button onClick={() => void detail.reload()}>Reintentar</button>
@@ -112,14 +113,24 @@ function StrategyRoute({
       />
     );
   return (
-    <StrategyDetail
-      strategy={detail.strategy}
-      latest={detail.latest}
-      history={detail.history ?? []}
-      changeStatus={async (status) => {
-        await actions.setStatus({ id, status });
-        await detail.reload();
-      }}
-    />
+    <>
+      <StrategyDetail
+        strategy={detail.strategy}
+        latest={detail.latest}
+        history={detail.history ?? []}
+        changeStatus={async (status) => {
+          const saved = await actions.setStatus({ id, status });
+          detail.acceptSavedStrategy(saved);
+          // Relectura de fondo: sin «Cargando ficha…», la ficha no se desmonta y
+          // conserva el aviso «Estado actualizado» y el foco.
+          await detail.reload(true);
+        }}
+      />
+      {detail.error && (
+        <p role="alert">
+          {detail.error} <button onClick={() => void detail.reload(true)}>Reintentar ficha</button>
+        </p>
+      )}
+    </>
   );
 }

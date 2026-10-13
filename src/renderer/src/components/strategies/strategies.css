@@ -76,6 +76,26 @@
 .strategy-table td {
   font-variant-numeric: tabular-nums;
 }
+/* Un nombre largo no estrecha las cifras: las columnas fijas no se parten y el nombre absorbe el ajuste. */
+.strategy-library-table .strategy-table-fixed {
+  white-space: nowrap;
+  min-width: var(--space-16);
+}
+.strategy-library-table .strategy-table-fixed small {
+  white-space: normal;
+}
+.strategy-library-table th[scope='row'] {
+  width: 100%;
+  min-width: calc(var(--space-16) * 3);
+}
+.strategy-table-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .strategy-table small {
   display: block;
   color: var(--color-textMuted);
@@ -345,4 +365,119 @@
   .strategy-comparison-scroll .strategy-table td::before {
     content: none;
   }
+}
+
+.strategy-rule-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+}
+.strategy-rule-fields,
+.strategy-rule-field {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.strategy-rule-fields {
+  gap: var(--space-8);
+}
+.strategy-rule-field > p {
+  margin: 0;
+  color: var(--color-textMuted);
+}
+.strategy-rule-field textarea {
+  font-family: var(--font-numeric);
+  min-height: calc(var(--space-12) * 2 + var(--space-2));
+}
+.strategy-rule-field textarea[aria-invalid='true'] {
+  border-color: var(--state-critical);
+}
+.strategy-rule-result,
+.strategy-rule-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: start;
+}
+.strategy-rule-result {
+  justify-content: space-between;
+  font-size: var(--type-sm);
+}
+.strategy-rule-result > span:last-child {
+  color: var(--color-textMuted);
+  font-family: var(--font-numeric);
+}
+.strategy-rule-error,
+.strategies-page .strategy-rule-error button {
+  color: var(--state-critical);
+}
+.strategies-page .strategy-rule-error button {
+  text-align: left;
+  padding: var(--space-2);
+  border-color: var(--state-critical);
+}
+.strategy-rule-valid {
+  color: var(--state-success);
+}
+.strategy-rule-reference {
+  min-width: 0;
+  border-top: 1px solid var(--color-border);
+}
+.strategy-rule-reference h3 {
+  font-family: var(--font-editorial);
+}
+.strategy-rule-reference code {
+  font-family: var(--font-numeric);
+  overflow-wrap: anywhere;
+}
+.strategy-rule-reference :is(a, summary),
+.strategy-execution a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-controlMin);
+}
+.strategy-rule-reference summary {
+  cursor: pointer;
+}
+.strategy-execution {
+  padding: var(--space-4) var(--space-6);
+  margin: var(--space-6) 0;
+  border-radius: var(--radius-md);
+}
+.strategy-execution h3 {
+  margin: 0 0 var(--space-2);
+}
+.strategy-execution p {
+  margin: 0;
+  max-width: 72ch;
+}
+.strategy-execution-valid {
+  color: var(--state-success);
+  background: var(--state-success-surface);
+}
+.strategy-execution-invalid {
+  color: var(--state-critical);
+  background: var(--state-critical-surface);
+}
+.strategy-execution a {
+  color: inherit;
+}
+.strategies-page button[aria-disabled='true'] {
+  cursor: default;
+  background: var(--color-surfaceSubtle);
+  color: var(--color-textMuted);
+}
+.strategies-page :is(textarea, button, a, summary):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+@media (max-width: 1000px) {
+  .strategy-rule-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.strategy-rule-examples button {
+  color: var(--state-info);
+  background: var(--state-info-surface);
+  font-size: var(--type-sm);
 }

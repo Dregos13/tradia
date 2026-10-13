@@ -18,6 +18,7 @@
 import type Database from 'better-sqlite3';
 
 import { BACKTEST_MAX_LIMIT } from '../../shared/backtest';
+import { BACKTEST_ERROR_CODES, type BacktestErrorCode } from '../../shared/ipc';
 import type {
   BacktestDataSource,
   BacktestMetricsDto,
@@ -43,13 +44,9 @@ import { FinalTestLockedError } from './validation';
 // Errores
 // ---------------------------------------------------------------------------
 
-export const BACKTEST_ERROR_CODES = [
-  'not-found',
-  'invalid-input',
-  'sin-implementacion',
-  'sin-datos',
-] as const;
-export type BacktestErrorCode = (typeof BACKTEST_ERROR_CODES)[number];
+// La lista vive en el contrato compartido (shared/ipc.ts): el `code`
+// llega al renderer con el error lanzado por los canales `backtest:*`.
+export { BACKTEST_ERROR_CODES, type BacktestErrorCode };
 
 export class BacktestError extends Error {
   readonly code: BacktestErrorCode;

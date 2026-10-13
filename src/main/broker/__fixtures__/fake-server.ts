@@ -35,6 +35,12 @@ export interface AlpacaFakeServerOptions {
   /** Respuesta de `GET /v2/positions`; por defecto el fixture grabado. */
   positions?: unknown[];
   /**
+   * Respuestas de `GET /v2/assets/{symbol}` por símbolo (en mayúsculas);
+   * sin entrada el servidor responde un activo operable, cortable y fácil
+   * de tomar prestado, y con `null` explícito responde 404.
+   */
+  assets?: Record<string, JsonObject | null>;
+  /**
    * Prefijo obligatorio de `APCA-API-KEY-ID` (p. ej. 'AK' en el servidor
    * live): cualquier otra clave recibe 401, como en el endpoint real.
    */
@@ -214,6 +220,27 @@ export function createAlpacaFakeFetch(options: AlpacaFakeServerOptions = {}): ty
 
     if (path === '/v2/account' && method === 'GET') return json(account);
     if (path === '/v2/positions' && method === 'GET') return json(positions);
+
+    const assetMatch = /^\/v2\/assets\/([^/]+)$/.exec(path);
+    if (assetMatch !== null && method === 'GET') {
+      const symbol = decodeURIComponent(assetMatch[1]!).toUpperCase();
+      const override = options.assets?.[symbol];
+      if (override === null) return json(error404, 404);
+      return json({
+        id: `fake-asset-${symbol}`,
+        class: 'us_equity',
+        exchange: 'NASDAQ',
+        symbol,
+        name: `${symbol} Inc.`,
+        status: 'active',
+        tradable: true,
+        marginable: true,
+        shortable: true,
+        easy_to_borrow: true,
+        fractionable: true,
+        ...(override ?? {}),
+      });
+    }
 
     if (path === '/v2/orders' && method === 'GET') {
       const status = url.searchParams.get('status') ?? 'all';

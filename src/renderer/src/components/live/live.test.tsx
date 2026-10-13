@@ -17,7 +17,15 @@ import { ScalingStatus } from './ScalingStatus';
 let adapter: ReturnType<typeof createSimulatedAdapter>;
 let emit: (state: LiveState) => void;
 let initial: LiveState;
-const limits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+const limits = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
+};
 const at = '2026-10-10T14:01:00Z';
 const smoke: LiveSmokeTestResult = {
   state: 'cerrada-conciliada',
@@ -88,7 +96,7 @@ async function activePanel() {
 }
 async function runSmoke() {
   await userEvent.click(screen.getByRole('button', { name: 'Ejecutar prueba de 1,00 USD' }));
-  expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus());
   await userEvent.click(screen.getByRole('button', { name: 'Confirmar prueba de 1,00 USD' }));
 }
 
@@ -275,11 +283,13 @@ it('confirmación segura, escape y foco devuelto sin enviar una orden', async ()
   await activePanel();
   const trigger = screen.getByRole('button', { name: 'Ejecutar prueba de 1,00 USD' });
   await userEvent.click(trigger);
-  expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus());
   await userEvent.tab({ shift: true });
-  expect(screen.getByRole('button', { name: 'Confirmar prueba de 1,00 USD' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Confirmar prueba de 1,00 USD' })).toHaveFocus(),
+  );
   await userEvent.keyboard('{Escape}');
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(send).not.toHaveBeenCalled();
 });
 it('envía una sola prueba y muestra ejecución, cierre, conciliación y datos recibidos', async () => {
@@ -527,11 +537,13 @@ it.each(['activo', 'suspendido'] as const)(
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'No cierra las posiciones abiertas y no sustituye a la parada de emergencia',
     );
-    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus());
     await userEvent.tab({ shift: true });
-    expect(screen.getByRole('button', { name: 'Confirmar vuelta a paper' })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Confirmar vuelta a paper' })).toHaveFocus(),
+    );
     await userEvent.keyboard('{Escape}');
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(deactivate).not.toHaveBeenCalled();
     await userEvent.click(trigger);
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar vuelta a paper' }));

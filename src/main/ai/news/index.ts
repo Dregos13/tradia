@@ -3,19 +3,25 @@
  *
  * `registerNewsAi` cablea el servicio (`service.ts`) en el proceso
  * principal y registra sus canales IPC propios: `ai:news-analysis`,
- * `ai:get-llm-settings`, `ai:set-llm-settings` y `ai:test-llm`. Consume
- * `poller.onItemsStored` para encolar solo los titulares confirmados que
- * guarda cada pasada del lector, y emite `ai:changed` ('noticias') tras
- * persistir cada análisis.
+ * `ai:news-status`, `ai:get-llm-settings`, `ai:set-llm-settings` y
+ * `ai:test-llm`. Consume `poller.onItemsStored` para encolar solo los
+ * titulares confirmados que guarda cada pasada del lector, emite
+ * `ai:changed` ('noticias') tras persistir cada análisis y
+ * `ai:news-status-changed` cuando cambia la salud del proveedor —
+ * además de UNA notificación del sistema al caer de 'ok' y otra al
+ * recuperarla (cablea `notifications.notify`). Al arrancar, `start()`
+ * avisa una vez si la suscripción activada no encuentra la CLI.
  *
  * Con `TRADIA_E2E` (app sin empaquetar) el servicio usa el analizador
- * simulado determinista: ningún titular sale hacia Anthropic y los
- * resultados son reproducibles. La clave de Anthropic vive en `secrets`
- * (`news-llm-anthropic`); solo se lee en el proceso principal y jamás se
- * expone por IPC.
+ * simulado determinista: ningún titular sale hacia la CLI y los
+ * resultados son reproducibles.
+ *
+ * La API de pago ('llm') se retiró: el servicio migra un proveedor
+ * 'llm' guardado a 'suscripcion' si hay CLI o a 'local' si no, y borra
+ * del llavero la clave que quedara (`news-llm-anthropic`).
  *
  * Cableado (tarea «be-servicios-ipc-e2e»): en `initServices`, tras
- * `poller`, `secrets`, `settings` y `storage`:
+ * `poller`, `secrets`, `settings`, `notifications` y `storage`:
  *   services.newsAi = registerNewsAi(ctx);
  */
 import { app, ipcMain } from 'electron';
@@ -27,12 +33,9 @@ import {
   isNewsAnalysisQuery,
   isNewsLlmSettingsInput,
   NEWS_LLM_DAILY_CAP_DEFAULT,
-  NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
-  NEWS_LLM_SECRET_PROVIDER,
 } from '../../../shared/ipc';
 import { openDatabase } from '../../db/database';
 import type { ServiceContext } from '../../services';
-import { createAnthropicNewsAnalyzer } from './anthropic';
 import { createClaudeCliAnalyzer } from './claudeCli';
 import { createLocalNewsAnalyzer } from './local';
 import { createNewsAnalysisRepository } from './repository';
@@ -42,7 +45,7 @@ import type { KeyValueStore, NewsLlmUsageStore } from './types';
 
 export * from './types';
 export * from './local';
-export * from './anthropic';
+export * from './prompt';
 export * from './claudeCli';
 export * from './simulated';
 export * from './repository';
@@ -54,10 +57,10 @@ const memoryStore = (): KeyValueStore => {
   return { getValue: (k) => map.get(k) ?? null, setValue: (k, v) => void map.set(k, v) };
 };
 
-/** Clave de `settings` donde viven los contadores del LLM (JSON). */
+/** Clave de `settings` donde viven los contadores del tope diario (JSON). */
 export const NEWS_LLM_USAGE_KEY = 'newsLlm.usage';
 
-/** Contadores del LLM persistidos como JSON en `settings`. */
+/** Contadores del tope diario persistidos como JSON en `settings`. */
 export function createSettingsUsageStore(store: KeyValueStore): NewsLlmUsageStore {
   return {
     load: () => {
@@ -105,19 +108,6 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
   const usage = createSettingsUsageStore(store);
   const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
 
-  const llmAnalyzer = createAnthropicNewsAnalyzer({
-    fetch: globalThis.fetch,
-    getApiKey: async () => (await secrets?.getKey(NEWS_LLM_SECRET_PROVIDER)) ?? null,
-    usage,
-    dailyCap: () => readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
-    monthlyBudgetEur: () =>
-      Math.min(
-        readNumber(store, NEWS_LLM_SETTINGS_KEYS.monthlyBudgetEur, 0),
-        NEWS_LLM_MONTHLY_BUDGET_BOUNDS.max,
-      ),
-    logger: console,
-  });
-
   const subscriptionAnalyzer = createClaudeCliAnalyzer({
     // La ruta puede cambiar en Ajustes: se relee en cada resolución.
     cliPath: () => {
@@ -131,7 +121,6 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
   const service = createNewsAiService({
     repo,
     localAnalyzer: createLocalNewsAnalyzer(),
-    llmAnalyzer,
     subscriptionAnalyzer,
     // E2E: el simulado con etiqueta 'llm' reproduce el método del diseño.
     simulatedAnalyzer: createSimulatedNewsAnalyzer({ analyzer: 'llm' }),
@@ -139,9 +128,14 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     secrets,
     store,
     usage,
+    notify: (payload) => ctx.services.notifications?.notify(payload),
     broadcast: ctx.broadcast,
     logger: console,
   });
+
+  // Estado del arranque antes de registrar los canales: si la suscripción
+  // guardada no encuentra la CLI, llega UNA notificación del sistema.
+  void service.start();
 
   // El lector entrega titulares de cada pasada; la cola descarta los no
   // confirmados en `enqueueItem` y relee `confirmada` antes de analizar.
@@ -157,6 +151,7 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     }
     return service.listAnalyses(query);
   });
+  ipcMain.handle(IPC_CHANNELS.ai.newsStatus, () => service.getNewsStatus());
   ipcMain.handle(IPC_CHANNELS.ai.getLlmSettings, () => service.getLlmSettings());
   ipcMain.handle(IPC_CHANNELS.ai.setLlmSettings, (_event, input: unknown) => {
     if (!isNewsLlmSettingsInput(input)) {

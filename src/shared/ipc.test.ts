@@ -339,6 +339,8 @@ describe('contrato IPC', () => {
       predictions: 'ai:predictions',
       modelCard: 'ai:model-card',
       newsAnalysis: 'ai:news-analysis',
+      newsStatus: 'ai:news-status',
+      newsStatusChanged: 'ai:news-status-changed',
       getLlmSettings: 'ai:get-llm-settings',
       setLlmSettings: 'ai:set-llm-settings',
       testLlm: 'ai:test-llm',
@@ -1460,10 +1462,26 @@ describe('guardas de las fases 6-7 (IA predictiva y dinero real)', () => {
   });
 
   it('los límites escritos nunca superan los techos fijos', () => {
-    const limits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+    const limits = {
+      capitalUsd: 500,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    };
     expect(isLiveLimitsInput(limits)).toBe(true);
     expect(
-      isLiveLimitsInput({ capitalUsd: 1_000, orderUsd: 200, dailyLossUsd: 20, openPositions: 2 }),
+      isLiveLimitsInput({
+        capitalUsd: 1_000,
+        orderUsd: 200,
+        dailyLossUsd: 20,
+        openPositions: 2,
+        shortOrderUsd: 100,
+        shortExposureUsd: 200,
+        shortPositions: 1,
+      }),
     ).toBe(true);
     expect(isLiveLimitsInput({ ...limits, capitalUsd: 1_001 })).toBe(false);
     expect(isLiveLimitsInput({ ...limits, orderUsd: 201 })).toBe(false);
@@ -1475,6 +1493,38 @@ describe('guardas de las fases 6-7 (IA predictiva y dinero real)', () => {
     expect(isLiveLimitsInput({ capitalUsd: 500, orderUsd: 100 })).toBe(false);
     expect(isLiveLimitsInput({ ...limits, extra: 1 })).toBe(false);
     expect(isLiveLimitsInput(null)).toBe(false);
+  });
+
+  it('los límites del corto son opcionales, admiten 0 y respetan sus techos', () => {
+    const limits = {
+      capitalUsd: 500,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    };
+    // Los tres campos del corto son opcionales: un payload sin ellos
+    // (p. ej. una interfaz que aún no los expone) vale con el corto a 0.
+    const { shortOrderUsd: _o, shortExposureUsd: _e, shortPositions: _p, ...sinCorto } = limits;
+    expect(isLiveLimitsInput(sinCorto)).toBe(true);
+    // A 0 el corto queda desactivado; negativos o fraccionarios no valen.
+    expect(isLiveLimitsInput({ ...limits, shortOrderUsd: 0 })).toBe(true);
+    expect(isLiveLimitsInput({ ...limits, shortOrderUsd: -1 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, shortOrderUsd: 101 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, shortExposureUsd: 201 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, shortPositions: 2 })).toBe(false);
+    expect(isLiveLimitsInput({ ...limits, shortPositions: 0.5 })).toBe(false);
+    // En los techos sí pasan.
+    expect(
+      isLiveLimitsInput({
+        ...limits,
+        shortOrderUsd: 100,
+        shortExposureUsd: 200,
+        shortPositions: 1,
+      }),
+    ).toBe(true);
   });
 
   it('la activación exige una frase escrita; el humo, confirmación', () => {
@@ -1647,6 +1697,8 @@ describe('contrato de la continuación (modo por orden, proveedores, tour, LLM)'
     expect(isNewsAnalyzer('api')).toBe(false);
     expect(isNewsLlmSettingsInput({ provider: 'suscripcion' })).toBe(true);
     expect(isNewsLlmSettingsInput({ provider: 'local' })).toBe(true);
+    // La API de pago se retiró: 'llm' ya no es un proveedor elegible.
+    expect(isNewsLlmSettingsInput({ provider: 'llm' })).toBe(false);
     expect(isNewsLlmSettingsInput({ provider: 'otro' })).toBe(false);
     expect(isNewsLlmSettingsInput({ cliPath: '/usr/local/bin/claude' })).toBe(true);
     expect(isNewsLlmSettingsInput({ cliPath: null })).toBe(true);

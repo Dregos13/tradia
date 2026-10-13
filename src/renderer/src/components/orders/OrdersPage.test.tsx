@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type {
@@ -107,7 +107,7 @@ it('confirma cancelación, conserva la orden al fallar y actualiza tras reintent
   render(<OrdersPage />);
   await screen.findByText('+8 pb · desfavorable');
   await user.click(screen.getByRole('button', { name: 'Cancelar orden 3 de SPY' }));
-  expect(screen.getByRole('button', { name: 'Mantener orden' })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Mantener orden' })).toHaveFocus());
   expect(cancel).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: 'Confirmar cancelación' }));
   expect(await screen.findByText(/No se pudo cancelar la orden/)).toBeVisible();
@@ -166,7 +166,7 @@ it('recibe cambios en vivo, conserva foco y se desuscribe', async () => {
   screen.getByLabelText('Ticker').focus();
   act(() => listener?.(order(1, 'ejecutada', 12)));
   expect(screen.getByText('+12 pb · desfavorable')).toBeVisible();
-  expect(screen.getByLabelText('Ticker')).toHaveFocus();
+  await waitFor(() => expect(screen.getByLabelText('Ticker')).toHaveFocus());
   view.unmount();
   expect(off).toHaveBeenCalledOnce();
 });
@@ -382,4 +382,17 @@ it('N5: separa límite y referencia de ejecución sin atribuir el slippage al l�
   expect(row).toHaveTextContent('Referencia 1499,06 USD');
   expect(row).toHaveTextContent('0 pb · sin desviación');
   expect(row).toHaveTextContent('Respecto a la referencia');
+});
+
+it('muestra en español el motivo del rechazo de una entrada en corto real', async () => {
+  const rejectReason =
+    'el corto con dinero real no está habilitado en los límites escritos: los límites del corto son 0. Confírmalos por escrito en «Dinero real» para habilitarlo';
+  vi.mocked(window.tradia.orders.list).mockResolvedValue([
+    { ...order(7, 'rechazada', null), mode: 'live', side: 'sell', leg: 'entrada', rejectReason },
+  ]);
+  render(<OrdersPage />);
+  const reason = await screen.findByText(rejectReason);
+  expect(reason).toBeVisible();
+  expect(reason.closest('tr')).toHaveTextContent('Dinero real');
+  expect(reason.closest('tr')).toHaveTextContent('Rechazada');
 });

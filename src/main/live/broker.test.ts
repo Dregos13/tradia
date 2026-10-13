@@ -21,6 +21,7 @@ import {
 import { openDatabase } from '../db/database';
 import { createAlpacaLiveBroker } from '../broker/alpacaLive';
 import { createAlpacaLiveFakeFetch } from '../broker/__fixtures__/fake-server';
+import accountFixture from '../broker/__fixtures__/account.json';
 import { createBrokerRepository, type BrokerRepository } from '../broker/repository';
 import { createMarketRepository } from '../market/repository';
 import { createSignalsRepository, type NewSignal } from '../signals/repository';
@@ -61,6 +62,9 @@ const LIMITS: LiveLimitsInput = {
   orderUsd: 100,
   dailyLossUsd: 10,
   openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
 };
 
 let db: Database.Database;
@@ -116,7 +120,13 @@ const liveStub = () => ({
 const liveFakeFetch = (): typeof globalThis.fetch => {
   // El mercado del falso cotiza donde las señales del arnés (entry 60):
   // una limitada con tope (referencia × 1,05) es cruzable y ejecuta.
-  const inner = createAlpacaLiveFakeFetch({ now: () => nowMs, prices: { AAPL: 60, SPY: 60 } });
+  // La cuenta del falso arranca sin posiciones: la lectura de exposición
+  // de la puerta del corto se controla por prueba.
+  const inner = createAlpacaLiveFakeFetch({
+    now: () => nowMs,
+    prices: { AAPL: 60, SPY: 60 },
+    positions: [],
+  });
   return (input, init) => {
     fetchCalls.push({ url: String(input), method: (init?.method ?? 'GET').toUpperCase() });
     return inner(input, init);
@@ -202,7 +212,19 @@ const seedSignal = (patch: Partial<NewSignal> = {}): Signal =>
 
 const confirmLimits = (input: LiveLimitsInput = LIMITS): void => {
   const at = new Date(nowMs).toISOString();
-  store.saveLimits(input, at);
+  // LiveLimits con los del corto resueltos (ausentes = 0, desactivado).
+  store.saveLimits(
+    {
+      capitalUsd: input.capitalUsd,
+      orderUsd: input.orderUsd,
+      dailyLossUsd: input.dailyLossUsd,
+      openPositions: input.openPositions,
+      shortOrderUsd: input.shortOrderUsd ?? 0,
+      shortExposureUsd: input.shortExposureUsd ?? 0,
+      shortPositions: input.shortPositions ?? 0,
+    },
+    at,
+  );
   store.confirmLimits(at);
 };
 
@@ -487,6 +509,204 @@ describe('ejecución real con techos de capital', () => {
     expect(
       journal.some((j) => j.type === 'error' && String(j.reason).includes('parada de emergencia')),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Puerta del corto real y recompra en la parada
+// ---------------------------------------------------------------------------
+
+const LIMITS_CORTO: LiveLimitsInput = {
+  ...LIMITS,
+  shortOrderUsd: 100,
+  shortExposureUsd: 200,
+  shortPositions: 1,
+};
+
+/** Señal en corto con su stop de protección por encima y dentro del 5 %. */
+const cortoSignal = (patch: Partial<NewSignal> = {}) =>
+  seedSignal({
+    direction: 'corto',
+    entry: 60,
+    stop: 62, // +3,3 % sobre la entrada
+    target: 45,
+    ...patch,
+  });
+
+describe('puerta del corto con dinero real', () => {
+  it('con los límites del corto a 0 la entrada en corto se rechaza con el motivo', async () => {
+    const service = await connectActive(); // LIMITS con corto a 0
+    const postsBefore = fetchCalls.filter((c) => c.method === 'POST').length;
+
+    const signal = cortoSignal();
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(fetchCalls.filter((c) => c.method === 'POST')).toHaveLength(postsBefore);
+    expect(
+      journal.some((j) => j.type === 'error' && String(j.reason).includes('no está habilitado')),
+    ).toBe(true);
+  });
+
+  it('con el corto habilitado la entrada sale acotada a la referencia y nunca a mercado', async () => {
+    const service = await connectActive({}, LIMITS_CORTO);
+    const signal = cortoSignal();
+
+    await service.handleSignalEvent({ signal });
+
+    const entry = liveRepo.getOrderByClientId(`tradia-${signal.id}-entrada`);
+    expect(entry).not.toBeNull();
+    expect(entry!.leg).toBe('entrada');
+    expect(entry!.side).toBe('sell');
+    // Sale como venta stop a la referencia: solo se dispara con el
+    // mercado a ese nivel o por debajo; un hueco al alza jamás la ejecuta
+    // por encima de lo estimado, así que el nominal queda acotado.
+    expect(entry!.type).toBe('stop');
+    expect(entry!.stopPrice).toBe(60);
+    // El falso no simula la activación de stops: queda viva sin ejecutar.
+    expect(entry!.status).toBe('enviada');
+  });
+
+  it('una cuenta sin corto habilitado se rechaza leyendo el broker', async () => {
+    const service = await connectActive(
+      {
+        createAdapter: (getCredentials) =>
+          createAlpacaLiveBroker({
+            fetch: createAlpacaLiveFakeFetch({
+              now: () => nowMs,
+              prices: { AAPL: 60 },
+              positions: [],
+              account: { ...accountFixture, shorting_enabled: false },
+            }),
+            getCredentials,
+            isLiveGateOpen: () => gateOpen,
+          }),
+      },
+      LIMITS_CORTO,
+    );
+    const signal = cortoSignal();
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(
+      journal.some(
+        (j) => j.type === 'error' && String(j.reason).includes('no permite operar en corto'),
+      ),
+    ).toBe(true);
+  });
+
+  it('un título no prestable se rechaza leyendo el broker', async () => {
+    const service = await connectActive(
+      {
+        createAdapter: (getCredentials) =>
+          createAlpacaLiveBroker({
+            fetch: createAlpacaLiveFakeFetch({
+              now: () => nowMs,
+              prices: { AAPL: 60 },
+              positions: [],
+              assets: { AAPL: { shortable: false } },
+            }),
+            getCredentials,
+            isLiveGateOpen: () => gateOpen,
+          }),
+      },
+      LIMITS_CORTO,
+    );
+    const signal = cortoSignal();
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(
+      journal.some(
+        (j) => j.type === 'error' && String(j.reason).includes('no se puede vender en corto'),
+      ),
+    ).toBe(true);
+  });
+
+  it('un corto sin stop de protección no llega a la red', async () => {
+    const service = await connectActive({}, LIMITS_CORTO);
+    const signal = cortoSignal({ stop: null });
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(
+      journal.some((j) => j.type === 'error' && String(j.reason).includes('stop de compra')),
+    ).toBe(true);
+  });
+
+  it('un corto con el stop a más del 5 % por encima no llega a la red', async () => {
+    const service = await connectActive({}, LIMITS_CORTO);
+    const signal = cortoSignal({ stop: 64 }); // +6,7 % > 5 %
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(journal.some((j) => j.type === 'error' && String(j.reason).includes('5 %'))).toBe(true);
+  });
+
+  it('la parada de emergencia recompra los cortos abiertos con una compra', async () => {
+    const service = await connectActive({}, LIMITS_CORTO);
+    // Corto abierto en AAPL según el libro: entrada vendida ejecutada y
+    // su OCO de salida aún vivo (sin brokerOrderId: nunca salió a la red).
+    const iso = new Date(nowMs).toISOString();
+    const seed = cortoSignal();
+    liveRepo.insertOrder({
+      clientOrderId: `tradia-${seed.id}-entrada`,
+      signalId: seed.id,
+      strategyId: 3,
+      leg: 'entrada',
+      ticker: 'AAPL',
+      type: 'stop',
+      side: 'sell',
+      quantity: 1,
+      filledQuantity: 1,
+      stopPrice: 60,
+      requestedPrice: 60,
+      executedPrice: 60,
+      requestedAt: iso,
+      executedAt: iso,
+      status: 'ejecutada',
+    });
+    liveRepo.insertOrder({
+      clientOrderId: `tradia-${seed.id}-salida`,
+      signalId: seed.id,
+      strategyId: 3,
+      leg: 'salida',
+      ticker: 'AAPL',
+      type: 'oco',
+      side: 'buy',
+      quantity: 1,
+      limitPrice: 45,
+      stopPrice: 62,
+      requestedAt: iso,
+      status: 'enviada',
+    });
+
+    service.handleRiskChanged({ killSwitch: { active: true, cause: 'manual' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // El OCO vivo queda cancelado en local y la recompra sale como compra
+    // de mercado que el falso ejecuta a su referencia (60 USD).
+    const oco = liveRepo.getOrderByClientId(`tradia-${seed.id}-salida`);
+    expect(oco!.status).toBe('cancelada');
+    const covers = liveRepo
+      .listOrders()
+      .filter((o) => o.clientOrderId.startsWith('tradia-parada-corto-'));
+    expect(covers).toHaveLength(1);
+    expect(covers[0]!.side).toBe('buy');
+    expect(covers[0]!.type).toBe('market');
+    expect(covers[0]!.status).toBe('ejecutada');
+    // El corto quedó cerrado: ya no hay posición abierta.
+    expect(journal.some((j) => String(j.reason).includes('recompra del corto'))).toBe(true);
+  });
+
+  it('sin cortos abiertos la parada no envía nada', async () => {
+    const service = await connectActive({}, LIMITS_CORTO);
+    const postsBefore = fetchCalls.filter((c) => c.method === 'POST').length;
+
+    service.handleRiskChanged({ killSwitch: { active: true, cause: 'manual' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchCalls.filter((c) => c.method === 'POST')).toHaveLength(postsBefore);
   });
 });
 

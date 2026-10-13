@@ -36,7 +36,9 @@ describe('Estructura de Tradia', () => {
     const settings = screen.getByRole('link', { name: 'Ajustes' });
     settings.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Ajustes' })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Ajustes' })).toHaveFocus(),
+    );
     expect(settings).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('region', { name: 'Preferencias' })).toBeInTheDocument();
     expect(statusbar().getByText('Comprobando conexión')).toBeInTheDocument();
@@ -143,7 +145,7 @@ describe('Estructura de Tradia', () => {
       resolveConnection({ status: 'online', attempt: 0, lastCheckedAt: null, nextRetryAt: null }),
     );
     expect(statusbar().getByText('Sin conexión')).toBeInTheDocument();
-    expect(simulation.listenerCount()).toBe(16);
+    expect(simulation.listenerCount()).toBe(15);
     unmount();
     expect(simulation.listenerCount()).toBe(0);
   });
@@ -161,7 +163,9 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name: heading })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toHaveFocus(),
+    );
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(await screen.findByText('Conecta tus fuentes de datos.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configurar claves' })).toHaveAttribute(
@@ -198,7 +202,7 @@ it('navega con teclado a Noticias, Calendario y Fuentes y muestra sus estados va
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(await screen.findByText(empty)).toBeInTheDocument();
     expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
@@ -251,7 +255,7 @@ it('navega con teclado a las páginas paper después de Diario', async () => {
     const link = screen.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('contentinfo', { name: 'Estado del sistema' })).toBeInTheDocument();
   }
@@ -296,7 +300,9 @@ it('muestra el descuadre global, conserva el aviso al navegar y lo retira al res
   expect(banner.closest('.app-global-banners')).toBeVisible();
   expect(banner.closest('.app')).toHaveClass('has-banner');
   await user.click(within(banner).getByRole('link', { name: 'Ver en Órdenes' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Órdenes' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Órdenes' })).toHaveFocus(),
+  );
   expect(banner).toBeVisible();
   await act(async () => {
     simulation.emitReconcileDiscrepancy([]);
@@ -391,7 +397,7 @@ it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', a
     const link = nav.getByRole('link', { name });
     link.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('heading', { level: 1, name })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name })).toHaveFocus());
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { level: 2, name })).toBeVisible();
   }
@@ -424,10 +430,14 @@ it('conecta la ficha de estrategia desde IA y la evidencia del checklist', async
   });
   await user.click((await screen.findAllByRole('button', { name: /^Ver ficha de / }))[0]!);
   expect(window.location.hash).toMatch(/^#estrategias\/\d+$/);
-  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus(),
+  );
   await user.click(screen.getByRole('link', { name: 'Dinero real' }));
   await user.click(await screen.findByRole('button', { name: 'Ver validación' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Estrategias' })).toHaveFocus(),
+  );
 });
 
 it('monta los ajustes LLM y la conexión live junto a las preferencias existentes', async () => {
@@ -436,7 +446,7 @@ it('monta los ajustes LLM y la conexión live junto a las preferencias existente
   await act(async () => {
     render(<App />);
   });
-  expect(screen.getByRole('region', { name: 'Análisis de noticias con LLM' })).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Análisis de noticias' })).toBeVisible();
   expect(screen.getByRole('region', { name: 'Cuenta de broker · Dinero real' })).toBeVisible();
   expect(await screen.findByRole('region', { name: 'Claves live bloqueadas' })).toBeVisible();
 });
@@ -449,7 +459,15 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
     mode: 'activo',
     hasCredentials: true,
     accountMasked: '•••• 4821',
-    limits: { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 },
+    limits: {
+      capitalUsd: 500,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    },
     activatedAt: '2026-10-10T14:00:00Z',
   };
   vi.spyOn(simulation.api.live, 'state').mockResolvedValue(active);
@@ -480,6 +498,30 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
   expect(banner).toBeVisible();
   unmount();
   expect(simulation.listenerCount()).toBe(0);
+});
+
+it('muestra la franja y su contenedor con el mismo estado aunque las consultas se demoren', async () => {
+  online();
+  const initial = await simulation.api.live.state();
+  const active: LiveState = { ...initial, mode: 'activo' };
+  const pending: ((state: LiveState) => void)[] = [];
+  vi.spyOn(simulation.api.live, 'state').mockImplementation(
+    () => new Promise<LiveState>((resolve) => pending.push(resolve)),
+  );
+  await act(async () => {
+    render(<App />);
+  });
+  expect(pending.length).toBeGreaterThan(0);
+  expect(screen.queryByRole('complementary', { name: 'Aviso de dinero real' })).toBeNull();
+  for (const resolve of pending) {
+    await act(async () => resolve(active));
+    const banner = screen.queryByRole('complementary', { name: 'Aviso de dinero real' });
+    if (banner) {
+      expect(banner.closest('.app')).toHaveClass('has-banner');
+      expect(screen.getByText('Dinero real activo', { selector: '.mode' })).toBeVisible();
+    }
+  }
+  expect(screen.getByRole('complementary', { name: 'Aviso de dinero real' })).toBeVisible();
 });
 
 it('actualiza franja, cabecera y aviso principal al activar, suspender y volver a paper', async () => {
@@ -562,7 +604,9 @@ it('anuncia degradación recibida por evento en Inicio y abre Salud de modelos',
   await user.click(
     within(alert).getByRole('link', { name: 'Ver degradación y propuestas de reentrenamiento' }),
   );
-  expect(await screen.findByRole('heading', { level: 1, name: 'Salud de modelos' })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 1, name: 'Salud de modelos' })).toHaveFocus(),
+  );
 });
 
 it('muestra carga, error recuperable y desconexión sin afirmar que los modelos están sanos', async () => {
@@ -596,16 +640,24 @@ it('muestra carga, error recuperable y desconexión sin afirmar que los modelos 
   expect(screen.getByText(/Sin conexión · revisión de salud pausada/)).toBeVisible();
 });
 
-it('mantiene visible la franja aunque la consulta de modo de la cabecera siga pendiente', async () => {
+it('sincroniza franja y cabecera con un evento mientras la consulta inicial sigue pendiente', async () => {
   const initial = await simulation.api.live.state();
-  vi.spyOn(simulation.api.live, 'state')
-    .mockResolvedValueOnce({ ...initial, mode: 'activo' })
-    .mockReturnValue(new Promise(() => {}));
+  vi.spyOn(simulation.api.live, 'state').mockReturnValue(new Promise(() => {}));
+  const listeners = new Set<(state: LiveState) => void>();
+  vi.spyOn(simulation.api.live, 'onChanged').mockImplementation((listener) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  });
   await act(async () => {
     render(<App />);
   });
   expect(screen.getByText('Comprobando modo…')).toBeVisible();
+  act(() => listeners.forEach((listener) => listener({ ...initial, mode: 'activo' })));
   const banner = await screen.findByRole('complementary', { name: 'Aviso de dinero real' });
   expect(banner).toBeVisible();
+  expect(banner.closest('.app')).toHaveClass('has-banner');
+  expect(screen.getByText('Dinero real activo', { selector: '.mode' })).toBeVisible();
   expect(banner.closest('.app-banner-stack')).not.toHaveAttribute('hidden');
 });

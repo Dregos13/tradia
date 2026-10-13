@@ -1,3 +1,6 @@
+import { parseStrategyRules } from '../../../shared/strategyRules';
+import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
+import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
   DEFAULT_STRATEGY_COSTS,
@@ -62,7 +65,6 @@ import {
   LIVE_SMOKE_STEPS,
   LIVE_SMOKE_TICKER,
   NEWS_LLM_DAILY_CAP_DEFAULT,
-  NEWS_LLM_MODEL,
   PREDICTION_HORIZON_DAYS,
   REGIME_MARKET_TICKER,
   BROKER_ORDER_OPEN_STATUSES,
@@ -127,6 +129,7 @@ import type {
   NewsLlmSettings,
   NewsLlmTestResult,
   NewsSentiment,
+  NewsStatus,
   NewsSource,
   NewsUpdatedEvent,
   NotificationPrefs,
@@ -615,9 +618,20 @@ export function createSimulatedAdapter() {
     progressListeners.forEach((listener) => listener(event));
   };
 
-  // El adaptador no registra implementaciones para las fichas creadas por el usuario.
+  // Las clásicas conservan su implementación; las propias compilan sus reglas.
   const implementations = new Map<number, (typeof CLASSIC_STRATEGIES)[number]>();
-  const implForStrategy = (strategy: Strategy) => implementations.get(strategy.id) ?? null;
+  const implForStrategy = (strategy: Strategy, parameters = strategy.parameters) => {
+    const classic = implementations.get(strategy.id);
+    if (classic) return classic;
+    const parsed = parseStrategyRules(strategy.rules, parameters);
+    if (!parsed.ok) {
+      const first = parsed.errors[0]!;
+      throw Object.assign(new Error(`[reglas-invalidas] ${first.message}`), {
+        code: 'reglas-invalidas',
+      });
+    }
+    return { create: () => createCustomStrategy(parsed.program, parameters) };
+  };
 
   const findStrategyVersion = (id: number, version?: number): Strategy | null =>
     version !== undefined
@@ -714,7 +728,7 @@ export function createSimulatedAdapter() {
     kind: 'completo' | 'prueba-final',
     progress: { ticket: string; percentBase: number },
   ): BacktestReport => {
-    const impl = implForStrategy(strategy);
+    const impl = implForStrategy(strategy, { ...strategy.parameters, ...request.params });
     if (impl === null) {
       throw new Error(
         `La estrategia ${strategy.id} no tiene una implementación ejecutable registrada.`,
@@ -1355,9 +1369,28 @@ export function createSimulatedAdapter() {
   // entre llamadas para que las pruebas sean repetibles. El modelo del
   // falso es sintético y 'no apto', como el que entrega esta fase.
   const aiChangedListeners = new Set<(event: AiChangedEvent) => void>();
+  const newsStatusListeners = new Set<(status: NewsStatus) => void>();
   const liveChangedListeners = new Set<(state: LiveState) => void>();
   const emitAiChanged = (kind: AiChangedEvent['kind']) =>
     aiChangedListeners.forEach((listener) => listener({ kind, at: nowIso() }));
+  const emitNewsStatus = (status: NewsStatus) =>
+    newsStatusListeners.forEach((listener) => listener(status));
+
+  /** Estado del análisis por suscripción del falso (determinista). */
+  let forcedNewsStatus: NewsStatus | null = null;
+  const newsStatusNow = (): NewsStatus =>
+    forcedNewsStatus ?? {
+      provider: llmSettings.provider,
+      state:
+        llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+          ? 'cli-no-encontrada'
+          : 'ok',
+      since: nowIso(),
+      message:
+        llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
+          ? 'Instala Claude Code y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.'
+          : null,
+    };
 
   /** Última sesión laborable simulada (el cierre que evalúa el régimen). */
   const lastSession = (): string => {
@@ -1546,14 +1579,11 @@ export function createSimulatedAdapter() {
   const analysesFor = (item: NewsItem): NewsAnalysis[] => {
     if (!item.confirmed) return [];
     const sentiments: NewsSentiment[] = ['positivo', 'negativo', 'neutro', 'mixto'];
-    // El proveedor configurado manda: 'suscripcion' va por la CLI de la
-    // suscripción, 'llm' por la API con clave y 'local' por el léxico.
+    // Una caída de la suscripción mantiene el análisis local.
     const provider =
-      llmSettings.provider === 'suscripcion' && llmSettings.cliAvailable
+      llmSettings.provider === 'suscripcion' && newsStatusNow().state === 'ok'
         ? ('suscripcion' as const)
-        : llmSettings.provider === 'llm' && llmSettings.enabled && llmSettings.hasKey
-          ? ('llm' as const)
-          : ('local' as const);
+        : ('local' as const);
     return item.assets.map((ticker, index) => {
       const h = hashSeed(`analisis:${item.id}:${ticker}`);
       return {
@@ -1563,12 +1593,7 @@ export function createSimulatedAdapter() {
         summary: `Resumen automático del titular para ${ticker}: impacto moderado según el contexto de la noticia.`,
         sentiment: sentiments[h % sentiments.length]!,
         analyzer: provider,
-        model:
-          provider === 'llm'
-            ? NEWS_LLM_MODEL
-            : provider === 'suscripcion'
-              ? 'claude-code-cli'
-              : null,
+        model: provider === 'suscripcion' ? 'claude-code-cli' : null,
         analyzedAt: item.publishedAt,
         publishedAt: item.publishedAt,
       };
@@ -2371,6 +2396,7 @@ export function createSimulatedAdapter() {
         if (strategy === null) {
           throw new Error(`No existe la estrategia ${request.strategyId}.`);
         }
+        implForStrategy(strategy);
         const key = `${strategy.id}:${strategy.version}`;
         const existing = regimeComparisons.get(key);
         if (existing !== undefined) return existing;
@@ -2416,9 +2442,16 @@ export function createSimulatedAdapter() {
           throw new Error('Consulta de estrés inválida.');
         }
         const strategy = findStrategyVersion(request.strategyId, request.version);
-        if (strategy === null || !strategy.executable) return [];
+        if (
+          strategy === null ||
+          (!strategy.executable && !parseStrategyRules(strategy.rules, strategy.parameters).ok)
+        )
+          return [];
         // Como la semilla real: la primera lectura calcula las tres crisis.
-        return stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ?? runFakeStress(strategy);
+        return (
+          stressRowsByKey.get(`${strategy.id}:${strategy.version}`) ??
+          (implementations.has(strategy.id) ? runFakeStress(strategy) : [])
+        );
       },
       run: async (request) => {
         if (!isStressRequest(request)) {
@@ -2882,7 +2915,7 @@ export function createSimulatedAdapter() {
             ? llmSettings.provider
             : input.enabled
               ? llmSettings.provider === 'local'
-                ? ('llm' as const)
+                ? ('suscripcion' as const)
                 : llmSettings.provider
               : ('local' as const));
         llmSettings = {
@@ -2896,20 +2929,18 @@ export function createSimulatedAdapter() {
             : {}),
         };
         emitAiChanged('noticias');
+        emitNewsStatus(newsStatusNow());
         return { ...llmSettings };
       },
       testLlm: async (): Promise<NewsLlmTestResult> => {
         if (llmSettings.provider === 'local') {
           return { ok: true, error: null, latencyMs: null };
         }
-        if (llmSettings.provider === 'suscripcion') {
-          return llmSettings.cliAvailable
-            ? { ok: true, error: null, latencyMs: 180 }
-            : { ok: false, error: 'CLI no encontrada.', latencyMs: null };
-        }
-        return llmSettings.hasKey
-          ? { ok: true, error: null, latencyMs: 120 }
-          : { ok: false, error: 'No hay una clave de Anthropic guardada.', latencyMs: null };
+        const status = newsStatusNow();
+        emitNewsStatus(status);
+        return status.state === 'ok'
+          ? { ok: true, error: null, latencyMs: 180 }
+          : { ok: false, error: status.message, latencyMs: null };
       },
       health: async () => healthOverview(),
       retrainProposals: async () => [...retrainProposals],
@@ -2921,6 +2952,8 @@ export function createSimulatedAdapter() {
         throw new Error(`No hay una propuesta pendiente con id ${request.id}.`);
       },
       onChanged: (listener) => subscribe(aiChangedListeners, listener),
+      newsStatus: async () => newsStatusNow(),
+      onNewsStatusChanged: (listener) => subscribe(newsStatusListeners, listener),
     },
     live: {
       checklist: async () => buildLiveChecklist(),
@@ -2953,15 +2986,26 @@ export function createSimulatedAdapter() {
             'Límites inválidos: los cuatro valores deben ser positivos y no superar los techos.',
           );
         }
-        const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(input);
-        liveLimitsSaved = { ...input };
+        // Los límites del corto son opcionales en la entrada: ausentes
+        // quedan a 0 —corto desactivado—, igual que en el servicio real.
+        const resolved: LiveLimits = {
+          capitalUsd: input.capitalUsd,
+          orderUsd: input.orderUsd,
+          dailyLossUsd: input.dailyLossUsd,
+          openPositions: input.openPositions,
+          shortOrderUsd: input.shortOrderUsd ?? 0,
+          shortExposureUsd: input.shortExposureUsd ?? 0,
+          shortPositions: input.shortPositions ?? 0,
+        };
+        const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(resolved);
+        liveLimitsSaved = resolved;
         // Los límites nuevos generan una frase nueva: la confirmación
         // anterior ya no vale (guardar los mismos valores la conserva).
         if (changed) liveLimitsConfirmedAt = null;
         emitLiveChanged();
         return {
-          limits: { ...input },
-          confirmationPhrase: liveConfirmationPhrase(input),
+          limits: { ...resolved },
+          confirmationPhrase: liveConfirmationPhrase(resolved),
           confirmed: liveLimitsConfirmedAt !== null,
           savedAt: nowIso(),
         };
@@ -3143,6 +3187,20 @@ export function createSimulatedAdapter() {
     },
     /** Notifica un ai:changed (fase 6). */
     emitAiChanged,
+    /** Fuerza y conserva el estado para lecturas y eventos posteriores. */
+    forceNewsStatus(state: NewsStatus['state']) {
+      forcedNewsStatus = {
+        provider: 'suscripcion',
+        state,
+        since: nowIso(),
+        message: state === 'ok' ? null : NEWS_SUBSCRIPTION_COPY[state].step,
+      };
+      emitNewsStatus(forcedNewsStatus);
+    },
+    emitNewsStatus(status: NewsStatus) {
+      forcedNewsStatus = { ...status };
+      emitNewsStatus(forcedNewsStatus);
+    },
     /** Notifica un live:changed con el estado actual (fase 7). */
     emitLiveChanged,
     listenerCount: () =>
@@ -3157,6 +3215,7 @@ export function createSimulatedAdapter() {
       brokerOrderUpdatedListeners.size +
       reconcileDiscrepancyListeners.size +
       aiChangedListeners.size +
+      newsStatusListeners.size +
       liveChangedListeners.size,
   };
 }

@@ -1,3 +1,5 @@
+import { ExecutionNotice, RULES_BLOCKED_HELP } from './ExecutionNotice';
+import { executionError, isInvalidRulesError, strategyExecution } from './ruleValidation';
 import { useCallback, useEffect, useState } from 'react';
 import type { Strategy } from '../../../../shared/strategy';
 import type { RegimeComparisonSide } from '../../../../shared/ai';
@@ -19,6 +21,8 @@ export function RegimeBacktestComparison({
   strategy: Strategy;
   readOnly: boolean;
 }) {
+  const execution = strategyExecution(strategy);
+  const [rulesInvalid, setRulesInvalid] = useState(false);
   const [offline, setOffline] = useState(false);
   useEffect(() => {
     let active = true;
@@ -181,17 +185,21 @@ export function RegimeBacktestComparison({
       {!data &&
         !result.loading &&
         !result.error &&
-        (!readOnly && strategy.executable ? (
+        (!readOnly ? (
           <button
-            disabled={running || offline}
+            disabled={running || (offline && execution.executable && !rulesInvalid)}
+            aria-disabled={!execution.executable || rulesInvalid}
+            aria-describedby={!execution.executable || rulesInvalid ? 'regime-blocked' : undefined}
             onClick={async () => {
+              if (!execution.executable || rulesInvalid || running || offline) return;
               setRunning(true);
               setRunError('');
               try {
                 await window.tradia.backtest.runRegimeComparison(request);
                 await result.reload();
-              } catch {
-                setRunError('No se pudo ejecutar la comparación. Inténtalo de nuevo.');
+              } catch (cause) {
+                setRulesInvalid(isInvalidRulesError(cause));
+                setRunError(executionError(cause, 'No se pudo ejecutar la comparación.'));
               } finally {
                 setRunning(false);
               }
@@ -206,6 +214,12 @@ export function RegimeBacktestComparison({
               : 'Esta estrategia no tiene implementación ejecutable.'}
           </p>
         ))}
+      {(!execution.executable || rulesInvalid) && (
+        <p id="regime-blocked">
+          {RULES_BLOCKED_HELP} {execution.reason}
+        </p>
+      )}
+      {rulesInvalid && <ExecutionNotice strategyId={strategy.id} readOnly={readOnly} />}
     </section>
   );
 }

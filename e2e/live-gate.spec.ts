@@ -22,7 +22,15 @@ import {
  * `live:seed-progress`. Nada sale a la red.
  */
 
-const LIMITS: LiveLimits = { capitalUsd: 500, orderUsd: 100, dailyLossUsd: 10, openPositions: 1 };
+const LIMITS: LiveLimits = {
+  capitalUsd: 500,
+  orderUsd: 100,
+  dailyLossUsd: 10,
+  openPositions: 1,
+  shortOrderUsd: 0,
+  shortExposureUsd: 0,
+  shortPositions: 0,
+};
 const LIVE_KEY = 'AKE2ELIVE0001';
 const LIVE_SECRET = 'e2e-live-secret-0001';
 
@@ -93,6 +101,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
           orderUsd: 100,
           dailyLossUsd: 10,
           openPositions: 1,
+          shortOrderUsd: 0,
+          shortExposureUsd: 0,
+          shortPositions: 0,
         }),
       ),
     ).rejects.toThrow(/techos fijos/);

@@ -8,12 +8,30 @@ import './checklist.css';
 import './live.css';
 
 export interface LiveBannerProps {
+  live?: ReturnType<typeof useLiveState>;
   onOpenLimits?: () => void;
   onOpenStop?: () => void;
   onOpenConnection?: () => void;
 }
-export function LiveBanner({ onOpenLimits, onOpenStop, onOpenConnection }: LiveBannerProps = {}) {
+export function LiveBanner(props: LiveBannerProps = {}) {
+  return props.live ? (
+    <LiveBannerContent {...props} live={props.live} />
+  ) : (
+    <ConnectedLiveBanner {...props} />
+  );
+}
+
+function ConnectedLiveBanner(props: LiveBannerProps) {
   const live = useLiveState();
+  return <LiveBannerContent {...props} live={live} />;
+}
+
+function LiveBannerContent({
+  live,
+  onOpenLimits,
+  onOpenStop,
+  onOpenConnection,
+}: LiveBannerProps & { live: ReturnType<typeof useLiveState> }) {
   const safety = useLiveSafety();
   const [stopping, setStopping] = useState(false);
   const [stopError, setStopError] = useState('');

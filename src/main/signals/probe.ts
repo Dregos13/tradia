@@ -9,7 +9,14 @@
  * el hueco de apertura ejecutando a la apertura) y un activo sin más
  * velas liquida su posición. El resultado son las órdenes que la
  * estrategia emite en la última sesión de la serie: cada una es una
- * propuesta de señal ('buy' → largo, 'sell' → corto/venta).
+ * propuesta de señal ('buy' → largo, 'sell' → corto/venta). La apertura
+ * en corto (`ctx.short`) sale como 'sell' y su cierre (`ctx.cover`) como
+ * 'buy'; `leg` distingue la pata (entrada o salida) para el motivo.
+ *
+ * El corto es espejo del largo: la venta en corto llena por debajo de la
+ * apertura, su stop se toca con el high y su objetivo con el low, y una
+ * apertura en largo y una en corto del mismo activo en la misma señal se
+ * anulan (nunca hay las dos posiciones a la vez ni cambio de lado).
  *
  * Módulo puro: sin Electron, sin Node, sin estado global. Las diferencias
  * deliberadas frente al backtest:
@@ -23,7 +30,9 @@
 import type {
   BarWindow,
   EngineBar,
+  PositionSide,
   PositionView,
+  ShortOptions,
   Strategy,
   StrategyContext,
   StrategyParams,
@@ -31,10 +40,18 @@ import type {
 import { DEFAULT_INITIAL_CASH, DEFAULT_MAX_POSITIONS } from '../backtest/types';
 import type { SessionDate } from '../market/providers/types';
 
-/** Orden que la estrategia emitió en la última sesión de la serie. */
+/**
+ * Orden que la estrategia emitió en la última sesión de la serie.
+ * `kind` es la acción de mercado de la propuesta ('sell' también es una
+ * apertura en corto) y `leg` dice si abre o cierra posición: una entrada
+ * en corto viaja como `{kind:'sell', leg:'entrada'}` y su recompra como
+ * `{kind:'buy', leg:'salida'}`.
+ */
 export interface ProbeOrder {
   ticker: string;
   kind: 'buy' | 'sell';
+  /** 'entrada' abre posición (largo o corto); 'salida' la cierra. */
+  leg: 'entrada' | 'salida';
   /** Cierre de la última vela visible del activo (precio de referencia). */
   referencePrice: number;
   stop: number | null;
@@ -66,6 +83,7 @@ interface ProbeAsset {
 
 interface ProbePosition {
   ticker: string;
+  side: PositionSide;
   entryPrice: number;
   entryDate: SessionDate;
   stop: number | null;
@@ -73,7 +91,7 @@ interface ProbePosition {
 }
 
 interface ProbePendingOrder {
-  kind: 'buy' | 'sell';
+  kind: 'buy' | 'sell' | 'short' | 'cover';
   signalDate: SessionDate;
   stop: number | null;
   target: number | null;
@@ -180,6 +198,24 @@ class ProbeContext implements StrategyContext {
     this.enqueue(key, { kind: 'sell', signalDate: this.date, stop: null, target: null });
   }
 
+  short(ticker: string, options: ShortOptions = {}): void {
+    const key = normalize(ticker);
+    if (!this.assets.has(key)) {
+      throw new RangeError(`signals: '${ticker}' no pertenece al universo de la estrategia`);
+    }
+    const stop = optionalPrice(options.stop, 'stop');
+    const target = optionalPrice(options.target, 'target');
+    this.enqueue(key, { kind: 'short', signalDate: this.date, stop, target });
+  }
+
+  cover(ticker: string): void {
+    const key = normalize(ticker);
+    if (!this.assets.has(key)) {
+      throw new RangeError(`signals: '${ticker}' no pertenece al universo de la estrategia`);
+    }
+    this.enqueue(key, { kind: 'cover', signalDate: this.date, stop: null, target: null });
+  }
+
   setStop(ticker: string, price: number): void {
     const position = this.book.get(normalize(ticker));
     if (position === undefined) return;
@@ -195,7 +231,9 @@ class ProbeContext implements StrategyContext {
   /**
    * Las órdenes de la última sesión son las propuestas de señal; el resto
    * llena el libro de posiciones para que la estrategia vea su cartera
-   * igual que en un backtest.
+   * igual que en un backtest. La apertura en corto sale como 'sell' y su
+   * cierre como 'buy' (agregación de señales: 'buy'→largo, 'sell'→corto);
+   * `leg` conserva si la pata abre o cierra.
    */
   private enqueue(ticker: string, order: ProbePendingOrder): void {
     if (this.date === this.lastDate) {
@@ -204,7 +242,8 @@ class ProbeContext implements StrategyContext {
       if (lastBar !== undefined) {
         this.emitted.push({
           ticker,
-          kind: order.kind,
+          kind: order.kind === 'buy' || order.kind === 'cover' ? 'buy' : 'sell',
+          leg: order.kind === 'buy' || order.kind === 'short' ? 'entrada' : 'salida',
           referencePrice: lastBar.close,
           stop: order.stop,
           target: order.target,
@@ -235,6 +274,7 @@ function optionalPrice(value: number | undefined, field: string): number | null 
 function toView(position: ProbePosition): PositionView {
   return {
     ticker: position.ticker,
+    side: position.side,
     shares: 1,
     entryPrice: position.entryPrice,
     entryDate: position.entryDate,
@@ -284,39 +324,60 @@ export function collectLastBarOrders(input: ProbeInput): ProbeOrder[] {
       const bar = asset.bars[asset.revealed]!;
       asset.revealed++;
 
-      // (a) Órdenes pendientes llenan a la apertura de esta vela.
+      // (a) Órdenes pendientes llenan a la apertura de esta vela. Una
+      // apertura en largo y una en corto del mismo activo en la misma
+      // señal se anulan (como en el motor): nunca las dos a la vez.
       const orders = pending.get(asset.ticker) ?? [];
       pending.delete(asset.ticker);
+      const conflictedEntry =
+        orders.some((order) => order.kind === 'buy') &&
+        orders.some((order) => order.kind === 'short');
       for (const order of orders) {
-        if (order.kind === 'buy') {
+        if (conflictedEntry && (order.kind === 'buy' || order.kind === 'short')) continue;
+        if (order.kind === 'buy' || order.kind === 'short') {
           if (positions.has(asset.ticker) || positions.size >= maxPositions) continue;
+          const side: PositionSide = order.kind === 'buy' ? 'largo' : 'corto';
           positions.set(asset.ticker, {
             ticker: asset.ticker,
+            side,
             entryPrice: bar.open,
             entryDate: bar.date,
             stop: order.stop,
             target: order.target,
           });
-          cash -= bar.open;
+          cash += side === 'largo' ? -bar.open : bar.open;
         } else {
+          // 'sell' cierra un largo; 'cover' recompra y cierra un corto.
           const position = positions.get(asset.ticker);
-          if (position !== undefined) {
-            cash += bar.open;
+          const closesSide: PositionSide = order.kind === 'sell' ? 'largo' : 'corto';
+          if (position !== undefined && position.side === closesSide) {
+            cash += position.side === 'largo' ? bar.open : -bar.open;
             positions.delete(asset.ticker);
           }
         }
       }
 
       // (b) Stop y objetivo intrabarra: si la vela toca los dos, el stop
-      // primero; un hueco más allá del nivel ejecuta a la apertura.
+      // primero; un hueco más allá del nivel ejecuta a la apertura. En el
+      // corto el stop lo toca el high y el objetivo el low.
       const position = positions.get(asset.ticker);
       if (position !== undefined) {
-        if (position.stop !== null && bar.low <= position.stop) {
-          cash += Math.min(bar.open, position.stop);
-          positions.delete(asset.ticker);
-        } else if (position.target !== null && bar.high >= position.target) {
-          cash += Math.max(bar.open, position.target);
-          positions.delete(asset.ticker);
+        if (position.side === 'largo') {
+          if (position.stop !== null && bar.low <= position.stop) {
+            cash += Math.min(bar.open, position.stop);
+            positions.delete(asset.ticker);
+          } else if (position.target !== null && bar.high >= position.target) {
+            cash += Math.max(bar.open, position.target);
+            positions.delete(asset.ticker);
+          }
+        } else {
+          if (position.stop !== null && bar.high >= position.stop) {
+            cash -= Math.max(bar.open, position.stop);
+            positions.delete(asset.ticker);
+          } else if (position.target !== null && bar.low <= position.target) {
+            cash -= Math.min(bar.open, position.target);
+            positions.delete(asset.ticker);
+          }
         }
       }
 
@@ -326,17 +387,19 @@ export function collectLastBarOrders(input: ProbeInput): ProbeOrder[] {
         pending.delete(asset.ticker);
         const open = positions.get(asset.ticker);
         if (open !== undefined) {
-          cash += bar.close;
+          cash += open.side === 'largo' ? bar.close : -bar.close;
           positions.delete(asset.ticker);
         }
       }
     }
 
-    // Marca al cierre: último precio conocido de cada posición.
+    // Marca al cierre: último precio conocido de cada posición (el corto
+    // resta: recomprarlo es un pasivo).
     let equity = cash;
     for (const position of positions.values()) {
       const asset = assets.get(position.ticker)!;
-      equity += asset.bars[asset.revealed - 1]!.close;
+      const close = asset.bars[asset.revealed - 1]!.close;
+      equity += position.side === 'largo' ? close : -close;
     }
 
     context.date = date;
@@ -347,12 +410,26 @@ export function collectLastBarOrders(input: ProbeInput): ProbeOrder[] {
   }
 
   // Una propuesta por activo y dirección: la primera emitida (la que el
-  // motor llenaría primero en la apertura siguiente).
+  // motor llenaría primero en la apertura siguiente). La regla del motor
+  // «buy+short del mismo activo en la misma señal no se entra» se traslada
+  // a las propuestas: las dos patas de entrada se anulan entre sí.
+  const conflicted = new Set(
+    emitted
+      .filter(
+        (order) =>
+          order.leg === 'entrada' &&
+          emitted.some(
+            (other) =>
+              other.ticker === order.ticker && other.leg === 'entrada' && other.kind !== order.kind,
+          ),
+      )
+      .map((order) => order.ticker),
+  );
   const seen = new Set<string>();
   return emitted.filter((order) => {
     const key = `${order.ticker}:${order.kind}`;
     if (seen.has(key)) return false;
     seen.add(key);
-    return true;
+    return !(conflicted.has(order.ticker) && order.leg === 'entrada');
   });
 }

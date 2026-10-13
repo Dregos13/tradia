@@ -66,12 +66,12 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
           <a href="#estrategias/nueva">Crear estrategia</a>
         </section>
       ) : (
-        <table className="strategy-table">
+        <table className="strategy-table strategy-library-table">
           <caption className="sr-only">Estrategias y métricas del último backtest</caption>
           <thead>
             <tr>
+              <th scope="col">Estrategia</th>
               {[
-                'Estrategia',
                 'Versión',
                 'Estado',
                 'Rentabilidad',
@@ -80,7 +80,7 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
                 'Operaciones',
                 'Actualización',
               ].map((x) => (
-                <th key={x} scope="col">
+                <th key={x} scope="col" className="strategy-table-fixed">
                   {x}
                 </th>
               ))}
@@ -90,20 +90,32 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
             {rows.map((s) => (
               <tr key={s.id}>
                 <th scope="row" data-label="Estrategia">
-                  <a href={`#estrategias/${s.id}`}>{s.name}</a>
+                  <a className="strategy-table-name" href={`#estrategias/${s.id}`} title={s.name}>
+                    {s.name}
+                  </a>
                   <small>
                     {s.regime} · {s.markets.join(', ')}
                   </small>
                 </th>
-                <td data-label="Versión">v{s.version}</td>
-                <td data-label="Estado">
+                <td data-label="Versión" className="strategy-table-fixed">
+                  v{s.version}
+                </td>
+                <td data-label="Estado" className="strategy-table-fixed">
                   <StrategyStatus status={s.status} />
                 </td>
-                <td data-label="Rentabilidad">{number(s.metricsSummary?.totalReturnPct, '%')}</td>
-                <td data-label="Drawdown">{number(s.metricsSummary?.maxDrawdownPct, '%')}</td>
-                <td data-label="Sharpe">{number(s.metricsSummary?.sharpe)}</td>
-                <td data-label="Operaciones">{number(s.metricsSummary?.trades)}</td>
-                <td data-label="Actualización">
+                <td data-label="Rentabilidad" className="strategy-table-fixed">
+                  {number(s.metricsSummary?.totalReturnPct, '%')}
+                </td>
+                <td data-label="Drawdown" className="strategy-table-fixed">
+                  {number(s.metricsSummary?.maxDrawdownPct, '%')}
+                </td>
+                <td data-label="Sharpe" className="strategy-table-fixed">
+                  {number(s.metricsSummary?.sharpe)}
+                </td>
+                <td data-label="Operaciones" className="strategy-table-fixed">
+                  {number(s.metricsSummary?.trades)}
+                </td>
+                <td data-label="Actualización" className="strategy-table-fixed">
                   {date(s.updatedAt)}
                   <small>Procedencia no disponible</small>
                 </td>

@@ -1,3 +1,4 @@
+import { executionError, isInvalidRulesError } from '../components/strategies/ruleValidation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BacktestProgressEvent, BacktestRunRequest } from '../../../shared/backtest';
 import { useIpcList } from './useIpcList';
@@ -25,6 +26,7 @@ export function useBacktestReport(id: number) {
 export function useBacktest(strategyId: number, version: number) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [rulesInvalid, setRulesInvalid] = useState(false);
   const [progress, setProgress] = useState<BacktestProgressEvent | null>(null);
   const active = useRef(false);
   const mounted = useRef(false);
@@ -60,13 +62,12 @@ export function useBacktest(strategyId: number, version: number) {
       window.location.hash = `estrategias/${strategyId}/backtest/${report.id}`;
     } catch (cause) {
       if (!mounted.current) return;
-      setError(
-        `No se pudo completar el backtest. ${cause instanceof Error ? cause.message : 'Revisa la configuración y reintenta.'}`,
-      );
+      setRulesInvalid(isInvalidRulesError(cause));
+      setError(executionError(cause, 'No se pudo completar el backtest.'));
     } finally {
       active.current = false;
       if (mounted.current) setBusy(false);
     }
   };
-  return { busy, error, progress, launch };
+  return { busy, error, rulesInvalid, progress, launch };
 }
