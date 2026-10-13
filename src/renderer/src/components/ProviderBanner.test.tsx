@@ -125,6 +125,63 @@ it('limpia la suscripción al desmontar', async () => {
   expect(simulation.listenerCount()).toBe(0);
 });
 
+it('la franja nombra solo el activo sin cobertura y desaparece al recibir el resumen nuevo', async () => {
+  const summary = {
+    state: 'current' as const,
+    sinceDate: null,
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 0,
+    items: [],
+    uncovered: [{ ticker: 'EUR', reason: 'Sin cobertura', suggestion: 'FXE' }],
+    updatedAt: staleTicker.updatedAt,
+  };
+  const freshness = vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(summary);
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove').mockResolvedValue([]);
+  render(<ProviderBanner />);
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+  expect(
+    within(banner).getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+  ).toBeVisible();
+  expect(within(banner).getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeEnabled();
+  expect(banner).not.toHaveTextContent('Régimen, predicciones y señales en pausa');
+  await userEvent.click(within(banner).getByRole('button', { name: 'Quitar EUR de la lista' }));
+  expect(remove).toHaveBeenCalledExactlyOnceWith('EUR');
+  expect(screen.getByRole('region', { name: 'Estado de los datos' })).toBeVisible();
+  freshness.mockResolvedValue({ ...summary, uncovered: [] });
+  act(() => simulation.emitDataStatus({ ...staleTicker, state: 'fiable' }));
+  await waitFor(() =>
+    expect(screen.queryByRole('region', { name: 'Estado de los datos' })).not.toBeInTheDocument(),
+  );
+});
+
+it('al recuperarse el resto mantiene EUR visible sin anunciar éxito completo', async () => {
+  const summary = {
+    state: 'stale' as const,
+    sinceDate: '2026-10-06',
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 3,
+    items: [
+      {
+        key: 'ticker:AAPL',
+        label: 'AAPL',
+        state: 'desactualizado' as const,
+        lastDataDate: '2026-10-06',
+        reason: 'Faltan cierres.',
+      },
+    ],
+    uncovered: [{ ticker: 'EUR', reason: 'Sin cobertura', suggestion: 'FXE' }],
+    updatedAt: staleTicker.updatedAt,
+  };
+  const freshness = vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(summary);
+  render(<ProviderBanner />);
+  await screen.findByText('Régimen, predicciones y señales en pausa hasta ponerse al día.');
+  freshness.mockResolvedValue({ ...summary, state: 'current', items: [], sinceDate: null });
+  act(() => simulation.emitDataStatus({ ...staleTicker, state: 'fiable' }));
+  expect(await screen.findByText(/Solo EUR queda en pausa/)).toBeVisible();
+  expect(screen.queryByText('Datos al día.')).not.toBeInTheDocument();
+  expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
+});
+
 it('formatea la fecha de sesión en corto español', () => {
   expect(sessionDateLabel('2026-10-06')).toContain('oct');
   expect(sessionDateLabel(null)).toBe('sin datos');

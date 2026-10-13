@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../adapters/simulated';
-import { DataFreshness, freshnessTitle } from './DataFreshness';
+import { DataFreshness, freshnessTitle, refreshResultMessage } from './DataFreshness';
 import { ProviderBanner } from './ProviderBanner';
 import { Dashboard } from './dashboard/Dashboard';
 import { MarketDataPage } from './MarketDataPage';
@@ -14,6 +14,243 @@ import { regimeLabels } from './strategies/regimeLabels';
 import { DataProvidersSettings } from './DataProvidersSettings';
 import type { DataFreshnessSummary, MarketRefreshResult } from '../../../shared/ipc';
 let simulation: ReturnType<typeof createSimulatedAdapter>;
+const uncoveredSummary: DataFreshnessSummary = {
+  state: 'current',
+  sinceDate: null,
+  expectedSessionDate: '2026-10-09',
+  missingSessions: 0,
+  items: [],
+  uncovered: [
+    {
+      ticker: 'EUR',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+      suggestion: 'FXE',
+    },
+  ],
+  updatedAt: '2026-10-11T10:00:00Z',
+};
+
+it('el refresco parcial cuenta los activos y nombra EUR sin anunciar éxito total', () => {
+  expect(
+    refreshResultMessage({
+      accepted: true,
+      reason: null,
+      ok: false,
+      updated: 3,
+      total: 4,
+      failedTickers: ['EUR'],
+    }),
+  ).toBe('Actualizados 3 de 4 · sin datos: EUR');
+});
+it.each([
+  { ok: true, updated: 3, total: 4, failedTickers: [] },
+  { ok: true, updated: 4, total: 4, failedTickers: ['EUR'] },
+  { ok: false, failedTickers: ['EUR'] },
+])('un resultado incompleto o contradictorio nunca anuncia datos actualizados: %j', (result) => {
+  expect(refreshResultMessage({ accepted: true, reason: null, ...result })).not.toContain(
+    'Datos actualizados',
+  );
+});
+it.each(['stale', 'unreliable', 'catching-up'] as const)(
+  'no anuncia éxito total con resumen %s',
+  (state) => {
+    expect(
+      refreshResultMessage(
+        { accepted: true, reason: null, ok: true },
+        { ...uncoveredSummary, state, uncovered: [] },
+      ),
+    ).not.toContain('Datos actualizados');
+  },
+);
+it('un éxito de otro conector no oculta los activos sin cobertura', () => {
+  expect(refreshResultMessage({ accepted: true, reason: null, ok: true }, uncoveredSummary)).toBe(
+    'Actualización parcial · sin datos: EUR',
+  );
+});
+
+it('un EUR sin cobertura muestra acciones accesibles y solo pausa ese activo', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(uncoveredSummary);
+  render(<DataFreshness />);
+  const notice = await screen.findByRole('region', { name: 'Activos sin datos' });
+  expect(
+    within(notice).getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+  ).toBeVisible();
+  expect(
+    within(notice).getByText(
+      'Solo EUR queda en pausa. Los demás activos, predicciones y señales siguen al día.',
+    ),
+  ).toBeVisible();
+  expect(within(notice).getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeEnabled();
+  expect(within(notice).getByRole('button', { name: 'Quitar EUR de la lista' })).toHaveTextContent(
+    'Quitar de la lista',
+  );
+  expect(screen.queryByText(/Régimen, predicciones y señales en pausa/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Al día')).not.toBeInTheDocument();
+  expect(screen.queryByText(/fecha del último dato no disponible/)).not.toBeInTheDocument();
+  await userEvent.click(within(notice).getByText('Por qué ocurre'));
+  expect(
+    within(notice).getByText(/Tiingo no ofrece datos para EUR en este conector/),
+  ).toBeVisible();
+});
+
+it('quitar por teclado llama a watchlist:remove y conserva el foco al desaparecer el aviso', async () => {
+  const freshness = vi
+    .spyOn(simulation.api.dataStatus, 'freshness')
+    .mockResolvedValue(uncoveredSummary);
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove').mockImplementation(async () => {
+    freshness.mockResolvedValue({ ...uncoveredSummary, uncovered: [] });
+    return [];
+  });
+  render(<DataFreshness />);
+  await screen.findByRole('button', { name: 'Quitar EUR de la lista' });
+  const user = userEvent.setup();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'Cambiar por FXE para EUR' })).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'Quitar EUR de la lista' })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(remove).toHaveBeenCalledExactlyOnceWith('EUR');
+  await waitFor(() => {
+    expect(screen.queryByRole('region', { name: 'Activos sin datos' })).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByLabelText('Avisos de datos'));
+  });
+  expect(screen.getByText('EUR se ha quitado de tu lista.')).toBeVisible();
+});
+
+it('cambiar por teclado añade FXE antes de retirar EUR y relee el resumen tras un push', async () => {
+  const freshness = vi
+    .spyOn(simulation.api.dataStatus, 'freshness')
+    .mockResolvedValue(uncoveredSummary);
+  const add = vi.spyOn(simulation.api.watchlist, 'add');
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove').mockImplementation(async () => {
+    freshness.mockResolvedValue({ ...uncoveredSummary, uncovered: [] });
+    simulation.emitDataStatus(stale);
+    return [];
+  });
+  render(<DataFreshness />);
+  await screen.findByRole('button', { name: 'Cambiar por FXE para EUR' });
+  const user = userEvent.setup();
+  await user.tab();
+  await user.keyboard(' ');
+  await waitFor(() => expect(remove).toHaveBeenCalledExactlyOnceWith('EUR'));
+  expect(add).toHaveBeenCalledExactlyOnceWith('FXE');
+  expect(add.mock.invocationCallOrder[0]!).toBeLessThan(remove.mock.invocationCallOrder[0]!);
+  await waitFor(() => {
+    expect(screen.queryByRole('region', { name: 'Activos sin datos' })).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByLabelText('Avisos de datos'));
+  });
+  expect(screen.getByText('EUR se cambió por FXE.')).toBeVisible();
+});
+
+it('un fallo al añadir la alternativa conserva EUR y permite reintentar', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(uncoveredSummary);
+  vi.spyOn(simulation.api.watchlist, 'add').mockRejectedValue(new Error('IPC'));
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove');
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Cambiar por FXE para EUR' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'No pudimos cambiar EUR. Tu lista se conserva. Inténtalo de nuevo.',
+  );
+  expect(remove).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeEnabled(),
+  );
+});
+
+it('la alternativa ya guardada se reutiliza sin intentar añadirla de nuevo', async () => {
+  await simulation.api.watchlist.add('FXE');
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(uncoveredSummary);
+  const add = vi.spyOn(simulation.api.watchlist, 'add');
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove');
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Cambiar por FXE para EUR' }));
+  await waitFor(() => expect(remove).toHaveBeenCalledExactlyOnceWith('EUR'));
+  expect(add).not.toHaveBeenCalled();
+});
+
+it('varios activos sin cobertura tienen acciones propias, incluida la falta de sugerencia', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    ...uncoveredSummary,
+    uncovered: [...uncoveredSummary.uncovered, { ticker: 'XYZ', suggestion: null, reason: null }],
+  });
+  render(<DataFreshness />);
+  expect(await screen.findByText('2 activos necesitan atención')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Quitar XYZ de la lista' })).toBeEnabled();
+  expect(screen.getAllByRole('button', { name: /Cambiar por/ })).toHaveLength(1);
+  expect(screen.queryByText(/Régimen, predicciones y señales en pausa/)).not.toBeInTheDocument();
+});
+
+it('una pausa global real conserva su aviso y no promete que el resto está al día', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    ...uncoveredSummary,
+    state: 'stale',
+    items: [
+      {
+        key: 'ticker:AAPL',
+        label: 'AAPL',
+        state: 'desactualizado',
+        lastDataDate: null,
+        reason: 'Faltan cierres.',
+      },
+    ],
+  });
+  render(<DataFreshness />);
+  expect(
+    await screen.findByText('Régimen, predicciones y señales en pausa hasta ponerse al día.'),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/Los demás activos, predicciones y señales siguen al día/),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Quitar EUR de la lista' })).toBeEnabled();
+});
+
+it('sin red mantiene la retirada local y deshabilita el cambio que necesita conexión', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(uncoveredSummary);
+  render(<DataFreshness offline />);
+  expect(await screen.findByRole('button', { name: 'Quitar EUR de la lista' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeDisabled();
+  expect(
+    screen.queryByText(/Los demás activos, predicciones y señales siguen al día/),
+  ).not.toBeInTheDocument();
+});
+
+it('sin ningún activo cubierto explica la cobertura sin pedir claves que ya pueden estar configuradas', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    ...uncoveredSummary,
+    state: 'no-data',
+  });
+  render(<DataFreshness />);
+  expect(
+    await screen.findByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+  ).toBeVisible();
+  expect(screen.queryByText(/Sin configurar/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Ir a Ajustes' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Los demás activos.*siguen al día/)).not.toBeInTheDocument();
+});
+
+it('los eventos de un refresco parcial conservan el recuento cuando el resto queda al día', async () => {
+  let summary: DataFreshnessSummary = { ...uncoveredSummary, state: 'stale' };
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockImplementation(async () => summary);
+  vi.spyOn(simulation.api.market, 'refreshNow').mockImplementation(async () => {
+    summary = uncoveredSummary;
+    simulation.emitDataStatus(stale);
+    return {
+      accepted: true,
+      reason: null,
+      ok: false,
+      updated: 3,
+      total: 4,
+      failedTickers: ['EUR'],
+    };
+  });
+  render(<DataFreshness />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'Actualizar ahora' })).not.toBeInTheDocument();
+    expect(screen.getByText('Actualizados 3 de 4 · sin datos: EUR')).toBeVisible();
+  });
+  expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
+});
 it.each([
   ['2026-09-25', 'Datos desactualizados desde el 25 sept 2026'],
   ['no-es-fecha', 'Datos desactualizados desde el no-es-fecha'],

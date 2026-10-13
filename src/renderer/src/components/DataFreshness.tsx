@@ -9,6 +9,7 @@ import './dataFreshness.css';
 import { DataStateIcon } from './DataStateIcon';
 import { dataStateTokenStylesheet } from './dataStateTokens';
 import { useDataFreshness } from '../hooks/useDataFreshness';
+import { UncoveredAssets } from './UncoveredAssets';
 
 export { sessionDateLabel } from '../../../shared/dates';
 
@@ -36,7 +37,33 @@ export function freshnessTitle(
 export function providerSettingsLink(provider: 'tiingo' | 'fred', focus: 'key' | 'test' = 'test') {
   return `#ajustes?provider=${provider}&focus=${focus}`;
 }
-export function refreshResultMessage(result: MarketRefreshResult | MacroRefreshResult): string {
+export function refreshResultMessage(
+  result: MarketRefreshResult | MacroRefreshResult,
+  summary?: DataFreshnessSummary,
+): string {
+  const failed = 'failedTickers' in result ? (result.failedTickers ?? []) : [];
+  const counts =
+    'updated' in result && result.updated !== undefined && result.total !== undefined
+      ? `Actualizados ${result.updated} de ${result.total}`
+      : 'Actualización parcial';
+  if (failed.length) return `${counts} · sin datos: ${failed.join(', ')}`;
+  if (
+    'updated' in result &&
+    result.updated !== undefined &&
+    result.total !== undefined &&
+    result.updated < result.total
+  )
+    return `${counts} · quedan activos pendientes.`;
+  if (
+    result.ok === true &&
+    summary &&
+    (summary.uncovered.length || summary.items.length || summary.state !== 'current')
+  ) {
+    const uncovered = summary.uncovered.map((asset) => asset.ticker);
+    return uncovered.length
+      ? `${counts} · sin datos: ${uncovered.join(', ')}`
+      : 'Actualización recibida. Quedan datos pendientes de verificar.';
+  }
   if (result.ok === false)
     return `No se pudo actualizar: ${result.detail ?? 'el proveedor no pudo completar la descarga.'}`;
   if (result.accepted)
@@ -66,47 +93,78 @@ export function affectedProviders(summary: DataFreshnessSummary) {
   );
   return market || macro ? { market, macro } : { market: true, macro: true };
 }
-export function DataFreshness({
-  variant = 'inline',
-  offline = false,
-  snapshotSessionDate,
-  snapshotStale = false,
-}: {
+type DataFreshnessProps = {
   variant?: 'banner' | 'inline';
   offline?: boolean;
   snapshotSessionDate?: string;
   snapshotStale?: boolean;
-}) {
+};
+
+export function DataFreshness(props: DataFreshnessProps) {
+  const focusTarget = useRef<HTMLDivElement>(null);
+  const [actionMessage, setActionMessage] = useState('');
+  return (
+    <div
+      className="data-freshness-container"
+      ref={focusTarget}
+      tabIndex={-1}
+      role="group"
+      aria-label="Avisos de datos"
+    >
+      <style>{dataStateTokenStylesheet()}</style>
+      <DataFreshnessContent
+        {...props}
+        onActionCompleted={(message) => {
+          setActionMessage(message);
+          focusTarget.current?.focus();
+        }}
+      />
+      <p className="data-freshness-action-result" role="status">
+        {actionMessage}
+      </p>
+    </div>
+  );
+}
+
+function DataFreshnessContent({
+  variant = 'inline',
+  offline = false,
+  snapshotSessionDate,
+  snapshotStale = false,
+  onActionCompleted,
+}: DataFreshnessProps & { onActionCompleted: (message: string) => void }) {
   const { summary: storedSummary, error, reload } = useDataFreshness();
   const summary =
     storedSummary?.state === 'current' && snapshotStale
       ? { ...storedSummary, state: 'stale' as const, sinceDate: snapshotSessionDate ?? null }
       : storedSummary;
-  const incident = JSON.stringify([summary?.state, summary?.sinceDate, summary?.items, offline]);
+  const complete = summary?.state === 'current' && summary.uncovered.length === 0;
+  const incident = JSON.stringify([
+    summary?.state,
+    summary?.sinceDate,
+    summary?.items,
+    summary?.uncovered,
+    offline,
+  ]);
   const attempt = useRef(0);
   const refreshing = useRef(false);
   useEffect(() => {
     // Intermediate download events belong to this refresh, not a new incident.
-    if (!refreshing.current || summary?.state === 'current' || offline) {
+    if (!refreshing.current || complete || offline) {
       attempt.current++;
       setMessages([]);
     }
-  }, [incident, summary?.state, offline]);
+  }, [incident, complete, offline]);
   const [messages, setMessages] = useState<string[]>([]);
   const [retrying, setRetrying] = useState(false);
-  const previous = useRef(summary?.state);
+  const ready = summary !== null;
+  const previous = useRef<boolean | undefined>(undefined);
   const [announcement, setAnnouncement] = useState('');
   useEffect(() => {
-    if (
-      !offline &&
-      summary?.state === 'current' &&
-      previous.current &&
-      previous.current !== 'current'
-    )
-      setAnnouncement('Datos al día.');
+    if (!offline && complete && previous.current === false) setAnnouncement('Datos al día.');
     else setAnnouncement('');
-    previous.current = summary?.state;
-  }, [summary?.state, offline]);
+    if (ready) previous.current = complete;
+  }, [complete, ready, offline]);
   const retry = async () => {
     if (!summary || refreshing.current) return;
     refreshing.current = true;
@@ -123,7 +181,7 @@ export function DataFreshness({
         setMessages(
           results.map((result) =>
             result.status === 'fulfilled'
-              ? refreshResultMessage(result.value)
+              ? refreshResultMessage(result.value, summary)
               : 'No pudimos iniciar la actualización. Inténtalo de nuevo.',
           ),
         );
@@ -146,9 +204,9 @@ export function DataFreshness({
         )}
       </p>
     );
-  if (summary.state === 'current' && offline)
+  if (complete && offline)
     return <p role="status">{freshnessTitle(summary, { offline, snapshotSessionDate })}</p>;
-  if (summary.state === 'current')
+  if (complete)
     return variant === 'banner' ? (
       <p className="sr-only" role="status">
         {announcement}
@@ -161,13 +219,16 @@ export function DataFreshness({
           : ''}
       </span>
     );
+  const uncoveredOnly =
+    (summary.state === 'current' || summary.state === 'no-data') && summary.uncovered.length > 0;
   const oldest = summary.items[0];
   const paused = summary.state === 'stale' || summary.state === 'unreliable';
   const provider =
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
   const title = freshnessTitle(summary, { offline, snapshotSessionDate });
-  const modifier =
-    summary.state === 'unreliable'
+  const modifier = uncoveredOnly
+    ? 'uncovered'
+    : summary.state === 'unreliable'
       ? 'unreliable'
       : summary.state === 'stale'
         ? 'stale'
@@ -180,47 +241,62 @@ export function DataFreshness({
       role={variant === 'banner' ? 'region' : 'group'}
       aria-label={variant === 'banner' ? 'Estado de los datos' : 'Frescura de datos'}
     >
-      <div>
-        <div role="status">
-          <style>{dataStateTokenStylesheet()}</style>
-          <strong>
-            <DataStateIcon kind={paused ? 'warning' : 'pending'} />
-            {title}
-          </strong>
-          {paused && (
-            <p>
-              {oldest?.reason ??
-                `Faltan ${summary.missingSessions} sesiones: la última esperada es la del ${sessionDateLabel(summary.expectedSessionDate)}.`}
-            </p>
-          )}
-          {paused && <p>Régimen, predicciones y señales en pausa hasta ponerse al día.</p>}
-          {summary.state === 'catching-up' && (
-            <p>
-              {summary.progress
-                ? `Descargando ${summary.progress.done} de ${summary.progress.total} activos.`
-                : 'Poniéndose al día…'}{' '}
-              Régimen, predicciones y señales esperan a terminar.
-            </p>
-          )}
-          {summary.state === 'no-data' && (
-            <p>Sin configurar · añade tus claves de Tiingo y FRED para empezar.</p>
-          )}
-          {error && <p>No se pudo comprobar si hay datos más recientes.</p>}
-        </div>
-        <details>
-          <summary>Ver detalles</summary>
-          <ul>
-            {summary.items.map((item) => (
-              <li key={item.key}>
-                {item.label} · último dato{' '}
-                <time dateTime={item.lastDataDate ?? undefined}>
-                  {sessionDateLabel(item.lastDataDate)}
-                </time>{' '}
-                · {item.reason ?? 'Sin motivo registrado'}
-              </li>
-            ))}
-          </ul>
-        </details>
+      <div className="data-freshness-content">
+        {!uncoveredOnly && (
+          <div role="status">
+            <strong>
+              <DataStateIcon kind={paused ? 'warning' : 'pending'} />
+              {title}
+            </strong>
+            {paused && (
+              <p>
+                {oldest?.reason ??
+                  `Faltan ${summary.missingSessions} sesiones: la última esperada es la del ${sessionDateLabel(summary.expectedSessionDate)}.`}
+              </p>
+            )}
+            {paused && <p>Régimen, predicciones y señales en pausa hasta ponerse al día.</p>}
+            {summary.state === 'catching-up' && (
+              <p>
+                {summary.progress
+                  ? `Descargando ${summary.progress.done} de ${summary.progress.total} activos.`
+                  : 'Poniéndose al día…'}{' '}
+                Régimen, predicciones y señales esperan a terminar.
+              </p>
+            )}
+            {summary.state === 'no-data' && (
+              <p>Sin configurar · añade tus claves de Tiingo y FRED para empezar.</p>
+            )}
+            {error && <p>No se pudo comprobar si hay datos más recientes.</p>}
+          </div>
+        )}
+        {!uncoveredOnly && (
+          <details>
+            <summary>Ver detalles</summary>
+            <ul>
+              {summary.items.map((item) => (
+                <li key={item.key}>
+                  {item.label} · último dato{' '}
+                  <time dateTime={item.lastDataDate ?? undefined}>
+                    {sessionDateLabel(item.lastDataDate)}
+                  </time>{' '}
+                  · {item.reason ?? 'Sin motivo registrado'}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {summary.uncovered.length > 0 && (
+          <UncoveredAssets
+            assets={summary.uncovered}
+            current={summary.state === 'current' && !offline}
+            offline={offline}
+            reload={reload}
+            onActionCompleted={onActionCompleted}
+          />
+        )}
+        {uncoveredOnly && error && (
+          <p role="status">No se pudo comprobar si hay datos más recientes.</p>
+        )}
         {messages.map((message, index) => (
           <p role="status" key={index}>
             {message}
@@ -243,7 +319,7 @@ export function DataFreshness({
             </a>
           </>
         )}
-        {summary.state === 'no-data' && (
+        {summary.state === 'no-data' && !uncoveredOnly && (
           <a className="button" href={providerSettingsLink('tiingo', 'key')}>
             Ir a Ajustes
           </a>

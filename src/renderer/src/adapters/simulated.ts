@@ -1,6 +1,7 @@
 import { parseStrategyRules } from '../../../shared/strategyRules';
 import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
 import { evaluateShortAccount, shortAccountBlockReason } from '../../../main/live/checklist';
+import { inferAssetClass } from '../../../shared/fx';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
@@ -1986,7 +1987,12 @@ export function createSimulatedAdapter() {
         }
         watchlist = [
           ...watchlist,
-          { ticker: key, addedAt: new Date().toISOString(), position: watchlist.length },
+          {
+            ticker: key,
+            assetClass: inferAssetClass(key),
+            addedAt: new Date().toISOString(),
+            position: watchlist.length,
+          },
         ];
         touchTickerStatus(key);
         return [...watchlist];
@@ -2004,7 +2010,12 @@ export function createSimulatedAdapter() {
           if (watchlist.some((item) => item.ticker === ticker)) continue;
           watchlist = [
             ...watchlist,
-            { ticker, addedAt: new Date().toISOString(), position: watchlist.length },
+            {
+              ticker,
+              assetClass: 'equity',
+              addedAt: new Date().toISOString(),
+              position: watchlist.length,
+            },
           ];
           touchTickerStatus(ticker);
         }

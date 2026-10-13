@@ -835,8 +835,30 @@ export const TICKER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.-]{0,11}$/;
 /** Fecha de sesión 'YYYY-MM-DD' real (no '2026-02-30'). */
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Tipo de activo de la lista de seguimiento, que decide su calendario y su
+ * regla de frescura:
+ *
+ * - 'equity': acción o ETF de EE. UU., con el calendario de NYSE (sesiones
+ *   de lunes a viernes sin festivos de la bolsa). Es el tipo por defecto.
+ * - 'fx': par de divisas ('EURUSD', ver `shared/fx`), con el calendario
+ *   24/5 (`fxCalendar`): una vela diaria por día UTC de lunes a viernes,
+ *   también en los festivos de NYSE.
+ */
+export const ASSET_CLASSES = ['equity', 'fx'] as const;
+export type AssetClass = (typeof ASSET_CLASSES)[number];
+/** Tipo de los activos sin tipo explícito (todos los anteriores a las divisas). */
+export const DEFAULT_ASSET_CLASS: AssetClass = 'equity';
+
+export function isAssetClass(value: unknown): value is AssetClass {
+  return typeof value === 'string' && (ASSET_CLASSES as readonly string[]).includes(value);
+}
+
 export interface WatchlistItem {
+  /** Símbolo guardado: el ticker ('AAPL') o el par sin barra ('EURUSD'). */
   ticker: string;
+  /** Tipo de activo; 'equity' en todo lo anterior a las divisas. */
+  assetClass: AssetClass;
   /** Alta en la lista (ISO 8601). */
   addedAt: string;
   /** Orden de visualización, 0..n-1. */
@@ -1076,11 +1098,16 @@ export interface DataFreshnessSummary {
    * entradas malas ('YYYY-MM-DD'); null si ninguna tiene dato.
    */
   sinceDate: string | null;
-  /** Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'). */
+  /**
+   * Última sesión esperada ('YYYY-MM-DD'): la de NYSE o, si la lista
+   * tiene divisas y su vela diaria esperada es más reciente (un festivo
+   * de NYSE), la del calendario 24/5.
+   */
   expectedSessionDate: string | null;
   /**
-   * Sesiones de mercado que faltan entre `sinceDate` y
-   * `expectedSessionDate` (aproximación con el calendario de NYSE).
+   * Sesiones que faltan al activo más atrasado: cada entrada mala se
+   * cuenta con el calendario de su tipo de activo (NYSE para acciones y
+   * proveedores, 24/5 para divisas) y se toma el máximo.
    */
   missingSessions: number;
   /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */

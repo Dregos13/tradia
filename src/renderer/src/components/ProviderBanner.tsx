@@ -2,8 +2,8 @@ import { DataFreshness } from './DataFreshness';
 export { sessionDateLabel } from './DataFreshness';
 export function ProviderBanner({ offline = false }: { offline?: boolean }) {
   return (
-    <div className="provider-banners">
+    <aside className="provider-banners" aria-label="Avisos del mercado">
       <DataFreshness variant="banner" offline={offline} />
-    </div>
+    </aside>
   );
 }

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  bondCalendar,
   expectedSessionsBetween,
+  FX_UPDATE_DELAY_MS,
+  fxCalendar,
+  fxExpectedSessionsBetween,
+  fxLastExpectedSession,
+  fxNextUpdateAt,
+  getFxSession,
   getSession,
+  isFxSessionDay,
   isTradingDay,
   lastExpectedSession,
   nextUpdateAt,
@@ -258,5 +266,151 @@ describe('nySessionDate', () => {
     expect(nySessionDate('2026-01-14T21:30:00.000Z')).toBe('2026-01-14'); // 16:30 ET
     expect(nySessionDate('2026-01-14T04:00:00.000Z')).toBe('2026-01-13'); // 23:00 ET del día anterior
     expect(nySessionDate(new Date('2026-06-15T02:00:00.000Z'))).toBe('2026-06-14'); // 22:00 EDT
+  });
+});
+
+describe('fxCalendar · divisas 24/5', () => {
+  it('tiene la misma superficie que bondCalendar', () => {
+    expect(Object.keys(fxCalendar).sort()).toEqual(Object.keys(bondCalendar).sort());
+    expect(fxCalendar.lastExpectedSession).toBe(fxLastExpectedSession);
+    expect(fxCalendar.expectedSessionsBetween).toBe(fxExpectedSessionsBetween);
+  });
+
+  it('espera vela de lunes a viernes y ninguna en fin de semana', () => {
+    for (const date of ['2026-01-12', '2026-01-13', '2026-01-14', '2026-01-15', '2026-01-16']) {
+      expect(isFxSessionDay(date)).toBe(true);
+    }
+    expect(isFxSessionDay('2026-01-17')).toBe(false); // sábado
+    expect(isFxSessionDay('2026-01-18')).toBe(false); // domingo
+  });
+
+  it('sigue abierto en los festivos de NYSE', () => {
+    const nyseHolidays = [
+      '2024-07-04', // Independence Day (jueves)
+      '2025-07-04', // Independence Day (viernes)
+      '2026-01-19', // Martin Luther King Jr.
+      '2026-04-03', // Viernes Santo
+      '2026-11-26', // Acción de Gracias
+      '2025-01-09', // cierre extraordinario (luto por Jimmy Carter)
+    ];
+    for (const date of nyseHolidays) {
+      expect(isTradingDay(date)).toBe(false);
+      expect(isFxSessionDay(date)).toBe(true);
+    }
+  });
+
+  it('tolera como huecos el 25 de diciembre y el 1 de enero, pero no sus vísperas', () => {
+    expect(isFxSessionDay('2025-12-25')).toBe(false); // jueves
+    expect(isFxSessionDay('2026-01-01')).toBe(false); // jueves
+    expect(isFxSessionDay('2025-12-24')).toBe(true);
+    expect(isFxSessionDay('2025-12-26')).toBe(true);
+    expect(isFxSessionDay('2025-12-31')).toBe(true);
+    expect(isFxSessionDay('2026-01-02')).toBe(true);
+    // No hay traslado de festivo: el 25 en sábado no quita el viernes 24.
+    expect(isFxSessionDay('2027-12-24')).toBe(true);
+    expect(fxExpectedSessionsBetween('2025-12-22', '2026-01-04').map((s) => s.date)).toEqual([
+      '2025-12-22',
+      '2025-12-23',
+      '2025-12-24',
+      '2025-12-26',
+      '2025-12-29',
+      '2025-12-30',
+      '2025-12-31',
+      '2026-01-02',
+    ]);
+  });
+
+  it('una sesión es el día UTC completo y se actualiza con margen tras las 00:00 UTC', () => {
+    expect(FX_UPDATE_DELAY_MS).toBeGreaterThan(0);
+    expect(getFxSession('2025-07-04')).toEqual({
+      date: '2025-07-04',
+      opensAtUtc: '2025-07-04T00:00:00.000Z',
+      closesAtUtc: '2025-07-05T00:00:00.000Z',
+      updateAtUtc: new Date(
+        Date.parse('2025-07-05T00:00:00.000Z') + FX_UPDATE_DELAY_MS,
+      ).toISOString(),
+      earlyClose: false,
+    });
+    // El viernes negro de NYSE no acorta la vela de divisas.
+    expect(getFxSession('2026-11-27')?.earlyClose).toBe(false);
+    expect(getFxSession('2026-01-17')).toBeNull();
+  });
+
+  it('reduce los instantes al día UTC, no al de Nueva York', () => {
+    // Viernes 04-07-2025 a las 23:30 en Nueva York = sábado 03:30 UTC.
+    expect(nySessionDate('2025-07-04T23:30:00-04:00')).toBe('2025-07-04');
+    expect(getFxSession('2025-07-04T23:30:00-04:00')).toBeNull();
+    expect(getFxSession(new Date('2025-07-04T23:59:59.999Z'))?.date).toBe('2025-07-04');
+    expect(getFxSession(Date.parse('2025-07-07T00:00:00.000Z'))?.date).toBe('2025-07-07');
+  });
+
+  it('lastExpectedSession: la última vela cuyo día UTC ya terminó', () => {
+    expect(fxLastExpectedSession('2025-07-04T23:59:59.000Z')?.date).toBe('2025-07-03');
+    expect(fxLastExpectedSession('2025-07-05T00:00:00.000Z')?.date).toBe('2025-07-04');
+    // Una fecha sin hora equivale a las 00:00 UTC de ese día.
+    expect(fxLastExpectedSession('2025-07-05')?.date).toBe('2025-07-04');
+    // Fin de semana y lunes antes de terminar: sigue siendo el viernes.
+    expect(fxLastExpectedSession('2025-07-05T18:00:00.000Z')?.date).toBe('2025-07-04');
+    expect(fxLastExpectedSession('2025-07-06T23:00:00.000Z')?.date).toBe('2025-07-04');
+    expect(fxLastExpectedSession('2025-07-07T12:00:00.000Z')?.date).toBe('2025-07-04');
+    expect(fxLastExpectedSession('2025-07-08T00:00:00.000Z')?.date).toBe('2025-07-07');
+    // Navidad: tras el 25 se sigue esperando la del 24.
+    expect(fxLastExpectedSession('2025-12-26T12:00:00.000Z')?.date).toBe('2025-12-24');
+    expect(fxLastExpectedSession('2026-01-02T12:00:00.000Z')?.date).toBe('2025-12-31');
+  });
+
+  it('expectedSessionsBetween: vacío en fin de semana o rango invertido', () => {
+    expect(fxExpectedSessionsBetween('2026-01-17', '2026-01-18')).toEqual([]);
+    expect(fxExpectedSessionsBetween('2026-01-16', '2026-01-12')).toEqual([]);
+    expect(fxExpectedSessionsBetween('2024-07-01', '2024-07-07').map((s) => s.date)).toEqual([
+      '2024-07-01',
+      '2024-07-02',
+      '2024-07-03',
+      '2024-07-04',
+      '2024-07-05',
+    ]);
+    // NYSE, en cambio, se salta el 4 de julio.
+    expect(expectedSessionsBetween('2024-07-01', '2024-07-07').map((s) => s.date)).toEqual([
+      '2024-07-01',
+      '2024-07-02',
+      '2024-07-03',
+      '2024-07-05',
+    ]);
+  });
+
+  it('el cambio de hora no mueve la sesión ni la actualización (UTC fijo; Madrid sí cambia)', () => {
+    // EE. UU. cambia el domingo 08-03-2026 y Europa el domingo 29-03-2026.
+    for (const date of ['2026-03-06', '2026-03-09', '2026-03-27', '2026-03-30']) {
+      const session = getFxSession(date)!;
+      expect(session.opensAtUtc).toBe(`${date}T00:00:00.000Z`);
+      expect(session.updateAtUtc.slice(11)).toBe('01:00:00.000Z');
+    }
+    // Lunes 09-03 a las 00:30 UTC: la vela del viernes ya se actualizó; la
+    // siguiente es la del lunes, el martes a las 01:00 UTC (02:00 en Madrid,
+    // todavía en horario de invierno).
+    expect(fxNextUpdateAt('2026-03-09T00:30:00.000Z')).toMatchObject({
+      utc: '2026-03-10T01:00:00.000Z',
+      madrid: '2026-03-10T02:00:00+01:00',
+      session: { date: '2026-03-09' },
+    });
+    // Tras el cambio europeo, la misma hora UTC son las 03:00 en Madrid.
+    expect(fxNextUpdateAt('2026-03-30T12:00:00.000Z')).toMatchObject({
+      utc: '2026-03-31T01:00:00.000Z',
+      madrid: '2026-03-31T03:00:00+02:00',
+      session: { date: '2026-03-30' },
+    });
+  });
+
+  it('nextUpdateAt: el sábado de madrugada todavía actualiza el viernes; después, el lunes', () => {
+    expect(fxNextUpdateAt('2025-07-05T00:30:00.000Z')).toMatchObject({
+      utc: '2025-07-05T01:00:00.000Z',
+      session: { date: '2025-07-04' },
+    });
+    expect(fxNextUpdateAt('2025-07-05T02:00:00.000Z')).toMatchObject({
+      utc: '2025-07-08T01:00:00.000Z',
+      session: { date: '2025-07-07' },
+    });
+    // Tras el 24 de diciembre la siguiente es la del 26 (el 25 es hueco).
+    expect(fxNextUpdateAt('2025-12-25T02:00:00.000Z').session.date).toBe('2025-12-26');
   });
 });

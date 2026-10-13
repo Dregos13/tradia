@@ -9,6 +9,10 @@
  * `data_status` y emitidos por `data-status:changed`:
  *
  * - 'fiable': hay vela de la última sesión esperada (u observación al día).
+ *   La sesión esperada de cada activo sale del calendario de su tipo
+ *   (`assetClass`): NYSE para las acciones ('equity') y 24/5 para los
+ *   pares de divisas ('fx', `fxCalendar`), así un par sí espera vela en un
+ *   festivo de NYSE y ninguno de los dos la espera en sábado.
  * - 'actualizando': lo escriben la ingesta y el servicio macro mientras dura
  *   su refresco; la vigilancia lo respeta si es reciente.
  * - 'desactualizado': falta la vela de una sesión esperada pasadas
@@ -54,6 +58,7 @@ import {
   IpcValidationError,
   isDataStatusState,
   isE2eEnabled,
+  type AssetClass,
   type DataFreshnessItem,
   type DataFreshnessState,
   type DataFreshnessSummary,
@@ -65,7 +70,7 @@ import {
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
-import { bondCalendar } from './calendar';
+import { bondCalendar, fxCalendar } from './calendar';
 import type { MarketSession } from './calendar';
 import { tickerSuggestions } from './providers/suggestions';
 import { createMarketRepository, type MarketRepository } from './repository';
@@ -117,7 +122,13 @@ const MACRO_PROVIDER_IDS = new Set(['fred', 'macro-simulated']);
 
 export type TimerHandle = ReturnType<typeof setTimeout>;
 
-/** Lo que la vigilancia necesita del calendario de NYSE (inyectable). */
+/** Un activo de la lista tal como lo vigila la salud: su símbolo y su tipo. */
+interface WatchedAsset {
+  ticker: string;
+  assetClass: AssetClass;
+}
+
+/** Lo que la vigilancia necesita de un calendario de sesiones (inyectable). */
 export interface HealthCalendar {
   lastExpectedSession(now: number): MarketSession | null;
   expectedSessionsBetween(desde: string, hasta: string): MarketSession[];
@@ -131,8 +142,10 @@ export interface DataHealthDeps {
   notify?(payload: NotificationPayload): void;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?: () => number;
-  /** Calendario de sesiones; por defecto el real de NYSE. */
+  /** Calendario de sesiones de las acciones; por defecto el real de NYSE. */
   calendar?: HealthCalendar;
+  /** Calendario de los pares de divisas; por defecto el 24/5 (`fxCalendar`). */
+  fxCalendar?: HealthCalendar;
   /** Temporizadores inyectables para las pruebas; por defecto los globales. */
   setTimer?: (callback: () => void, delayMs: number) => TimerHandle;
   clearTimer?: (handle: TimerHandle) => void;
@@ -206,6 +219,10 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const repo = deps.repo;
   const now = deps.now ?? (() => Date.now());
   const calendar = deps.calendar ?? nyseCalendar;
+  const currencyCalendar = deps.fxCalendar ?? fxCalendar;
+  /** Calendario de un activo de la lista según su tipo. */
+  const calendarForAsset = (assetClass: AssetClass): HealthCalendar =>
+    assetClass === 'fx' ? currencyCalendar : calendar;
   const setTimer = deps.setTimer ?? ((cb, ms) => setTimeout(cb, ms));
   const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h));
   const evalIntervalMs = deps.evalIntervalMs ?? HEALTH_EVAL_INTERVAL_MS;
@@ -305,16 +322,17 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     return { respected: false, current: current?.state === 'actualizando' ? null : current };
   };
 
-  const computeTicker = (ticker: string): Desired | null => {
+  const computeTicker = ({ ticker, assetClass }: WatchedAsset): Desired | null => {
     const key = dataStatusKey.ticker(ticker);
     const rawCurrent = repo.getDataStatus(key);
+    const assetCalendar = calendarForAsset(assetClass);
     // 'sin-cobertura' va primero: el contador de fallos no le aplica (no
     // es un fallo del proveedor ni un dato atrasado). Solo lo levanta una
     // ingesta que traiga velas ('fiable'); si los datos ya están
     // guardados y al día (p. ej. llegaron por otra vía), la evaluación
     // confirma el estado bueno.
     if (rawCurrent?.state === 'sin-cobertura') {
-      const lastExpectedCovered = calendar.lastExpectedSession(now());
+      const lastExpectedCovered = assetCalendar.lastExpectedSession(now());
       const lastStoredCovered = repo.lastBarDate(ticker);
       if (
         lastStoredCovered !== null &&
@@ -337,7 +355,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // 'no-fiable' solo lo levanta un refresco con éxito (lo escribe el servicio).
     if (rawCurrent?.state === 'no-fiable') return null;
 
-    const lastExpected = calendar.lastExpectedSession(now());
+    const lastExpected = assetCalendar.lastExpectedSession(now());
     if (lastExpected === null) return null;
 
     const { respected, current } = respectsInFlight(rawCurrent);
@@ -357,7 +375,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // Primera sesión esperada que falta: su hora de actualización marca el
     // plazo (una sesión nueva no reinicia la caducidad de una más antigua).
     const searchFrom = lastStored === null ? shiftDays(lastExpected.date, -31) : lastStored;
-    const missing = calendar
+    const missing = assetCalendar
       .expectedSessionsBetween(shiftDays(searchFrom, 1), lastExpected.date)
       .filter((s) => lastStored === null || s.date > lastStored);
     const firstMissing = missing[0] ?? lastExpected;
@@ -556,9 +574,9 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const evaluate = (): DataStatusEntry[] => {
     const written: DataStatusEntry[] = [];
     try {
-      for (const { ticker } of repo.listWatchlist()) {
-        const desired = computeTicker(ticker);
-        if (desired) applyDesired(dataStatusKey.ticker(ticker), desired, written);
+      for (const item of repo.listWatchlist()) {
+        const desired = computeTicker(item);
+        if (desired) applyDesired(dataStatusKey.ticker(item.ticker), desired, written);
       }
       for (const series of repo.listMacroSeries()) {
         const desired = computeMacro(series.id, series.frequency);
@@ -703,13 +721,15 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const pendingFetchKeys = (): Set<string> => {
     const pending = new Set<string>();
     const lastExpected = calendar.lastExpectedSession(now());
-    if (lastExpected === null) return pending;
-    for (const { ticker } of repo.listWatchlist()) {
+    for (const { ticker, assetClass } of repo.listWatchlist()) {
+      const expected = calendarForAsset(assetClass).lastExpectedSession(now());
+      if (expected === null) continue;
       const last = repo.lastBarDate(ticker);
-      if (last === null || last < lastExpected.date) {
+      if (last === null || last < expected.date) {
         pending.add(dataStatusKey.ticker(ticker));
       }
     }
+    if (lastExpected === null) return pending;
     for (const series of repo.listMacroSeries()) {
       const lastObs = repo.lastMacroObservationDate(series.id);
       const expectedMin = expectedMacroMinDate(series.id, series.frequency, lastExpected.date);
@@ -787,14 +807,16 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // datos todavía no cuenta: no hay «último dato» que caducar —el
     // estado 'sin datos' lo da el conjunto, no el fallo del proveedor.
     const behind = new Set<string>();
+    const watchlist = repo.listWatchlist();
+    for (const { ticker, assetClass } of watchlist) {
+      const expected = calendarForAsset(assetClass).lastExpectedSession(now());
+      const last = repo.lastBarDate(ticker);
+      if (expected !== null && last !== null && last < expected.date) {
+        behind.add(dataStatusKey.ticker(ticker));
+      }
+    }
     const lastExpectedForBehind = calendar.lastExpectedSession(now());
     if (lastExpectedForBehind !== null) {
-      for (const { ticker } of repo.listWatchlist()) {
-        const last = repo.lastBarDate(ticker);
-        if (last !== null && last < lastExpectedForBehind.date) {
-          behind.add(dataStatusKey.ticker(ticker));
-        }
-      }
       for (const series of repo.listMacroSeries()) {
         const lastObs = repo.lastMacroObservationDate(series.id);
         if (
@@ -853,10 +875,11 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // red o antes de la primera evaluación, un dato viejo no espera a
     // que observe/evaluate lo marque — la frescura lo calcula igual.
     const covered = new Set(items.map((item) => item.key));
-    for (const { ticker } of repo.listWatchlist()) {
+    for (const asset of watchlist) {
+      const { ticker } = asset;
       const key = dataStatusKey.ticker(ticker);
       if (covered.has(key)) continue;
-      const desired = computeTicker(ticker);
+      const desired = computeTicker(asset);
       if (desired !== null && isBad(desired.state)) {
         items.push({
           key,
@@ -913,17 +936,36 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
             ? 'current'
             : 'no-data';
 
-    const lastExpected = calendar.lastExpectedSession(now());
-    const expectedSessionDate = lastExpected?.date ?? null;
+    // Sesión esperada del resumen: la de NYSE o, con divisas en la lista,
+    // la vela 24/5 si es más reciente (p. ej. en un festivo de NYSE).
+    const assetClassByKey = new Map(
+      watchlist.map((item) => [dataStatusKey.ticker(item.ticker), item.assetClass] as const),
+    );
+    const usedClasses = new Set<AssetClass>(['equity', ...assetClassByKey.values()]);
+    const expectedSessionDate =
+      [...usedClasses]
+        .map((assetClass) => calendarForAsset(assetClass).lastExpectedSession(now())?.date)
+        .filter((date): date is string => date !== undefined)
+        .sort()
+        .at(-1) ?? null;
     const sinceDate =
       items
         .map((item) => item.lastDataDate)
         .filter((date): date is string => date !== null)
         .sort()[0] ?? null;
-    const missingSessions =
-      sinceDate !== null && expectedSessionDate !== null && sinceDate < expectedSessionDate
-        ? calendar.expectedSessionsBetween(shiftDays(sinceDate, 1), expectedSessionDate).length
-        : 0;
+    // Sesiones que faltan al más atrasado, cada uno con su calendario
+    // (las series y los proveedores, con el de NYSE).
+    const missingSessions = items.reduce((max, item) => {
+      if (item.lastDataDate === null) return max;
+      const itemCalendar = calendarForAsset(assetClassByKey.get(item.key) ?? 'equity');
+      const expected = itemCalendar.lastExpectedSession(now());
+      if (expected === null || item.lastDataDate >= expected.date) return max;
+      const count = itemCalendar.expectedSessionsBetween(
+        shiftDays(item.lastDataDate, 1),
+        expected.date,
+      ).length;
+      return Math.max(max, count);
+    }, 0);
     return {
       state,
       sinceDate,

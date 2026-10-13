@@ -6,6 +6,8 @@ import { createSimulatedAdapter } from '../../adapters/simulated';
 import { sma, rsi, atr } from '../../../../shared/indicators';
 import { adjustedCandles, chartData, rangeStart } from './chartData';
 import { MarketWorkspace } from './MarketWorkspace';
+import { ProviderBanner } from '../ProviderBanner';
+import type { DataFreshnessSummary } from '../../../../shared/ipc';
 
 const charts = vi.hoisted(() => ({
   instances: [] as {
@@ -267,4 +269,36 @@ it('marca lista y gráfico al fallar y restaura la confianza al recuperarse', as
   );
   await waitFor(() => expect(screen.queryByText('No fiable')).toBeNull());
   expect(chart.classList.contains('data-unreliable')).toBe(false);
+});
+
+it('la retirada desde el aviso también refresca la lista visible en Mercado', async () => {
+  await simulation.api.watchlist.add('EUR');
+  await simulation.api.watchlist.add('SPY');
+  const uncoveredSummary: DataFreshnessSummary = {
+    state: 'current',
+    sinceDate: null,
+    expectedSessionDate: null,
+    missingSessions: 0,
+    items: [],
+    uncovered: [{ ticker: 'EUR', reason: null, suggestion: 'FXE' }],
+    updatedAt: new Date().toISOString(),
+  };
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockImplementation(async () => ({
+    ...uncoveredSummary,
+    uncovered: (await simulation.api.watchlist.list()).some((item) => item.ticker === 'EUR')
+      ? uncoveredSummary.uncovered
+      : [],
+  }));
+  render(
+    <>
+      <ProviderBanner />
+      <MarketWorkspace />
+    </>,
+  );
+  await screen.findByRole('button', { name: 'EUR' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Quitar EUR de la lista' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'EUR' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SPY' })).toBeEnabled();
+  });
 });

@@ -186,7 +186,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(
       banner
         .getByRole('status')
-        .filter({ hasText: /^No se pudo actualizar: / })
+        .filter({ hasText: /^(Actualizados \d+ de \d+ · sin datos: |No se pudo actualizar: )/ })
         .first(),
     ).toBeVisible({ timeout: 15_000 });
     await expect(banner.getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
@@ -245,7 +245,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     // el cierre local no debe convertirse en «desactualizados desde».
     await expect(
       page
-        .locator('.ai-page > [role="status"]')
+        .locator('.ai-page > .data-freshness-container [role="status"]')
         .filter({ hasText: /^Sin conexión · datos del 6 oct 2026/ }),
     ).toBeVisible();
     for (const name of ['Régimen del mercado', 'Predicción por activo']) {

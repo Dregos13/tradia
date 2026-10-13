@@ -43,9 +43,36 @@ describe('watchlist', () => {
     expect(repo.removeWatchlistTicker('KO')).toBe(false);
   });
 
+  it('guarda el tipo de activo: fx para los pares admitidos, equity por defecto', () => {
+    expect(repo.addWatchlistTicker('AAPL').assetClass).toBe('equity');
+    expect(repo.addWatchlistTicker(' eurusd ')).toMatchObject({
+      ticker: 'EURUSD',
+      assetClass: 'fx',
+      position: 1,
+    });
+    // Explícito: un ETF de divisas sigue siendo una acción.
+    expect(repo.addWatchlistTicker('FXE', 'equity').assetClass).toBe('equity');
+    expect(repo.addWatchlistTicker('GBPUSD', 'fx').assetClass).toBe('fx');
+
+    expect(repo.listWatchlist().map((w) => [w.ticker, w.assetClass])).toEqual([
+      ['AAPL', 'equity'],
+      ['EURUSD', 'fx'],
+      ['FXE', 'equity'],
+      ['GBPUSD', 'fx'],
+    ]);
+    // Idempotente: repetir no cambia el tipo guardado.
+    expect(repo.addWatchlistTicker('EURUSD', 'equity').assetClass).toBe('fx');
+    // Un tipo desconocido se rechaza sin escribir nada.
+    expect(() => repo.addWatchlistTicker('BTC', 'crypto' as never)).toThrowError(
+      MarketRepositoryError,
+    );
+    expect(repo.listWatchlist()).toHaveLength(4);
+  });
+
   it('añade el universo inicial y respeta el límite de 25', () => {
     const added = repo.addWatchlistUniverse(INITIAL_UNIVERSE_TICKERS);
     expect(added).toHaveLength(INITIAL_UNIVERSE_TICKERS.length);
+    expect(added.every((item) => item.assetClass === 'equity')).toBe(true);
     expect(repo.listWatchlist()).toHaveLength(WATCHLIST_MAX_ITEMS);
 
     // Repetir no duplica y el límite bloquea tickers ajenos al universo.
