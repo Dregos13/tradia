@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { LIVE_FIXED_CAPS, LIVE_FIXED_SHORT_CAPS, type LiveLimits } from '../../../../shared/live';
 import { usd } from './presentation';
 
@@ -51,6 +51,7 @@ export function LimitsForm({
   shortSaveError?: string;
 }) {
   const id = useId();
+  const firstShortRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<Values>(
     () =>
       Object.fromEntries(
@@ -86,6 +87,7 @@ export function LimitsForm({
       </small>
       <input
         id={`${id}-${key}`}
+        ref={key === 'shortOrderUsd' ? firstShortRef : undefined}
         type="number"
         inputMode={isPositionLimit(key) ? 'numeric' : 'decimal'}
         min={isShortLimit(key) ? 0 : isPositionLimit(key) ? 1 : 0.01}
@@ -186,6 +188,8 @@ export function LimitsForm({
                 };
                 setValues(next);
                 onDirty(isDirty(next));
+                // The button unmounts once shortRequested is false: keep keyboard focus.
+                firstShortRef.current?.focus();
               }}
             >
               Poner el corto a 0

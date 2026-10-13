@@ -415,7 +415,7 @@ it('la declaración legal general no sustituye la específica y paper pendiente 
           ...item,
           state: 'pendiente',
           evidence:
-            '2 de 5 cortos cerrados · 1 de 4 semanas · sin descuadres de paper abiertos en el periodo',
+            '1 de 4 semanas · 2 de 5 cortos cerrados · sin descuadres de paper abiertos en el periodo',
         }
       : item,
   );

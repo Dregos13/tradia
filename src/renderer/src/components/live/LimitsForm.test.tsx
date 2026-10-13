@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { LiveLimits } from '../../../../shared/live';
@@ -57,6 +57,26 @@ it('acepta cero para desactivar el corto y conserva los otros límites', () => {
     shortExposureUsd: 0,
     shortPositions: 0,
   });
+});
+
+it('deja el foco en el primer campo del corto tras «Poner el corto a 0»', async () => {
+  render(
+    <LimitsForm
+      saved={saved}
+      disabled={false}
+      shortBlocked
+      shortBlockReason="Falta la declaración del corto."
+      onSave={vi.fn()}
+      onDirty={vi.fn()}
+    />,
+  );
+  const reset = screen.getByRole('button', { name: 'Poner el corto a 0' });
+  reset.focus();
+  await userEvent.keyboard('{Enter}');
+  expect(screen.queryByRole('button', { name: 'Poner el corto a 0' })).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByLabelText('Máximo por orden en corto')),
+  );
 });
 
 it('pone el corto bloqueado a 0 con teclado sin perder el borrador general ni permitir subirlo', async () => {

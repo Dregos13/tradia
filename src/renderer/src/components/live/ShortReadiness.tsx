@@ -46,14 +46,6 @@ export function ShortReadiness({
   const paperEvidence = checklist?.short?.items.find(
     (item) => item.requirement === 'paper-cortos',
   )?.evidence;
-  // Reorder the three supplied evidence segments; no progress is inferred locally.
-  const segments = paperEvidence?.split(' · ');
-  const orderedPaperEvidence =
-    segments?.length === 3 &&
-    segments[0]?.includes('cortos cerrados') &&
-    segments[1]?.includes('semanas')
-      ? [segments[1], segments[0], segments[2]].join(' · ')
-      : paperEvidence;
   return (
     <section
       className="live-sheet live-short-readiness"
@@ -143,7 +135,7 @@ export function ShortReadiness({
                       : 'Cortos en paper durante al menos 4 semanas y 5 operaciones cerradas'}
                   </h4>
                   <p>
-                    {(manual ? item?.evidence : orderedPaperEvidence) ??
+                    {(manual ? item?.evidence : paperEvidence) ??
                       (manual
                         ? 'Todavía no has guardado la declaración específica del corto.'
                         : 'No se pudo verificar la evidencia de cortos en paper.')}

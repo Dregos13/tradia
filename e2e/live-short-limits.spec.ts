@@ -302,6 +302,7 @@ test('los requisitos del corto bloquean edición, conservan límites y abren ór
     await reset.focus();
     await expect(reset).toBeFocused();
     await page.keyboard.press('Enter');
+    await expect(order).toBeFocused();
     for (const label of [
       'Máximo por orden en corto',
       'Exposición corta total máxima',
