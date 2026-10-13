@@ -1262,14 +1262,21 @@ export function registerMarket(
 
   // Gancho de desarrollo: la app empaquetada no registra el canal.
   if (!app.isPackaged) {
-    ipcMain.handle(IPC_CHANNELS.market.advanceClock, (_event, deltaMs: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.market.advanceClock, async (_event, deltaMs: unknown) => {
       if (typeof deltaMs !== 'number' || !Number.isFinite(deltaMs) || deltaMs <= 0) {
         throw new IpcValidationError(
           IPC_CHANNELS.market.advanceClock,
           'se esperaba un número de ms positivo',
         );
       }
-      return service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
+      const result = service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
+      // Las series macro refrescan con temporizadores de tiempo real: al
+      // adelantar el reloj en desarrollo/E2E hay que ponerlas al día en
+      // esta misma llamada, o sus claves macro:* pasarían a
+      // 'desactualizado' solo por el salto del reloj. `refreshNow`
+      // devuelve el motivo del rechazo, nunca lanza.
+      await ctx.services.macro?.refreshNow();
+      return result;
     });
   }
 

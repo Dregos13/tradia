@@ -346,4 +346,60 @@ describe('proveedor simulado — pares de divisas 24/5', () => {
       kind: 'not-found',
     });
   });
+
+  it('EUR/USD cotiza en la banda realista (0,9–1,4) en cualquier fecha del reloj', async () => {
+    // El paseo revierte al anclaje del par: ni a los pocos meses ni a las
+    // décadas del génesis el precio se va a niveles de acción (~12,8).
+    for (const instant of [
+      '2001-04-11T12:00:00.000Z',
+      '2008-09-17T12:00:00.000Z',
+      '2015-11-20T12:00:00.000Z',
+      '2024-07-08T12:00:00.000Z',
+      '2026-10-13T12:00:00.000Z',
+      '2031-06-25T12:00:00.000Z',
+    ]) {
+      const provider = createSimulatedProvider({
+        seed: 'tradia-e2e',
+        now: () => Date.parse(instant),
+      });
+      const quote = await provider.getQuote('EURUSD');
+      expect(quote.last).toBeGreaterThanOrEqual(0.9);
+      expect(quote.last).toBeLessThanOrEqual(1.4);
+    }
+    // Y sigue siendo determinista para el mismo (seed, ticker).
+    const a = createSimulatedProvider({ seed: 'tradia-e2e', now: () => FX_NOW });
+    const b = createSimulatedProvider({ seed: 'tradia-e2e', now: () => FX_NOW });
+    expect(await a.getQuote('EURUSD')).toEqual(await b.getQuote('EURUSD'));
+  });
+
+  it('cada par se mueve en torno a su nivel realista con variación diaria ≈0,5 %', async () => {
+    const provider = makeFx();
+    const quote = async (ticker: string) => (await provider.getQuote(ticker)).last;
+    // Nivel de cada par en su propia escala (USD por EUR/GBP; JPY y CHF
+    // por USD), nunca el precio de una acción.
+    expect(await quote('EURUSD')).toBeGreaterThan(0.9);
+    expect(await quote('EURUSD')).toBeLessThan(1.4);
+    expect(await quote('GBPUSD')).toBeGreaterThan(1.0);
+    expect(await quote('GBPUSD')).toBeLessThan(1.6);
+    expect(await quote('USDCHF')).toBeGreaterThan(0.7);
+    expect(await quote('USDCHF')).toBeLessThan(1.1);
+    expect(await quote('USDJPY')).toBeGreaterThan(120);
+    expect(await quote('USDJPY')).toBeLessThan(180);
+
+    const bars = await provider.getBars('EURUSD', '2024-01-02', '2024-07-05');
+    let maxMove = 0;
+    let moves = 0;
+    for (let i = 1; i < bars.length; i += 1) {
+      const move = Math.abs(bars[i]!.close / bars[i - 1]!.close - 1);
+      expect(bars[i]!.close).toBeGreaterThanOrEqual(0.9);
+      expect(bars[i]!.close).toBeLessThanOrEqual(1.4);
+      maxMove = Math.max(maxMove, move);
+      if (move > 0) moves += 1;
+    }
+    // El par varía cada día pero con pasos de divisa (techo ≈1 %), no de
+    // acción (2 % diarios en el paseo libre).
+    expect(moves).toBeGreaterThan(0);
+    expect(maxMove).toBeGreaterThan(0.001);
+    expect(maxMove).toBeLessThan(0.02);
+  });
 });

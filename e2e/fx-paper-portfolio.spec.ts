@@ -253,9 +253,14 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
     const freshness = await page.evaluate(() => window.tradia.dataStatus.freshness());
     expect(freshness.uncovered).toEqual([]);
     expect(freshness.items.filter((item) => /SPY|EUR/.test(item.key))).toEqual([]);
-    await expect(page.getByRole('region', { name: 'Estado de los datos' })).not.toContainText(
-      /sin datos|sin cobertura/i,
-    );
+    // Con todo al día el aviso no se pinta (solo queda un status sr-only);
+    // si llegara a existir, no puede hablar de datos ausentes ni de falta
+    // de cobertura.
+    await expect(
+      page
+        .getByRole('region', { name: 'Estado de los datos' })
+        .filter({ hasText: /sin datos|sin cobertura/i }),
+    ).toHaveCount(0);
     await shot('6-lista-al-dia');
   });
 });

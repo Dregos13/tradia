@@ -8,7 +8,9 @@
  *   festivos; los pares admitidos (`isFxPair`, p. ej. 'EURUSD') generan
  *   velas del calendario de divisas 24/5: cada día UTC de lunes a viernes,
  *   festivos de NYSE incluidos (salvo los huecos tolerados 25-12 y 01-01),
- *   sin volumen ni acciones corporativas.
+ *   sin volumen ni acciones corporativas. El precio del par no es un paseo
+ *   libre: revierte a un anclaje realista (`FX_PRICE_ANCHORS`) con
+ *   variación diaria ≈0,5 %, así EUR/USD cotiza siempre en torno a 1,1.
  * - Una sesión solo existe si su cierre ya pasó según el reloj inyectado
  *   (`now`), con su horario real y sus cierres anticipados.
  * - `adjClose` se calcula hacia atrás como en un proveedor real: continuo a
@@ -44,6 +46,32 @@ export const SIMULATED_RATE_LIMITS: RateLimits = { perHour: 60_000, perDay: 1_00
 
 const DEFAULT_GENESIS: SessionDate = '2000-01-03'; // lunes
 
+/**
+ * Nivel típico de cada par admitido: la cotización realista de mercado
+ * (~1,10 USD por EUR, ~150 JPY por USD). Los pares no hacen un paseo
+ * libre como las acciones —con la deriva acabarían en 12 u 80— sino que
+ * oscilan en torno a su anclaje.
+ */
+const FX_PRICE_ANCHORS: Readonly<Record<string, number>> = {
+  EURUSD: 1.1,
+  GBPUSD: 1.27,
+  USDCHF: 0.9,
+  USDJPY: 150,
+};
+
+/** Variación diaria típica de un par de divisas (≈0,5 % por sesión). */
+const FX_DAILY_VOL = 0.005;
+
+/**
+ * Reversión al anclaje por sesión. Con FX_DAILY_VOL=0,005 la cota del
+ * paseo queda en ±vol/(1−φ) = ±12,5 %, así que EUR/USD simulado no sale
+ * de 0,96–1,24 en ninguna fecha ni semilla.
+ */
+const FX_MEAN_REVERSION = 0.96;
+
+/** Anclaje del par; un par futuro no listado parte de ~1,1. */
+const fxAnchorFor = (ticker: string): number => FX_PRICE_ANCHORS[ticker] ?? 1.1;
+
 export interface SimulatedInjections {
   /** { date, factor }: split de `factor`:1 con fecha ex `date`. */
   splits?: Array<{ date: SessionDate; factor: number }>;
@@ -64,9 +92,9 @@ export interface SimulatedProviderOptions {
   now?: () => number;
   /** Primera fecha de la serie generada ('YYYY-MM-DD', un lunes). */
   genesis?: SessionDate;
-  /** Volatilidad diaria máxima del paseo (fracción, por defecto 0.02). */
+  /** Volatilidad diaria máxima del paseo de las acciones (por defecto 0.02). */
   dailyVol?: number;
-  /** Deriva diaria del paseo (fracción, por defecto 0.0002). */
+  /** Deriva diaria del paseo de las acciones (por defecto 0.0002). */
   drift?: number;
   /** Inyecciones iniciales por ticker (en mayúsculas). */
   injections?: Record<string, SimulatedInjections>;
@@ -221,10 +249,13 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     const rng = mulberry32(hashSeed(`${String(seed)}:${ticker}`));
     const fx = isFxPair(ticker);
     const isSessionDay = fx ? isFxSessionDay : isTradingDay;
-    // Cinco decimales y nivel ~1 en divisas, dos y ~cientos en acciones.
+    // Cinco decimales en divisas, dos en acciones. El nivel del par sale
+    // de su anclaje de mercado (~1,1 en EUR/USD); el de la acción, del
+    // arranque aleatorio de siempre.
     const decimals = fx ? 5 : 2;
+    const anchor = fx ? fxAnchorFor(ticker) : 0;
     const days: ContinuousDay[] = [];
-    let close = fx ? round(0.5 + rng() * 1.5, decimals) : round(20 + rng() * 480, decimals);
+    let close = fx ? anchor : round(20 + rng() * 480, decimals);
     const baseVolume = Math.round(1_000_000 + rng() * 50_000_000);
 
     const cursor = new Date(`${genesis}T00:00:00.000Z`);
@@ -232,10 +263,16 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     while (cursor <= end) {
       const date = toSessionDate(cursor.getTime());
       if (isSessionDay(date)) {
-        // Ruido triangular en [-dailyVol, dailyVol) más una deriva suave.
-        const noise = ((rng() + rng() + rng()) / 1.5 - 1) * dailyVol;
+        // Ruido triangular en [-1, 1): la acción lo escala con dailyVol y
+        // la deriva suave; el par revierte al anclaje con vol ≈0,5 %.
+        const unit = (rng() + rng() + rng()) / 1.5 - 1;
         const prev = close;
-        close = round(prev * (1 + noise + drift), decimals);
+        close = fx
+          ? round(
+              anchor + (prev - anchor) * FX_MEAN_REVERSION + anchor * unit * FX_DAILY_VOL,
+              decimals,
+            )
+          : round(prev * (1 + unit * dailyVol + drift), decimals);
         const open = round(prev * (1 + (rng() + rng() - 1) * 0.005), decimals);
         const high = round(Math.max(open, close) * (1 + rng() * 0.01), decimals);
         const low = round(Math.min(open, close) * (1 - rng() * 0.01), decimals);
