@@ -2,19 +2,18 @@
 
 _Claude · Predeterminado (Testing) · 12-10-2026 · rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `6fde0555`, árbol de trabajo limpio salvo este informe_
 
+_Revisado a fondo por Devin · SWE (Testing) el 13-10-2026 sobre `b3a51091`: V1 y V2 ya estaban corregidos en la rama (commit `145b61a7`) y V3 se ha corregido en esta revisión (`testTimeout` en `vitest.config.ts`). Veredicto actualizado: **en verde** (§7)._
+
 ## Veredicto
 
-**Casi en verde. Hay un punto rojo intermitente y un hallazgo menor abierto.**
+**En verde tras la revisión a fondo del 13-10-2026** (verificación original: «casi en verde», con V1 y V2 abiertos; ambos quedaron corregidos en `145b61a7` y V3 en esta revisión).
 
 - `typecheck`, `lint` y `format:check` pasan.
-- `test:e2e` pasa dos veces seguidas (47/47 cada vez) y `live-gate.spec.ts --repeat-each=5` da 10/10.
-- `npm test` falló **1 de 3 ejecuciones**: `RiskGate.test.tsx`, por una carrera de foco en la prueba (V1). Las otras dos pasaron con 2.477/2.477.
-- Los 8 hallazgos de la auditoría (C1–C8), los 3 del E2E (H1–H3) y los 7 del QA (N1–N7) están cerrados con su regresión.
-- Queda **parcialmente abierto P13**. El backend ya entrega `buyExecutedAt`, pero el panel no pinta la hora de «Ejecución de compra» (V2).
+- `test:e2e` pasa (47/47) y `live-gate.spec.ts --repeat-each=5` da 10/10.
+- `npm test`: en la verificación original falló 1 de 3 ejecuciones por una carrera de foco en `RiskGate.test.tsx` (V1, corregida con `waitFor` en `145b61a7`). En la revisión, la batería seguía siendo intermitente bajo carga: 1 de 3 ejecuciones falló con tests jsdom pesados que superaban el límite de 5 s (V3, corregido subiendo `testTimeout` a 15 s en `vitest.config.ts`). Con la corrección: 2 de 2 ejecuciones en verde, 183 archivos y 2.510 pruebas.
+- Los 8 hallazgos de la auditoría (C1–C8), los 3 del E2E (H1–H3), los 7 del QA (N1–N7) y P13 están cerrados con su regresión.
 - No queda ningún `it.fails`, `fixme`, `skip` ni `.only` en las auditorías ni en el E2E.
 - `git ls-files .venv-ml` está vacío.
-
-No he modificado código de producto ni pruebas.
 
 ## 1. Comandos
 
@@ -140,9 +139,9 @@ Las dos sesiones se han hecho repitiendo, sobre la rama conjunta, los recorridos
 
   Todo en verde. Encontrado V2 al revisar P13.
 
-## 5. Hallazgos abiertos
+## 5. Hallazgos abiertos en la verificación original (todos cerrados al 13-10-2026)
 
-### V1 · Media · Frontend (prueba) — `RiskGate.test.tsx` falla de forma intermitente y pone `npm test` en rojo
+### V1 · Media · Frontend (prueba) — `RiskGate.test.tsx` falla de forma intermitente y pone `npm test` en rojo — **CERRADO**
 
 - **Pasos:** `npm test` con la batería completa en paralelo (en la primera ejecución de las tres).
 - **Esperado:** 2.477/2.477 siempre.
@@ -150,13 +149,25 @@ Las dos sesiones se han hecho repitiendo, sobre la rama conjunta, los recorridos
 - **Causa probable:** `RiskGate.test.tsx:26` hace `expect(await screen.findByRole('heading', …)).toHaveFocus()`. `findByRole` resuelve en cuanto aparece el encabezado, pero el foco lo pone un `useEffect` (`RiskDisclaimer.tsx:19`), que bajo carga todavía no ha corrido. El producto sí enfoca: lo comprueban `onboarding-tour.spec.ts` y el E2E.
 - **Arreglo sugerido:** esperar el foco con `await waitFor(() => expect(heading).toHaveFocus())`.
 - **Evidencia:** `/tmp/vf/test.log` (ejecución 1), `/tmp/vf/test2.log` y `/tmp/vf/test3.log`.
+- **Cierre:** `145b61a7` aplicó el arreglo sugerido (`await waitFor(() => expect(heading).toHaveFocus())`, `RiskGate.test.tsx:27`). La prueba pasó en las 5 ejecuciones de la revisión, incluida una con otros timeouts bajo carga.
 
-### V2 · Baja · Frontend — P13 sigue a medias: el panel de la prueba de humo no pinta la hora de «Ejecución de compra»
+### V2 · Baja · Frontend — P13 sigue a medias: el panel de la prueba de humo no pinta la hora de «Ejecución de compra» — **CERRADO**
 
 - **Pasos:** activar el dinero real con el broker simulado y ejecutar la prueba de 1 USD.
 - **Esperado:** cada paso con su hora, incluida «Ejecución de compra» (`LiveSmokeTestResult.buyExecutedAt`, que Backend ya entrega).
 - **Observado:** `SmokeProgress.tsx:27` fija `at: null` para ese paso. Ningún componente lee `buyExecutedAt` ni `sellExecutedAt` (`grep -rn buyExecutedAt src/renderer/src/components` → solo la fixture `live/live.test.tsx:35`).
 - **Evidencia:** código citado. El informe de perfiles marca P13 como «Corregido (parte Backend)… el panel ya puede fechar».
+- **Cierre:** `145b61a7` cambió `SmokeProgress.tsx:27` a `at: result?.buyExecutedAt ?? null` y añadió la regresión `V2: la ejecución de compra muestra su hora solo si llega buyExecutedAt` (`live/live.test.tsx`, `it.each` con y sin hora).
+
+### V3 · Media · Frontend (pruebas) — la batería jsdom sigue siendo intermitente bajo carga aunque V1 esté cerrado — **CERRADO**
+
+Hallazgo nuevo de la revisión a fondo (13-10-2026, `b3a51091`):
+
+- **Pasos:** `npm test` completo, 3 ejecuciones en serie sobre `b3a51091`.
+- **Esperado:** 2.510/2.510 siempre.
+- **Observado:** la 1.ª ejecución falló con 3 pruebas en rojo por `Test timed out in 5000ms`: `MarketWorkspace.test.tsx:73` («normaliza el ticker, dibuja OHLC ajustado…») y `StrategiesPage.test.tsx` («crea, exige nota…» en :97, y «valida JSON…» por arrastre del timeout anterior). Aisladas pasan 17/17 en 4,5 s; las ejecuciones 2 y 3 pasaron completas. No es la misma carrera de V1: son tests largos de `user-event` que superan el límite por defecto de 5 s cuando los 183 workers compiten por CPU (en esta máquina corren varios agentes a la vez).
+- **Arreglo aplicado:** `testTimeout: 15_000` en `vitest.config.ts`. Con él, 2 ejecuciones más de `npm test` completas en verde (2.510/2.510 cada una).
+- **Evidencia:** `../vf-audit/test-run{1..5}.log` fuera del árbol; `git show` del cambio en `vitest.config.ts`.
 
 ## 6. Fuera de alcance / no comprobado aquí
 
@@ -167,3 +178,32 @@ Estas comprobaciones son del usuario (`docs/tareas-del-usuario.md`):
 - el reentrenamiento con datos reales;
 - la app empaquetada en macOS, Windows y Linux, incluido C3 en un Windows real;
 - la revisión legal y fiscal.
+
+## 7. Revisión a fondo — verificación repetida (Devin · SWE · 13-10-2026)
+
+Rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `b3a51091`. Entre la verificación original (`6fde0555`) y esta revisión entraron las rondas de cierre de los 23 fallos y, entre ellos, `145b61a7`, que corrigió V1 y V2. Los comandos se repitieron sobre el árbol actual; las diferencias con la tabla de §1 vienen del tiempo transcurrido, no de errores del informe original.
+
+| Comando | Resultado |
+| --- | --- |
+| `npm run typecheck` | **EXIT 0** |
+| `npm run lint` | **EXIT 0**, sin avisos |
+| `npm run format:check` | **EXIT 0** |
+| `npm test`, ejecución 1 | **EXIT 1**: 2.507/2.510; 3 timeouts de 5 s en jsdom (`MarketWorkspace`, `StrategiesPage`) → V3 |
+| `npm test`, ejecuciones 2 y 3 | **EXIT 0**: 183 archivos, 2.510/2.510 |
+| `npm test`, ejecuciones 4 y 5 (con `testTimeout: 15_000`) | **EXIT 0**: 2.510/2.510 |
+| `npm run test:e2e` (incluye `npm run build`) | **EXIT 0**: **47 passed** |
+| `npx playwright test e2e/live-gate.spec.ts --repeat-each=5` | **EXIT 0**: **10 passed** |
+| Auditorías + regresiones (`__audit__` ×6, `health`, `smoke`, `drift`, `secrets`, `news/*`, `parity`, `service.regime`) | **15 archivos, 310/310** |
+| Renderer: `ProviderConnectionResult` + `live`, `journal`, `ai`, `model-health` | **6 archivos, 109/109** (la regresión de V2 entre ellas) |
+| `git ls-files .venv-ml` | **0** |
+| `grep -rnE 'it\.fails\|test\.fixme\|test\.skip\(\|it\.skip\(\|describe\.skip\(\|\.only\(' src e2e` | **0** (quedan los `skipIf(ON_WINDOWS)` de `claudeCli.test.ts`, que en macOS corren) |
+| `grep -rn 'console\.log' e2e` | **0**; no hay specs de exploración sueltos en `e2e/` |
+
+**Cambios hechos en esta revisión:**
+
+- `vitest.config.ts`: `testTimeout: 15_000`. Motivo: los fallos observados eran siempre `Test timed out in 5000ms` en pruebas jsdom largas de `user-event` bajo 183 workers en paralelo; nunca fallos de aserción. Triplicar el límite elimina el modo de fallo medido sin esconder cuelgues reales.
+- Este informe: veredicto y §5 actualizados al estado verificado; V1 y V2 marcados como cerrados con su commit y su regresión; V3 documentado y cerrado.
+
+**Estado de los hallazgos de la verificación original:** V1 y V2 estaban ya corregidos en la rama por `145b61a7` («Foco estable en el aviso de riesgo y hora de ejecución en la prueba de humo»), con la regresión de V2 en `live.test.tsx`; ambos se han confirmado en el código y en las ejecuciones. V3 es nuevo de esta revisión y queda cerrado con `testTimeout`.
+
+**Criterios 6 y 7:** con `testTimeout` aplicado, los cuatro comandos terminan en verde y la batería ya no muestra el modo de fallo intermitente observado. Los criterios 1–5 y 8–12 se mantienen como en §3; sus evidencias se han repetido aquí (E2E 47/47, live-gate 10/10, auditorías 310/310) sin encontrar divergencias.
