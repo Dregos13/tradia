@@ -45,7 +45,12 @@
         "step": 0.5
       }
     },
-    "markets": ["SPY", "QQQ", "DIA", "IWM"],
+    "markets": [
+      "SPY",
+      "QQQ",
+      "DIA",
+      "IWM"
+    ],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -65,7 +70,9 @@
       "trades": 64
     },
     "regime": "Mercados tendenciales sostenidos, alcistas o bajistas; pierde por sierra en laterales prolongados.",
-    "worksIn": ["tendencia"],
+    "worksIn": [
+      "tendencia"
+    ],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,
@@ -75,9 +82,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: seguimiento de tendencia clásico (SMA 50/200 con stop ATR).",
-    "createdAt": "2026-10-11T10:06:09.677Z",
-    "updatedAt": "2026-10-11T10:06:22.632Z",
-    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+    "createdAt": "2026-10-13T13:51:46.094Z",
+    "updatedAt": "2026-10-13T13:52:11.340Z",
+    "versionCreatedAt": "2026-10-13T13:51:46.094Z"
   },
   {
     "id": 2,
@@ -137,7 +144,10 @@
         "step": 0.5
       }
     },
-    "markets": ["SPY", "QQQ"],
+    "markets": [
+      "SPY",
+      "QQQ"
+    ],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -157,8 +167,12 @@
       "trades": 45
     },
     "regime": "Retrocesos dentro de tendencia alcista y mercados laterales suaves; sufre en bajistas persistentes, donde la sobreventa no implica suelo.",
-    "worksIn": ["lateral"],
-    "failsIn": ["tendencia"],
+    "worksIn": [
+      "lateral"
+    ],
+    "failsIn": [
+      "tendencia"
+    ],
     "assumedCosts": {
       "commissionPct": 0.05,
       "commissionMin": 1,
@@ -167,9 +181,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: reversión a la media con RSI(2) y filtro de tendencia (variante Connors del sistema RSI/Bollinger).",
-    "createdAt": "2026-10-11T10:06:09.677Z",
-    "updatedAt": "2026-10-11T10:06:22.632Z",
-    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+    "createdAt": "2026-10-13T13:51:46.094Z",
+    "updatedAt": "2026-10-13T13:52:11.341Z",
+    "versionCreatedAt": "2026-10-13T13:51:46.094Z"
   },
   {
     "id": 3,
@@ -217,7 +231,11 @@
         "step": 0.5
       }
     },
-    "markets": ["SPY", "QQQ", "TLT"],
+    "markets": [
+      "SPY",
+      "QQQ",
+      "TLT"
+    ],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -237,7 +255,9 @@
       "trades": 53
     },
     "regime": "Mercados que rompen rangos y continúan (índices y bonos en regímenes direccionales); pierde con falsas rupturas en laterales.",
-    "worksIn": ["tendencia"],
+    "worksIn": [
+      "tendencia"
+    ],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,
@@ -247,9 +267,9 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: ruptura de rangos con canal de Donchian 55/20 (sistema tortuga).",
-    "createdAt": "2026-10-11T10:06:09.677Z",
-    "updatedAt": "2026-10-11T10:06:22.633Z",
-    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+    "createdAt": "2026-10-13T13:51:46.094Z",
+    "updatedAt": "2026-10-13T13:52:11.341Z",
+    "versionCreatedAt": "2026-10-13T13:51:46.094Z"
   },
   {
     "id": 4,
@@ -279,7 +299,18 @@
         "step": 1
       }
     },
-    "markets": ["SPY", "QQQ", "DIA", "IWM", "VTI", "XLF", "XLK", "XLE", "XLV", "TLT"],
+    "markets": [
+      "SPY",
+      "QQQ",
+      "DIA",
+      "IWM",
+      "VTI",
+      "XLF",
+      "XLK",
+      "XLE",
+      "XLV",
+      "TLT"
+    ],
     "trainingPeriod": {
       "desde": "2000-01-03",
       "hasta": "2014-12-31"
@@ -299,7 +330,9 @@
       "trades": 25
     },
     "regime": "Mercados con tendencias sectoriales o entre activos persistentes; sufre en rotaciones bruscas de liderazgo y en caídas correladas.",
-    "worksIn": ["tendencia"],
+    "worksIn": [
+      "tendencia"
+    ],
     "failsIn": [],
     "assumedCosts": {
       "commissionPct": 0.05,
@@ -309,8 +342,8 @@
     },
     "status": "paper",
     "changeNote": "Semilla de la fase 2: rotación mensual al top 3 por momentum de 6 meses sobre el universo de ETF.",
-    "createdAt": "2026-10-11T10:06:09.677Z",
-    "updatedAt": "2026-10-11T10:06:22.633Z",
-    "versionCreatedAt": "2026-10-11T10:06:09.677Z"
+    "createdAt": "2026-10-13T13:51:46.094Z",
+    "updatedAt": "2026-10-13T13:52:11.344Z",
+    "versionCreatedAt": "2026-10-13T13:51:46.094Z"
   }
 ]

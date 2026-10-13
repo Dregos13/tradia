@@ -230,6 +230,18 @@ async function launch(
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   }
+  // Con un perfil vacío el tour guiado arranca tras el aviso de riesgo y
+  // su velo vuelve inerte la ventana: se salta antes de navegar, igual
+  // que en e2e/onboarding.helpers.ts. Si el perfil ya lo completó no
+  // aparece y la espera termina sin tocar nada.
+  const guidedTour = page.getByRole('dialog', { name: /^Paso \d+ de 10\./ });
+  await guidedTour
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .then(async () => {
+      await guidedTour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
+      await expect(guidedTour).toHaveCount(0, { timeout: 5_000 });
+    })
+    .catch(() => undefined);
   await expect(home).toBeVisible({ timeout: 30_000 });
   return { app, page, logs };
 }
