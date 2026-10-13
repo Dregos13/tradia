@@ -287,7 +287,18 @@ solo si lo quieres: sin estos pasos el corto con dinero real queda
    - el título que vayas a vender debe estar disponible para préstamo
      (`shortable` y `easy_to_borrow`). Si no lo está, la app rechaza la
      orden con ese motivo.
-2. **Fija los límites del corto** en **Ajustes › Límites de capital real**.
+2. **Cumple los requisitos propios del corto.** Antes de poder guardar
+   límites del corto mayores que 0, la app te pedirá dos cosas más:
+   - la **declaración de revisión legal y fiscal específica de las
+     ventas en corto** (CNMV/MiFID II e IRPF), que firmas en la lista de
+     la pantalla «Dinero real»;
+   - **evidencia de cortos en paper**: al menos 4 semanas entre el
+     primer y el último corto cerrado en paper y al menos 5 cortos
+     cerrados, sin descuadres abiertos en la conciliación de paper.
+   Hasta cumplirlos, cualquier intento de guardar o confirmar límites
+   del corto > 0 — o de abrir un corto real — se rechaza con el motivo
+   «[corto-requisitos] …».
+3. **Fija los límites del corto** en **Ajustes › Límites de capital real**.
    Vienen a 0, y con cualquiera a 0 el corto sigue desactivado. Los techos
    fijos (tu valor debe ser igual o menor) son:
    - «Máximo por orden en corto»: **100 USD**;
@@ -295,15 +306,15 @@ solo si lo quieres: sin estos pasos el corto con dinero real queda
    - «Posiciones cortas simultáneas»: **1**;
    - además, cada corto lleva siempre un stop de compra como máximo al
      **5 %** por encima de la entrada (no se configura: lo exige la app).
-3. Pulsa «Guardar límites» y después **«Confirmar límites y activar dinero
+4. Pulsa «Guardar límites» y después **«Confirmar límites y activar dinero
    real»**, escribiendo la frase que incluye los límites del corto.
    Esperado: la ficha de una estrategia con reglas de corto pasa a decir
    que el corto con dinero real está permitido por los límites
    confirmados, sujeto al motor de riesgo de cada orden.
-4. Ten en cuenta el riesgo: en corto la pérdida no tiene tope natural y un
+5. Ten en cuenta el riesgo: en corto la pérdida no tiene tope natural y un
    salto de precio puede superar el stop. Empieza con importes por debajo
    de los techos.
-5. Cuando se ejecute el primer corto, cuadra en el panel de Alpaca la venta
+6. Cuando se ejecute el primer corto, cuadra en el panel de Alpaca la venta
    de entrada (venta stop, nunca a mercado), el stop de compra y la
    recompra con lo que muestran **Órdenes** y el **Diario**.
 

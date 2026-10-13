@@ -581,6 +581,7 @@ it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmon
     allComplete: false,
     total: 7,
     completedCount: 0,
+    short: { items: [], completedCount: 0, total: 0, allComplete: false, blockReason: null },
     limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
     evaluatedAt: null,
   });
@@ -618,6 +619,8 @@ it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', asyn
 
 it('guarda los tres límites del corto y confirma la frase que los incluye', async () => {
   await complete();
+  // Los límites del corto > 0 exigen antes su declaración legal propia.
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await mount();
   for (const [label, value] of [
     ['Máximo por orden en corto', '100'],

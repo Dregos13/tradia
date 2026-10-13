@@ -12,7 +12,9 @@ import {
   evaluateFinalTest,
   evaluateKillSwitchTest,
   evaluatePaperProgress,
+  evaluatePaperShorts,
   formatLiveDate,
+  paperShortStatsFromOrders,
   paperStatsFromOrders,
   type AlertTestEvidence,
 } from './checklist';
@@ -290,5 +292,89 @@ describe('evaluateAlertChannel', () => {
     const verdict = evaluateAlertChannel(test, () => false);
     expect(verdict.state).toBe('pendiente');
     expect(verdict.reasons[0]).toContain('ya no está activo');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 'paper-cortos': evidencia de cortos en paper + conciliación cuadrada
+// ---------------------------------------------------------------------------
+
+/** Un corto cerrado: entrada de venta + recompra ejecutadas. */
+const closedShort = (opts: {
+  strategyId: number;
+  signalId: number;
+  entryAt: string;
+  exitAt: string;
+}): BrokerOrder[] => [
+  paperOrder({
+    strategyId: opts.strategyId,
+    signalId: opts.signalId,
+    leg: 'entrada',
+    side: 'sell',
+    executedAt: opts.entryAt,
+    executedPrice: 100,
+  }),
+  paperOrder({
+    strategyId: opts.strategyId,
+    signalId: opts.signalId,
+    leg: 'salida',
+    side: 'buy',
+    executedAt: opts.exitAt,
+    executedPrice: 95,
+  }),
+];
+
+describe('paperShortStatsFromOrders', () => {
+  it('solo cuenta las operaciones cerradas cuya entrada es una venta', () => {
+    const orders = [
+      ...closedShort({ strategyId: 1, signalId: 1, entryAt: isoDaysAgo(40), exitAt: isoDaysAgo(35) }),
+      ...closedTrade({
+        strategyId: 1,
+        signalId: 2,
+        entryAt: isoDaysAgo(30),
+        exitAt: isoDaysAgo(25),
+      }),
+      ...closedShort({ strategyId: 1, signalId: 3, entryAt: isoDaysAgo(10), exitAt: isoDaysAgo(5) }),
+    ];
+    const stats = paperShortStatsFromOrders(orders);
+    expect(stats.closedShorts).toBe(2);
+    // Del cierre del primer corto (hace 35 días) al último (hace 5): 30 días.
+    expect(stats.spanDays).toBe(30);
+  });
+
+  it('sin cortos cerrados todo queda a cero', () => {
+    expect(paperShortStatsFromOrders([])).toEqual({ closedShorts: 0, spanDays: 0 });
+    const soloLargos = closedTrade({
+      strategyId: 1,
+      signalId: 1,
+      entryAt: isoDaysAgo(10),
+      exitAt: isoDaysAgo(5),
+    });
+    expect(paperShortStatsFromOrders(soloLargos)).toEqual({ closedShorts: 0, spanDays: 0 });
+  });
+});
+
+describe('evaluatePaperShorts', () => {
+  it('debajo de los umbrales lista cada motivo', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 2, spanDays: 14, openDiscrepancies: 0 });
+    expect(verdict.state).toBe('pendiente');
+    expect(verdict.reasons.join(' ')).toContain('2 de 5 cortos cerrados');
+    expect(verdict.reasons.join(' ')).toContain('2 de 4 semanas');
+    expect(verdict.evidence).toContain('2 de 5');
+  });
+
+  it('un descuadre abierto de la conciliación de paper la mantiene pendiente', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 6, spanDays: 35, openDiscrepancies: 2 });
+    expect(verdict.state).toBe('pendiente');
+    expect(verdict.reasons.join(' ')).toContain('2 descuadres');
+    expect(verdict.evidence).toContain('2 descuadres abiertos');
+  });
+
+  it('con los umbrales cubiertos y la conciliación cuadrada cumple', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 5, spanDays: 28, openDiscrepancies: 0 });
+    expect(verdict.state).toBe('cumplido');
+    expect(verdict.evidence).toContain('5 de 5 cortos cerrados');
+    expect(verdict.evidence).toContain('4 de 4 semanas');
+    expect(verdict.evidence).toContain('conciliación cuadrada');
   });
 });

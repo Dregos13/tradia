@@ -131,8 +131,15 @@ const completeChecklist = async (): Promise<void> => {
     finalTestDone: true,
     killSwitchTested: true,
     alertsTested: true,
+    paperShortTrades: 5,
+    paperShortWeeks: 5,
   });
-  for (const requirement of ['claves-sin-retirada', 'plan-contingencia', 'revision-legal']) {
+  for (const requirement of [
+    'claves-sin-retirada',
+    'plan-contingencia',
+    'revision-legal',
+    'revision-legal-corto',
+  ]) {
     await invoke(IPC_CHANNELS.live.declare, { requirement, confirmed: true });
   }
 };

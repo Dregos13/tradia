@@ -30,6 +30,8 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
         deviationPct: -4,
         finalTestDone: true,
         alertsTested: true,
+        paperShortTrades: 5,
+        paperShortWeeks: 5,
       });
       await window.tradia.live.testKillSwitch();
       await window.tradia.live.declare({ requirement: 'claves-sin-retirada', confirmed: true });
@@ -39,6 +41,7 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
         detail: 'Plan E2E: parada y cierre manual desde Alpaca si no hay conexión.',
       });
       await window.tradia.live.declare({ requirement: 'revision-legal', confirmed: true });
+      await window.tradia.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
       return window.tradia.strategies.create({
         name: 'Corto con límites confirmados',
         hypothesis: 'Cruce de medias bajista',

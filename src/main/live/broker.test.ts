@@ -93,7 +93,11 @@ const secretsStub = () => ({
 });
 
 const liveStub = () => ({
-  getChecklist: () => ({ allComplete: gateOpen }) as unknown as LiveChecklist,
+  getChecklist: () =>
+    ({
+      allComplete: gateOpen,
+      short: { items: [], completedCount: 0, total: 0, allComplete: true, blockReason: null },
+    }) as unknown as LiveChecklist,
   getState: async () =>
     ({
       mode: store.getMode().estado,

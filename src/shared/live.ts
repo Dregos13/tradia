@@ -29,8 +29,21 @@
  * protección, y la parada de emergencia recompra los cortos abiertos.
  * Estos techos tampoco se escalan nunca de forma automática.
  *
+ * El corto exige además sus **propios requisitos**
+ * (`LIVE_SHORT_REQUIREMENTS`): la declaración de revisión legal y
+ * fiscal específica de las ventas en corto (CNMV/MiFID II e IRPF) y la
+ * evidencia automática de semanas de cortos en paper con la
+ * conciliación cuadrada. Sin ellos no se guardan ni confirman límites
+ * del corto mayores que 0 y ninguna entrada en corto real pasa la
+ * guarda — siempre con el motivo «[corto-requisitos] …». Una cuenta con
+ * límites del corto ya confirmados los conserva intactos, pero el corto
+ * queda bloqueado hasta cumplir sus requisitos. El largo no cambia: los
+ * siete requisitos de `LIVE_REQUIREMENTS` son exactamente los mismos.
+ *
  * Persistencia: migración 011 (`live_checklist`, `live_limits`,
- * `live_mode`); la 016 añade los límites del corto a `live_limits`.
+ * `live_mode`); la 016 añade los límites del corto a `live_limits`; la
+ * 017 añade los requisitos del corto a `live_checklist` y la cuenta a
+ * `reconcile_runs`.
  */
 
 // ---------------------------------------------------------------------------
@@ -47,7 +60,36 @@ export const LIVE_REQUIREMENTS = [
   'plan-contingencia',
   'revision-legal',
 ] as const;
-export type LiveRequirement = (typeof LIVE_REQUIREMENTS)[number];
+/** Los siete requisitos del largo (y del modo real en general). */
+export type LiveBaseRequirement = (typeof LIVE_REQUIREMENTS)[number];
+
+/**
+ * Requisitos propios del corto con dinero real, aparte de los siete del
+ * largo: sin ellos no se guardan ni confirman límites del corto mayores
+ * que 0 y ninguna entrada en corto real pasa la guarda. No alteran la
+ * lista del largo — `allComplete` sigue midiendo solo los siete.
+ */
+export const LIVE_SHORT_REQUIREMENTS = ['revision-legal-corto', 'paper-cortos'] as const;
+export type LiveShortRequirement = (typeof LIVE_SHORT_REQUIREMENTS)[number];
+
+/** Cualquier requisito de la lista, del largo o del corto. */
+export type LiveRequirement = LiveBaseRequirement | LiveShortRequirement;
+
+/**
+ * Umbrales de la evidencia de cortos en paper exigida por `paper-cortos`
+ * (supuesto del plan): al menos 4 semanas entre el primer y el último
+ * corto cerrado en paper, al menos 5 cortos cerrados y ningún descuadre
+ * de conciliación de paper abierto. En constantes para cambiarlos fácil.
+ */
+export const LIVE_SHORT_PAPER_MIN_WEEKS = 4;
+export const LIVE_SHORT_PAPER_MIN_TRADES = 5;
+
+/**
+ * Código de los rechazos por requisitos del corto sin cumplir; viaja en
+ * el propio mensaje («[corto-requisitos] motivo») porque un error tipado
+ * pierde sus propiedades propias al cruzar el IPC de Electron.
+ */
+export const LIVE_SHORT_ERROR_CODE = 'corto-requisitos';
 
 /** Requisitos que solo el proceso principal puede evaluar. */
 export const LIVE_AUTOMATIC_REQUIREMENTS = [
@@ -55,15 +97,34 @@ export const LIVE_AUTOMATIC_REQUIREMENTS = [
   'paper-continuo',
   'parada-probada',
   'alertas-activas',
-] as const satisfies readonly LiveRequirement[];
+] as const satisfies readonly LiveBaseRequirement[];
+
+/** Del corto, el requisito que solo el proceso principal puede evaluar. */
+export const LIVE_SHORT_AUTOMATIC_REQUIREMENTS = [
+  'paper-cortos',
+] as const satisfies readonly LiveShortRequirement[];
 
 /** Requisitos que el usuario declara por escrito (`live:declare`). */
 export const LIVE_DECLARATION_REQUIREMENTS = [
   'claves-sin-retirada',
   'plan-contingencia',
   'revision-legal',
-] as const satisfies readonly LiveRequirement[];
-export type LiveDeclarationRequirement = (typeof LIVE_DECLARATION_REQUIREMENTS)[number];
+] as const satisfies readonly LiveBaseRequirement[];
+
+/** Del corto, la declaración que el usuario suscribe por escrito. */
+export const LIVE_SHORT_DECLARATION_REQUIREMENTS = [
+  'revision-legal-corto',
+] as const satisfies readonly LiveShortRequirement[];
+
+export type LiveDeclarationRequirement =
+  | (typeof LIVE_DECLARATION_REQUIREMENTS)[number]
+  | (typeof LIVE_SHORT_DECLARATION_REQUIREMENTS)[number];
+
+/** Todas las declaraciones que acepta `live:declare` (largo y corto). */
+export const LIVE_ALL_DECLARATION_REQUIREMENTS = [
+  ...LIVE_DECLARATION_REQUIREMENTS,
+  ...LIVE_SHORT_DECLARATION_REQUIREMENTS,
+] as const satisfies readonly LiveDeclarationRequirement[];
 
 /**
  * Texto íntegro de cada declaración (es lo que guarda la base junto a la
@@ -74,6 +135,9 @@ export const LIVE_DECLARATION_TEXTS: Record<LiveDeclarationRequirement, string> 
   'claves-sin-retirada': 'Declaro que estas claves no permiten retirar fondos.',
   'plan-contingencia': 'He revisado el plan para caída de internet, broker y equipo.',
   'revision-legal': 'He revisado con profesionales mis obligaciones legales y fiscales.',
+  'revision-legal-corto':
+    'He revisado con un profesional las obligaciones legales y fiscales específicas ' +
+    'de las ventas en corto (CNMV/MiFID II e IRPF).',
 };
 
 /** Títulos finales de cada requisito (los de la pantalla «Dinero real»). */
@@ -86,6 +150,8 @@ export const LIVE_REQUIREMENT_TITLES: Record<LiveRequirement, string> = {
   'claves-sin-retirada': 'Claves live sin permiso de retirada',
   'plan-contingencia': 'Plan de contingencia documentado',
   'revision-legal': 'Revisión legal y fiscal con profesionales',
+  'revision-legal-corto': 'Revisión legal y fiscal específica de las ventas en corto',
+  'paper-cortos': 'Cortos en paper durante semanas con la conciliación cuadrada',
 };
 
 /** Estado de un requisito; 'revisar' cuando la evidencia pide atención. */
@@ -111,6 +177,25 @@ export interface LiveChecklistItem {
   markedAt: string | null;
 }
 
+/**
+ * Estado de los requisitos propios del corto (`LIVE_SHORT_REQUIREMENTS`).
+ * Solo bloquea el corto con dinero real; el largo mide `allComplete`
+ * de la lista de los siete, que no cambia.
+ */
+export interface LiveShortChecklist {
+  items: LiveChecklistItem[];
+  completedCount: number;
+  total: number;
+  /** true solo con los dos requisitos del corto cumplidos. */
+  allComplete: boolean;
+  /**
+   * Motivo legible del bloqueo del corto (lo que falta para habilitarlo);
+   * null si `allComplete`. Es el texto que acompaña a
+   * «[corto-requisitos]» en los rechazos.
+   */
+  blockReason: string | null;
+}
+
 /** La lista completa que ve la pantalla «Dinero real» (`live:checklist`). */
 export interface LiveChecklist {
   items: LiveChecklistItem[];
@@ -118,6 +203,8 @@ export interface LiveChecklist {
   total: number;
   /** true solo con los siete requisitos cumplidos. */
   allComplete: boolean;
+  /** Requisitos propios del corto con dinero real (bloqueo aparte). */
+  short: LiveShortChecklist;
   /**
    * Límites guardados en `live_limits`, confirmados o no: la pantalla
    * recupera el borrador al volver (limits null si nunca se guardaron).
@@ -310,6 +397,12 @@ export interface LiveState {
   limits: LiveLimits | null;
   /** Techos fijos de la fase (constantes, no configurables). */
   caps: LiveFixedCaps;
+  /**
+   * Estado de los requisitos propios del corto real: con
+   * `allComplete` en false el corto está bloqueado y `blockReason` dice
+   * qué falta. No afecta al largo.
+   */
+  short: { allComplete: boolean; blockReason: string | null };
   /** Última prueba de humo; null si nunca se ejecutó. */
   smokeTest: LiveSmokeTestResult | null;
   activatedAt: string | null;
@@ -472,6 +565,10 @@ export interface LiveSeedProgressRequest {
   paperTrades?: number;
   /** Desviación frente al backtest en % (dentro de ±30 cumple). */
   deviationPct?: number;
+  /** Cortos cerrados en paper a simular (≥ 5 cumple la muestra del corto). */
+  paperShortTrades?: number;
+  /** Semanas entre el primer y el último corto en paper (≥ 4 cumple). */
+  paperShortWeeks?: number;
   /** Marca la prueba final (validación fuera de muestra) como ejecutada. */
   finalTestDone?: boolean;
   /** Registra una prueba de parada reciente (hoy si no se da fecha). */

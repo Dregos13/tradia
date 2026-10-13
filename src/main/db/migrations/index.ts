@@ -17,6 +17,7 @@ import raw013 from './013_news_suscripcion.sql?raw';
 import raw014 from './014_journal_modo.sql?raw';
 import raw015 from './015_reglas_corto.sql?raw';
 import raw016 from './016_limites_corto.sql?raw';
+import raw017 from './017_requisitos_corto.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -61,4 +62,5 @@ export const MIGRATIONS: Migration[] = [
   parseSqlMigration(14, 'journal-modo', raw014),
   parseSqlMigration(15, 'reglas-corto', raw015),
   parseSqlMigration(16, 'limites-corto', raw016),
+  parseSqlMigration(17, 'requisitos-corto', raw017),
 ];

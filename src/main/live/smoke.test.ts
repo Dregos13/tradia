@@ -143,6 +143,7 @@ const snapshot = (mode: LiveOrderSnapshot['mode'] = 'activo'): LiveOrderSnapshot
     asset: null,
     capitalInUseUsd: positions.reduce((s, p) => s + p.quantity * p.avgEntryPrice, 0),
     realizedLossTodayUsd: 0,
+    shortRequirementsBlockReason: null,
   };
 };
 

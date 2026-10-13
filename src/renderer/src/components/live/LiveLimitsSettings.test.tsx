@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
-  LIVE_DECLARATION_REQUIREMENTS,
+  LIVE_ALL_DECLARATION_REQUIREMENTS,
   liveConfirmationPhrase,
   type LiveLimits,
 } from '../../../../shared/live';
@@ -37,7 +37,7 @@ afterEach(() => {
 it('Ajustes guarda y confirma el corto, retiene el foco y lo devuelve al cancelar', async () => {
   await adapter.api.live.testKillSwitch();
   await adapter.api.delivery.test({ channel: 'telegram' });
-  for (const requirement of LIVE_DECLARATION_REQUIREMENTS)
+  for (const requirement of LIVE_ALL_DECLARATION_REQUIREMENTS)
     await adapter.api.live.declare({
       requirement,
       confirmed: true,
@@ -84,6 +84,7 @@ it('Ajustes guarda y confirma el corto, retiene el foco y lo devuelve al cancela
   expect((await adapter.api.live.state()).limits).toEqual(limits);
 });
 it('Ajustes conserva el borrador y muestra un error de guardado accesible', async () => {
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await adapter.api.live.setLimits(limits);
   await act(async () => {
     render(<LiveLimitsSettings />);
@@ -101,7 +102,7 @@ it('Ajustes conserva el borrador y muestra un error de guardado accesible', asyn
 it('un límite del corto vacío bloquea la confirmación aunque el guardado sea cero', async () => {
   await adapter.api.live.testKillSwitch();
   await adapter.api.delivery.test({ channel: 'telegram' });
-  for (const requirement of LIVE_DECLARATION_REQUIREMENTS)
+  for (const requirement of LIVE_ALL_DECLARATION_REQUIREMENTS)
     await adapter.api.live.declare({ requirement, confirmed: true, detail: 'Plan revisado' });
   await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits({ ...limits, shortOrderUsd: 0 });

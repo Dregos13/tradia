@@ -397,8 +397,16 @@ describe('live:set-limits', () => {
   });
 
   it('los límites del corto entran en la frase: cambiarlos exige confirmar de nuevo', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
     makeCtx();
     await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
+    // Los requisitos propios del corto deben cumplirse para guardar > 0.
+    await invoke(IPC_CHANNELS.live.seedProgress, { paperShortTrades: 5, paperShortWeeks: 5 });
+    await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'revision-legal-corto',
+      confirmed: true,
+    });
     const conCorto = {
       ...VALID_LIMITS,
       shortOrderUsd: 50,
@@ -780,5 +788,260 @@ describe('persistencia', () => {
     const item = revived.getChecklist().items.find((i) => i.requirement === 'plan-contingencia')!;
     expect(item.state).toBe('cumplido');
     expect(item.declarationDetail).toBe('/ruta/plan.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Requisitos propios del corto con dinero real
+// ---------------------------------------------------------------------------
+
+import type { BrokerOrder } from '../../shared/ipc';
+
+let shortOrderSeq = 0;
+
+/** Orden paper ejecutada para la muestra de cortos. */
+const shortOrder = (patch: {
+  signalId: number;
+  leg: 'entrada' | 'salida';
+  side: 'buy' | 'sell';
+  executedAt: string;
+}): BrokerOrder => {
+  shortOrderSeq += 1;
+  return {
+    id: 10_000 + shortOrderSeq,
+    clientOrderId: `tradia-${patch.signalId}-${patch.leg}`,
+    brokerOrderId: `b${shortOrderSeq}`,
+    signalId: patch.signalId,
+    strategyId: 1,
+    leg: patch.leg,
+    ticker: 'SPY',
+    type: 'market',
+    side: patch.side,
+    mode: 'paper',
+    quantity: 1,
+    filledQuantity: 1,
+    limitPrice: null,
+    stopPrice: null,
+    ocoGroupId: null,
+    execution: {
+      requestedAt: patch.executedAt,
+      requestedPrice: 100,
+      executedAt: patch.executedAt,
+      executedPrice: 100,
+      slippageBps: 0,
+    },
+    status: 'ejecutada',
+    attempts: 1,
+    rejectReason: null,
+    createdAt: patch.executedAt,
+    updatedAt: patch.executedAt,
+  };
+};
+
+/** N cortos cerrados en paper repartidos entre hace `spanDays` y hoy. */
+const paperShortOrders = (count: number, spanDays: number): BrokerOrder[] => {
+  const orders: BrokerOrder[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const exitDay = Math.round((spanDays * (count - 1 - i)) / Math.max(1, count - 1));
+    const exitAt = new Date(nowMs - exitDay * DAY_MS).toISOString();
+    const entryAt = new Date(nowMs - (exitDay + 1) * DAY_MS).toISOString();
+    orders.push(
+      shortOrder({ signalId: 100 + i, leg: 'entrada', side: 'sell', executedAt: entryAt }),
+      shortOrder({ signalId: 100 + i, leg: 'salida', side: 'buy', executedAt: exitAt }),
+    );
+  }
+  return orders;
+};
+
+/** Descuadre abierto de una pasada de conciliación de la cuenta dada. */
+const openDiscrepancy = (cuenta: 'paper' | 'live'): void => {
+  const run = db
+    .prepare(
+      `INSERT INTO reconcile_runs (origen, iniciada_en, cuenta) VALUES ('manual', ?, ?)`,
+    )
+    .run(new Date(nowMs).toISOString(), cuenta);
+  db.prepare(
+    `INSERT INTO reconcile_discrepancies (run_id, tipo, ticker, detalle)
+     VALUES (?, 'posicion-faltante-app', 'SPY', 'descuadre de prueba')`,
+  ).run(run.lastInsertRowid);
+};
+
+/** Límites válidos con el corto habilitado en sus techos escritos. */
+const SHORT_LIMITS: LiveLimitsInput = {
+  ...VALID_LIMITS,
+  shortOrderUsd: 100,
+  shortExposureUsd: 200,
+  shortPositions: 1,
+};
+
+/** Cumple los dos requisitos propios del corto con evidencia sembrada. */
+const completeShortRequirements = (service: LiveService): void => {
+  service.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  service.seedProgress({ paperShortTrades: 5, paperShortWeeks: 5 });
+};
+
+describe('requisitos propios del corto (corto-requisitos)', () => {
+  it('la lista expone los dos requisitos del corto aparte de los siete del largo', async () => {
+    const service = makeService();
+    await completeChecklist(service);
+    const checklist = service.getChecklist();
+    // El largo queda completo mientras el corto sigue bloqueado.
+    expect(checklist.allComplete).toBe(true);
+    expect(checklist.total).toBe(7);
+    expect(checklist.short.total).toBe(2);
+    expect(checklist.short.allComplete).toBe(false);
+    expect(checklist.short.blockReason).toContain('ventas en corto');
+    const kinds = Object.fromEntries(checklist.short.items.map((i) => [i.requirement, i.kind]));
+    expect(kinds['revision-legal-corto']).toBe('declaracion');
+    expect(kinds['paper-cortos']).toBe('automatica');
+    const state = await service.getState();
+    expect(state.short.allComplete).toBe(false);
+    expect(state.short.blockReason).toContain('corto');
+  });
+
+  it('guardar límites del corto > 0 por IPC sin requisitos devuelve «[corto-requisitos] …»', async () => {
+    makeCtx();
+    await expect(invoke(IPC_CHANNELS.live.setLimits, SHORT_LIMITS)).rejects.toThrow(
+      /^\[corto-requisitos\]/,
+    );
+    // Nada quedó guardado.
+    const checklist = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    expect(checklist.limits.limits).toBeNull();
+  });
+
+  it('con los requisitos cumplidos los límites del corto sí se guardan', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
+    makeCtx();
+    await invoke(IPC_CHANNELS.live.seedProgress, { paperShortTrades: 5, paperShortWeeks: 5 });
+    await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'revision-legal-corto',
+      confirmed: true,
+    });
+    const saved = (await invoke(IPC_CHANNELS.live.setLimits, SHORT_LIMITS)) as {
+      limits: { shortOrderUsd: number };
+      confirmationPhrase: string;
+    };
+    expect(saved.limits.shortOrderUsd).toBe(100);
+    expect(saved.confirmationPhrase).toContain('CORTO');
+  });
+
+  it('guardar los límites del largo con el corto a 0 no pide los requisitos', () => {
+    const service = makeService();
+    const saved = service.setLimits(VALID_LIMITS);
+    expect(saved.limits?.shortOrderUsd).toBe(0);
+  });
+
+  it('activar con corto > 0 sin requisitos rechaza con «[corto-requisitos]» y no confirma', async () => {
+    const service = makeService();
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    service.setLimits(SHORT_LIMITS);
+    // La declaración del corto se retira entre guardar y confirmar.
+    service.declare({ requirement: 'revision-legal-corto', confirmed: false });
+    const result = await service.activate({ phrase: liveConfirmationPhrase(SHORT_LIMITS) });
+    expect(result.activated).toBe(false);
+    expect(result.reasons.join(' ')).toContain('[corto-requisitos]');
+    expect(result.pendingRequirements).toContain('revision-legal-corto');
+    // Los valores escritos se conservan pero no se confirman.
+    const row = db.prepare('SELECT confirmados, corto_orden_usd FROM live_limits WHERE id = 1').get() as {
+      confirmados: number;
+      corto_orden_usd: number;
+    };
+    expect(row.confirmados).toBe(0);
+    expect(row.corto_orden_usd).toBe(100);
+  });
+
+  it('con todo cumplido la activación confirma los límites del corto', async () => {
+    const service = makeService();
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    service.setLimits(SHORT_LIMITS);
+    const result = await service.activate({ phrase: liveConfirmationPhrase(SHORT_LIMITS) });
+    expect(result.activated).toBe(true);
+    const row = db.prepare('SELECT confirmados FROM live_limits WHERE id = 1').get() as {
+      confirmados: number;
+    };
+    expect(row.confirmados).toBe(1);
+  });
+
+  it('una cuenta con el corto ya confirmado lo conserva aunque falten requisitos', () => {
+    // La fila se escribe directamente, sin pasar por setLimits: así
+    // quedó cualquier cuenta que confirmó sus límites antes de la 017.
+    db.prepare(
+      `INSERT INTO live_limits (id, capital_usd, orden_usd, perdida_diaria_usd,
+         posiciones_max, corto_orden_usd, corto_exposicion_usd, corto_posiciones_max,
+         confirmados, guardados_en, confirmados_en)
+       VALUES (1, 500, 100, 10, 1, 100, 200, 1, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:01:00.000Z')`,
+    ).run();
+    const service = makeService();
+    const checklist = service.getChecklist();
+    expect(checklist.limits.limits?.shortOrderUsd).toBe(100);
+    expect(checklist.limits.confirmed).toBe(true);
+    expect(checklist.short.allComplete).toBe(false);
+    expect(checklist.short.blockReason).not.toBeNull();
+  });
+
+  it('paper-cortos mide los cortos cerrados en paper reales, no la semilla fuera de E2E', () => {
+    const service = makeService({
+      listExecutedOrders: () => paperShortOrders(5, 35),
+    });
+    const item = service
+      .getChecklist()
+      .short.items.find((i) => i.requirement === 'paper-cortos')!;
+    expect(item.state).toBe('cumplido');
+    expect(item.evidence).toContain('5 de 5 cortos cerrados');
+    expect(item.evidence).toContain('conciliación cuadrada');
+  });
+
+  it('un descuadre abierto de la conciliación paper deja paper-cortos pendiente; uno live no cuenta', () => {
+    const service = makeService({
+      listExecutedOrders: () => paperShortOrders(5, 35),
+    });
+    openDiscrepancy('live');
+    let item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
+    expect(item.state).toBe('cumplido');
+    openDiscrepancy('paper');
+    item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
+    expect(item.state).toBe('pendiente');
+    expect(item.evidence).toContain('1 descuadre abierto');
+  });
+
+  it('la evidencia sembrada de paper-cortos no cuenta fuera del contexto E2E', () => {
+    const service = makeService({
+      allowSeededEvidence: () => false,
+      listExecutedOrders: () => paperShortOrders(2, 10),
+    });
+    service.seedProgress({ paperShortTrades: 9, paperShortWeeks: 9 });
+    const item = service
+      .getChecklist()
+      .short.items.find((i) => i.requirement === 'paper-cortos')!;
+    expect(item.state).toBe('pendiente');
+    expect(item.evidence).toContain('2 de 5 cortos cerrados');
+  });
+
+  it('live:declare suscribe la declaración del corto y la retira a pendiente', async () => {
+    makeCtx();
+    const checklist = (await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'revision-legal-corto',
+      confirmed: true,
+    })) as LiveChecklist;
+    const item = checklist.short.items.find((i) => i.requirement === 'revision-legal-corto')!;
+    expect(item.state).toBe('cumplido');
+    expect(item.declaration).toContain('CNMV/MiFID II e IRPF');
+    const withdrawn = (await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'revision-legal-corto',
+      confirmed: false,
+    })) as LiveChecklist;
+    expect(
+      withdrawn.short.items.find((i) => i.requirement === 'revision-legal-corto')!.state,
+    ).toBe('pendiente');
+  });
+
+  it('live:declare sigue rechazando marcar a mano un requisito automático del corto', async () => {
+    makeCtx();
+    await expect(
+      invoke(IPC_CHANNELS.live.declare, { requirement: 'paper-cortos', confirmed: true }),
+    ).rejects.toBeInstanceOf(IpcValidationError);
   });
 });

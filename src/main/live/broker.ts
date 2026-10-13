@@ -322,6 +322,20 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
           }
         : null;
 
+    // Los requisitos propios del corto se evalúan con la lista: sin
+    // ellos la guarda rechaza toda entrada en corto real con
+    // «[corto-requisitos] …», aunque los límites sigan confirmados. Un
+    // estado desconocido bloquea por conservador (el corto nunca se
+    // asume permitido).
+    const shortCheck = deps.live.getChecklist().short as
+      | { allComplete: boolean; blockReason: string | null }
+      | undefined;
+    const shortRequirementsBlockReason =
+      shortCheck !== undefined && shortCheck.allComplete
+        ? null
+        : (shortCheck?.blockReason ??
+          'los requisitos propios del corto con dinero real no están cumplidos');
+
     return {
       mode: deps.store.getMode().estado,
       limits,
@@ -336,6 +350,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       asset: null,
       capitalInUseUsd: positionUsd + pendingUsd,
       realizedLossTodayUsd,
+      shortRequirementsBlockReason,
     };
   };
 

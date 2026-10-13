@@ -38,6 +38,7 @@ const snapshot = (patch: Partial<LiveOrderSnapshot> = {}): LiveOrderSnapshot => 
   asset: null,
   capitalInUseUsd: 0,
   realizedLossTodayUsd: 0,
+  shortRequirementsBlockReason: null,
   ...patch,
 });
 
@@ -482,5 +483,82 @@ describe('liveOrderWirePrice — tope en la red', () => {
         context({ requestedPrice: null, entryStopPrice: 52 }),
       ),
     ).toContain('importe');
+  });
+});
+
+describe('guarda de órdenes live — requisitos propios del corto', () => {
+  const blocked = (patch: Partial<LiveOrderSnapshot> = {}): LiveOrderSnapshot =>
+    shortSnapshot({
+      shortRequirementsBlockReason:
+        'Falta la declaración «Revisión legal y fiscal específica de las ventas en corto».',
+      ...patch,
+    });
+
+  it('toda entrada en corto se rechaza con «[corto-requisitos]» aunque los límites estén confirmados', () => {
+    const reason = liveOrderBlockReason(
+      blocked(),
+      request({ side: 'sell', type: 'market', quantity: 1 }),
+      shortContext(),
+    );
+    expect(reason).toMatch(/^\[corto-requisitos\] /);
+    expect(reason).toContain('Revisión legal y fiscal específica');
+  });
+
+  it('el bloqueo se aplica antes que cualquier otra puerta del corto', () => {
+    // Ni cuenta shortable ni nocional ajustado importan: primero los
+    // requisitos propios del corto.
+    const reason = liveOrderBlockReason(
+      blocked({ accountShorting: false, asset: { shortable: false, easyToBorrow: false } }),
+      request({ side: 'sell', type: 'market', quantity: 10 }),
+      shortContext({ requestedPrice: 20, entryStopPrice: 21.5 }),
+    );
+    expect(reason).toMatch(/^\[corto-requisitos\] /);
+  });
+
+  it('con los requisitos cumplidos el corto pasa a las puertas habituales', () => {
+    expect(
+      liveOrderBlockReason(
+        shortSnapshot(),
+        request({ side: 'sell', type: 'limit', limitPrice: 50, quantity: 1 }),
+        shortContext(),
+      ),
+    ).toBeNull();
+  });
+
+  it('una recompra de un corto abierto sigue pasando aunque falten requisitos', () => {
+    const state = blocked({
+      openPositions: [{ ticker: 'SPY', side: 'short', quantity: 1 }],
+    });
+    expect(
+      liveOrderBlockReason(state, request({ side: 'buy', type: 'market', quantity: 1 }), {
+        leg: 'salida',
+        requestedPrice: 55,
+      }),
+    ).toBeNull();
+  });
+
+  it('la pata de protección OCO de un corto sigue pasando aunque falten requisitos', () => {
+    // El stop de compra de la OCO se envía con pata 'salida' (es el
+    // cierre del corto, no una entrada).
+    const state = blocked({
+      openPositions: [{ ticker: 'SPY', side: 'short', quantity: 1 }],
+    });
+    expect(
+      liveOrderBlockReason(
+        state,
+        request({ side: 'buy', type: 'stop', quantity: 1, stopPrice: 52 }),
+        { leg: 'salida', requestedPrice: 52 },
+      ),
+    ).toBeNull();
+  });
+
+  it('una entrada en largo no se ve afectada por el bloqueo del corto', () => {
+    expect(
+      liveOrderBlockReason(
+        blocked(),
+        request({ side: 'buy', type: 'market', quantity: 1 }),
+        context(),
+      ),
+    ).toBeNull();
   });
 });

@@ -12,6 +12,7 @@
  * principal.
  */
 import type { LiveRequirement, LiveRequirementState } from '../../shared/live';
+import { LIVE_SHORT_PAPER_MIN_TRADES, LIVE_SHORT_PAPER_MIN_WEEKS } from '../../shared/live';
 import type { BrokerOrder } from '../../shared/ipc';
 import { closedTradesFromOrders, type StrategyExpectation } from '../broker/deviation';
 
@@ -242,6 +243,80 @@ export function paperStatsFromOrders(
   }
 
   return { daysActive, closedTrades: trades.length, deviationPct };
+}
+
+// ---------------------------------------------------------------------------
+// 'paper-cortos': ≥ 4 semanas entre el primer y el último corto cerrado
+// en paper, ≥ 5 cortos cerrados y conciliación de paper cuadrada
+// ---------------------------------------------------------------------------
+
+/** Medidas de los cortos en paper, calculadas en el proceso principal. */
+export interface PaperShortStats {
+  /** Cortos cerrados (par entrada 'sell'/salida ejecutado). */
+  closedShorts: number;
+  /** Días civiles entre el primer y el último corto cerrado. */
+  spanDays: number;
+  /** Descuadres de la conciliación de paper aún abiertos. */
+  openDiscrepancies: number;
+}
+
+const shortEvidence = (stats: PaperShortStats): string => {
+  const weeks = Math.floor(stats.spanDays / 7);
+  const reconciliation =
+    stats.openDiscrepancies === 0
+      ? 'conciliación cuadrada'
+      : `${stats.openDiscrepancies} descuadre${stats.openDiscrepancies === 1 ? '' : 's'} abierto${stats.openDiscrepancies === 1 ? '' : 's'}`;
+  return (
+    `${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} cortos cerrados · ` +
+    `${weeks} de ${LIVE_SHORT_PAPER_MIN_WEEKS} semanas · ${reconciliation}`
+  );
+};
+
+export function evaluatePaperShorts(stats: PaperShortStats): RequirementVerdict {
+  const reasons: string[] = [];
+  if (stats.closedShorts < LIVE_SHORT_PAPER_MIN_TRADES) {
+    reasons.push(
+      `Solo hay ${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} ` +
+        'cortos cerrados en paper.',
+    );
+  }
+  const minDays = LIVE_SHORT_PAPER_MIN_WEEKS * 7;
+  if (stats.spanDays < minDays) {
+    reasons.push(
+      `Solo hay ${Math.floor(stats.spanDays / 7)} de ${LIVE_SHORT_PAPER_MIN_WEEKS} ` +
+        'semanas entre el primer y el último corto cerrado en paper.',
+    );
+  }
+  if (stats.openDiscrepancies > 0) {
+    reasons.push(
+      `Hay ${stats.openDiscrepancies} descuadre${stats.openDiscrepancies === 1 ? '' : 's'} ` +
+        'de la conciliación de paper sin resolver.',
+    );
+  }
+  if (reasons.length > 0) return pending(shortEvidence(stats), reasons);
+  return ok(shortEvidence(stats));
+}
+
+/**
+ * Medidas de los cortos en paper a partir de las órdenes ejecutadas del
+ * broker (`broker_orders`): un corto es una operación cerrada cuya pata
+ * de entrada es una venta (en largo la entrada es una compra). El lapso
+ * se mide en días civiles entre el cierre del primer y del último corto,
+ * en el calendario de Nueva York como el resto del dominio.
+ */
+export function paperShortStatsFromOrders(
+  orders: readonly BrokerOrder[],
+): Omit<PaperShortStats, 'openDiscrepancies'> {
+  const byId = new Map(orders.map((order) => [order.id, order] as const));
+  const shorts = closedTradesFromOrders(orders).filter(
+    (trade) => byId.get(trade.entryOrderId)?.side === 'sell',
+  );
+  if (shorts.length === 0) return { closedShorts: 0, spanDays: 0 };
+  const days = shorts.map((trade) => trade.closedAtNy).sort();
+  const spanMs =
+    Date.parse(`${days[days.length - 1]}T00:00:00.000Z`) -
+    Date.parse(`${days[0]}T00:00:00.000Z`);
+  return { closedShorts: shorts.length, spanDays: Math.max(0, Math.floor(spanMs / 86_400_000)) };
 }
 
 // ---------------------------------------------------------------------------
