@@ -79,7 +79,7 @@ export function UncoveredAssets({
                   ? assets.length === 1
                     ? `Solo ${asset.ticker} queda en pausa. Los demás activos, predicciones y señales siguen al día.`
                     : `${asset.ticker} queda en pausa. Los activos con datos, predicciones y señales siguen al día.`
-                  : `No se calculan nuevas predicciones ni señales para ${asset.ticker} porque Tiingo no cubre este símbolo.`}
+                  : `No se calculan nuevas predicciones ni señales para ${asset.ticker} porque Tiingo no tiene datos de este activo.`}
               </p>
               {offline && (
                 <p>
@@ -105,7 +105,7 @@ export function UncoveredAssets({
                 aria-label={`Quitar ${asset.ticker} de la lista`}
                 onClick={() => void change(asset, false)}
               >
-                Quitar de la lista
+                Quitar {asset.ticker} de la lista
               </button>
             </div>
             <details>
@@ -113,15 +113,21 @@ export function UncoveredAssets({
                 Por qué ocurre<span className="sr-only"> con {asset.ticker}</span>
               </summary>
               <p>
-                Tiingo ofrece precios diarios de acciones y de fondos cotizados (ETF) de EE. UU.;{' '}
-                {asset.ticker} no es un símbolo disponible en este conector. Puedes quitarlo de la
-                lista{asset.suggestion ? ` o cambiarlo por ${asset.suggestion}` : ''}.
+                Tiingo ofrece precios diarios de acciones y fondos de EE. UU. Tiingo no tiene datos
+                de {asset.ticker}. Puedes quitarlo de la lista
+                {asset.suggestion ? ` o cambiarlo por ${asset.suggestion}` : ''}.
               </p>
+              {asset.ticker === 'EUR' && asset.suggestion === 'FXE' && (
+                <p>FXE es un fondo que sigue al euro frente al dólar y Tiingo sí lo cubre.</p>
+              )}
               {fxPairForCurrency(asset.ticker) && (
                 <p>
                   Para seguir el tipo de cambio, añade{' '}
                   {assetSymbol(fxPairForCurrency(asset.ticker) ?? '')} desde la lista de
-                  seguimiento: es el par que Tiingo sí cubre. Solo tiene datos de lunes a viernes.
+                  seguimiento. Tiingo sí tiene datos de esta divisa.{' '}
+                  {asset.ticker === 'EUR'
+                    ? 'El euro/dólar (EUR/USD) solo cotiza de lunes a viernes.'
+                    : `${assetSymbol(fxPairForCurrency(asset.ticker) ?? '')} solo cotiza de lunes a viernes.`}
                 </p>
               )}
             </details>

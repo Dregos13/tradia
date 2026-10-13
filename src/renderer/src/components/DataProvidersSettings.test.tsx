@@ -266,3 +266,16 @@ it('mantiene el mensaje de lista vacía sin afirmar que todos los activos están
   expect(await screen.findByText('Tu lista de seguimiento está vacía.')).toBeVisible();
   expect(screen.queryByText('Tiingo cubre todos los activos de tu lista.')).not.toBeInTheDocument();
 });
+
+it('H2: la tarjeta de Tiingo explica su alcance y el siguiente paso sin jerga', async () => {
+  vi.spyOn(simulation.api.watchlist, 'coverage').mockResolvedValue([
+    { ticker: 'EUR', coverage: 'sin-cobertura', reason: 'Sin datos', suggestion: 'FXE' },
+  ]);
+  render(<DataProvidersSettings />);
+  const card = screen.getByRole('form', { name: 'Proveedor Tiingo' });
+  await within(card).findByText('EUR no está disponible en Tiingo');
+  expect(card).toHaveTextContent('Precios diarios de acciones y fondos de EE. UU.');
+  expect(card).toHaveTextContent('Prueba la conexión para saber si Tiingo responde.');
+  expect(card).not.toHaveTextContent(/\b(?:ETF|símbolo|conector|par)\b/i);
+  expect(screen.getByRole('heading', { name: 'Conectores de datos' })).toBeVisible();
+});

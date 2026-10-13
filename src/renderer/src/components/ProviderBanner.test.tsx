@@ -40,7 +40,7 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
 
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
+  expect(within(banner).getByText(/Falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
   expect(
     within(banner).getByText(/no se calculan régimen, predicciones ni señales nuevas/),
   ).toBeTruthy();
@@ -87,7 +87,7 @@ it('un estado no fiable muestra «Datos no fiables desde …»', async () => {
   );
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos no fiables desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/valor anómalo grave/, { selector: 'p' })).toBeTruthy();
+  expect(within(banner).getByText(/Valor anómalo grave/, { selector: 'p' })).toBeTruthy();
 });
 
 it('las tarjetas de Datos siguen marcando su propio estado', async () => {

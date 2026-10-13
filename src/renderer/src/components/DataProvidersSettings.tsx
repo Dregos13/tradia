@@ -226,7 +226,7 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
         <h3>{name}</h3>
         <p>
           {provider === 'tiingo'
-            ? 'Precios diarios de acciones y ETF de EE. UU.'
+            ? 'Precios diarios de acciones y fondos de EE. UU.'
             : 'Tipos, IPC, curva de tipos y VIX.'}
         </p>
       </header>

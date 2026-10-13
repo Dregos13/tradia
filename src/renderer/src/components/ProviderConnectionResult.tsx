@@ -72,7 +72,7 @@ export function ProviderConnectionResult({
             ? 'Revisa tu conexión a internet y vuelve a probar al recuperar la red.'
             : status === 'error'
               ? 'Vuelve a probar; si se repite, revisa el estado del servicio.'
-              : 'Prueba la conexión para saber si el conector responde.';
+              : `Prueba la conexión para saber si ${name} responde.`;
   const keyProblem = status === 'sin-clave' || status === 'clave-rechazada';
   // Una sola acción principal en «Siguiente paso»: arreglar la clave, actualizar los datos
   // si todo funciona o, en cualquier otro caso, volver a probar la conexión.

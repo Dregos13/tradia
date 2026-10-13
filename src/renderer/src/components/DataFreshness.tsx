@@ -240,6 +240,10 @@ function DataFreshnessContent({
     );
   const uncoveredOnly = onlyUncovered(summary);
   const oldest = summary.items[0];
+  const staleAssets = summary.items
+    .filter((item) => item.key.startsWith('ticker:') && item.state === 'desactualizado')
+    .map((item) => assetSymbol(item.key.slice(7)));
+  const sentence = (text: string) => text.charAt(0).toLocaleUpperCase('es') + text.slice(1);
   const paused = summary.state === 'stale' || summary.state === 'unreliable';
   const provider =
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
@@ -284,10 +288,15 @@ function DataFreshnessContent({
               <DataStateIcon kind={paused ? 'warning' : 'pending'} />
               {title}
             </strong>
+            {summary.state === 'stale' && staleAssets.length > 0 && (
+              <p>Faltan datos recientes de {staleAssets.join(', ')}.</p>
+            )}
             {paused && (
               <p>
-                {oldest?.reason ??
-                  `Faltan ${summary.missingSessions} sesiones: la última esperada es la del ${sessionDateLabel(summary.expectedSessionDate)}.`}
+                {sentence(
+                  oldest?.reason ??
+                    `Faltan ${summary.missingSessions} sesiones: la última esperada es la del ${sessionDateLabel(summary.expectedSessionDate)}.`,
+                )}
               </p>
             )}
             {summary.state === 'stale' && <p>{STALE_PAUSE_TEXT}</p>}
@@ -320,7 +329,7 @@ function DataFreshnessContent({
                   <time dateTime={item.lastDataDate ?? undefined}>
                     {sessionDateLabel(item.lastDataDate)}
                   </time>{' '}
-                  · {item.reason ?? 'Sin motivo registrado'}
+                  · {sentence(item.reason ?? 'Sin motivo registrado')}
                 </li>
               ))}
             </ul>

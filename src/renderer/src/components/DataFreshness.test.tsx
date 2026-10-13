@@ -87,18 +87,17 @@ it('un EUR sin cobertura muestra acciones accesibles y solo pausa ese activo', a
   ).toBeVisible();
   expect(within(notice).getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeEnabled();
   expect(within(notice).getByRole('button', { name: 'Quitar EUR de la lista' })).toHaveTextContent(
-    'Quitar de la lista',
+    /^Quitar EUR de la lista$/,
   );
   expect(screen.queryByText(/Régimen, predicciones y señales en pausa/)).not.toBeInTheDocument();
   expect(screen.queryByText('Al día')).not.toBeInTheDocument();
   expect(screen.queryByText(/fecha del último dato no disponible/)).not.toBeInTheDocument();
   await userEvent.click(within(notice).getByText('Por qué ocurre'));
-  expect(
-    within(notice).getByText(/EUR no es un símbolo disponible en este conector/),
-  ).toBeVisible();
-  // Sin jerga sin explicar: ni calendario 24/5 ni «exposición parecida»; ETF solo explicado.
+  expect(within(notice).getByText(/Tiingo no tiene datos de EUR/)).toBeVisible();
+  // El detalle explica las alternativas sin jerga.
   expect(notice).not.toHaveTextContent(/24\/5|exposición parecida/);
-  expect(notice).toHaveTextContent('fondos cotizados (ETF)');
+  expect(notice).toHaveTextContent('acciones y fondos de EE. UU.');
+  expect(notice).not.toHaveTextContent(/\b(?:ETF|símbolo|conector|par)\b/i);
 });
 
 it('quitar por teclado llama a watchlist:remove y conserva el foco al desaparecer el aviso', async () => {
@@ -717,7 +716,7 @@ it('el detalle de EUR sin cobertura propone seguir EUR/USD sin jerga', async () 
   await userEvent.click(within(notice).getByText('Por qué ocurre'));
   expect(
     within(notice).getByText(
-      /añade EUR\/USD desde la lista de seguimiento: es el par que Tiingo sí cubre\. Solo tiene datos de lunes a viernes\./,
+      /añade EUR\/USD desde la lista de seguimiento\. Tiingo sí tiene datos de esta divisa\. El euro\/dólar \(EUR\/USD\) solo cotiza de lunes a viernes\./,
     ),
   ).toBeVisible();
   // El orden de teclado del aviso no cambia: la alternativa, quitar y el detalle.
@@ -725,7 +724,7 @@ it('el detalle de EUR sin cobertura propone seguir EUR/USD sin jerga', async () 
     within(notice)
       .getAllByRole('button')
       .map((button) => button.textContent),
-  ).toEqual(['Cambiar por FXE', 'Quitar de la lista']);
+  ).toEqual(['Cambiar por FXE', 'Quitar EUR de la lista']);
 });
 
 it('un EUR sin cobertura se avisa una sola vez aunque la pantalla tenga su propio estado', async () => {
@@ -831,3 +830,60 @@ it('con datos atrasados la franja lleva el aviso y sus acciones una sola vez en 
   expect(within(banner).getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
   expect(within(banner).getByText(stale.reason, { selector: 'p' })).toBeInTheDocument();
 });
+
+it.each(['Inicio', 'Mercado'])(
+  'H1 y H3: %s conserva un aviso por activo con SPY atrasado y EUR sin datos',
+  async (page) => {
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+      ...uncoveredSummary,
+      state: 'stale',
+      sinceDate: '2026-10-06',
+      missingSessions: 3,
+      items: [
+        {
+          key: 'ticker:SPY',
+          label: 'SPY',
+          state: 'desactualizado',
+          lastDataDate: '2026-10-06',
+          reason: 'faltan datos recientes; último dato: 6 oct 2026',
+        },
+      ],
+    });
+    render(
+      <>
+        <ProviderBanner />
+        {page === 'Inicio' ? (
+          <Dashboard
+            system={{
+              connectivity: null,
+              agents: null,
+              connectionError: false,
+              agentsError: false,
+            }}
+          />
+        ) : (
+          <MarketDataPage kind="mercado" />
+        )}
+      </>,
+    );
+    const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+    expect(screen.getAllByText('Faltan datos recientes de SPY.')).toHaveLength(1);
+    expect(screen.getByText('Faltan datos recientes de SPY.')).toBeVisible();
+    expect(screen.getAllByRole('region', { name: 'Activos sin datos' })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+    ).toHaveLength(1);
+    const remove = screen.getByRole('button', { name: 'Quitar EUR de la lista' });
+    expect(remove.textContent).toBe('Quitar EUR de la lista');
+    expect(remove).toHaveAccessibleName(remove.textContent!);
+    expect(remove).toHaveAttribute('aria-label', remove.textContent!);
+    expect(remove).toBeVisible();
+    expect(banner).not.toHaveTextContent('siguen al día');
+    expect(within(banner).getByText(STALE_PAUSE_TEXT)).toBeVisible();
+    expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
+    for (const paragraph of banner.querySelectorAll('p')) {
+      const text = paragraph.textContent?.trim();
+      if (text) expect(text).toMatch(/^[A-ZÁÉÍÓÚÜÑ0-9]/);
+    }
+  },
+);
