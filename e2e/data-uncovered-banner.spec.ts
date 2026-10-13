@@ -25,7 +25,12 @@ async function publishCoverage(summary: DataFreshnessSummary) {
 }
 
 test('aviso por activo: lectura, ventanas estrechas, teclado, retirada y cambio sin pausa global', async () => {
-  context = await launchPhaseApp('tradia-uncovered-banner');
+  // Este spec siembra EUR en la lista y publica el resumen por IPC, así que
+  // desactiva la lista «sin cobertura» del simulado (que por defecto incluye
+  // EUR para reproducir el rechazo del alta).
+  context = await launchPhaseApp('tradia-uncovered-banner', {
+    env: { TRADIA_E2E_UNCOVERED_TICKERS: '' },
+  });
   const { page, app } = context;
   await watchTickers(page, ['SPY', 'EUR']);
   const summary: DataFreshnessSummary = {

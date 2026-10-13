@@ -10,13 +10,17 @@ import {
   createMarketClock,
   createMarketIngestionService,
   e2eMarketClockBase,
+  e2eUncoveredTickers,
   MARKET_MAX_RETRIES,
   MARKET_RETRY_INTERVAL_MS,
   type MarketIngestionDeps,
   type MarketIngestionService,
   type MarketPowerMonitorLike,
 } from './ingestion';
+import aaplLatest from './providers/__fixtures__/aapl-latest.json';
+import error404 from './providers/__fixtures__/error-404.json';
 import eurusdPrices from './providers/__fixtures__/eurusd-prices.json';
+import fxeMeta from './providers/__fixtures__/fxe-meta.json';
 import fxUnknown404 from './providers/__fixtures__/fx-unknown-404.json';
 import { createSimulatedProvider, type SimulatedProvider } from './providers/simulated';
 import { createTiingoProvider } from './providers/tiingo';
@@ -118,9 +122,10 @@ const flushAsync = async (): Promise<void> => {
 
 describe('ingesta histórica al añadir un ticker', () => {
   it('descarga ~5 años de velas, las ajusta y las guarda como lote versionado', async () => {
-    const list = await service.addTicker('aapl');
+    const result = await service.addTicker('aapl');
 
-    expect(list.map((w) => w.ticker)).toEqual(['AAPL']);
+    expect(result).toMatchObject({ added: true, reason: null });
+    expect(service.listWatchlist().map((w) => w.ticker)).toEqual(['AAPL']);
     const bars = repo.getBars('AAPL');
     expect(bars.length).toBeGreaterThan(1200);
     expect(bars[0]!.date).toBe('2021-10-07');
@@ -462,7 +467,9 @@ describe('salud del dato', () => {
 
   it('un ticker desconocido queda sin-cobertura sin reintentos de 30 minutos', async () => {
     provider.markUnknown('ZZZZ');
-    await service.addTicker('ZZZZ');
+    // Alta anterior a la validación de cobertura: el ticker ya estaba en la
+    // lista y es la ingesta la que descubre que el proveedor no lo cubre.
+    repo.addWatchlistTicker('ZZZZ');
     await service.start();
     getBarsSpy.mockClear();
 
@@ -484,7 +491,9 @@ describe('salud del dato', () => {
 
   it('un 404 marca sin-cobertura sin contar un fallo del proveedor', async () => {
     provider.markUnknown('EUR');
-    await service.addTicker('EUR');
+    // EUR ya estaba en la lista (alta anterior a la validación).
+    repo.addWatchlistTicker('EUR');
+    await service.refreshNow();
 
     expect(tickerStatus('EUR')).toMatchObject({
       state: 'sin-cobertura',
@@ -588,6 +597,216 @@ describe('salud del dato', () => {
   });
 });
 
+describe('alta de ticker con comprobación de cobertura', () => {
+  /**
+   * Proveedor Tiingo sobre un fetch enrutado por URL: cada entrada
+   * [fragmento, cuerpo, estado] sirve la respuesta grabada; sin ruta, 404.
+   * Los fragmentos más específicos ('/prices') van primero.
+   */
+  const makeTiingoRoutes = (routes: ReadonlyArray<readonly [string, unknown, number?]>) => {
+    const calls: string[] = [];
+    const fetch: typeof globalThis.fetch = async (input) => {
+      const url = String(input);
+      calls.push(url);
+      const hit = routes.find(([match]) => url.includes(match));
+      if (!hit) {
+        return new Response(JSON.stringify(error404), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify(hit[1]), {
+        status: hit[2] ?? 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+    return {
+      provider: createTiingoProvider({ fetch, getApiKey: async () => 'TEST-KEY' }),
+      calls,
+    };
+  };
+
+  it('rechaza EUR con el proveedor simulado y propone el par y el ETF', async () => {
+    provider.markUnknown('EUR');
+
+    const result = await service.addTicker('EUR');
+
+    expect(result).toEqual({
+      added: false,
+      reason: 'no-cubierto',
+      suggestions: ['EURUSD', 'FXE'],
+    });
+    // La lista no cambia y no se escribe salud de un activo que no entró.
+    expect(service.listWatchlist()).toEqual([]);
+    expect(tickerStatus('EUR')).toBeNull();
+  });
+
+  it('rechaza EUR con la respuesta grabada 404 y solo consulta la ficha', async () => {
+    const { provider: tiingo, calls } = makeTiingoRoutes([['/tiingo/daily/EUR', error404, 404]]);
+    service = setup({ resolveProvider: async () => tiingo });
+
+    const result = await service.addTicker('eur');
+
+    expect(result).toMatchObject({ added: false, reason: 'no-cubierto' });
+    expect(result.suggestions).toContain('FXE');
+    expect(result.suggestions).toContain('EURUSD');
+    expect(service.listWatchlist()).toEqual([]);
+    // Una sola petición: la ficha /tiingo/daily/{ticker}, nunca las velas.
+    expect(calls).toEqual(['https://api.tiingo.com/tiingo/daily/EUR']);
+  });
+
+  it('un símbolo sin alternativa conocida se rechaza sin suggestions', async () => {
+    provider.markUnknown('ZZZZ');
+
+    const result = await service.addTicker('ZZZZ');
+
+    expect(result).toEqual({ added: false, reason: 'no-cubierto' });
+    expect(service.listWatchlist()).toEqual([]);
+  });
+
+  it('añade FXE con la ficha grabada 200 y devuelve su nombre', async () => {
+    const { provider: tiingo, calls } = makeTiingoRoutes([
+      ['/tiingo/daily/FXE/prices', aaplLatest],
+      ['/tiingo/daily/FXE', fxeMeta],
+    ]);
+    service = setup({ resolveProvider: async () => tiingo });
+
+    const result = await service.addTicker('fxe');
+
+    expect(result).toEqual({
+      added: true,
+      reason: null,
+      name: 'Invesco CurrencyShares Euro Trust',
+    });
+    expect(service.listWatchlist()[0]).toMatchObject({ ticker: 'FXE', assetClass: 'equity' });
+    // Dos peticiones: la ficha (verificación) y el histórico de velas.
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toBe('https://api.tiingo.com/tiingo/daily/FXE');
+    expect(calls[1]).toContain('/tiingo/daily/FXE/prices');
+    expect(tickerStatus('FXE')).toMatchObject({ state: 'fiable' });
+  });
+
+  it('duplicado y límite se resuelven sin gastar una petición del proveedor', async () => {
+    const infoSpy = vi.spyOn(provider, 'getTickerInfo');
+    await service.addTicker('AAPL');
+    infoSpy.mockClear();
+
+    expect(await service.addTicker('aapl')).toEqual({ added: false, reason: 'duplicado' });
+    expect(infoSpy).not.toHaveBeenCalled();
+
+    // Con la lista llena (25) el siguiente alta se rechaza por el límite.
+    for (const ticker of [
+      'MSFT',
+      'NVDA',
+      'AMZN',
+      'GOOGL',
+      'META',
+      'JPM',
+      'XOM',
+      'JNJ',
+      'PG',
+      'V',
+      'HD',
+      'KO',
+      'AVGO',
+      'AMD',
+      'SPY',
+      'QQQ',
+      'DIA',
+      'IWM',
+      'VTI',
+      'XLF',
+      'XLK',
+      'XLE',
+      'XLV',
+      'TLT',
+    ]) {
+      repo.addWatchlistTicker(ticker);
+    }
+    expect(await service.addTicker('ZZZZ')).toEqual({ added: false, reason: 'limite' });
+    expect(infoSpy).not.toHaveBeenCalled();
+  });
+
+  it('sin conexión añade como pendiente-verificar y la siguiente ingesta lo resuelve', async () => {
+    online = false;
+
+    const result = await service.addTicker('AAPL');
+
+    expect(result).toEqual({ added: true, reason: 'pendiente-verificar' });
+    expect(service.listWatchlist().map((item) => item.ticker)).toEqual(['AAPL']);
+    expect(tickerStatus('AAPL')).toMatchObject({ state: 'desactualizado' });
+
+    // Al volver la conexión, la primera pasada confirma la cobertura.
+    online = true;
+    await service.refreshNow();
+    expect(tickerStatus('AAPL')).toMatchObject({ state: 'fiable' });
+    expect(repo.lastBarDate('AAPL')).toBe(LAST_SESSION);
+  });
+
+  it('el pendiente se resuelve a sin-cobertura en la siguiente ingesta', async () => {
+    online = false;
+    expect(await service.addTicker('EUR')).toEqual({
+      added: true,
+      reason: 'pendiente-verificar',
+    });
+
+    // Con red el proveedor confirma que no lo cubre: queda aislado.
+    provider.markUnknown('EUR');
+    online = true;
+    await service.refreshNow();
+    expect(tickerStatus('EUR')).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('sin proveedor configurado también añade como pendiente-verificar', async () => {
+    service = setup({ resolveProvider: async () => null });
+
+    expect(await service.addTicker('AAPL')).toEqual({
+      added: true,
+      reason: 'pendiente-verificar',
+    });
+    expect(service.listWatchlist().map((item) => item.ticker)).toEqual(['AAPL']);
+  });
+
+  it('un fallo del proveedor al verificar añade como pendiente-verificar', async () => {
+    provider.queueFailures(1, 'network');
+
+    expect(await service.addTicker('AAPL')).toEqual({
+      added: true,
+      reason: 'pendiente-verificar',
+    });
+    expect(service.listWatchlist().map((item) => item.ticker)).toEqual(['AAPL']);
+
+    // La siguiente pasada ya verificada descarga el histórico.
+    await service.refreshNow();
+    expect(tickerStatus('AAPL')).toMatchObject({ state: 'fiable' });
+  });
+
+  it('watchlistCoverage clasifica cubierto, pendiente-verificar y sin-cobertura', async () => {
+    await service.addTicker('AAPL');
+    online = false;
+    await service.addTicker('ZZZZ');
+
+    let coverage = new Map(service.watchlistCoverage().map((e) => [e.ticker, e] as const));
+    expect(coverage.get('AAPL')).toMatchObject({ coverage: 'cubierto' });
+    expect(coverage.get('ZZZZ')).toMatchObject({ coverage: 'pendiente-verificar' });
+
+    // EUR llegó a la lista antes de la validación y la pasada lo descubre
+    // sin cobertura; la misma pasada resuelve el pendiente a cubierto.
+    online = true;
+    repo.addWatchlistTicker('EUR');
+    provider.markUnknown('EUR');
+    await service.refreshNow();
+
+    coverage = new Map(service.watchlistCoverage().map((e) => [e.ticker, e] as const));
+    expect(coverage.get('EUR')).toMatchObject({ coverage: 'sin-cobertura', suggestion: 'FXE' });
+    expect(coverage.get('ZZZZ')).toMatchObject({ coverage: 'cubierto' });
+    expect(coverage.size).toBe(3);
+  });
+});
+
 describe('ingesta de divisas', () => {
   /** Sábado 17-10-2026 12:00 UTC: la última vela de divisas esperada es la del viernes 16. */
   const FX_NOW = Date.parse('2026-10-17T12:00:00.000Z');
@@ -617,13 +836,16 @@ describe('ingesta de divisas', () => {
     const { provider: tiingo, calls } = makeTiingo(eurusdPrices);
     service = setup({ resolveProvider: async () => tiingo });
 
-    const list = await service.addTicker('eurusd');
+    const result = await service.addTicker('eurusd');
 
-    // El alta infiere el tipo divisa y la petición va al endpoint FX.
-    expect(list[0]).toMatchObject({ ticker: 'EURUSD', assetClass: 'fx' });
-    expect(calls).toHaveLength(1);
+    // El alta infiere el tipo divisa y la petición va al endpoint FX:
+    // primero el sondeo de cobertura (`getTickerInfo`), luego el histórico.
+    expect(result).toMatchObject({ added: true, reason: null });
+    expect(service.listWatchlist()[0]).toMatchObject({ ticker: 'EURUSD', assetClass: 'fx' });
+    expect(calls).toHaveLength(2);
     expect(calls[0]).toContain('/tiingo/fx/eurusd/prices');
     expect(calls[0]).toContain('resampleFreq=1day');
+    expect(calls[1]).toContain('/tiingo/fx/eurusd/prices');
 
     const stored = repo.getBars('EURUSD');
     expect(stored.map((b) => b.date)).toEqual([
@@ -656,14 +878,15 @@ describe('ingesta de divisas', () => {
     const { provider: tiingo } = makeTiingo(fxUnknown404, 404);
     service = setup({ resolveProvider: async () => tiingo });
 
-    await service.addTicker('USDCHF');
+    // Par guardado antes de la validación de altas: lo descubre la pasada.
+    repo.addWatchlistTicker('USDCHF');
+    const refresh = await service.refreshNow();
     expect(tickerStatus('USDCHF')).toMatchObject({
       state: 'sin-cobertura',
       consecutiveFailures: 0,
     });
 
     // La pasada completa confirma el 404 como caso del par, no del proveedor.
-    const refresh = await service.refreshNow();
     expect(refresh).toMatchObject({ accepted: true, ok: false, failedTickers: ['USDCHF'] });
     expect(repo.getDataStatus(dataStatusKey.provider('tiingo'))).toMatchObject({
       state: 'fiable',
@@ -719,5 +942,22 @@ describe('e2eMarketClockBase (TRADIA_E2E_MARKET_NOW)', () => {
     expect(clock.now()).toBe(pinnedMs + 5_000);
     // …y con el avance manual del gancho de desarrollo.
     expect(clock.advance(24 * 3_600_000)).toBe(pinnedMs + 5_000 + 24 * 3_600_000);
+  });
+});
+
+describe('e2eUncoveredTickers (TRADIA_E2E_UNCOVERED_TICKERS)', () => {
+  it('EUR sin cobertura por defecto en E2E, configurable y vacío fuera de E2E', () => {
+    expect(e2eUncoveredTickers(true, { TRADIA_E2E: '1' })).toEqual([]);
+    expect(e2eUncoveredTickers(false, {})).toEqual([]);
+    expect(e2eUncoveredTickers(false, { TRADIA_E2E: '1' })).toEqual(['EUR']);
+    expect(
+      e2eUncoveredTickers(false, { TRADIA_E2E: '1', TRADIA_E2E_UNCOVERED_TICKERS: '' }),
+    ).toEqual([]);
+    expect(
+      e2eUncoveredTickers(false, {
+        TRADIA_E2E: '1',
+        TRADIA_E2E_UNCOVERED_TICKERS: 'eur, xle ',
+      }),
+    ).toEqual(['EUR', 'XLE']);
   });
 });

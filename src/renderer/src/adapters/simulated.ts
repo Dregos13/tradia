@@ -1,7 +1,8 @@
 import { parseStrategyRules } from '../../../shared/strategyRules';
 import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
 import { evaluateShortAccount, shortAccountBlockReason } from '../../../main/live/checklist';
-import { inferAssetClass } from '../../../shared/fx';
+import { fxPairForCurrency, inferAssetClass } from '../../../shared/fx';
+import { tickerSuggestions } from '../../../shared/suggestions';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
@@ -167,6 +168,8 @@ import type {
   StressResultDto,
   TradiaApi,
   VetoReasonCode,
+  WatchlistAddResult,
+  WatchlistCoverageEntry,
   WatchlistItem,
 } from '../../../shared/ipc';
 // El falso ejecuta el motor real: estos módulos son TS puro, sin Electron
@@ -510,6 +513,8 @@ export function createSimulatedAdapter() {
   let prefs: NotificationPrefs = { info: true, alerta: true, critica: true };
   let alertPrefs: AlertPrefs = { leadMinutes: 30 };
   let watchlist: WatchlistItem[] = [];
+  /** Símbolos que el «proveedor» no cubre: watchlist.add los rechaza 'no-cubierto'. */
+  const uncoveredTickers = new Set<string>();
   let newsSources = buildSimulatedSources();
   let newsItems = buildSimulatedNewsItems(newsSources);
   const calendarEvents = buildSimulatedCalendar();
@@ -1972,18 +1977,27 @@ export function createSimulatedAdapter() {
     secrets: { setKey: unsupported, hasKey: async () => false, deleteKey: unsupported },
     watchlist: {
       list: async () => [...watchlist],
-      add: async (ticker) => {
+      add: async (ticker): Promise<WatchlistAddResult> => {
         const key = typeof ticker === 'string' ? ticker.trim().toUpperCase() : '';
         if (!isTicker(key)) {
           throw new Error('Introduce un símbolo bursátil válido (ej. AAPL, SPY, NVDA).');
         }
         if (watchlist.some((item) => item.ticker === key)) {
-          throw new Error(`El activo ${key} ya está presente en tu lista de seguimiento.`);
+          return { added: false, reason: 'duplicado' };
         }
         if (watchlist.length >= WATCHLIST_MAX_ITEMS) {
-          throw new Error(
-            `Límite alcanzado: Tradia admite un máximo de ${WATCHLIST_MAX_ITEMS} activos simultáneos.`,
-          );
+          return { added: false, reason: 'limite' };
+        }
+        if (uncoveredTickers.has(key)) {
+          const pair = fxPairForCurrency(key);
+          const suggestions = pair
+            ? [pair, ...tickerSuggestions(key)]
+            : [...tickerSuggestions(key)];
+          return {
+            added: false,
+            reason: 'no-cubierto',
+            ...(suggestions.length > 0 ? { suggestions } : {}),
+          };
         }
         watchlist = [
           ...watchlist,
@@ -1995,8 +2009,29 @@ export function createSimulatedAdapter() {
           },
         ];
         touchTickerStatus(key);
-        return [...watchlist];
+        return { added: true, reason: null };
       },
+      coverage: async (): Promise<WatchlistCoverageEntry[]> =>
+        watchlist.map((item) => {
+          const status = statuses.get(dataStatusKey.ticker(item.ticker));
+          if (status?.state === 'sin-cobertura') {
+            return {
+              ticker: item.ticker,
+              coverage: 'sin-cobertura',
+              reason: status.reason,
+              suggestion: tickerSuggestions(item.ticker)[0] ?? null,
+            };
+          }
+          if (status !== undefined && status.lastOkAt !== null) {
+            return { ticker: item.ticker, coverage: 'cubierto', reason: null, suggestion: null };
+          }
+          return {
+            ticker: item.ticker,
+            coverage: 'pendiente-verificar',
+            reason: status?.reason ?? null,
+            suggestion: null,
+          };
+        }),
       remove: async (ticker) => {
         const key = ticker.trim().toUpperCase();
         watchlist = watchlist
@@ -3313,6 +3348,15 @@ export function createSimulatedAdapter() {
     },
     /** Notifica un live:changed con el estado actual (fase 7). */
     emitLiveChanged,
+    /**
+     * Marca un símbolo como no cubierto por el proveedor: `watchlist.add`
+     * lo rechaza con 'no-cubierto' y sus sugerencias, como hace el
+     * backend real con Tiingo. `null` vacía la lista.
+     */
+    markTickerUncovered(ticker: string | null) {
+      if (ticker === null) uncoveredTickers.clear();
+      else uncoveredTickers.add(ticker.trim().toUpperCase());
+    },
     listenerCount: () =>
       connectionListeners.size +
       agentListeners.size +

@@ -287,6 +287,8 @@ export const IPC_CHANNELS = {
     list: 'watchlist:list',
     add: 'watchlist:add',
     remove: 'watchlist:remove',
+    /** Cobertura del proveedor por activo de la lista ('cubierto' | 'pendiente-verificar' | 'sin-cobertura'). */
+    coverage: 'watchlist:coverage',
     /** Añade de golpe el universo inicial de `INITIAL_UNIVERSE_TICKERS`. */
     addUniverse: 'watchlist:add-universe',
   },
@@ -863,6 +865,68 @@ export interface WatchlistItem {
   addedAt: string;
   /** Orden de visualización, 0..n-1. */
   position: number;
+}
+
+/**
+ * Motivos del resultado de `watchlist:add` cuando el alta no queda
+ * confirmada con cobertura:
+ *
+ * - 'no-cubierto': el proveedor respondió que no cubre el símbolo; el
+ *   ticker NO se añade y `suggestions` propone alternativas.
+ * - 'pendiente-verificar': no se pudo comprobar la cobertura (sin
+ *   conexión, sin clave, proveedor caído o cuota agotada); el ticker SÍ
+ *   se añade y la siguiente ingesta lo resuelve a cubierto o a
+ *   'sin-cobertura'.
+ * - 'duplicado': el ticker ya estaba en la lista.
+ * - 'limite': la lista llegó a `WATCHLIST_MAX_ITEMS`.
+ */
+export const WATCHLIST_ADD_REASONS = [
+  'no-cubierto',
+  'pendiente-verificar',
+  'duplicado',
+  'limite',
+] as const;
+export type WatchlistAddReason = (typeof WATCHLIST_ADD_REASONS)[number];
+
+/**
+ * Resultado tipado de `watchlist:add`. El alta solo se confirma
+ * (`added: true, reason: null`) cuando el proveedor verificó que cubre
+ * el símbolo; sin verificación posible el ticker entra pendiente.
+ */
+export interface WatchlistAddResult {
+  /** true si el ticker quedó en la lista (confirmado o pendiente). */
+  added: boolean;
+  /** null con el alta confirmada; el motivo del rechazo o del alta pendiente. */
+  reason: WatchlistAddReason | null;
+  /** Nombre del activo cuando el proveedor lo publica ('Apple Inc'). */
+  name?: string;
+  /** Alternativas operables con 'no-cubierto', mejor opción primero. */
+  suggestions?: string[];
+}
+
+/** Cobertura de un activo de la lista según el proveedor (`watchlist:coverage`). */
+export const WATCHLIST_COVERAGE_STATES = [
+  /** El proveedor ya sirvió velas del símbolo. */
+  'cubierto',
+  /** Todavía sin dato del proveedor: no se pudo verificar al añadir. */
+  'pendiente-verificar',
+  /** El proveedor no cubre el símbolo (404 o respuesta vacía). */
+  'sin-cobertura',
+] as const;
+export type WatchlistCoverageState = (typeof WATCHLIST_COVERAGE_STATES)[number];
+
+/**
+ * Cobertura de cada activo de la lista, para Ajustes › Conectores
+ * («Tiingo dice qué activos de la lista no cubre») y la fila
+ * «Pendiente de verificar» del alta sin verificación.
+ */
+export interface WatchlistCoverageEntry {
+  ticker: string;
+  coverage: WatchlistCoverageState;
+  /** Motivo legible del estado cuando no está 'cubierto', o null. */
+  reason: string | null;
+  /** Alternativa operable sugerida con 'sin-cobertura' ('FXE' para 'EUR'), o null. */
+  suggestion: string | null;
 }
 
 /** Una vela diaria guardada: cruda del proveedor y, si ya se limpió, ajustada. */
@@ -1573,9 +1637,15 @@ export interface TradiaApi {
   };
   watchlist: {
     list(): Promise<WatchlistItem[]>;
-    /** Añade un ticker y devuelve la lista completa ya ordenada. */
-    add(ticker: string): Promise<WatchlistItem[]>;
+    /**
+     * Comprueba la cobertura del ticker en el proveedor y lo añade si
+     * existe (o si no se pudo comprobar, como 'pendiente-verificar').
+     * El resultado tipado dice si quedó en la lista y por qué no.
+     */
+    add(ticker: string): Promise<WatchlistAddResult>;
     remove(ticker: string): Promise<WatchlistItem[]>;
+    /** Cobertura del proveedor por activo (para Ajustes › Conectores). */
+    coverage(): Promise<WatchlistCoverageEntry[]>;
     /** Añade `INITIAL_UNIVERSE_TICKERS` y devuelve la lista completa. */
     addUniverse(): Promise<WatchlistItem[]>;
   };

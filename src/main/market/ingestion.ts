@@ -42,6 +42,7 @@ import {
   isE2eEnabled,
   isGetBarsRequest,
   isTicker,
+  WATCHLIST_MAX_ITEMS,
   type AssetClass,
   type GetBarsRequest,
   type MarketBar,
@@ -49,9 +50,13 @@ import {
   type MarketClockAdvanceResult,
   type MarketRefreshResult,
   type MarketUpdatedEvent,
+  type WatchlistAddResult,
+  type WatchlistCoverageEntry,
   type WatchlistItem,
 } from '../../shared/ipc';
 import { sessionDateLabel } from '../../shared/dates';
+import { fxPairForCurrency } from '../../shared/fx';
+import { tickerSuggestions } from '../../shared/suggestions';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
@@ -67,6 +72,7 @@ import {
   type MarketDataErrorKind,
   type MarketDataProvider,
   type SessionDate,
+  type TickerInfo,
 } from './providers';
 import {
   createMarketRepository,
@@ -126,6 +132,28 @@ export function e2eMarketClockBase(
   if (Number.isNaN(pinned)) return undefined;
   const realStart = realNow();
   return () => pinned + (realNow() - realStart);
+}
+
+/**
+ * Gancho E2E (`TRADIA_E2E_UNCOVERED_TICKERS`, lista separada por comas):
+ * los tickers que el proveedor simulado declara «sin cobertura» — responde
+ * 'not-found' a `getTickerInfo`/`getBars`, como Tiingo con EUR. Por defecto
+ * ['EUR'] para que el E2E reproduzca el rechazo del alta; la cadena vacía
+ * desactiva la lista (pruebas que necesitan EUR con datos simulados).
+ */
+export const E2E_DEFAULT_UNCOVERED_TICKERS: readonly string[] = ['EUR'];
+
+export function e2eUncoveredTickers(
+  isPackaged: boolean,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (!isE2eEnabled(isPackaged, env.TRADIA_E2E)) return [];
+  const raw = env.TRADIA_E2E_UNCOVERED_TICKERS;
+  if (raw === undefined) return [...E2E_DEFAULT_UNCOVERED_TICKERS];
+  return raw
+    .split(',')
+    .map((ticker) => ticker.trim().toUpperCase())
+    .filter((ticker) => ticker !== '');
 }
 
 /** Mínimo de `Electron.PowerMonitor` que usa el servicio (inyectable). */
@@ -190,9 +218,17 @@ export interface MarketIngestionDeps {
 
 export interface MarketIngestionService {
   listWatchlist(): WatchlistItem[];
-  /** Añade el ticker, lanza su histórico y devuelve la lista completa. */
-  addTicker(ticker: string): Promise<WatchlistItem[]>;
+  /**
+   * Comprueba la cobertura del ticker en el proveedor (`getTickerInfo`)
+   * antes de darlo de alta: si el proveedor no lo cubre se rechaza con
+   * 'no-cubierto' y sus alternativas; si no se puede comprobar (sin
+   * conexión, sin clave, fallo o cuota) entra como 'pendiente-verificar'
+   * y la siguiente ingesta lo resuelve. Devuelve el resultado tipado.
+   */
+  addTicker(ticker: string): Promise<WatchlistAddResult>;
   removeTicker(ticker: string): WatchlistItem[];
+  /** Cobertura del proveedor por activo de la lista (Ajustes › Conectores). */
+  watchlistCoverage(): WatchlistCoverageEntry[];
   /** Añade el universo inicial e ingiere lo que falte. */
   addUniverse(): Promise<WatchlistItem[]>;
   getBars(request: GetBarsRequest): Promise<MarketBarsResult>;
@@ -844,15 +880,143 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     batchId: bar.batchId,
   });
 
+  // -- Alta de ticker con comprobación de cobertura -------------------------
+
+  /**
+   * Alternativas para un símbolo sin cobertura: primero el par de divisas
+   * que lo sigue ('EUR' → 'EURUSD', operable en la cartera simulada) y
+   * después los ETF de la tabla estática ('EUR' → 'FXE').
+   */
+  const uncoveredSuggestions = (ticker: string): string[] => {
+    const pair = fxPairForCurrency(ticker);
+    return pair !== null ? [pair, ...tickerSuggestions(ticker)] : [...tickerSuggestions(ticker)];
+  };
+
+  /**
+   * Alta sin verificación posible: el ticker entra igualmente, con su
+   * estado de dato explicando por qué está pendiente, y la siguiente
+   * ingesta (al volver la conexión o configurar el proveedor) lo resuelve
+   * a cubierto o a 'sin-cobertura'. No se fuerza una ingesta inmediata:
+   * sin conexión o sin proveedor no habría petición, y tras un fallo o
+   * una cuota agotada la espera sería peor que la pasada programada.
+   */
+  const addPendingVerification = async (
+    ticker: string,
+    reason: string,
+  ): Promise<WatchlistAddResult> => {
+    const entry = repo.addWatchlistTicker(ticker);
+    publishStatus({
+      key: dataStatusKey.ticker(entry.ticker),
+      state: 'desactualizado',
+      reason,
+    });
+    emitWatchlistChanged();
+    return { added: true, reason: 'pendiente-verificar' };
+  };
+
   const service: MarketIngestionService = {
     listWatchlist: () => repo.listWatchlist(),
 
     addTicker: async (ticker) => {
-      const entry = repo.addWatchlistTicker(ticker);
+      const key = ticker.trim().toUpperCase();
+      const current = repo.listWatchlist();
+      // Duplicado y límite se deciden en local, sin gastar cuota del proveedor.
+      if (current.some((item) => item.ticker === key)) {
+        return { added: false, reason: 'duplicado' };
+      }
+      if (current.length >= WATCHLIST_MAX_ITEMS) {
+        return { added: false, reason: 'limite' };
+      }
+
+      if (!isOnline()) {
+        return addPendingVerification(
+          key,
+          'sin conexión a internet: pendiente de verificar la cobertura',
+        );
+      }
+      const provider = await safeResolveProvider();
+      if (provider === null) {
+        return addPendingVerification(
+          key,
+          'sin proveedor de datos configurado: pendiente de verificar la cobertura',
+        );
+      }
+
+      let info: TickerInfo;
+      try {
+        info = await provider.getTickerInfo(key);
+      } catch (error: unknown) {
+        if (isMarketDataError(error, 'not-found')) {
+          // El proveedor conoce el universo y este símbolo no está: se
+          // rechaza con las alternativas conocidas, sin tocar la lista.
+          const suggestions = uncoveredSuggestions(key);
+          logger.info?.(
+            `[market] alta de ${key} rechazada: el proveedor '${provider.id}' no lo cubre`,
+          );
+          return {
+            added: false,
+            reason: 'no-cubierto',
+            ...(suggestions.length > 0 ? { suggestions } : {}),
+          };
+        }
+        // No se pudo comprobar (red, cuota, clave, respuesta malformada):
+        // se añade pendiente y la próxima ingesta lo resuelve. El estado
+        // guarda el motivo real del proveedor (ya saneado: «vuelve a
+        // pegarla», cuota, transporte…) para que Ajustes lo cuente.
+        logger.warn?.(
+          `[market] no se pudo verificar ${key} en '${provider.id}', queda pendiente: ${String(
+            isMarketDataError(error) ? error.message : error,
+          )}`,
+        );
+        return addPendingVerification(
+          key,
+          isMarketDataError(error)
+            ? error.message
+            : `pendiente de verificar la cobertura en '${provider.id}'`,
+        );
+      }
+
+      const entry = repo.addWatchlistTicker(key, info.assetClass);
       await ingestNewTicker(entry);
       emitWatchlistChanged();
-      return repo.listWatchlist();
+      return {
+        added: true,
+        reason: null,
+        ...(info.name !== undefined ? { name: info.name } : {}),
+      };
     },
+
+    watchlistCoverage: () =>
+      repo.listWatchlist().map((item) => {
+        const status = repo.getDataStatus(dataStatusKey.ticker(item.ticker));
+        if (status?.state === 'sin-cobertura') {
+          return {
+            ticker: item.ticker,
+            coverage: 'sin-cobertura' as const,
+            reason: status.reason,
+            // La misma alternativa que `uncovered[].suggestion` del resumen
+            // de frescura (la tabla estática), para contar una sola historia.
+            suggestion: tickerSuggestions(item.ticker)[0] ?? null,
+          };
+        }
+        // La prueba de cobertura es el dato servido: con velas guardadas el
+        // proveedor cubre el símbolo; sin ellas el alta quedó pendiente de
+        // verificar (o aún no llegó su primera ingesta).
+        if (repo.lastBarDate(item.ticker) !== null) {
+          return {
+            ticker: item.ticker,
+            coverage: 'cubierto' as const,
+            reason: null,
+            suggestion: null,
+          };
+        }
+        return {
+          ticker: item.ticker,
+          coverage: 'pendiente-verificar' as const,
+          reason: status?.reason ?? null,
+          suggestion: null,
+        };
+      }),
 
     removeTicker: (ticker) => {
       repo.removeWatchlistTicker(ticker);
@@ -997,12 +1161,21 @@ export function registerMarket(
   let tiingo: MarketDataProvider | null = null;
   let simulated: ReturnType<typeof createSimulatedProvider> | null = null;
   const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+  // Tickers «sin cobertura» del simulado E2E (EUR por defecto, ver
+  // TRADIA_E2E_UNCOVERED_TICKERS): reproduce el caso real de Tiingo.
+  const uncoveredForE2e = e2eUncoveredTickers(app.isPackaged, process.env);
+  const createE2eProvider = (): ReturnType<typeof createSimulatedProvider> =>
+    createSimulatedProvider({
+      seed: 'tradia-e2e',
+      now: () => clock.now(),
+      unknownTickers: [...uncoveredForE2e],
+    });
   // Gancho E2E: fuerza el proveedor simulado fallando aunque haya clave real.
   let forcedFailure: MarketDataErrorKind | null = null;
 
   const resolveProvider = async (): Promise<MarketDataProvider | null> => {
     if (e2e && forcedFailure !== null) {
-      simulated ??= createSimulatedProvider({ seed: 'tradia-e2e', now: () => clock.now() });
+      simulated ??= createE2eProvider();
       simulated.setFailing(forcedFailure);
       return simulated;
     }
@@ -1015,7 +1188,7 @@ export function registerMarket(
       return tiingo;
     }
     if (e2e) {
-      simulated ??= createSimulatedProvider({ seed: 'tradia-e2e', now: () => clock.now() });
+      simulated ??= createE2eProvider();
       return simulated;
     }
     return null;
@@ -1077,6 +1250,7 @@ export function registerMarket(
     }
     return service.removeTicker(ticker);
   });
+  ipcMain.handle(IPC_CHANNELS.watchlist.coverage, () => service.watchlistCoverage());
   ipcMain.handle(IPC_CHANNELS.watchlist.addUniverse, () => service.addUniverse());
   ipcMain.handle(IPC_CHANNELS.market.getBars, (_event, request: unknown) => {
     if (!isGetBarsRequest(request)) {

@@ -31,8 +31,7 @@ export function UncoveredAssets({
         const list = await window.tradia.watchlist.list();
         if (!list.some((row) => row.ticker === asset.suggestion)) {
           const saved = await window.tradia.watchlist.add(asset.suggestion);
-          if (!saved.some((row) => row.ticker === asset.suggestion))
-            throw new Error('La alternativa no se añadió.');
+          if (!saved.added) throw new Error('La alternativa no se añadió.');
           added = true;
         }
       }

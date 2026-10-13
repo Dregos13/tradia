@@ -4,6 +4,7 @@ import {
   isTicker,
   WATCHLIST_MAX_ITEMS,
   type DataStatusEntry,
+  type WatchlistAddResult,
   type WatchlistItem,
 } from '../../../../shared/ipc';
 
@@ -52,8 +53,18 @@ export function Watchlist({
       setConfirm(null);
       setMessage(success);
       if (choose) setInput('');
-    } catch {
-      setError('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+    } catch (error) {
+      const addResult = (error as { addResult?: WatchlistAddResult } | null)?.addResult;
+      if (addResult?.reason === 'no-cubierto') {
+        const first = addResult.suggestions?.[0];
+        setError(
+          first
+            ? `Tiingo no ofrece datos para ${choose ?? 'ese ticker'}. Puedes añadir ${first}, un ETF que sigue una exposición parecida.`
+            : `Tiingo no ofrece datos para ${choose ?? 'ese ticker'}. Prueba con el ticker de una acción o un ETF de EE. UU.`,
+        );
+      } else {
+        setError('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+      }
     } finally {
       setBusy(false);
       setPendingTicker(null);
@@ -69,7 +80,17 @@ export function Watchlist({
       setError('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
     } else {
       void mutate(
-        () => window.tradia.watchlist.add(ticker),
+        async () => {
+          const result = await window.tradia.watchlist.add(ticker);
+          if (!result.added) {
+            const failure = new Error(result.reason ?? 'rechazado') as Error & {
+              addResult?: WatchlistAddResult;
+            };
+            failure.addResult = result;
+            throw failure;
+          }
+          return window.tradia.watchlist.list();
+        },
         `${ticker} se ha añadido a tu lista.`,
         ticker,
       );

@@ -169,6 +169,7 @@ const api: TradiaApi = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.watchlist.list),
     add: (ticker: string) => ipcRenderer.invoke(IPC_CHANNELS.watchlist.add, ticker),
     remove: (ticker: string) => ipcRenderer.invoke(IPC_CHANNELS.watchlist.remove, ticker),
+    coverage: () => ipcRenderer.invoke(IPC_CHANNELS.watchlist.coverage),
     addUniverse: () => ipcRenderer.invoke(IPC_CHANNELS.watchlist.addUniverse),
   },
   market: {

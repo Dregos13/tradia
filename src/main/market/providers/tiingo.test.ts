@@ -251,6 +251,35 @@ describe('adaptador Tiingo', () => {
       expect(String(call[0])).not.toContain(API_KEY);
     }
   });
+
+  it('getTickerInfo consume el limitador de cuota antes de la ficha', async () => {
+    const acquire = vi.fn(async () => {});
+    const limiter: RateLimiter = {
+      acquire,
+      tryAcquire: () => true,
+      remaining: () => ({ perHour: 50, perDay: 1000 }),
+      waitTimeMs: () => 0,
+    };
+    const { fetch, calls } = fetchReturning(() => jsonResponse(aaplMeta));
+    const provider = make(fetch, { rateLimiter: limiter });
+    await provider.getTickerInfo('AAPL');
+    expect(acquire).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('la clave nunca aparece en los errores de la ficha (getTickerInfo)', async () => {
+    const logger = { warn: vi.fn() };
+    const { fetch } = fetchReturning(() =>
+      jsonResponse({ detail: `token ${API_KEY} rechazado` }, 404),
+    );
+    const provider = make(fetch, { getApiKey: async () => API_KEY, logger });
+    const error = await provider.getTickerInfo('EUR').catch((e: unknown) => e);
+    expect(isMarketDataError(error, 'not-found')).toBe(true);
+    expect(JSON.stringify(error)).not.toContain(API_KEY);
+    for (const call of logger.warn.mock.calls) {
+      expect(String(call[0])).not.toContain(API_KEY);
+    }
+  });
 });
 
 describe('adaptador Tiingo — endpoint FX', () => {
