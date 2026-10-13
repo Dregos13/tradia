@@ -267,7 +267,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await test_(tiingo).click();
     await expect(tiingo).toContainText('Funciona', { timeout: 15_000 });
     await expect(tiingo.getByText('Última comprobación', { exact: true })).toBeVisible();
-    const coverage = tiingo.getByText('Activos de tu lista sin cobertura');
+    const coverage = tiingo.getByRole('heading', { name: 'Cobertura de tu lista en Tiingo' });
     await expect(coverage).toBeVisible();
     await expect(tiingo).toContainText('EUR no está disponible en Tiingo');
     await expect(tiingo).toContainText('Alternativa disponible: FXE.');
@@ -314,7 +314,144 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await page.evaluate(() => window.tradia.watchlist.remove('EUR'));
     await openPage(page, 'Inicio', 'Estado del sistema');
     await openPage(page, 'Ajustes');
-    await expect(tiingo.getByText('No hay activos marcados sin cobertura.')).toBeVisible();
+    await expect(tiingo.getByText('Tiingo cubre todos los activos de tu lista.')).toBeVisible();
     await expect(tiingo).not.toContainText('EUR no está disponible en Tiingo');
+  });
+});
+
+const TECHNICAL_REASON = /no existe|'tiingo'|ticker '|no devolvió datos/;
+
+const coverage = (page: Page): Promise<{ ticker: string; reason: string | null }[]> =>
+  page.evaluate(async () =>
+    (await window.tradia.watchlist.coverage()).map((entry) => ({
+      ticker: entry.ticker,
+      reason: (entry as { reason?: string | null }).reason ?? null,
+    })),
+  );
+
+const REMOVE_EUR = 'Quitar EUR de la lista';
+const EUR_HEADING = 'EUR no está disponible en Tiingo';
+
+test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
+  test('H1: «Quitar EUR de la lista» con teclado retira el aviso en Mercado e Inicio sin reiniciar', async () => {
+    test.setTimeout(300_000);
+    const { page } = await openWithLegacyEur('tradia-cierre-quitar');
+    await openPage(page, 'Mercado');
+    const banner = dataBanner(page);
+    await expect(banner.getByRole('heading', { name: EUR_HEADING })).toBeVisible();
+
+    // Teclado: Tab desde «Cambiar por FXE» llega a «Quitar EUR de la lista»; Enter la activa.
+    await banner.getByRole('button', { name: 'Cambiar por FXE para EUR' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(banner.getByRole('button', { name: REMOVE_EUR })).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    // Sin reiniciar: el aviso desaparece de Mercado y de Inicio.
+    await expect(page.getByText(EUR_HEADING)).toHaveCount(0, { timeout: 10_000 });
+    await expect(banner).toHaveCount(0);
+    await expect(page.getByText('EUR se ha quitado de tu lista.')).toBeVisible();
+    await openPage(page, 'Inicio', 'Estado del sistema');
+    await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: REMOVE_EUR })).toHaveCount(0);
+    await expect(page.locator('.dashboard-row').filter({ hasText: /^Precios/ })).toContainText(
+      'Disponible',
+    );
+
+    // Datos: ni resumen ni estados guardados nombran ya a EUR.
+    expect(await watchlistTickers(page)).toEqual(['SPY']);
+    const after = await freshness(page);
+    expect(after.uncovered).toEqual([]);
+    expect(after.state).toBe('current');
+    const statuses = await page.evaluate(() => window.tradia.dataStatus.get());
+    expect(statuses.find((entry) => entry.key === 'ticker:EUR')).toBeUndefined();
+    expect((await coverage(page)).map((entry) => entry.ticker)).toEqual(['SPY']);
+    await page.screenshot({ path: 'test-results/cierre-ticker-1-quitado.png' });
+
+    // Una pasada nueva del proveedor y un reinicio tampoco lo resucitan.
+    await page.evaluate(() => window.tradia.market.refreshNow());
+    await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
+    await relaunchPhaseApp(context!);
+    const restarted = context!.page;
+    await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect
+      .poll(async () => (await freshness(restarted)).state, { timeout: 60_000 })
+      .toBe('current');
+    expect((await freshness(restarted)).uncovered).toEqual([]);
+    await expect(restarted.getByText(EUR_HEADING)).toHaveCount(0);
+    expect(await watchlistTickers(restarted)).toEqual(['SPY']);
+  });
+
+  test('H2: en Inicio y en Mercado hay un único encabezado del aviso de EUR y un único botón «Quitar EUR de la lista»', async () => {
+    test.setTimeout(240_000);
+    const { page } = await openWithLegacyEur('tradia-cierre-unico');
+
+    for (const [link, heading] of [
+      ['Inicio', 'Estado del sistema'],
+      ['Mercado', 'Mercado'],
+    ] as const) {
+      await openPage(page, link, heading);
+      await expect(page.getByRole('heading', { name: EUR_HEADING })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: REMOVE_EUR })).toHaveCount(1);
+      // En el orden de Tab el botón aparece una sola vez: se recorre la página
+      // hasta que el foco vuelve a un elemento ya visitado.
+      await page.evaluate(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+        (window as unknown as { __tabSeen: Set<Element> }).__tabSeen = new Set();
+      });
+      let stops = 0;
+      for (let step = 0; step < 300; step += 1) {
+        await page.keyboard.press('Tab');
+        const result = await page.evaluate(() => {
+          const seen = (window as unknown as { __tabSeen: Set<Element> }).__tabSeen;
+          const active = document.activeElement;
+          if (!active || active === document.body) return { name: '', repeated: false };
+          const repeated = seen.has(active);
+          seen.add(active);
+          return { name: active.getAttribute('aria-label') ?? '', repeated };
+        });
+        if (result.repeated) break;
+        if (result.name === REMOVE_EUR) stops += 1;
+      }
+      expect(stops, `paradas de Tab en «${REMOVE_EUR}» en ${link}`).toBe(1);
+    }
+    await page.screenshot({ path: 'test-results/cierre-ticker-2-unico.png' });
+  });
+
+  test('H3: ningún texto visible ni motivo de freshness() y coverage() es técnico, en Inicio, Mercado, IA y Conectores', async () => {
+    test.setTimeout(240_000);
+    const { page } = await openWithLegacyEur('tradia-cierre-llano');
+
+    const summary = await freshness(page);
+    const reasons = [
+      ...summary.uncovered.map((asset) => asset.reason),
+      ...summary.items.map((item) => item.reason),
+      ...(await coverage(page)).map((entry) => entry.reason),
+    ].filter((reason): reason is string => typeof reason === 'string');
+    expect(reasons.length).toBeGreaterThan(0);
+    for (const reason of reasons) expect(reason).not.toMatch(TECHNICAL_REASON);
+    expect(summary.uncovered[0]!.reason).toMatch(/no tiene datos de EUR/);
+
+    const visibleText = async (): Promise<string> => page.locator('body').innerText();
+    for (const [link, heading] of [
+      ['Inicio', 'Estado del sistema'],
+      ['Mercado', 'Mercado'],
+      ['IA', 'IA'],
+    ] as const) {
+      await openPage(page, link, heading);
+      expect(await visibleText(), `texto visible en ${link}`).not.toMatch(TECHNICAL_REASON);
+    }
+
+    await openPage(page, 'Ajustes');
+    const tiingo = page.getByRole('form', { name: 'Proveedor Tiingo' });
+    await tiingo.scrollIntoViewIfNeeded();
+    await tiingo.getByRole('button', { name: /^Probar conexión$/ }).click();
+    await expect(tiingo).toContainText('Funciona', { timeout: 15_000 });
+    await expect(tiingo).toContainText(EUR_HEADING);
+    expect(await visibleText(), 'texto visible en Ajustes › Conectores').not.toMatch(
+      TECHNICAL_REASON,
+    );
+    await page.screenshot({ path: 'test-results/cierre-ticker-3-llano.png' });
   });
 });
