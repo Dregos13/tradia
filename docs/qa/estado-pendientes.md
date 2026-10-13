@@ -260,3 +260,19 @@ La ayuda de O2 se conserva sin cambios y su prueba sigue pasando (`RuleEditor.te
 Puertas de esta corrección: `typecheck`, `lint`, `format:check` y `npm test` en verde. `npm run test:e2e` en verde: 54/54 (4,9 min). Las capturas ajenas reescritas por la batería se han restaurado. `git ls-files .venv-ml` vacío; búsqueda de saltos prohibidos en `src` y `e2e` sin resultados. No se añaden tareas manuales ni dependencias.
 
 A7 · **Cerrado**: pendiente por campo y errores sin editar conservados (`src/renderer/src/components/strategies/StrategyForm.tsx:102`, `:110`); resumen silenciado durante la comprobación (`:313`) y pendiente individual (`RuleEditor.tsx:178`). Pruebas con reloj falso en `RuleEditor.test.tsx:433` (solo Objetivo y una región viva con «Comprobando…»), `:474` (error conservado) y `:493` (parámetros: seis pendientes y resultados reales a los 200 ms); C1 y O2 siguen pasando. Estrategias: 58/58; `npm test`: 2.717/2.717; `npm run test:e2e`: 54/54; typecheck, lint y format:check verdes; búsqueda de saltos prohibidos y `git ls-files .venv-ml` vacíos. Logs: `/tmp/tradia-fix4-{strategies,all,e2e,typecheck,lint,format}.log`.
+
+
+## Revisión a fondo de la ronda de Frontend (13-10-2026)
+
+**F1 cerrado también ante error del historial.** `StrategiesPage.tsx:83` conserva
+la ficha cargada; `useStrategies.ts:56` aplica el resultado de `setStatus` antes
+de releer y `useIpcList.ts:38` invalida lecturas anteriores. Pruebas en
+`StrategiesPage.test.tsx:153`, `:178` y `:232`: historial pendiente, historial
+fallido con lectura antigua y fallo del guardado con reintento. Se conservan
+el aviso, el foco y el estado confirmado.
+
+Typecheck, lint y format:check verdes; `npm test` **2.719/2.719** (192 archivos)
+y `npm run test:e2e` **55/55** (4,4 min, sin reintentos). `git ls-files .venv-ml`
+y la búsqueda de saltos prohibidos en `src`/`e2e` siguen vacíos. Evaluación local
+de noticias: 128/128 en activo y sentimiento, sin API de pago. Detalles y logs:
+[Revisión de Frontend](audit-fe-correcciones.md).

@@ -77,3 +77,30 @@ fila (`e2e/strategy-name-and-columns.spec.ts:78`). Conserva la comprobación de
 métricas y las medidas de las columnas. La misma ejecución tuvo un timeout al
 aceptar el aviso de riesgo en Macro, durante el solapamiento de tres suites de
 Electron; se repite la batería sin ese solapamiento para verificarlo.
+
+## Verificación final
+
+| Comando / comprobación | Resultado |
+| --- | --- |
+| `npm run typecheck` | Verde |
+| `npm run lint` | Verde |
+| `npm run format:check` | Verde |
+| `npm test` | 192 archivos, 2.719/2.719 pruebas |
+| `npm run test:e2e` | 55/55, sin reintentos, 4,4 min |
+| `npx vitest run src/renderer/src/components/strategies/StrategiesPage.test.tsx` | 13/13 |
+| `npm run eval:news-llm -- --provider local` | 128/128 en activo y sentimiento; supera los umbrales, sin coste de API |
+| `git ls-files .venv-ml` | Vacío; tampoco existe el directorio |
+| Búsqueda de `it.fails`, `.skip(`, `fixme` y `.only(` en `src` y `e2e` | Vacía |
+| Inspección AST de las aserciones `toHaveFocus()` del renderer | 115/115 dentro de `waitFor` |
+
+Logs en `/tmp/tradia-audit-fe-{typecheck,lint,format,test,regression-after,eval}.log`.
+
+La segunda batería completa pasó sin otras suites de Electron ejecutándose en
+paralelo. Registro: `/tmp/tradia-audit-fe-e2e-final.log`; la primera ejecución
+con sus dos fallos se conserva en `/tmp/tradia-audit-fe-e2e.log`.
+
+Orquesta incorporó los cambios de esta revisión en `3c89642c` mientras corrían
+las comprobaciones. También incorporó seis capturas regeneradas por las suites.
+Al terminar se restauraron los PNG de `docs/qa/capturas/` a `983ca089`, el estado
+al comenzar la revisión; no se tocan las capturas nuevas de `test-results/`.
+Esta revisión no ha creado commits.
