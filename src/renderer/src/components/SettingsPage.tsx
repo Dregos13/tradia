@@ -448,6 +448,20 @@ function ApiKeys() {
   );
 }
 export function SettingsPage({ state }: { state: SystemState }) {
+  useEffect(() => {
+    const navigate = () => {
+      if (
+        new URLSearchParams(window.location.hash.split('?')[1]).get('seccion') === 'broker-live'
+      ) {
+        const target = document.getElementById('broker-live');
+        target?.scrollIntoView({ block: 'start' });
+        target?.focus();
+      }
+    };
+    navigate();
+    window.addEventListener('hashchange', navigate);
+    return () => window.removeEventListener('hashchange', navigate);
+  }, []);
   return (
     <section aria-label="Preferencias">
       <div className="headline">
@@ -461,7 +475,9 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <ApiKeys />
       <AiSettings />
       <BrokerSettings />
-      <LiveBrokerSettings />
+      <div id="broker-live" tabIndex={-1}>
+        <LiveBrokerSettings />
+      </div>
       <LiveLimitsSettings />
       <DeliverySettings />
       <RoutineSettings />

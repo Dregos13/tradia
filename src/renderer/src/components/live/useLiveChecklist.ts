@@ -26,6 +26,15 @@ export function checklistReasons(snapshot: Snapshot | null) {
     reasons.push('El proceso principal aún no confirma todos los requisitos.');
   if (!snapshot.state.hasCredentials || !snapshot.state.accountMasked)
     reasons.push('Conecta y verifica las claves live del broker.');
+  const limits = snapshot.checklist.limits.limits;
+  if (
+    limits &&
+    (limits.shortOrderUsd > 0 || limits.shortExposureUsd > 0 || limits.shortPositions > 0) &&
+    !snapshot.checklist.short?.allComplete
+  )
+    reasons.push(
+      snapshot.checklist.short?.blockReason ?? 'Los requisitos del corto aún no se han verificado.',
+    );
   if (snapshot.stopActive)
     reasons.push('La parada de emergencia está activa. Revisa Riesgo antes de continuar.');
   if (snapshot.state.mode === 'activo') reasons.push('Dinero real ya está activo.');
@@ -108,8 +117,13 @@ export function useLiveChecklist() {
     try {
       await action();
       return mounted.current && !disconnected.current;
-    } catch {
-      if (mounted.current) setError(fallback);
+    } catch (cause) {
+      if (mounted.current)
+        setError(
+          cause instanceof Error && cause.message.includes('[corto-requisitos]')
+            ? cause.message
+            : fallback,
+        );
       return false;
     } finally {
       if (pendingRead.current && mounted.current) await read();
@@ -132,7 +146,12 @@ export function useLiveChecklist() {
       if (!saved.limits) throw new Error('Sin límites guardados');
       if (!mounted.current) return;
       setLimits(saved.limits);
-      if (await read()) setNotice('Límites guardados · todavía debes confirmarlos por escrito.');
+      if (await read())
+        setNotice(
+          input.shortOrderUsd > 0 || input.shortExposureUsd > 0 || input.shortPositions > 0
+            ? 'Límites del corto guardados · todavía debes confirmar la nueva frase por escrito.'
+            : 'Límites guardados · todavía debes confirmarlos por escrito.',
+        );
     }, 'No se pudieron guardar los límites. Dinero real permanece bloqueado.');
   const testStop = () =>
     run(async () => {

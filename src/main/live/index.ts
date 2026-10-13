@@ -365,7 +365,7 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
       if (!isLiveSeedProgressRequest(request)) {
         throw new IpcValidationError(
           IPC_CHANNELS.live.seedProgress,
-          'se esperaba {paperMonths?, paperTrades?, deviationPct?, finalTestDone?, killSwitchTested?, alertsTested?} o nada',
+          'se esperaba {paperMonths?, paperTrades?, deviationPct?, paperShortTrades?, paperShortWeeks?, finalTestDone?, killSwitchTested?, alertsTested?} o nada',
         );
       }
       return service.seedProgress(request);

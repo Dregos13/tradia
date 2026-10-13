@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { DeliveryTestableChannel } from '../../../../shared/journal';
 import { liveConfirmationPhrase, type LiveLimits } from '../../../../shared/live';
 import { ChecklistRow } from './ChecklistRow';
+import { ShortReadiness, shortLimitsBlockReason } from './ShortReadiness';
 import { LimitsForm } from './LimitsForm';
 import { LiveDeactivationButton } from './LiveDeactivationButton';
 import { LiveActivationDialog } from './LiveActivationDialog';
@@ -30,6 +31,18 @@ export function ChecklistPage({
   const status = useRef<HTMLParagraphElement>(null);
   const activateButton = useRef<HTMLButtonElement>(null);
   const disabled = state.loading || state.busy || state.offline;
+  const shortBlockReason = shortLimitsBlockReason(
+    state.snapshot?.checklist,
+    state.loading,
+    state.error,
+    state.offline,
+  );
+  const shortBlocked = !!shortBlockReason;
+  const savedShort =
+    !!state.limits &&
+    (state.limits.shortOrderUsd > 0 ||
+      state.limits.shortExposureUsd > 0 ||
+      state.limits.shortPositions > 0);
   const reasons = [
     ...new Set([
       ...checklistReasons(state.snapshot),
@@ -189,12 +202,23 @@ export function ChecklistPage({
           </ul>
         </section>
       )}
+      <ShortReadiness
+        checklist={state.snapshot?.checklist}
+        loading={state.loading}
+        disabled={disabled || !!state.error || !state.snapshot}
+        blocked={shortBlocked}
+        savedShort={savedShort}
+        onDeclare={state.declare}
+        onReload={() => void state.reload()}
+      />
       <div className="live-bottom-grid">
         <div>
           <LimitsForm
             key={state.limits ? liveConfirmationPhrase(state.limits) : 'unsaved'}
             saved={state.limits}
-            disabled={disabled || !state.snapshot || active}
+            disabled={disabled || !!state.error || !state.snapshot || active}
+            shortBlocked={shortBlocked}
+            shortBlockReason={shortBlockReason}
             onSave={state.save}
             onDirty={setDirty}
             confirmed={active}

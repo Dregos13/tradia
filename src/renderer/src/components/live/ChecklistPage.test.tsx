@@ -80,8 +80,8 @@ it('lista evidencia, fecha y cada motivo pendiente, con activación bloqueada', 
   expect(
     screen.getByText('3,2 meses de paper continuo · 36 operaciones · desviación −4 %.'),
   ).toBeInTheDocument();
-  expect(screen.getAllByText('Verificación automática')).toHaveLength(4);
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+  expect(screen.getAllByText('Verificación automática')).toHaveLength(5);
+  expect(screen.getAllByRole('checkbox')).toHaveLength(4);
   expect(screen.getAllByText(/Sin evidencia guardada/)).toHaveLength(3);
   expect(activate).not.toHaveBeenCalled();
 });
@@ -101,7 +101,7 @@ it('obtiene evidencia de parada y alerta por sus canales reales, sin declaracion
   expect(alert).toHaveBeenCalledWith({ channel: 'correo' });
   expect(await screen.findByText('Alerta de prueba enviada correctamente.')).toBeInTheDocument();
   expect(declare).not.toHaveBeenCalled();
-  expect(screen.getAllByText('Cumplido')).toHaveLength(4);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(5);
 });
 
 it('muestra los fallos seguros de las pruebas sin completar requisitos', async () => {
@@ -120,7 +120,7 @@ it('muestra los fallos seguros de las pruebas sin completar requisitos', async (
   expect(await screen.findByRole('alert')).toHaveTextContent('La parada ya está activa.');
   await userEvent.click(screen.getByRole('button', { name: 'Enviar alerta de prueba' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Configura primero el correo.');
-  expect(screen.getAllByText('Cumplido')).toHaveLength(2);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(3);
 });
 
 it('las declaraciones se guardan con texto contractual y el plan exige detalle y ofrece plantilla', async () => {
@@ -184,6 +184,7 @@ it.each([
   ['Máximo por orden', '-1', /mayor que cero/],
 ])('valida %s con error accesible junto al campo', async (label, value, expected) => {
   const save = vi.spyOn(adapter.api.live, 'setLimits');
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await mount();
   fillLimits();
   const input = screen.getByLabelText(label);
@@ -572,7 +573,7 @@ it('no habilita por caché durante carga o error y conserva la evidencia anterio
   await userEvent.click(screen.getByRole('button', { name: 'Reintentar verificación' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo verificar la lista');
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
-  expect(screen.getAllByText('Cumplido')).toHaveLength(7);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(8);
 });
 
 it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmontar', async () => {

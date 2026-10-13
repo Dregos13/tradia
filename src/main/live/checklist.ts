@@ -267,24 +267,24 @@ const shortEvidence = (stats: PaperShortStats): string => {
       ? 'conciliación cuadrada'
       : `${stats.openDiscrepancies} descuadre${stats.openDiscrepancies === 1 ? '' : 's'} abierto${stats.openDiscrepancies === 1 ? '' : 's'}`;
   return (
-    `${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} cortos cerrados · ` +
-    `${weeks} de ${LIVE_SHORT_PAPER_MIN_WEEKS} semanas · ${reconciliation}`
+    `${weeks} de ${LIVE_SHORT_PAPER_MIN_WEEKS} semanas · ` +
+    `${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} cortos cerrados · ${reconciliation}`
   );
 };
 
 export function evaluatePaperShorts(stats: PaperShortStats): RequirementVerdict {
   const reasons: string[] = [];
-  if (stats.closedShorts < LIVE_SHORT_PAPER_MIN_TRADES) {
-    reasons.push(
-      `Solo hay ${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} ` +
-        'cortos cerrados en paper.',
-    );
-  }
   const minDays = LIVE_SHORT_PAPER_MIN_WEEKS * 7;
   if (stats.spanDays < minDays) {
     reasons.push(
       `Solo hay ${Math.floor(stats.spanDays / 7)} de ${LIVE_SHORT_PAPER_MIN_WEEKS} ` +
         'semanas entre el primer y el último corto cerrado en paper.',
+    );
+  }
+  if (stats.closedShorts < LIVE_SHORT_PAPER_MIN_TRADES) {
+    reasons.push(
+      `Solo hay ${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} ` +
+        'cortos cerrados en paper.',
     );
   }
   if (stats.openDiscrepancies > 0) {
@@ -314,8 +314,7 @@ export function paperShortStatsFromOrders(
   if (shorts.length === 0) return { closedShorts: 0, spanDays: 0 };
   const days = shorts.map((trade) => trade.closedAtNy).sort();
   const spanMs =
-    Date.parse(`${days[days.length - 1]}T00:00:00.000Z`) -
-    Date.parse(`${days[0]}T00:00:00.000Z`);
+    Date.parse(`${days[days.length - 1]}T00:00:00.000Z`) - Date.parse(`${days[0]}T00:00:00.000Z`);
   return { closedShorts: shorts.length, spanDays: Math.max(0, Math.floor(spanMs / 86_400_000)) };
 }
 

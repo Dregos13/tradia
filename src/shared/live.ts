@@ -136,8 +136,8 @@ export const LIVE_DECLARATION_TEXTS: Record<LiveDeclarationRequirement, string> 
   'plan-contingencia': 'He revisado el plan para caída de internet, broker y equipo.',
   'revision-legal': 'He revisado con profesionales mis obligaciones legales y fiscales.',
   'revision-legal-corto':
-    'He revisado con un profesional las obligaciones legales y fiscales específicas ' +
-    'de las ventas en corto (CNMV/MiFID II e IRPF).',
+    'Declaro que he revisado con un profesional la normativa aplicable a las ventas en corto ' +
+    '(CNMV/MiFID II) y su fiscalidad (IRPF).',
 };
 
 /** Títulos finales de cada requisito (los de la pantalla «Dinero real»). */

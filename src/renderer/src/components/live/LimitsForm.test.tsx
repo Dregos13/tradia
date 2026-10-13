@@ -30,7 +30,9 @@ it.each([
   fireEvent.change(input, { target: { value } });
   expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(input).toHaveAccessibleDescription(message);
-  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(screen.getAllByRole('alert').some((alert) => message.test(alert.textContent ?? ''))).toBe(
+    true,
+  );
   expect(onDirty).toHaveBeenLastCalledWith(true);
   expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeDisabled();
   fireEvent.submit(input.closest('form')!);
@@ -43,6 +45,15 @@ it('acepta cero para desactivar el corto y conserva los otros límites', () => {
   const input = screen.getByLabelText('Posiciones cortas simultáneas');
   fireEvent.change(input, { target: { value: '0' } });
   expect(input).toHaveAttribute('aria-invalid', 'false');
+  fireEvent.change(screen.getByLabelText('Máximo por orden en corto'), { target: { value: '0' } });
+  fireEvent.change(screen.getByLabelText('Exposición corta total máxima'), {
+    target: { value: '0' },
+  });
   fireEvent.submit(input.closest('form')!);
-  expect(onSave).toHaveBeenCalledExactlyOnceWith({ ...saved, shortPositions: 0 });
+  expect(onSave).toHaveBeenCalledExactlyOnceWith({
+    ...saved,
+    shortOrderUsd: 0,
+    shortExposureUsd: 0,
+    shortPositions: 0,
+  });
 });

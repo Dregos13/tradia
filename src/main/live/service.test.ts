@@ -856,9 +856,7 @@ const paperShortOrders = (count: number, spanDays: number): BrokerOrder[] => {
 /** Descuadre abierto de una pasada de conciliación de la cuenta dada. */
 const openDiscrepancy = (cuenta: 'paper' | 'live'): void => {
   const run = db
-    .prepare(
-      `INSERT INTO reconcile_runs (origen, iniciada_en, cuenta) VALUES ('manual', ?, ?)`,
-    )
+    .prepare(`INSERT INTO reconcile_runs (origen, iniciada_en, cuenta) VALUES ('manual', ?, ?)`)
     .run(new Date(nowMs).toISOString(), cuenta);
   db.prepare(
     `INSERT INTO reconcile_discrepancies (run_id, tipo, ticker, detalle)
@@ -944,7 +942,9 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     expect(result.reasons.join(' ')).toContain('[corto-requisitos]');
     expect(result.pendingRequirements).toContain('revision-legal-corto');
     // Los valores escritos se conservan pero no se confirman.
-    const row = db.prepare('SELECT confirmados, corto_orden_usd FROM live_limits WHERE id = 1').get() as {
+    const row = db
+      .prepare('SELECT confirmados, corto_orden_usd FROM live_limits WHERE id = 1')
+      .get() as {
       confirmados: number;
       corto_orden_usd: number;
     };
@@ -986,9 +986,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     const service = makeService({
       listExecutedOrders: () => paperShortOrders(5, 35),
     });
-    const item = service
-      .getChecklist()
-      .short.items.find((i) => i.requirement === 'paper-cortos')!;
+    const item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
     expect(item.state).toBe('cumplido');
     expect(item.evidence).toContain('5 de 5 cortos cerrados');
     expect(item.evidence).toContain('conciliación cuadrada');
@@ -1013,9 +1011,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
       listExecutedOrders: () => paperShortOrders(2, 10),
     });
     service.seedProgress({ paperShortTrades: 9, paperShortWeeks: 9 });
-    const item = service
-      .getChecklist()
-      .short.items.find((i) => i.requirement === 'paper-cortos')!;
+    const item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
     expect(item.state).toBe('pendiente');
     expect(item.evidence).toContain('2 de 5 cortos cerrados');
   });
@@ -1028,14 +1024,14 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     })) as LiveChecklist;
     const item = checklist.short.items.find((i) => i.requirement === 'revision-legal-corto')!;
     expect(item.state).toBe('cumplido');
-    expect(item.declaration).toContain('CNMV/MiFID II e IRPF');
+    expect(item.declaration).toBe(LIVE_DECLARATION_TEXTS['revision-legal-corto']);
     const withdrawn = (await invoke(IPC_CHANNELS.live.declare, {
       requirement: 'revision-legal-corto',
       confirmed: false,
     })) as LiveChecklist;
-    expect(
-      withdrawn.short.items.find((i) => i.requirement === 'revision-legal-corto')!.state,
-    ).toBe('pendiente');
+    expect(withdrawn.short.items.find((i) => i.requirement === 'revision-legal-corto')!.state).toBe(
+      'pendiente',
+    );
   });
 
   it('live:declare sigue rechazando marcar a mano un requisito automático del corto', async () => {

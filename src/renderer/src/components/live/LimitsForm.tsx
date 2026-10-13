@@ -37,12 +37,16 @@ export function LimitsForm({
   onSave,
   onDirty,
   confirmed = false,
+  shortBlocked = false,
+  shortBlockReason,
 }: {
   saved: LiveLimits | null;
   disabled: boolean;
   onSave: (limits: LiveLimits) => Promise<boolean>;
   onDirty: (dirty: boolean) => void;
   confirmed?: boolean;
+  shortBlocked?: boolean;
+  shortBlockReason?: string;
 }) {
   const id = useId();
   const [values, setValues] = useState<Values>(
@@ -62,6 +66,51 @@ export function LimitsForm({
     !saved ||
     LIMIT_FIELDS.some(({ key }) => !!validate(key, next[key]) || Number(next[key]) !== saved[key]);
   const dirty = isDirty(values);
+  const shortRequested = LIMIT_FIELDS.some(
+    ({ key }) => isShortLimit(key) && Number(values[key]) > 0,
+  );
+  const saveBlocked = shortBlocked && shortRequested;
+  const partialShort =
+    !shortBlocked &&
+    shortRequested &&
+    LIMIT_FIELDS.some(({ key }) => isShortLimit(key) && Number(values[key]) === 0);
+  const shortReasonId = `${id}-short-block`;
+  const renderField = ({ key, label }: (typeof LIMIT_FIELDS)[number]) => (
+    <div className="live-field" key={key}>
+      <label htmlFor={`${id}-${key}`}>{label}</label>
+      <small id={`${id}-${key}-cap`}>
+        Techo fijo de esta fase: {isPositionLimit(key) ? cap(key) : usd(cap(key))}
+      </small>
+      <input
+        id={`${id}-${key}`}
+        type="number"
+        inputMode={isPositionLimit(key) ? 'numeric' : 'decimal'}
+        min={isShortLimit(key) ? 0 : isPositionLimit(key) ? 1 : 0.01}
+        max={cap(key)}
+        step={isPositionLimit(key) ? 1 : 'any'}
+        required
+        disabled={!isShortLimit(key) && disabled}
+        readOnly={isShortLimit(key) && (shortBlocked || disabled)}
+        aria-disabled={isShortLimit(key) && (shortBlocked || disabled) ? true : undefined}
+        value={values[key]}
+        aria-invalid={!!(touched[key] && errors[key])}
+        aria-describedby={`${id}-${key}-cap${isShortLimit(key) && (shortBlocked || disabled) ? ` ${shortReasonId}` : ''}${touched[key] && errors[key] ? ` ${id}-${key}-error` : ''}`}
+        onBlur={() => setTouched((old) => ({ ...old, [key]: true }))}
+        onChange={(event) => {
+          if (disabled || (isShortLimit(key) && shortBlocked)) return;
+          const next = { ...values, [key]: event.target.value };
+          setValues(next);
+          setTouched((old) => ({ ...old, [key]: true }));
+          onDirty(isDirty(next));
+        }}
+      />
+      {touched[key] && errors[key] && (
+        <p className="live-field-error" id={`${id}-${key}-error`} role="alert">
+          {errors[key]}
+        </p>
+      )}
+    </div>
+  );
   return (
     <section className="live-sheet" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>Límites de capital real</h3>
@@ -81,7 +130,8 @@ export function LimitsForm({
         onSubmit={(event) => {
           event.preventDefault();
           setTouched(Object.fromEntries(LIMIT_FIELDS.map(({ key }) => [key, true])));
-          if (disabled || Object.values(errors).some(Boolean)) return;
+          if (disabled || saveBlocked || partialShort || Object.values(errors).some(Boolean))
+            return;
           void onSave(
             Object.fromEntries(
               LIMIT_FIELDS.map(({ key }) => [key, Number(values[key])]),
@@ -91,44 +141,37 @@ export function LimitsForm({
           });
         }}
       >
-        <div className="live-limits-grid">
-          {LIMIT_FIELDS.map(({ key, label }) => (
-            <div className="live-field" key={key}>
-              <label htmlFor={`${id}-${key}`}>{label}</label>
-              <small id={`${id}-${key}-cap`}>
-                Techo fijo de esta fase: {isPositionLimit(key) ? cap(key) : usd(cap(key))}
-              </small>
-              <input
-                id={`${id}-${key}`}
-                type="number"
-                inputMode={isPositionLimit(key) ? 'numeric' : 'decimal'}
-                min={isShortLimit(key) ? 0 : isPositionLimit(key) ? 1 : 0.01}
-                max={cap(key)}
-                step={isPositionLimit(key) ? 1 : 'any'}
-                required
-                disabled={disabled}
-                value={values[key]}
-                aria-invalid={!!(touched[key] && errors[key])}
-                aria-describedby={`${id}-${key}-cap${touched[key] && errors[key] ? ` ${id}-${key}-error` : ''}`}
-                onBlur={() => setTouched((old) => ({ ...old, [key]: true }))}
-                onChange={(event) => {
-                  const next = { ...values, [key]: event.target.value };
-                  setValues(next);
-                  setTouched((old) => ({ ...old, [key]: true }));
-                  onDirty(isDirty(next));
-                }}
-              />
-              {touched[key] && errors[key] && (
-                <p className="live-field-error" id={`${id}-${key}-error`} role="alert">
-                  {errors[key]}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+        {(shortBlocked || disabled) && (
+          <p id={shortReasonId} className="live-warning">
+            {shortBlockReason ??
+              'La edición de límites está bloqueada. Revisa la conexión y el estado de dinero real.'}
+          </p>
+        )}
+        <fieldset className="live-limits-group">
+          <legend>Límites generales</legend>
+          <div className="live-limits-grid">
+            {LIMIT_FIELDS.filter(({ key }) => !isShortLimit(key)).map(renderField)}
+          </div>
+        </fieldset>
+        <fieldset className="live-limits-group">
+          <legend>Límites propios del corto</legend>
+          <p>
+            Cada corto real exige una orden limitada y un stop de compra de protección, como máximo
+            al 5 % por encima de la entrada. Un salto de precio puede superar el stop.
+          </p>
+          <div className="live-limits-grid">
+            {LIMIT_FIELDS.filter(({ key }) => isShortLimit(key)).map(renderField)}
+          </div>
+        </fieldset>
+        {partialShort && (
+          <p className="live-field-error" role="alert">
+            Para habilitar el corto, fija los tres límites por encima de 0. Para mantenerlo
+            desactivado, deja los tres a 0.
+          </p>
+        )}
         <button
           className="button"
-          disabled={disabled || Object.values(errors).some(Boolean)}
+          disabled={disabled || saveBlocked || partialShort || Object.values(errors).some(Boolean)}
           type="submit"
         >
           Guardar límites

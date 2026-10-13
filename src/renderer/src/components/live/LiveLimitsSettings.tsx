@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { liveConfirmationPhrase, type LiveLimits } from '../../../../shared/live';
+import { ShortReadiness, shortLimitsBlockReason } from './ShortReadiness';
 import { LimitsForm } from './LimitsForm';
 import { LiveActivationDialog } from './LiveActivationDialog';
 import { checklistReasons, useLiveChecklist } from './useLiveChecklist';
@@ -16,6 +17,18 @@ export function LiveLimitsSettings() {
   const notice = useRef<HTMLParagraphElement>(null);
   const active = state.snapshot?.state.mode === 'activo';
   const disabled = state.loading || state.busy || state.offline;
+  const shortBlockReason = shortLimitsBlockReason(
+    state.snapshot?.checklist,
+    state.loading,
+    state.error,
+    state.offline,
+  );
+  const shortBlocked = !!shortBlockReason;
+  const savedShort =
+    !!state.limits &&
+    (state.limits.shortOrderUsd > 0 ||
+      state.limits.shortExposureUsd > 0 ||
+      state.limits.shortPositions > 0);
   const reasons = checklistReasons(state.snapshot);
   const ready = !disabled && !state.error && !dirty && !!state.limits && reasons.length === 0;
   useEffect(() => {
@@ -29,17 +42,27 @@ export function LiveLimitsSettings() {
       setDialog(null);
   }, [ready, dialog, state.busy, state.limits]);
   return (
-    <div className="live-surface" aria-busy={state.loading || state.busy}>
+    <div className="live-surface live-limits-settings" aria-busy={state.loading || state.busy}>
       <style>{liveTokens()}</style>
+      <ShortReadiness
+        checklist={state.snapshot?.checklist}
+        loading={state.loading}
+        disabled={disabled || !!state.error || !state.snapshot}
+        blocked={shortBlocked}
+        savedShort={savedShort}
+        onDeclare={state.declare}
+        onReload={() => void state.reload()}
+      />
       <LimitsForm
         key={state.limits ? liveConfirmationPhrase(state.limits) : 'unsaved'}
         saved={state.limits}
-        disabled={disabled || !state.snapshot || active}
+        disabled={disabled || !!state.error || !state.snapshot || active}
+        shortBlocked={shortBlocked}
+        shortBlockReason={shortBlockReason}
         onSave={state.save}
         onDirty={setDirty}
         confirmed={!!state.snapshot?.checklist.limits.confirmed}
       />
-      {state.loading && <p role="status">Comprobando límites del dinero real…</p>}
       {state.error && (
         <p role="alert">
           {state.error} <button onClick={() => void state.reload()}>Reintentar límites</button>
@@ -48,11 +71,9 @@ export function LiveLimitsSettings() {
       {state.offline && (
         <p role="status">Sin conexión · no se pueden guardar ni confirmar límites.</p>
       )}
-      {state.notice && (
-        <p ref={notice} tabIndex={-1} role="status">
-          {state.notice}
-        </p>
-      )}
+      <p ref={notice} tabIndex={-1} className="live-meta" role="status" aria-live="polite">
+        {state.loading ? 'Comprobando los requisitos del corto…' : state.notice}
+      </p>
       {state.limits && !dirty && (
         <p className="live-phrase">{liveConfirmationPhrase(state.limits)}</p>
       )}

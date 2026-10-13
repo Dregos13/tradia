@@ -133,3 +133,64 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
     await closePhaseApp(context);
   }
 });
+
+test('los requisitos del corto bloquean edición, conservan límites y abren órdenes paper', async () => {
+  const context = await launchPhaseApp('tradia-short-readiness');
+  try {
+    const { page } = context;
+    await openPage(page, 'Ajustes');
+    const readiness = page.getByRole('region', { name: 'Preparación del corto con dinero real' });
+    const order = page.getByLabel('Máximo por orden en corto', { exact: true });
+    await expect(order).toHaveAttribute('readonly', '');
+    await expect(order).toHaveAttribute('aria-disabled', 'true');
+    await order.focus();
+    await expect(order).toBeFocused();
+    await page.keyboard.type('100');
+    await expect(order).toHaveValue('0');
+    await page.getByLabel('Capital total en real', { exact: true }).fill('500');
+    await page.getByLabel('Máximo por orden', { exact: true }).fill('100');
+    await page.getByLabel('Pérdida diaria máxima', { exact: true }).fill('10');
+    await page.getByLabel('Posiciones abiertas simultáneas', { exact: true }).fill('1');
+    await page.getByRole('button', { name: 'Guardar límites', exact: true }).click();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Límites guardados · todavía debes confirmarlos por escrito.' }),
+    ).toBeVisible();
+    await readiness.getByRole('checkbox', { name: /CNMV\/MiFID II.*IRPF/ }).check();
+    await readiness.getByRole('button', { name: 'Guardar declaración', exact: true }).click();
+    await expect(order).toHaveAttribute('readonly', '');
+    await page.evaluate(() =>
+      window.tradia.testing!.live.seedProgress({ paperShortTrades: 5, paperShortWeeks: 5 }),
+    );
+    await readiness.getByRole('button', { name: 'Reintentar comprobación' }).click();
+    await expect(order).not.toHaveAttribute('readonly');
+    await order.fill('100');
+    await page.getByLabel('Exposición corta total máxima').fill('200');
+    await page.getByLabel('Posiciones cortas simultáneas').fill('1');
+    await page.getByRole('button', { name: 'Guardar límites', exact: true }).click();
+    await expect(page.getByText(liveConfirmationPhrase(limits), { exact: true })).toBeVisible();
+    await readiness.getByRole('checkbox', { name: /CNMV\/MiFID II.*IRPF/ }).uncheck();
+    await readiness.getByRole('button', { name: 'Guardar retirada de declaración' }).click();
+    await expect(order).toHaveValue('100');
+    await expect(order).toHaveAttribute('readonly', '');
+    await expect(page.getByRole('button', { name: 'Guardar límites', exact: true })).toBeDisabled();
+    await expect(readiness.getByText(/Tus límites del corto siguen guardados/)).toBeVisible();
+    for (const [width, theme] of [
+      [1440, 'light'],
+      [700, 'dark'],
+    ] as const) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await readiness.scrollIntoViewIfNeeded();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await readiness.screenshot({ path: `/tmp/tradia-short-${width}-${theme}.png` });
+    }
+    await readiness.getByRole('link', { name: 'Ver órdenes paper' }).click();
+    await expect(page.getByRole('combobox', { name: 'Modo' })).toHaveValue('paper');
+  } finally {
+    await closePhaseApp(context);
+  }
+});

@@ -101,7 +101,11 @@ export function DeclarationForm({
         </button>
       </div>
       {item.state === 'cumplido' && (
-        <small>Retirar esta declaración suspende las nuevas órdenes reales.</small>
+        <small>
+          {requirement === 'revision-legal-corto'
+            ? 'Retirar esta declaración bloquea las nuevas entradas cortas reales; conserva los límites guardados.'
+            : 'Retirar esta declaración suspende las nuevas órdenes reales.'}
+        </small>
       )}
     </form>
   );

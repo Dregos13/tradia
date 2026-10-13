@@ -29,7 +29,9 @@ export function OrdersPage() {
   const strategies = useStrategies();
   const system = useSystemState();
   const offline = system.connectivity?.status === 'offline';
-  const [mode, setMode] = useState<BrokerOrderMode | ''>('');
+  const [mode, setMode] = useState<BrokerOrderMode | ''>(() =>
+    new URLSearchParams(window.location.hash.split('?')[1]).get('modo') === 'paper' ? 'paper' : '',
+  );
   const [status, setStatus] = useState<BrokerOrderStatus | ''>('');
   const [strategy, setStrategy] = useState('');
   const [ticker, setTicker] = useState('');
