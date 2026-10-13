@@ -192,7 +192,7 @@ Rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `b3a51091`
 | `npm test`, ejecuciones 2 y 3 | **EXIT 0**: 183 archivos, 2.510/2.510 |
 | `npm test`, ejecución 4 (con `testTimeout: 15_000`) | **EXIT 0**: 2.510/2.510 |
 | `npm test`, ejecución 5 (con `testTimeout`) | **EXIT 1**: 2.509/2.510; carrera de `localStorage` en `FirstStepsCard.test.tsx:142` → misma clase que V1, corregida con `waitFor` |
-| `npm test`, ejecución 6 (con ambos arreglos) | **EXIT 0**: 2.510/2.510 |
+| `npm test`, ejecuciones 6 y 7 (con ambos arreglos) | **EXIT 0**: 2.510/2.510 |
 | `npm run test:e2e` (incluye `npm run build`) | **EXIT 0**: **47 passed** |
 | `npx playwright test e2e/live-gate.spec.ts --repeat-each=5` | **EXIT 0**: **10 passed** |
 | Auditorías + regresiones (`__audit__` ×6, `health`, `smoke`, `drift`, `secrets`, `news/*`, `parity`, `service.regime`) | **15 archivos, 310/310** |
@@ -203,7 +203,8 @@ Rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `b3a51091`
 
 **Cambios hechos en esta revisión:**
 
-- `vitest.config.ts`: `testTimeout: 15_000`. Motivo: los fallos observados eran siempre `Test timed out in 5000ms` en pruebas jsdom largas de `user-event` bajo 183 workers en paralelo; nunca fallos de aserción. Triplicar el límite elimina el modo de fallo medido sin esconder cuelgues reales.
+- `vitest.config.ts`: `testTimeout: 15_000`. Motivo: los fallos observados eran siempre `Test timed out in 5000ms` en pruebas jsdom largas de `user-event` bajo 183 workers en paralelo; nunca fallos de aserción. Triplicar el límite elimina el modo de fallo medido sin esconder cuelgues reales. (La auditoría de cierre llegó al mismo arreglo por su cuenta: entró en `231e7815`.)
+- `FirstStepsCard.test.tsx:142`: `await waitFor(() => expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull())`, el mismo patrón que cerró V1.
 - Este informe: veredicto y §5 actualizados al estado verificado; V1 y V2 marcados como cerrados con su commit y su regresión; V3 documentado y cerrado.
 
 **Estado de los hallazgos de la verificación original:** V1 y V2 estaban ya corregidos en la rama por `145b61a7` («Foco estable en el aviso de riesgo y hora de ejecución en la prueba de humo»), con la regresión de V2 en `live.test.tsx`; ambos se han confirmado en el código y en las ejecuciones. V3 es nuevo de esta revisión y queda cerrado con `testTimeout`.
