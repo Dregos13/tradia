@@ -660,6 +660,100 @@ describe('resumen de frescura', () => {
     expect(service.freshness().state).toBe('unreliable');
   });
 
+  it('un activo sin cobertura no pesa en el estado global y viaja en uncovered', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    const health = setup({ suggestAlternative: (t) => (t === 'EUR' ? 'FXE' : null) });
+    service = health;
+    health.evaluate();
+    await flush();
+
+    const summary = health.freshness();
+    // El global no se ensombrece: sigue 'current' y sin entradas malas.
+    expect(summary.state).toBe('current');
+    expect(summary.items).toEqual([]);
+    // El activo va en su lista aparte, con motivo y alternativa.
+    expect(summary.uncovered).toEqual([
+      {
+        ticker: 'EUR',
+        reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+        suggestion: 'FXE',
+      },
+    ]);
+  });
+
+  it('la evaluación no degrada un sin-cobertura aunque falte la vela esperada', async () => {
+    repo.addWatchlistTicker('EUR');
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('un sin-cobertura con el dato ya guardado y al día vuelve a fiable', async () => {
+    repo.addWatchlistTicker('EUR');
+    seedBars('EUR', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({ state: 'fiable' });
+  });
+
+  it('un sin-cobertura con contador alto no escala a no-fiable ni notifica', async () => {
+    repo.addWatchlistTicker('EUR');
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 5,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    service.observe(
+      entry({
+        key: dataStatusKey.ticker('EUR'),
+        state: 'sin-cobertura',
+        consecutiveFailures: 5,
+        reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+      }),
+    );
+    await flush();
+
+    expect(notifications).toEqual([]);
+    // La regla de los 3 fallos no aplica: no es un fallo del proveedor.
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({ state: 'sin-cobertura' });
+    const entries = service.freshness().uncovered;
+    expect(entries.map((a) => a.ticker)).toEqual(['EUR']);
+  });
+
   it('registra el handler data-status:freshness', () => {
     registerHealth({ broadcast: vi.fn(), services: { storage: { getDb: () => db } } } as never, {
       autoStart: false,
@@ -1015,7 +1109,13 @@ describe('registro en la app', () => {
 
 describe('constantes del contrato', () => {
   it('los estados del dominio son los esperados', () => {
-    const states: DataStatusState[] = ['fiable', 'actualizando', 'desactualizado', 'no-fiable'];
-    expect(states).toHaveLength(4);
+    const states: DataStatusState[] = [
+      'fiable',
+      'actualizando',
+      'desactualizado',
+      'no-fiable',
+      'sin-cobertura',
+    ];
+    expect(states).toHaveLength(5);
   });
 });

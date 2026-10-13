@@ -18,9 +18,9 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     const applied = migrate(db, MIGRATIONS);
 
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
     expect(appliedMigrations(db).map((m) => m.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
     ]);
     db.close();
   });
@@ -30,7 +30,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(17);
+    expect(appliedMigrations(db)).toHaveLength(18);
     db.close();
   });
 
@@ -107,6 +107,18 @@ describe('ejecutor de migraciones', () => {
   it('revierte la última migración con su bloque down', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
+
+    expect(rollbackLast(db, MIGRATIONS)).toBe(18);
+    // Tras revertir la 018 el CHECK de data_status vuelve a los cuatro
+    // estados antiguos.
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO data_status (clave, estado, actualizado_en)
+           VALUES ('ticker:X', 'sin-cobertura', '2026-10-08T00:00:00Z')`,
+        )
+        .run(),
+    ).toThrowError();
 
     expect(rollbackLast(db, MIGRATIONS)).toBe(17);
     const cuentaCol = db.prepare("SELECT name FROM pragma_table_info('reconcile_runs')").all() as {
@@ -192,7 +204,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([17]);
+    expect(migrate(db, MIGRATIONS)).toEqual([18]);
     expect(tableNames(db)).toContain('broker_orders_live');
     expect(tableNames(db)).toContain('regimes');
     expect(tableNames(db)).toContain('live_mode');
@@ -211,7 +223,7 @@ describe('ejecutor de migraciones', () => {
        VALUES (1, 500, 100, 10, 1, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:01:00.000Z')`,
     ).run();
 
-    expect(migrate(db, MIGRATIONS)).toEqual([16, 17]);
+    expect(migrate(db, MIGRATIONS)).toEqual([16, 17, 18]);
 
     const row = db.prepare('SELECT * FROM live_limits WHERE id = 1').get() as Record<
       string,

@@ -398,7 +398,15 @@ describe('actualización incremental', () => {
     const first = slowService.refreshNow();
     expect(await slowService.refreshNow()).toEqual({ accepted: false, reason: 'en-curso' });
     release();
-    expect(await first).toEqual({ accepted: true, reason: null, ok: true, detail: null });
+    expect(await first).toEqual({
+      accepted: true,
+      reason: null,
+      ok: true,
+      detail: null,
+      updated: 1,
+      total: 1,
+      failedTickers: [],
+    });
   });
 
   it('refreshNow con la pasada fallida devuelve ok:false y el motivo real, no un «solicitado»', async () => {
@@ -445,7 +453,7 @@ describe('salud del dato', () => {
     expect(flags.some((f) => f.date === '2026-10-05')).toBe(true);
   });
 
-  it('un ticker desconocido queda no-fiable sin reintentos de 30 minutos', async () => {
+  it('un ticker desconocido queda sin-cobertura sin reintentos de 30 minutos', async () => {
     provider.markUnknown('ZZZZ');
     await service.addTicker('ZZZZ');
     await service.start();
@@ -460,7 +468,65 @@ describe('salud del dato', () => {
     await flushAsync();
     expect(getBarsSpy.mock.calls.filter((call: unknown[]) => call[0] === 'ZZZZ')).toHaveLength(1);
 
-    expect(tickerStatus('ZZZZ')).toMatchObject({ state: 'no-fiable' });
+    // El 404 es del símbolo, no del proveedor: 'sin-cobertura' sin fallos.
+    expect(tickerStatus('ZZZZ')).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('un 404 marca sin-cobertura sin contar un fallo del proveedor', async () => {
+    provider.markUnknown('EUR');
+    await service.addTicker('EUR');
+
+    expect(tickerStatus('EUR')).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+    // El proveedor respondió bien (un 404 no es una caída): no hay
+    // incidente en provider:simulated.
+    const providerStatus = repo.getDataStatus(dataStatusKey.provider('simulated'));
+    expect(providerStatus === null || providerStatus.consecutiveFailures === 0).toBe(true);
+  });
+
+  it('respuesta vacía sin historial: solo el activo queda sin-cobertura y el resto sigue al día', async () => {
+    // Proveedor que responde vacío para EUR y normal para el resto.
+    const emptyForEur: MarketDataProvider = {
+      id: provider.id,
+      rateLimits: provider.rateLimits,
+      getBars: (ticker, desde, hasta) =>
+        ticker === 'EUR' ? Promise.resolve([]) : provider.getBars(ticker, desde, hasta),
+      getQuote: (t) => provider.getQuote(t),
+      getCorporateActions: (t, desde, hasta) => provider.getCorporateActions(t, desde, hasta),
+    };
+    const svc = setup({ resolveProvider: async () => emptyForEur });
+
+    await svc.addTicker('AAPL');
+    await svc.addTicker('EUR');
+
+    // El refresco distingue el éxito parcial: ok=false y nombra EUR.
+    const result = await svc.refreshNow();
+    expect(result).toMatchObject({
+      accepted: true,
+      ok: false,
+      updated: 1,
+      total: 2,
+      failedTickers: ['EUR'],
+    });
+    expect(result.detail).toContain('EUR');
+
+    // El fallo queda aislado: EUR 'sin-cobertura' sin fallos; AAPL y el
+    // proveedor, 'fiable' tras la pasada.
+    expect(tickerStatus('EUR')).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'simulated' no devolvió datos para EUR",
+    });
+    expect(tickerStatus('AAPL')).toMatchObject({ state: 'fiable', consecutiveFailures: 0 });
+    expect(repo.getDataStatus(dataStatusKey.provider('simulated'))).toMatchObject({
+      state: 'fiable',
+      consecutiveFailures: 0,
+    });
   });
 
   it('los fallos del proveedor suman fallos seguidos y emite data-status:changed', async () => {

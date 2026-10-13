@@ -20,6 +20,12 @@
  *   proveedor, o un valor anómalo grave (`quality_flags` 'anomalo') en el
  *   último lote guardado. Solo un refresco con éxito lo levanta: la
  *   evaluación nunca degrada 'no-fiable'.
+ * - 'sin-cobertura': lo escribe la ingesta cuando el proveedor no cubre
+ *   el símbolo (respuesta vacía sin historial previo o 404 'not-found').
+ *   No cuenta como estado malo: queda fuera del resumen global (va en la
+ *   lista `uncovered`), no notifica y la caducidad no lo degrada — el
+ *   símbolo no existe para el proveedor, no es un dato atrasado. Solo lo
+ *   levanta una ingesta que traiga velas reales.
  *
  * Notificaciones (`services/notifications`): al empeorar el estado se envía
  * 'alerta' para 'desactualizado' y 'critica' para 'no-fiable'; las
@@ -54,12 +60,14 @@ import {
   type DataStatusEntry,
   type DataStatusState,
   type NotificationPayload,
+  type UncoveredAsset,
 } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
 import { bondCalendar } from './calendar';
 import type { MarketSession } from './calendar';
+import { tickerSuggestions } from './providers/suggestions';
 import { createMarketRepository, type MarketRepository } from './repository';
 
 // ---------------------------------------------------------------------------
@@ -134,6 +142,12 @@ export interface DataHealthDeps {
   maxFailures?: number;
   /** Silencio que cierra la ventana de puesta al día; por defecto 15 s. */
   catchupQuietMs?: number;
+  /**
+   * Alternativa operable sugerida para un ticker sin cobertura ('EUR' →
+   * 'FXE'); rellena `suggestion` en la lista `uncovered` del resumen.
+   * Sin la dependencia las sugerencias salen a null.
+   */
+  suggestAlternative?(ticker: string): string | null;
   logger?: { warn(message: string): void; info?(message: string): void };
 }
 
@@ -167,6 +181,9 @@ export interface DataHealthService {
 const SEVERITY: Record<DataStatusState, number> = {
   fiable: 0,
   actualizando: 0,
+  // 'sin-cobertura' no es un estado malo: el símbolo no existe para el
+  // proveedor; no notifica ni ensombrece el resumen (va en `uncovered`).
+  'sin-cobertura': 0,
   desactualizado: 1,
   'no-fiable': 2,
 };
@@ -291,6 +308,26 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const computeTicker = (ticker: string): Desired | null => {
     const key = dataStatusKey.ticker(ticker);
     const rawCurrent = repo.getDataStatus(key);
+    // 'sin-cobertura' va primero: el contador de fallos no le aplica (no
+    // es un fallo del proveedor ni un dato atrasado). Solo lo levanta una
+    // ingesta que traiga velas ('fiable'); si los datos ya están
+    // guardados y al día (p. ej. llegaron por otra vía), la evaluación
+    // confirma el estado bueno.
+    if (rawCurrent?.state === 'sin-cobertura') {
+      const lastExpectedCovered = calendar.lastExpectedSession(now());
+      const lastStoredCovered = repo.lastBarDate(ticker);
+      if (
+        lastStoredCovered !== null &&
+        lastExpectedCovered !== null &&
+        lastStoredCovered >= lastExpectedCovered.date
+      ) {
+        return lastBatchHasAnomaly(ticker)
+          ? { state: 'no-fiable', reason: 'valor anómalo grave en el último lote', anomaly: true }
+          : { state: 'fiable', reason: null, confirmOk: true };
+      }
+      return null;
+    }
+
     if ((rawCurrent?.consecutiveFailures ?? 0) >= maxFailures) {
       return {
         state: 'no-fiable',
@@ -554,8 +591,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       catchUpLastActivity = now();
     }
     // Regla central de los 3 fallos: aunque el escritor dejara otro estado,
-    // el contador manda y la clave pasa a 'no-fiable'.
-    if (entry.state !== 'no-fiable' && (entry.consecutiveFailures ?? 0) >= maxFailures) {
+    // el contador manda y la clave pasa a 'no-fiable'. 'sin-cobertura'
+    // queda al margen: no es un fallo del proveedor ni del dato.
+    if (
+      entry.state !== 'no-fiable' &&
+      entry.state !== 'sin-cobertura' &&
+      (entry.consecutiveFailures ?? 0) >= maxFailures
+    ) {
       entry = emit({
         key: entry.key,
         state: 'no-fiable',
@@ -843,6 +885,22 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // Las más antiguas primero: el último dato más viejo marca el «desde».
     items.sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
 
+    // Activos sin cobertura en el proveedor: lista aparte del resumen.
+    // No cuentan en `items` ni deciden `state` — un símbolo que el
+    // proveedor no cubre no es un dato malo ni atrasado—, pero la
+    // interfaz los nombra con su motivo y una alternativa si la hay.
+    const uncovered: UncoveredAsset[] = entries
+      .filter((entry) => entry.key.startsWith('ticker:') && entry.state === 'sin-cobertura')
+      .map((entry) => {
+        const ticker = entry.key.slice('ticker:'.length);
+        return {
+          ticker,
+          reason: entry.reason,
+          suggestion: deps.suggestAlternative?.(ticker) ?? null,
+        };
+      })
+      .sort((a, b) => a.ticker.localeCompare(b.ticker));
+
     // 'catching-up' por encima de 'stale': mientras corre la puesta al
     // día el aviso es «Poniéndose al día…», no «desactualizado».
     const state: DataFreshnessState = items.some((item) => item.state === 'no-fiable')
@@ -872,6 +930,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       expectedSessionDate,
       missingSessions,
       items,
+      uncovered,
       // Solo durante la puesta al día: «Descargando X de Y activos».
       progress: state === 'catching-up' ? catchUpProgress() : null,
       updatedAt: isoNow(),
@@ -961,6 +1020,8 @@ export function registerHealth(
     notify: (payload) => ctx.services.notifications?.notify(payload),
     now: options.clock ? () => options.clock!.now() : options.now,
     evalIntervalMs: options.evalIntervalMs,
+    // Alternativas conocidas para activos sin cobertura (EUR → FXE).
+    suggestAlternative: (ticker) => tickerSuggestions(ticker)[0] ?? null,
     logger: console,
   });
 

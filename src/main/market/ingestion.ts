@@ -148,7 +148,8 @@ export interface TickerIngestResult {
   /**
    * true si el fallo es del proveedor entero (red, cuota, credencial): la
    * pasada lo cuenta UNA vez en provider:<id>. Los fallos propios del
-   * activo ('not-found', 'bad-data', sin datos) no lo son.
+   * activo ('not-found', 'bad-data', respuesta vacía → 'sin-cobertura')
+   * no lo son.
    */
   providerError?: boolean;
 }
@@ -342,13 +343,23 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   ): {
     retryable: boolean;
     reason: string;
-    tickerState: 'desactualizado' | 'no-fiable';
+    tickerState: 'desactualizado' | 'no-fiable' | 'sin-cobertura';
     /** true si el error es del proveedor entero, no solo del activo. */
     providerError: boolean;
   } => {
     if (isMarketDataError(error)) {
       const e = error;
-      if (e.kind === 'not-found' || e.kind === 'bad-data') {
+      if (e.kind === 'not-found') {
+        // 404: el proveedor no cubre el símbolo. No es un fallo del
+        // proveedor ni un dato malo: queda aislado en 'sin-cobertura'.
+        return {
+          retryable: false,
+          reason: e.message,
+          tickerState: 'sin-cobertura',
+          providerError: false,
+        };
+      }
+      if (e.kind === 'bad-data') {
         return {
           retryable: false,
           reason: e.message,
@@ -392,7 +403,10 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     publishStatus({
       key,
       state: tickerState,
-      consecutiveFailures: (current?.consecutiveFailures ?? 0) + 1,
+      // 'sin-cobertura' no es un fallo: el contador queda a 0 para que la
+      // regla de los 3 fallos (proveedor caído) nunca lo degrade.
+      consecutiveFailures:
+        tickerState === 'sin-cobertura' ? 0 : (current?.consecutiveFailures ?? 0) + 1,
       reason,
     });
     // El fallo del proveedor se cuenta UNA vez por pasada (el primer
@@ -506,24 +520,26 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
     if (newBars.length === 0) {
       if (lastStored === null) {
+        // Respuesta vacía sin historial previo: el proveedor no cubre el
+        // símbolo ('sin-cobertura'). Es un caso del activo, no del
+        // proveedor: no suma fallos a provider:<id> ni lo marca no fiable,
+        // así el resto de la lista sigue trabajando (régimen, predicciones
+        // y señales solo se pausan para este ticker).
         const reason = `el proveedor '${provider.id}' no devolvió datos para ${ticker}`;
         publishStatus({
           key: statusKey,
-          state: 'no-fiable',
-          // Respuesta vacía del proveedor: cuenta como fallo de obtención,
-          // no como anomalía de contenido (no dispara la parada).
-          consecutiveFailures: 1,
+          state: 'sin-cobertura',
+          consecutiveFailures: 0,
           reason,
         });
-        onProviderFailure?.(reason);
         return {
           ticker,
           outcome: 'fallido',
           stored: 0,
           lastDate: null,
           retryable: false,
-          reason: 'sin datos del proveedor',
-          providerError: true,
+          reason,
+          providerError: false,
         };
       }
       // La sesión esperada aún no está publicada: merece reintento, pero no
@@ -861,7 +877,23 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         result.results.find((r) => r.providerError === true)?.reason ??
         result.results.find((r) => r.reason !== undefined)?.reason ??
         null;
-      return { accepted: true, reason: null, ok: result.ok, detail };
+      // Éxito total vs parcial: `ok` solo es true si TODOS los activos
+      // quedaron al día — un fallo no reintentable (activo sin cobertura)
+      // también da ok=false para que la interfaz no diga «Datos
+      // actualizados.» con la lista incompleta.
+      const updated = result.results.filter((r) => r.outcome === 'actualizado').length;
+      const failedTickers = result.results
+        .filter((r) => r.outcome !== 'actualizado')
+        .map((r) => r.ticker);
+      return {
+        accepted: true,
+        reason: null,
+        ok: failedTickers.length === 0,
+        detail,
+        updated,
+        total: result.results.length,
+        failedTickers,
+      };
     },
 
     onWatchlistChanged: (listener) => {

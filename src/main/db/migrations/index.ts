@@ -18,6 +18,7 @@ import raw014 from './014_journal_modo.sql?raw';
 import raw015 from './015_reglas_corto.sql?raw';
 import raw016 from './016_limites_corto.sql?raw';
 import raw017 from './017_requisitos_corto.sql?raw';
+import raw018 from './018_data_status_sin_cobertura.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -63,4 +64,5 @@ export const MIGRATIONS: Migration[] = [
   parseSqlMigration(15, 'reglas-corto', raw015),
   parseSqlMigration(16, 'limites-corto', raw016),
   parseSqlMigration(17, 'requisitos-corto', raw017),
+  parseSqlMigration(18, 'data-status-sin-cobertura', raw018),
 ];

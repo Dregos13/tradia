@@ -105,6 +105,7 @@ it.each([{ done: 3, total: 7 }, null])(
       sinceDate: '2026-09-25',
       expectedSessionDate: '2026-10-09',
       missingSessions: 10,
+      uncovered: [],
       items: [],
       progress,
       updatedAt: '2026-10-11T10:00:00Z',
@@ -150,6 +151,7 @@ it('un perfil sin configurar usa texto neutro y dirige al campo del proveedor', 
     sinceDate: null,
     expectedSessionDate: null,
     missingSessions: 0,
+    uncovered: [],
     items: [],
     updatedAt: '2026-10-11T10:00:00Z',
   });
@@ -201,6 +203,7 @@ it('Inicio muestra la fecha del dato real, nunca la hora de consulta del proveed
     sinceDate: '2026-09-25',
     expectedSessionDate: '2026-10-09',
     missingSessions: 10,
+    uncovered: [],
     items: [
       {
         key: 'provider:tiingo',
@@ -256,6 +259,7 @@ it.each(['stale', 'unreliable'] as const)(
       sinceDate: null,
       expectedSessionDate: '2026-10-09',
       missingSessions: 0,
+      uncovered: [],
       items: [
         {
           key: 'provider:fred',
@@ -316,6 +320,7 @@ it('H2: sin conexión no anuncia datos al día con un resumen current', async ()
     sinceDate: null,
     expectedSessionDate: '2026-10-07',
     missingSessions: 0,
+    uncovered: [],
     items: [],
     updatedAt: stale.updatedAt,
   });
@@ -349,6 +354,7 @@ it.each(['2026-09-25', null])(
       sinceDate,
       expectedSessionDate: '2026-10-09',
       missingSessions: 10,
+      uncovered: [],
       items: [],
       updatedAt: stale.updatedAt,
     });
@@ -381,6 +387,7 @@ it('R4: IA sin red conserva la fecha conocida en ambos paneles sin negarla ni mo
     sinceDate: null,
     expectedSessionDate: '2026-10-09',
     missingSessions: 0,
+    uncovered: [],
     items: [],
     updatedAt: stale.updatedAt,
   });

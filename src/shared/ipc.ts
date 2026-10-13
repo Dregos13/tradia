@@ -890,12 +890,27 @@ export interface MarketRefreshResult {
   reason: MarketRefreshRejection | null;
   /**
    * false cuando la pasada aceptada terminó con activos pendientes o
-   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar).
-   * Ausente/true si todos quedaron al día.
+   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar o
+   * activo sin cobertura). Ausente/true si todos quedaron al día. Con
+   * `ok: false` la interfaz nunca debe decir «Datos actualizados.».
    */
   ok?: boolean;
   /** Motivo legible del primer fallo de la pasada; null si ok. */
   detail?: string | null;
+  /**
+   * Activos que quedaron al día en la pasada aceptada. Solo presente
+   * cuando `accepted` es true; junto a `total` permite contar el
+   * éxito parcial («Actualizados N de M»).
+   */
+  updated?: number;
+  /** Total de activos de la pasada aceptada (watchlist al ejecutarla). */
+  total?: number;
+  /**
+   * Tickers que no quedaron al día en la pasada aceptada: fallo (proveedor
+   * sin cobertura del símbolo, dato rechazado) o pendiente de la vela
+   * esperada. Vacío cuando `ok` es true.
+   */
+  failedTickers?: string[];
 }
 
 /** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
@@ -941,12 +956,26 @@ export interface MarketClockAdvanceResult {
   now: string;
 }
 
-/** Estados de salud del dato, compartidos por main (data_status) y renderer. */
+/**
+ * Estados de salud del dato, compartidos por main (data_status) y renderer.
+ *
+ * - 'fiable': el último dato esperado está guardado y pasó la limpieza.
+ * - 'actualizando': una pasada está en curso (lo escribe la ingesta).
+ * - 'desactualizado': falta el dato esperado y venció el plazo de gracia.
+ * - 'no-fiable': fallos seguidos del proveedor o contenido anómalo grave.
+ * - 'sin-cobertura': el proveedor no cubre el símbolo (respuesta vacía sin
+ *   historial previo o 404 'not-found'). No es un fallo del proveedor ni un
+ *   dato atrasado: no pesa en el resumen global de frescura ni en las
+ *   notificaciones; solo pausa el régimen, las predicciones y las señales
+ *   de ese activo. La lista `uncovered` del resumen los expone aparte.
+ *   Solo se levanta con una ingesta que traiga velas reales ('fiable').
+ */
 export const DATA_STATUS_STATES = [
   'fiable',
   'actualizando',
   'desactualizado',
   'no-fiable',
+  'sin-cobertura',
 ] as const;
 export type DataStatusState = (typeof DATA_STATUS_STATES)[number];
 
@@ -1017,6 +1046,24 @@ export interface DataFreshnessProgress {
 }
 
 /**
+ * Un activo de la lista de seguimiento sin cobertura en el proveedor
+ * ('sin-cobertura'): el proveedor respondió vacío sin historial previo o
+ * con 404 'not-found'. Va aparte de `items`: no es un dato malo ni
+ * atrasado, el símbolo simplemente no existe para ese proveedor.
+ */
+export interface UncoveredAsset {
+  /** Ticker sin cobertura ('EUR' en una fila 'ticker:EUR'). */
+  ticker: string;
+  /** Motivo legible del estado (la razón guardada en data_status). */
+  reason: string | null;
+  /**
+   * Alternativa operable sugerida (p. ej. 'FXE' para 'EUR'), o null si
+   * no hay sugerencia conocida.
+   */
+  suggestion: string | null;
+}
+
+/**
  * Resumen único «Datos desactualizados desde …» (`data-status:freshness`).
  * Agrega los estados «ticker:*», «macro:*» y «provider:*» con la fecha
  * real del último dato de cada uno, para que el renderer pinte un solo
@@ -1038,6 +1085,13 @@ export interface DataFreshnessSummary {
   missingSessions: number;
   /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */
   items: DataFreshnessItem[];
+  /**
+   * Activos de la lista sin cobertura en el proveedor ('sin-cobertura'),
+   * orden alfabético. No cuentan en `items` ni en `state`: un activo sin
+   * cobertura solo se pausa a sí mismo y nunca ensombrece el resumen
+   * global ni arrastra al proveedor.
+   */
+  uncovered: UncoveredAsset[];
   /**
    * Progreso de la puesta al día: solo se rellena en 'catching-up'; en
    * el resto de estados vale null. Con él el renderer enseña

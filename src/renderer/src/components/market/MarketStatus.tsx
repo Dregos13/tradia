@@ -5,6 +5,7 @@ const states = {
   actualizando: { label: 'Actualizando', token: 'updating', symbol: '◌' },
   desactualizado: { label: 'Desactualizado', token: 'stale', symbol: '◷' },
   'no-fiable': { label: 'No fiable', token: 'unreliable', symbol: '!' },
+  'sin-cobertura': { label: 'Sin cobertura', token: 'stale', symbol: '∅' },
 };
 export function MarketStatus({
   status,

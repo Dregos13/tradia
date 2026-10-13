@@ -2069,6 +2069,16 @@ export function createSimulatedAdapter() {
           .map((item) => item.lastDataDate)
           .filter((date): date is string => date !== null)
           .sort();
+        // Misma regla que en main: 'sin-cobertura' no pesa en el estado
+        // global y viaja en su lista aparte.
+        const uncovered = entries
+          .filter((entry) => entry.key.startsWith('ticker:') && entry.state === 'sin-cobertura')
+          .map((entry) => ({
+            ticker: entry.key.slice('ticker:'.length),
+            reason: entry.reason,
+            suggestion: null,
+          }))
+          .sort((a, b) => a.ticker.localeCompare(b.ticker));
         return {
           state,
           sinceDate: dates[0] ?? null,
@@ -2077,6 +2087,7 @@ export function createSimulatedAdapter() {
           expectedSessionDate: null,
           missingSessions: 0,
           items,
+          uncovered,
           updatedAt: new Date().toISOString(),
         };
       },
