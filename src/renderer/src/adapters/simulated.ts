@@ -1,5 +1,6 @@
 import { parseStrategyRules } from '../../../shared/strategyRules';
 import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
+import { evaluateShortAccount, shortAccountBlockReason } from '../../../main/live/checklist';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
@@ -1693,10 +1694,11 @@ export function createSimulatedAdapter() {
     'claves-sin-retirada': null,
     'plan-contingencia': null,
     'revision-legal': null,
+    'revision-legal-corto': null,
   };
   let liveLimitsSaved: LiveLimits | null = null;
   let liveLimitsConfirmedAt: string | null = null;
-  let liveCredentials: { accountMasked: string } | null = null;
+  let liveCredentials: { accountMasked: string; at: string } | null = null;
   let liveSmoke: LiveSmokeTestResult | null = null;
   let liveModeNow: {
     mode: 'bloqueado' | 'listo' | 'activo' | 'suspendido';
@@ -1777,11 +1779,74 @@ export function createSimulatedAdapter() {
       }),
     ];
     const completedCount = items.filter((item) => item.state === 'cumplido').length;
+    // Los requisitos propios del corto: la evidencia de cortos en paper
+    // la simula cumplida (como el resto de automáticos con historial) y
+    // la declaración legal del corto la suscribe el usuario.
+    const shortDeclaration = liveDeclarations['revision-legal-corto'];
+    const shortItems: LiveChecklistItem[] = [
+      {
+        requirement: 'revision-legal-corto',
+        kind: 'declaracion',
+        title: LIVE_REQUIREMENT_TITLES['revision-legal-corto'],
+        state: shortDeclaration === null ? 'pendiente' : 'cumplido',
+        evidence: shortDeclaration === null ? null : 'Declaración del usuario.',
+        declaration:
+          shortDeclaration === null ? null : LIVE_DECLARATION_TEXTS['revision-legal-corto'],
+        declarationDetail: shortDeclaration?.detail ?? null,
+        markedAt: shortDeclaration?.at ?? null,
+      },
+      {
+        requirement: 'paper-cortos',
+        kind: 'automatica',
+        title: LIVE_REQUIREMENT_TITLES['paper-cortos'],
+        state: 'cumplido',
+        evidence:
+          '7 de 4 semanas · 6 de 5 cortos cerrados · sin descuadres de paper abiertos en el periodo',
+        declaration: null,
+        declarationDetail: null,
+        markedAt: day,
+      },
+    ];
+    const shortPendingReasons = shortItems
+      .filter((item) => item.state !== 'cumplido')
+      .map((item) =>
+        item.kind === 'declaracion'
+          ? `No has declarado: ${item.title.toLowerCase()}.`
+          : `${item.title}: ${item.evidence ?? 'pendiente'}.`,
+      );
+    // La cuenta del corto se comprueba igual que en el proceso
+    // principal: sin cuenta live conectada queda 'revisar' y con ella
+    // 'cumplido' (margen, corto habilitado y capital simulados listos).
+    const account = evaluateShortAccount(
+      liveCredentials === null
+        ? null
+        : {
+            paper: false,
+            shortingEnabled: true,
+            equityUsd: 10_000,
+            readError: false,
+            checkedAt: liveCredentials.at,
+          },
+    );
+    const accountReason = shortAccountBlockReason(account.state);
+    const shortBlockReasons = [
+      ...shortPendingReasons,
+      ...(accountReason === null ? [] : [accountReason]),
+    ];
+    const short = {
+      items: shortItems,
+      account,
+      completedCount: shortItems.length - shortPendingReasons.length,
+      total: shortItems.length,
+      allComplete: shortPendingReasons.length === 0 && account.state === 'cumplido',
+      blockReason: shortBlockReasons.length === 0 ? null : shortBlockReasons.join(' '),
+    };
     return {
       items,
       completedCount,
       total: items.length,
       allComplete: completedCount === items.length,
+      short,
       limits: {
         limits: liveLimitsSaved,
         confirmationPhrase:
@@ -1806,6 +1871,10 @@ export function createSimulatedAdapter() {
       accountMasked: liveCredentials?.accountMasked ?? null,
       limits: liveLimitsSaved,
       caps: { ...LIVE_FIXED_CAPS },
+      short: {
+        allComplete: checklist.short.allComplete,
+        blockReason: checklist.short.blockReason,
+      },
       smokeTest: liveSmoke,
       activatedAt: liveModeNow.activatedAt,
       suspendedAt: liveModeNow.suspendedAt,
@@ -2831,6 +2900,7 @@ export function createSimulatedAdapter() {
           ).length,
           discrepancies: 0,
           error: null,
+          account: 'paper',
         };
         lastReconcileRun = run;
         // Una ejecución limpia cierra los descuadres abiertos y avisa.
@@ -2997,6 +3067,15 @@ export function createSimulatedAdapter() {
           shortExposureUsd: input.shortExposureUsd ?? 0,
           shortPositions: input.shortPositions ?? 0,
         };
+        // Misma puerta que el servicio real: sin los requisitos propios
+        // del corto ningún límite del corto mayor que 0 se guarda.
+        const shortRequested =
+          resolved.shortOrderUsd > 0 ||
+          resolved.shortExposureUsd > 0 ||
+          resolved.shortPositions > 0;
+        if (shortRequested && !buildLiveChecklist().short.allComplete) {
+          throw new Error(`[corto-requisitos] ${buildLiveChecklist().short.blockReason}`);
+        }
         const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(resolved);
         liveLimitsSaved = resolved;
         // Los límites nuevos generan una frase nueva: la confirmación
@@ -3014,7 +3093,7 @@ export function createSimulatedAdapter() {
         if (!isLiveConnectRequest(request)) {
           throw new Error('Claves live inválidas.');
         }
-        liveCredentials = { accountMasked: '•••• 4821' };
+        liveCredentials = { accountMasked: '•••• 4821', at: nowIso() };
         emitLiveChanged();
         return buildLiveState();
       },
@@ -3024,6 +3103,15 @@ export function createSimulatedAdapter() {
         }
         const checklist = buildLiveChecklist();
         const { pendingRequirements, reasons } = pendingLiveReasons(checklist);
+        // Confirmar límites con el corto > 0 exige sus requisitos propios.
+        const shortSaved =
+          liveLimitsSaved !== null &&
+          (liveLimitsSaved.shortOrderUsd > 0 ||
+            liveLimitsSaved.shortExposureUsd > 0 ||
+            liveLimitsSaved.shortPositions > 0);
+        if (shortSaved && !checklist.short.allComplete) {
+          reasons.push(`[corto-requisitos] ${checklist.short.blockReason}`);
+        }
         if (checklist.allComplete && liveLimitsSaved !== null && !phraseOk(request.phrase)) {
           reasons.push('La frase de confirmación no coincide con los límites guardados.');
         }

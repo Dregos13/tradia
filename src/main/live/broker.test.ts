@@ -93,7 +93,26 @@ const secretsStub = () => ({
 });
 
 const liveStub = () => ({
-  getChecklist: () => ({ allComplete: gateOpen }) as unknown as LiveChecklist,
+  getChecklist: () =>
+    ({
+      allComplete: gateOpen,
+      short: {
+        items: [],
+        account: {
+          state: 'cumplido',
+          paper: false,
+          shortingEnabled: true,
+          equityUsd: 10_000,
+          minEquityUsd: 2000,
+          checkedAt: new Date(NOW).toISOString(),
+          evidence: 'Cuenta live con margen · corto habilitado.',
+        },
+        completedCount: 0,
+        total: 0,
+        allComplete: true,
+        blockReason: null,
+      },
+    }) as unknown as LiveChecklist,
   getState: async () =>
     ({
       mode: store.getMode().estado,
@@ -960,5 +979,113 @@ describe('registerLive · IPC del broker real', () => {
     registeredLive.push(registerLive(ctx));
     expect(electron.handlers.has(IPC_CHANNELS.live.useSimulatedBroker)).toBe(false);
     expect(electron.handlers.has(IPC_CHANNELS.live.connect)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retrato de la cuenta para checklist.short.account (caché + timeout)
+// ---------------------------------------------------------------------------
+
+const ACCOUNT_CACHE_MS = 30_000;
+const accountCalls = () => fetchCalls.filter((c) => c.url.includes('/v2/account'));
+
+describe('retrato de la cuenta live para el control del corto', () => {
+  it('connect siembra el retrato y las lecturas dentro del TTL no repiten la red', async () => {
+    const service = await connectActive();
+    expect(accountCalls()).toHaveLength(1);
+
+    const reading = service.shortAccount();
+    expect(reading).toMatchObject({
+      paper: false,
+      shortingEnabled: true,
+      readError: false,
+    });
+    expect(reading!.equityUsd).toBeGreaterThanOrEqual(2000);
+    expect(reading!.checkedAt).not.toBeNull();
+
+    service.shortAccount();
+    service.shortAccount();
+    expect(accountCalls()).toHaveLength(1);
+  });
+
+  it('vencida la caché relee en segundo plano y actualiza el retrato', async () => {
+    const service = await connectActive();
+    nowMs += ACCOUNT_CACHE_MS + 1;
+    const before = service.shortAccount();
+    expect(before).not.toBeNull();
+    expect(before!.readError).toBe(false);
+    // La relectura es en segundo plano: la llamada devolvió la caché vieja.
+    await vi.waitFor(() => expect(accountCalls()).toHaveLength(2));
+    const after = service.shortAccount();
+    expect(after).toMatchObject({ paper: false, shortingEnabled: true, readError: false });
+  });
+
+  it('una relectura fallida marca readError sin lanzar ni perder la marca de comprobación', async () => {
+    let failAccount = false;
+    const inner = liveFakeFetch();
+    const service = await connectActive({
+      createAdapter: (getCredentials) =>
+        createAlpacaLiveBroker({
+          fetch: (input, init) => {
+            if (failAccount && String(input).includes('/v2/account')) {
+              return Promise.resolve(
+                new Response('{"message":"boom"}', {
+                  status: 500,
+                  headers: { 'Content-Type': 'application/json' },
+                }),
+              );
+            }
+            return inner(input, init);
+          },
+          getCredentials,
+          isLiveGateOpen: () => gateOpen,
+        }),
+    });
+    nowMs += ACCOUNT_CACHE_MS + 1;
+    failAccount = true;
+    await vi.waitFor(() => expect(service.shortAccount()?.readError).toBe(true));
+    const reading = service.shortAccount();
+    expect(reading).toMatchObject({
+      paper: null,
+      shortingEnabled: null,
+      equityUsd: null,
+      readError: true,
+    });
+    expect(reading!.checkedAt).not.toBeNull();
+  });
+
+  it('una relectura que agota el tiempo marca readError', async () => {
+    let hangAccount = false;
+    const inner = liveFakeFetch();
+    const service = await connectActive({
+      accountReadTimeoutMs: 30,
+      createAdapter: (getCredentials) =>
+        createAlpacaLiveBroker({
+          fetch: (input, init) => {
+            if (hangAccount && String(input).includes('/v2/account')) {
+              return new Promise<Response>(() => {});
+            }
+            return inner(input, init);
+          },
+          getCredentials,
+          isLiveGateOpen: () => gateOpen,
+        }),
+    });
+    nowMs += ACCOUNT_CACHE_MS + 1;
+    hangAccount = true;
+    await vi.waitFor(() => expect(service.shortAccount()?.readError).toBe(true), {
+      timeout: 2_000,
+    });
+  });
+
+  it('al conmutar o detener el retrato vuelve a null hasta la próxima conexión', async () => {
+    const service = await connectActive();
+    expect(service.shortAccount()).not.toBeNull();
+    await service.useSimulatedBroker(true);
+    expect(service.shortAccount()).toBeNull();
+    await service.connect(LIVE_KEYS);
+    expect(service.shortAccount()).toMatchObject({ paper: false, readError: false });
+    service.stop();
+    expect(service.shortAccount()).toBeNull();
   });
 });

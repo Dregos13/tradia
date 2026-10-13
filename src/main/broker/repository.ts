@@ -80,6 +80,8 @@ interface ReconcileRunRow {
   ordenes_broker: number;
   discrepancias: number;
   error: string | null;
+  /** Cuenta conciliada (migración 017): 'paper' | 'live'. */
+  cuenta: BrokerOrderMode;
 }
 
 interface ReconcileDiscrepancyRow {
@@ -259,6 +261,7 @@ function toReconcileRun(row: ReconcileRunRow): ReconcileRun {
     ordersBroker: row.ordenes_broker,
     discrepancies: row.discrepancias,
     error: row.error,
+    account: row.cuenta,
   };
 }
 
@@ -384,7 +387,7 @@ function orderPage(query: BrokerOrdersQuery): { limit: number; offset: number } 
 }
 
 const RUN_COLUMNS = `id, origen, iniciada_en, terminada_en, resultado, posiciones_app,
-  posiciones_broker, ordenes_app, ordenes_broker, discrepancias, error`;
+  posiciones_broker, ordenes_app, ordenes_broker, discrepancias, error, cuenta`;
 
 const DISCREPANCY_COLUMNS = `id, run_id, tipo, ticker, detalle, valor_app, valor_broker,
   estado, creada_en, resuelta_en`;
@@ -439,7 +442,7 @@ export function createBrokerRepository(
     (selectOrderByClientId.get(clientOrderId) as BrokerOrderRow | undefined) ?? null;
 
   const insertRunStmt = db.prepare(
-    `INSERT INTO reconcile_runs (origen, iniciada_en) VALUES (?, ?)`,
+    `INSERT INTO reconcile_runs (origen, iniciada_en, cuenta) VALUES (?, ?, ?)`,
   );
   const selectRunById = db.prepare(`SELECT ${RUN_COLUMNS} FROM reconcile_runs WHERE id = ?`);
 
@@ -553,7 +556,7 @@ export function createBrokerRepository(
     },
 
     startReconcileRun: (trigger, startedAt) => {
-      const result = insertRunStmt.run(trigger, startedAt);
+      const result = insertRunStmt.run(trigger, startedAt, orderMode);
       const row = selectRunById.get(Number(result.lastInsertRowid)) as ReconcileRunRow;
       return toReconcileRun(row);
     },

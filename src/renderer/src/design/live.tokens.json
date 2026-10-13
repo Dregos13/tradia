@@ -243,6 +243,7 @@
     "liveBannerMin": "48px",
     "checklistLabel": "260px",
     "limitsPanelMin": "320px",
+    "shortRequirementLabel": "176px",
     "dialogMax": "620px",
     "smokeTimelineRail": "2px"
   },

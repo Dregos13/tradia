@@ -618,6 +618,7 @@ const liveSnapshot = (patch: Partial<LiveOrderSnapshot> = {}): LiveOrderSnapshot
   asset: { shortable: true, easyToBorrow: true },
   capitalInUseUsd: 0,
   realizedLossTodayUsd: 0,
+  shortRequirementsBlockReason: null,
   ...patch,
 });
 

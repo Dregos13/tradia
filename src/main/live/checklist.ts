@@ -11,7 +11,16 @@
  * renderer: los requisitos automáticos se calculan en el proceso
  * principal.
  */
-import type { LiveRequirement, LiveRequirementState } from '../../shared/live';
+import type {
+  LiveRequirement,
+  LiveRequirementState,
+  LiveShortAccountCheck,
+} from '../../shared/live';
+import {
+  LIVE_SHORT_MIN_EQUITY_USD,
+  LIVE_SHORT_PAPER_MIN_TRADES,
+  LIVE_SHORT_PAPER_MIN_WEEKS,
+} from '../../shared/live';
 import type { BrokerOrder } from '../../shared/ipc';
 import { closedTradesFromOrders, type StrategyExpectation } from '../broker/deviation';
 
@@ -242,6 +251,176 @@ export function paperStatsFromOrders(
   }
 
   return { daysActive, closedTrades: trades.length, deviationPct };
+}
+
+// ---------------------------------------------------------------------------
+// 'paper-cortos': ≥ 4 semanas entre el primer y el último corto cerrado
+// en paper, ≥ 5 cortos cerrados y conciliación de paper cuadrada
+// ---------------------------------------------------------------------------
+
+/** Medidas de los cortos en paper, calculadas en el proceso principal. */
+export interface PaperShortStats {
+  /** Cortos cerrados (par entrada 'sell'/salida ejecutado). */
+  closedShorts: number;
+  /** Días civiles entre el primer y el último corto cerrado. */
+  spanDays: number;
+  /** Descuadres de la conciliación de paper aún abiertos. */
+  openDiscrepancies: number;
+}
+
+const shortEvidence = (stats: PaperShortStats): string => {
+  const weeks = Math.floor(stats.spanDays / 7);
+  const reconciliation =
+    stats.openDiscrepancies === 0
+      ? 'sin descuadres de paper abiertos en el periodo'
+      : `${stats.openDiscrepancies} descuadres de paper abiertos en el periodo`;
+  return (
+    `${weeks} de ${LIVE_SHORT_PAPER_MIN_WEEKS} semanas · ` +
+    `${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} cortos cerrados · ${reconciliation}`
+  );
+};
+
+export function evaluatePaperShorts(stats: PaperShortStats): RequirementVerdict {
+  const reasons: string[] = [];
+  const minDays = LIVE_SHORT_PAPER_MIN_WEEKS * 7;
+  if (stats.spanDays < minDays) {
+    reasons.push(
+      `Solo hay ${Math.floor(stats.spanDays / 7)} de ${LIVE_SHORT_PAPER_MIN_WEEKS} ` +
+        'semanas entre el primer y el último corto cerrado en paper.',
+    );
+  }
+  if (stats.closedShorts < LIVE_SHORT_PAPER_MIN_TRADES) {
+    reasons.push(
+      `Solo hay ${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} ` +
+        'cortos cerrados en paper.',
+    );
+  }
+  if (stats.openDiscrepancies > 0) {
+    reasons.push(
+      `Hay ${stats.openDiscrepancies} descuadre${stats.openDiscrepancies === 1 ? '' : 's'} ` +
+        'de la conciliación de paper sin resolver.',
+    );
+  }
+  if (reasons.length > 0) return pending(shortEvidence(stats), reasons);
+  return ok(shortEvidence(stats));
+}
+
+/**
+ * Medidas de los cortos en paper a partir de las órdenes ejecutadas del
+ * broker (`broker_orders`): un corto es una operación cerrada cuya pata
+ * de entrada es una venta (en largo la entrada es una compra). El lapso
+ * se mide en días civiles entre el cierre del primer y del último corto,
+ * en el calendario de Nueva York como el resto del dominio.
+ */
+export function paperShortStatsFromOrders(
+  orders: readonly BrokerOrder[],
+): Omit<PaperShortStats, 'openDiscrepancies'> {
+  const byId = new Map(orders.map((order) => [order.id, order] as const));
+  const shorts = closedTradesFromOrders(orders).filter(
+    (trade) => byId.get(trade.entryOrderId)?.side === 'sell',
+  );
+  if (shorts.length === 0) return { closedShorts: 0, spanDays: 0 };
+  const days = shorts.map((trade) => trade.closedAtNy).sort();
+  const spanMs =
+    Date.parse(`${days[days.length - 1]}T00:00:00.000Z`) - Date.parse(`${days[0]}T00:00:00.000Z`);
+  return { closedShorts: shorts.length, spanDays: Math.max(0, Math.floor(spanMs / 86_400_000)) };
+}
+
+// ---------------------------------------------------------------------------
+// Cuenta live de Alpaca para el corto (checklist.short.account): solo
+// 'cumplido' con cuenta real, corto habilitado y ≥ 2.000 USD de capital
+// ---------------------------------------------------------------------------
+
+/**
+ * Última lectura de la cuenta live tal como la deja el broker real
+ * (`live/broker.ts`, que la mantiene con timeout y caché corta); null
+ * cuando no hay cuenta conectada o todavía no hubo lectura.
+ */
+export interface ShortAccountReading {
+  /** true en una cuenta paper; false en la live; null si no se leyó. */
+  paper: boolean | null;
+  /** `shorting_enabled` en Alpaca; null si el broker no lo reporta. */
+  shortingEnabled: boolean | null;
+  /** Capital de la cuenta en USD; null si no se pudo leer. */
+  equityUsd: number | null;
+  /** true cuando la última lectura falló (error o tiempo agotado). */
+  readError: boolean;
+  /** ISO 8601 de la última comprobación; null si nunca se hizo. */
+  checkedAt: string | null;
+}
+
+/**
+ * Cifra en formato es-ES con dos decimales y millares siempre con punto:
+ * 2000 → «2.000,00 USD», 100250.55 → «100.250,55 USD» (Intl no agrupa a
+ * 4 cifras y los textos de la guía llevan «2.000,00 USD» literal).
+ */
+const fmtUsdEs = (value: number): string => {
+  const [integer = '0', fraction = '00'] = value.toFixed(2).split('.');
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${grouped},${fraction} USD`;
+};
+
+const minEquityText = fmtUsdEs(LIVE_SHORT_MIN_EQUITY_USD);
+
+/** Evidencias fijas del control de cuenta (textos de la guía de diseño). */
+export const SHORT_ACCOUNT_REVIEW_EVIDENCE =
+  'No se pudo comprobar la cuenta de Alpaca. El corto real permanece bloqueado.';
+export const SHORT_ACCOUNT_PENDING_EVIDENCE =
+  `Alpaca no acredita todavía una cuenta live con margen, el corto habilitado ` +
+  `y al menos ${minEquityText} de capital.`;
+export const SHORT_ACCOUNT_PENDING_REASON =
+  `La cuenta live de Alpaca debe tener margen, el corto habilitado y al menos ` +
+  `${minEquityText} de capital.`;
+
+/**
+ * Veredicto del control de cuenta del corto: 'cumplido' solo cuando la
+ * cuenta live acredita margen (`paper === false`), `shortingEnabled ===
+ * true` y capital ≥ 2.000 USD. Una lectura fallida o un dato ausente
+ * deja 'revisar' y una cuenta que no acredita queda 'pendiente': en
+ * ambos casos el corto sigue bloqueado.
+ */
+export function evaluateShortAccount(reading: ShortAccountReading | null): LiveShortAccountCheck {
+  const base: Omit<LiveShortAccountCheck, 'state' | 'evidence'> = {
+    paper: reading?.paper ?? null,
+    shortingEnabled: reading?.shortingEnabled ?? null,
+    equityUsd: reading?.equityUsd ?? null,
+    minEquityUsd: LIVE_SHORT_MIN_EQUITY_USD,
+    checkedAt: reading?.checkedAt ?? null,
+  };
+  if (
+    reading === null ||
+    reading.readError ||
+    reading.paper === null ||
+    reading.shortingEnabled === null ||
+    reading.equityUsd === null ||
+    !Number.isFinite(reading.equityUsd)
+  ) {
+    return { ...base, state: 'revisar', evidence: SHORT_ACCOUNT_REVIEW_EVIDENCE };
+  }
+  if (
+    reading.paper === true ||
+    reading.shortingEnabled === false ||
+    reading.equityUsd < LIVE_SHORT_MIN_EQUITY_USD
+  ) {
+    return { ...base, state: 'pendiente', evidence: SHORT_ACCOUNT_PENDING_EVIDENCE };
+  }
+  return {
+    ...base,
+    state: 'cumplido',
+    evidence:
+      `Cuenta live con margen · corto habilitado · capital ` +
+      `${fmtUsdEs(reading.equityUsd)}, mínimo ${minEquityText}.`,
+  };
+}
+
+/**
+ * Motivo del bloqueo del corto cuando la cuenta no está 'cumplido' (se
+ * une al resto de motivos de `short.blockReason` y de los rechazos
+ * «[corto-requisitos] …»); null cuando la cuenta está lista.
+ */
+export function shortAccountBlockReason(state: LiveShortAccountCheck['state']): string | null {
+  if (state === 'cumplido') return null;
+  return state === 'pendiente' ? SHORT_ACCOUNT_PENDING_REASON : SHORT_ACCOUNT_REVIEW_EVIDENCE;
 }
 
 // ---------------------------------------------------------------------------

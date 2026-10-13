@@ -204,7 +204,7 @@ import type {
   SimulateDriftRequest,
   SimulateRegimeRequest,
 } from './ai';
-import { LIVE_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
+import { LIVE_ALL_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
 import type {
   LiveActivateRequest,
   LiveActivateResult,
@@ -3548,11 +3548,11 @@ export function isSimulateDriftRequest(value: unknown): value is SimulateDriftRe
   return true;
 }
 
-/** Claves de declaración manual de la lista de dinero real. */
+/** Claves de declaración manual de la lista de dinero real (largo y corto). */
 export function isLiveDeclarationRequirement(value: unknown): value is LiveDeclarationRequirement {
   return (
     typeof value === 'string' &&
-    (LIVE_DECLARATION_REQUIREMENTS as readonly string[]).includes(value)
+    (LIVE_ALL_DECLARATION_REQUIREMENTS as readonly string[]).includes(value)
   );
 }
 
@@ -3663,16 +3663,23 @@ export function isLiveSeedProgressRequest(
     'paperMonths',
     'paperTrades',
     'deviationPct',
+    'paperShortTrades',
+    'paperShortWeeks',
     'finalTestDone',
     'killSwitchTested',
     'alertsTested',
   ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
-  const positiveInt = (key: 'paperMonths' | 'paperTrades', max: number): boolean =>
+  const positiveInt = (
+    key: 'paperMonths' | 'paperTrades' | 'paperShortTrades' | 'paperShortWeeks',
+    max: number,
+  ): boolean =>
     !(key in v) ||
     (Number.isInteger(v[key]) && (v[key] as number) >= 0 && (v[key] as number) <= max);
   if (!positiveInt('paperMonths', 120)) return false;
   if (!positiveInt('paperTrades', 10_000)) return false;
+  if (!positiveInt('paperShortTrades', 10_000)) return false;
+  if (!positiveInt('paperShortWeeks', 520)) return false;
   if (
     'deviationPct' in v &&
     (typeof v.deviationPct !== 'number' ||
@@ -3691,8 +3698,16 @@ export function isLiveSeedProgressRequest(
 export function isLiveSimulatedBrokerRequest(value: unknown): value is LiveSimulatedBrokerRequest {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'enabled')) return false;
-  return typeof v.enabled === 'boolean';
+  if (Object.keys(v).some((k) => k !== 'enabled' && k !== 'account')) return false;
+  if (typeof v.enabled !== 'boolean') return false;
+  if (v.account === undefined) return true;
+  if (typeof v.account !== 'object' || v.account === null) return false;
+  const a = v.account as Record<string, unknown>;
+  if (Object.keys(a).some((k) => k !== 'equityUsd' && k !== 'shortingEnabled')) return false;
+  if (a.equityUsd !== undefined && (typeof a.equityUsd !== 'number' || a.equityUsd < 0))
+    return false;
+  if (a.shortingEnabled !== undefined && typeof a.shortingEnabled !== 'boolean') return false;
+  return true;
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

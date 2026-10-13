@@ -63,10 +63,26 @@ import type { BrokerRepository } from '../broker/repository';
 import { isBrokerError, type BrokerAdapter, type BrokerOrderRequest } from '../broker/types';
 import { liveOrderBlockReason, liveOrderWirePrice, type LiveOrderSnapshot } from './orderGuard';
 import { createLiveSmokeTest, type LiveSmokeTestService } from './smoke';
+import type { ShortAccountReading } from './checklist';
 import type { LiveService, LiveStore } from './service';
 
 /** Sincronización de órdenes live con el broker: cada minuto (como paper). */
 export const LIVE_SYNC_INTERVAL_MS = 60_000;
+
+/**
+ * Vigencia del retrato de la cuenta para el control del corto
+ * (`checklist.short.account`): la lista se pide en cada render, así que
+ * la lectura de `getAccount()` se amortigua — como mucho una llamada de
+ * red por este intervalo, y solo con cuenta conectada.
+ */
+export const LIVE_ACCOUNT_CACHE_MS = 30_000;
+
+/**
+ * Espera máxima de la lectura de la cuenta: una `getAccount()` que
+ * agota el tiempo deja el control en 'revisar' (nunca bloquea la lista
+ * ni se asume permiso).
+ */
+export const LIVE_ACCOUNT_READ_TIMEOUT_MS = 5_000;
 
 /** Prefijo de las claves live de Alpaca (las paper son 'PK…'). */
 export const LIVE_KEY_PREFIX = 'AK';
@@ -162,6 +178,16 @@ export interface LiveBrokerServiceDeps {
   smokeFillTimeoutMs?: number;
   /** Intervalo entre consultas de estado de orden en la prueba (ms). */
   smokePollIntervalMs?: number;
+  /**
+   * Espera máxima de la lectura de la cuenta para el control del corto
+   * (ms); por defecto `LIVE_ACCOUNT_READ_TIMEOUT_MS`.
+   */
+  accountReadTimeoutMs?: number;
+  /**
+   * Vigencia del retrato de la cuenta antes de releerlo (ms); por
+   * defecto `LIVE_ACCOUNT_CACHE_MS`.
+   */
+  accountCacheMs?: number;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   sleep?(ms: number): Promise<void>;
@@ -188,6 +214,13 @@ export interface LiveBrokerService {
   liveExecutionActive(): boolean;
   /** Id del adaptador live conectado; null si no hay cuenta. */
   adapterId(): string | null;
+  /**
+   * Último retrato de la cuenta live para el control del corto
+   * (`checklist.short.account`): devuelve la caché al instante y, si
+   * está vieja, relanza la lectura de `getAccount()` en segundo plano
+   * (nunca espera a la red). null sin cuenta conectada o sin lectura.
+   */
+  shortAccount(): ShortAccountReading | null;
   /**
    * `live:smoke-test`: compra de mercado fraccionaria de 1 USD en SPY,
    * venta de cierre y conciliación contra la cuenta conectada, con el
@@ -223,6 +256,23 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
   let busy: Promise<unknown> | null = null;
   let syncTimer: TimerHandle | null = null;
   let stopped = false;
+  // Retrato de la cuenta para el control del corto: la lista lo pide en
+  // cada render, así que se conserva en caché y se relee en segundo
+  // plano como mucho una vez por `accountCacheMs` (nunca una llamada de
+  // red por lectura). `attach` lo siembra con la cuenta validada y
+  // `detach` lo limpia: sin adaptador el control queda 'revisar'.
+  let accountCache: {
+    account: Pick<BrokerAccount, 'paper' | 'shortingEnabled' | 'equity'> | null;
+    readError: boolean;
+    checkedAt: string;
+  } | null = null;
+  let accountRefresh: Promise<unknown> | null = null;
+  let lastAccountAttemptAt = Number.NEGATIVE_INFINITY;
+  const accountCacheMs = Math.max(0, deps.accountCacheMs ?? LIVE_ACCOUNT_CACHE_MS);
+  const accountReadTimeoutMs = Math.max(
+    1,
+    deps.accountReadTimeoutMs ?? LIVE_ACCOUNT_READ_TIMEOUT_MS,
+  );
 
   /** La puerta del modo real: la lista de comprobación completa. */
   const gateOpen = (): boolean => deps.live.getChecklist().allComplete;
@@ -251,6 +301,88 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     });
     logger.warn?.(`[live-broker] conexión rechazada (${code}): ${message}`);
     throw new LiveBrokerError(code, message);
+  };
+
+  // -- Retrato de la cuenta para el control del corto -------------------------
+
+  /** `getAccount()` con espera máxima: agotarla cuenta como lectura fallida. */
+  const readAccountWithTimeout = (candidate: BrokerAdapter): Promise<BrokerAccount> => {
+    let timer: TimerHandle | null = null;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimer(
+        () => reject(new Error('tiempo de espera agotado leyendo la cuenta')),
+        accountReadTimeoutMs,
+      );
+    });
+    return Promise.race([candidate.getAccount(), timeout]).finally(() => {
+      if (timer !== null) clearTimer(timer);
+    });
+  };
+
+  const snapshotAccount = (
+    account: BrokerAccount,
+  ): Pick<BrokerAccount, 'paper' | 'shortingEnabled' | 'equity'> => ({
+    paper: account.paper,
+    shortingEnabled: account.shortingEnabled ?? null,
+    equity: account.equity,
+  });
+
+  /**
+   * Relee la cuenta en segundo plano y deja el retrato en la caché.
+   * Solo escribe si el adaptador sigue siendo el mismo (una desconexión
+   * a medio camino no puede revivir datos de la cuenta anterior). Al
+   * terminar emite `live:changed` para que la franja y la lista ya
+   * reflejen la última lectura sin esperar al siguiente render.
+   */
+  const refreshAccount = (candidate: BrokerAdapter): void => {
+    lastAccountAttemptAt = now();
+    accountRefresh = readAccountWithTimeout(candidate)
+      .then((account) => {
+        if (adapter !== candidate) return;
+        accountCache = {
+          account: snapshotAccount(account),
+          readError: false,
+          checkedAt: isoNow(),
+        };
+      })
+      .catch((error: unknown) => {
+        if (adapter !== candidate) return;
+        logger.warn?.(
+          `[live-broker] la lectura de la cuenta para la lista falló: ${errorMessage(error)}`,
+        );
+        accountCache = { account: null, readError: true, checkedAt: isoNow() };
+      })
+      .then(() => emitChanged())
+      .catch((error: unknown) => {
+        logger.warn?.(
+          `[live-broker] no se pudo emitir el cambio tras leer la cuenta: ${errorMessage(error)}`,
+        );
+      })
+      .finally(() => {
+        accountRefresh = null;
+      });
+  };
+
+  /**
+   * Último retrato de la cuenta (lo consume la lista del modo real):
+   * devuelve la caché al instante y relanza la lectura en segundo plano
+   * cuando está vieja — sin esperar a la red ni llamarla en cada render.
+   */
+  const shortAccountReading = (): ShortAccountReading | null => {
+    if (adapter !== null && !stopped && accountRefresh === null) {
+      if (now() - lastAccountAttemptAt >= accountCacheMs) refreshAccount(adapter);
+    }
+    if (accountCache === null) return null;
+    return {
+      paper: accountCache.account?.paper ?? null,
+      shortingEnabled: accountCache.account?.shortingEnabled ?? null,
+      equityUsd:
+        accountCache.account !== null && Number.isFinite(accountCache.account.equity)
+          ? accountCache.account.equity
+          : null,
+      readError: accountCache.readError,
+      checkedAt: accountCache.checkedAt,
+    };
   };
 
   /**
@@ -322,6 +454,19 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
           }
         : null;
 
+    // Los requisitos propios del corto se evalúan con la lista: sin
+    // ellos la guarda rechaza toda entrada en corto real con
+    // «[corto-requisitos] …», aunque los límites sigan confirmados. Un
+    // estado desconocido bloquea por conservador (el corto nunca se
+    // asume permitido).
+    const shortCheck = deps.live.getChecklist().short as
+      { allComplete: boolean; blockReason: string | null } | undefined;
+    const shortRequirementsBlockReason =
+      shortCheck !== undefined && shortCheck.allComplete
+        ? null
+        : (shortCheck?.blockReason ??
+          'los requisitos propios del corto con dinero real no están cumplidos');
+
     return {
       mode: deps.store.getMode().estado,
       limits,
@@ -336,6 +481,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       asset: null,
       capitalInUseUsd: positionUsd + pendingUsd,
       realizedLossTodayUsd,
+      shortRequirementsBlockReason,
     };
   };
 
@@ -433,6 +579,14 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
   const attach = (candidate: BrokerAdapter, account: BrokerAccount): void => {
     adapter = candidate;
     orders = buildOrderManager(candidate);
+    // La cuenta recién validada siembra el retrato del control del
+    // corto: la lista lo ve de inmediato sin una lectura extra.
+    accountCache = {
+      account: snapshotAccount(account),
+      readError: false,
+      checkedAt: isoNow(),
+    };
+    lastAccountAttemptAt = now();
     deps.store.setConnection({
       broker: simulated ? 'simulado' : 'alpaca',
       cuenta: maskAccount(account.accountId),
@@ -453,6 +607,10 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     orders?.stop();
     orders = null;
     adapter = null;
+    // Sin cuenta live no hay nada que comprobar: el control del corto
+    // queda 'revisar' (una lectura en curso que llegue tarde no escribe
+    // gracias a la comprobación de adaptador vigente).
+    accountCache = null;
     deps.store.setConnection({ broker: null, cuenta: null, actualizadoEn: isoNow() });
   };
 
@@ -562,6 +720,7 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
     orders?.stop();
     orders = null;
     adapter = null;
+    accountCache = null;
     attach(candidate, account);
 
     const limitsRow = deps.store.getLimits();
@@ -735,6 +894,8 @@ export function createLiveBrokerService(deps: LiveBrokerServiceDeps): LiveBroker
       adapter !== null && deps.store.getMode().estado === 'activo' && !stopped,
 
     adapterId: () => adapter?.id ?? null,
+
+    shortAccount: shortAccountReading,
 
     runSmokeTest: (request) => smoke.run(request),
 

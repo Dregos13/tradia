@@ -52,7 +52,7 @@
  */
 import type { BrokerOrderLeg } from '../../shared/broker';
 import type { LiveLimits, LiveModeState } from '../../shared/live';
-import { LIVE_FIXED_SHORT_CAPS } from '../../shared/live';
+import { LIVE_FIXED_SHORT_CAPS, LIVE_SHORT_ERROR_CODE } from '../../shared/live';
 import type { BrokerOrderRequest } from '../broker/types';
 
 // ---------------------------------------------------------------------------
@@ -115,6 +115,15 @@ export interface LiveOrderSnapshot {
   capitalInUseUsd: number;
   /** Pérdida realizada hoy en USD (≥ 0; sesión de Nueva York). */
   realizedLossTodayUsd: number;
+  /**
+   * Motivo del bloqueo por los requisitos propios del corto
+   * (`LIVE_SHORT_REQUIREMENTS`: la declaración legal y fiscal del corto
+   * y las semanas de cortos en paper cuadrados); null cuando están
+   * cumplidos. Con motivo, toda entrada en corto se rechaza con
+   * «[corto-requisitos] motivo», aunque los límites estén confirmados —
+   * las salidas y la recompra siguen pasando siempre.
+   */
+  shortRequirementsBlockReason: string | null;
 }
 
 /** Contexto que acompaña a la orden: su pata y el precio de referencia. */
@@ -234,6 +243,15 @@ function shortEntryBlockReason(
 ): string | null {
   const limits = snapshot.limits!; // comprobado por quien llama
   const ticker = request.ticker.trim().toUpperCase();
+
+  // Primero los requisitos propios del corto (revisión legal y fiscal
+  // específica y las semanas de cortos en paper cuadrados): sin ellos
+  // ninguna entrada en corto real pasa, aunque los límites del corto
+  // estén confirmados. El código viaja en el mensaje porque un error
+  // tipado pierde sus propiedades al cruzar el IPC.
+  if (snapshot.shortRequirementsBlockReason !== null) {
+    return `[${LIVE_SHORT_ERROR_CODE}] ${snapshot.shortRequirementsBlockReason}`;
+  }
 
   // El corto solo abre con sus tres límites escritos y confirmados por
   // encima de 0: con los límites del corto a 0 —como quedan las cuentas

@@ -12,9 +12,14 @@ import {
   evaluateFinalTest,
   evaluateKillSwitchTest,
   evaluatePaperProgress,
+  evaluatePaperShorts,
+  evaluateShortAccount,
   formatLiveDate,
+  paperShortStatsFromOrders,
   paperStatsFromOrders,
+  shortAccountBlockReason,
   type AlertTestEvidence,
+  type ShortAccountReading,
 } from './checklist';
 
 const DAY_MS = 86_400_000;
@@ -290,5 +295,166 @@ describe('evaluateAlertChannel', () => {
     const verdict = evaluateAlertChannel(test, () => false);
     expect(verdict.state).toBe('pendiente');
     expect(verdict.reasons[0]).toContain('ya no está activo');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 'paper-cortos': evidencia de cortos en paper + conciliación sin descuadres
+// ---------------------------------------------------------------------------
+
+/** Un corto cerrado: entrada de venta + recompra ejecutadas. */
+const closedShort = (opts: {
+  strategyId: number;
+  signalId: number;
+  entryAt: string;
+  exitAt: string;
+}): BrokerOrder[] => [
+  paperOrder({
+    strategyId: opts.strategyId,
+    signalId: opts.signalId,
+    leg: 'entrada',
+    side: 'sell',
+    executedAt: opts.entryAt,
+    executedPrice: 100,
+  }),
+  paperOrder({
+    strategyId: opts.strategyId,
+    signalId: opts.signalId,
+    leg: 'salida',
+    side: 'buy',
+    executedAt: opts.exitAt,
+    executedPrice: 95,
+  }),
+];
+
+describe('paperShortStatsFromOrders', () => {
+  it('solo cuenta las operaciones cerradas cuya entrada es una venta', () => {
+    const orders = [
+      ...closedShort({
+        strategyId: 1,
+        signalId: 1,
+        entryAt: isoDaysAgo(40),
+        exitAt: isoDaysAgo(35),
+      }),
+      ...closedTrade({
+        strategyId: 1,
+        signalId: 2,
+        entryAt: isoDaysAgo(30),
+        exitAt: isoDaysAgo(25),
+      }),
+      ...closedShort({
+        strategyId: 1,
+        signalId: 3,
+        entryAt: isoDaysAgo(10),
+        exitAt: isoDaysAgo(5),
+      }),
+    ];
+    const stats = paperShortStatsFromOrders(orders);
+    expect(stats.closedShorts).toBe(2);
+    // Del cierre del primer corto (hace 35 días) al último (hace 5): 30 días.
+    expect(stats.spanDays).toBe(30);
+  });
+
+  it('sin cortos cerrados todo queda a cero', () => {
+    expect(paperShortStatsFromOrders([])).toEqual({ closedShorts: 0, spanDays: 0 });
+    const soloLargos = closedTrade({
+      strategyId: 1,
+      signalId: 1,
+      entryAt: isoDaysAgo(10),
+      exitAt: isoDaysAgo(5),
+    });
+    expect(paperShortStatsFromOrders(soloLargos)).toEqual({ closedShorts: 0, spanDays: 0 });
+  });
+});
+
+describe('evaluatePaperShorts', () => {
+  it('debajo de los umbrales lista cada motivo', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 2, spanDays: 14, openDiscrepancies: 0 });
+    expect(verdict.state).toBe('pendiente');
+    expect(verdict.reasons.join(' ')).toContain('2 de 5 cortos cerrados');
+    expect(verdict.reasons.join(' ')).toContain('2 de 4 semanas');
+    expect(verdict.evidence).toContain('2 de 5');
+  });
+
+  it('los descuadres abiertos de la conciliación de paper la mantienen pendiente', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 6, spanDays: 35, openDiscrepancies: 2 });
+    expect(verdict.state).toBe('pendiente');
+    expect(verdict.reasons.join(' ')).toContain('2 descuadres');
+    expect(verdict.evidence).toBe(
+      '5 de 4 semanas · 6 de 5 cortos cerrados · 2 descuadres de paper abiertos en el periodo',
+    );
+  });
+
+  it('con los umbrales cubiertos y sin descuadres abiertos cumple', () => {
+    const verdict = evaluatePaperShorts({ closedShorts: 5, spanDays: 28, openDiscrepancies: 0 });
+    expect(verdict.state).toBe('cumplido');
+    expect(verdict.evidence).toBe(
+      '4 de 4 semanas · 5 de 5 cortos cerrados · sin descuadres de paper abiertos en el periodo',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cuenta live de Alpaca para el corto (evaluateShortAccount)
+// ---------------------------------------------------------------------------
+
+const READY_READING: ShortAccountReading = {
+  paper: false,
+  shortingEnabled: true,
+  equityUsd: 10_000,
+  readError: false,
+  checkedAt: '2026-10-09T15:00:00.000Z',
+};
+
+const reading = (patch: Partial<ShortAccountReading> = {}): ShortAccountReading => ({
+  ...READY_READING,
+  ...patch,
+});
+
+describe('evaluateShortAccount', () => {
+  it('cuenta live con corto habilitado y capital suficiente queda cumplido', () => {
+    const check = evaluateShortAccount(READY_READING);
+    expect(check.state).toBe('cumplido');
+    expect(check.minEquityUsd).toBe(2000);
+    expect(check.evidence).toContain('Cuenta live con margen');
+    expect(check.evidence).toContain('10.000,00 USD');
+    expect(check.evidence).toContain('mínimo 2.000,00 USD');
+    expect(check.checkedAt).toBe(READY_READING.checkedAt);
+  });
+
+  it('exactamente 2.000 USD de capital cumple el mínimo', () => {
+    expect(evaluateShortAccount(reading({ equityUsd: 2_000 })).state).toBe('cumplido');
+  });
+
+  it.each([
+    ['corto no habilitado', { shortingEnabled: false }],
+    ['capital por debajo del mínimo', { equityUsd: 1_999.99 }],
+    ['cuenta paper', { paper: true }],
+  ])('una cuenta con %s queda pendiente', (_label, patch) => {
+    const check = evaluateShortAccount(reading(patch));
+    expect(check.state).toBe('pendiente');
+    expect(check.evidence).toContain('2.000,00 USD');
+    expect(shortAccountBlockReason(check.state)).toContain('margen');
+  });
+
+  it.each([
+    ['sin lectura', null],
+    ['lectura fallida', { readError: true }],
+    ['corto no reportado', { shortingEnabled: null }],
+    ['capital no legible', { equityUsd: null }],
+    ['capital no finito', { equityUsd: Number.NaN }],
+    ['paper desconocido', { paper: null }],
+  ])('con %s queda en revisar', (_label, value) => {
+    const check = evaluateShortAccount(value === null ? null : reading(value));
+    expect(check.state).toBe('revisar');
+    expect(check.evidence).toContain('No se pudo comprobar la cuenta de Alpaca');
+    expect(check.evidence).toContain('permanece bloqueado');
+    expect(shortAccountBlockReason(check.state)).toBe(check.evidence);
+  });
+
+  it('el motivo del bloqueo es null solo con la cuenta cumplida', () => {
+    expect(shortAccountBlockReason('cumplido')).toBeNull();
+    expect(shortAccountBlockReason('pendiente')).toContain('2.000,00 USD');
+    expect(shortAccountBlockReason('revisar')).toContain('No se pudo comprobar');
   });
 });

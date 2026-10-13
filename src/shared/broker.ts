@@ -324,6 +324,12 @@ export interface ReconcileRun {
   discrepancies: number;
   /** Motivo legible del fallo cuando `result` es 'error'; null si no. */
   error: string | null;
+  /**
+   * Cuenta conciliada ('paper' | 'live'): la migración 017 la añade para
+   * distinguir los descuadres de cada lado; las filas anteriores a la
+   * 017 quedan como 'paper'.
+   */
+  account: BrokerOrderMode;
 }
 
 /** Lectura de `reconcile:status`: la última ejecución y los descuadres abiertos. */

@@ -28,9 +28,69 @@ tablas de la migración 011 (`live_checklist`, `live_limits`,
 Los cuatro automáticos se evalúan en el proceso principal en cada
 consulta (`live:checklist`, `live:state`), en cada mutación y en la
 rutina (`reevaluate()`): **nunca se marcan desde IPC** — `live:declare`
-solo acepta las tres declaraciones y `live:seed-progress` solo existe en
-modo E2E. Las declaraciones guardan el texto suscrito, el detalle y la
-fecha; retirarlas (`confirmed: false`) las devuelve a pendiente.
+solo acepta las cuatro declaraciones (las tres del largo y la del corto)
+y `live:seed-progress` solo existe en modo E2E. Las declaraciones guardan
+el texto suscrito, el detalle y la fecha; retirarlas (`confirmed: false`)
+las devuelve a pendiente.
+
+### Requisitos propios del corto
+
+Operar en corto con dinero real exige **además** sus dos requisitos
+propios (`LIVE_SHORT_REQUIREMENTS`), que la lista devuelve en
+`checklist.short` y el estado en `state.short` — aparte de los siete,
+que siguen midiendo exactamente lo mismo:
+
+| Requisito              | Origen      | Qué lo cumple                                                                                                                                                                                                     |
+| ---------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `revision-legal-corto` | Declaración | `live:declare` con el texto fijo: haber revisado **con un profesional** las obligaciones legales y fiscales específicas de las ventas en corto — **CNMV/MiFID II** e **IRPF**. La app no la da por hecha ni la sustituye. |
+| `paper-cortos`         | Automático  | ≥ **4 semanas** (`LIVE_SHORT_PAPER_MIN_WEEKS`) entre el primer y el último corto cerrado en paper y ≥ **5 cortos cerrados** (`LIVE_SHORT_PAPER_MIN_TRADES`; un corto es la operación cerrada cuya entrada es una venta), **sin ningún descuadre abierto** de la conciliación de paper (`reconcile_discrepancies` unidas a `reconcile_runs` con `cuenta = 'paper'`). |
+
+La semilla de `live:seed-progress` admite `paperShortTrades` y
+`paperShortWeeks` con la misma regla que el resto: solo cuenta en el
+contexto E2E; los descuadres siempre se leen de la base.
+
+**La cuenta live de Alpaca.** El tercer requisito no es un
+`LiveRequirement`, es un control automático aparte —
+`checklist.short.account` (`LiveShortAccountCheck`): solo queda
+'cumplido' con una cuenta **real** (no paper, `paper === false`),
+`shorting_enabled` en Alpaca y al menos **2.000,00 USD** de capital
+(`LIVE_SHORT_MIN_EQUITY_USD`, el suelo de margen que exige Alpaca, a
+activar y financiar en su propio panel). Lo lee el proceso principal del
+`getAccount()` del **adaptador live** (`live/broker.ts`), nunca del
+paper: la conexión lo siembra con la cuenta ya validada y las lecturas
+de la lista usan una caché de 30 s (`LIVE_ACCOUNT_CACHE_MS`) que se
+relee en segundo plano con un tiempo máximo de 5 s
+(`LIVE_ACCOUNT_READ_TIMEOUT_MS`) — la lista nunca espera a la red.
+Sin lectura, con lectura fallida o con un dato ausente (margen sin
+acreditar, `shorting_enabled` no reportado, capital ilegible) el control
+queda 'revisar'; una cuenta leída que no acredita queda 'pendiente'.
+En ambos casos el corto permanece bloqueado: el estado nunca asume el
+permiso del broker y ningún interruptor local puede simularlo (el
+conmutador E2E solo cambia la *cuenta que el servidor falso responde*,
+la lectura sigue pasando por `getAccount()`). `paper`, `shortingEnabled`
+y `equityUsd` se devuelven crudos; `checkedAt` marca la última
+comprobación y la evidencia nunca lleva credenciales ni datos
+personales.
+
+**Lo que bloquean.** Con cualquiera de los dos requisitos sin cumplir o
+la cuenta sin 'cumplido':
+
+- `live:set-limits` **rechaza** guardar cualquier límite del corto
+  mayor que 0 (`LiveServiceError` con código `corto-requisitos` y el
+  motivo en el mensaje «[corto-requisitos] …» — el código viaja en el
+  propio texto porque las propiedades tipadas no cruzan el IPC);
+- `live:activate` **rechaza** confirmar límites guardados con algún
+  límite del corto > 0, con el mismo motivo;
+- la guarda de órdenes **rechaza toda entrada en corto real** aunque
+  los límites estén confirmados, el broker tenga margen y el título
+  sea prestable — salidas, recompras y patas OCO de cortos abiertos
+  pasan siempre.
+
+Los límites del corto **nacen a 0** (migración 016) y una cuenta que ya
+los tenía confirmados > 0 **los conserva intactos** tras la 017: no se
+ponen a 0 en silencio, pero el corto queda bloqueado con su motivo
+hasta cumplir sus requisitos. El largo con dinero real no cambia: sus
+siete requisitos y su puerta son los de siempre.
 
 **La evidencia sembrada no vale fuera de E2E.** Los sellos que el gancho
 `live:seed-progress` escribe en `settings['live.evidence']` (días y
@@ -60,17 +120,23 @@ posiciones), y admite además los **límites del corto**
 (`LIVE_FIXED_SHORT_CAPS`: 100 USD por orden en corto, 200 USD de
 exposición corta y 1 posición corta), opcionales y ≥ 0 — a 0 el corto
 queda desactivado (un campo ausente vale 0, así una interfaz que aún no
-lo expone nunca lo habilita sin querer). La validación se aplica tres
-veces: guarda `isLiveLimitsInput` en el borde, doble comprobación en el
-servicio y CHECK en `live_limits`. Guardarlos reinicia la confirmación
-escrita y devuelve la frase exacta generada con esos valores
-(`liveConfirmationPhrase`), que incluye los límites del corto —
-cambiarlos exige confirmar de nuevo.
+lo expone nunca lo habilita sin querer). Escribir cualquier límite del
+corto **mayor que 0 exige antes los dos requisitos del corto y la cuenta
+live 'cumplido'** (`revision-legal-corto`, `paper-cortos` y
+`checklist.short.account.state === 'cumplido'`): sin ellos el servicio
+rechaza la escritura con «[corto-requisitos] motivo», venga por la
+interfaz o por IPC. La validación se aplica tres veces: guarda `isLiveLimitsInput`
+en el borde, doble comprobación en el servicio y CHECK en `live_limits`.
+Guardarlos reinicia la confirmación escrita y devuelve la frase exacta
+generada con esos valores (`liveConfirmationPhrase`), que incluye los
+límites del corto — cambiarlos exige confirmar de nuevo.
 
 `live:activate` exige, en este orden: lista completa, límites guardados
-y la frase escrita literal (solo ignora espacios en los extremos). Con
-todo en regla marca los límites como confirmados (`confirmados_en`) y
-pasa el modo a `activo`. Un intento fallido **no lanza excepción**:
+y la frase escrita literal (solo ignora espacios en los extremos) — y,
+cuando algún límite del corto escrito es > 0, los **requisitos propios
+del corto** cumplidos (sin ellos responde `[corto-requisitos] …` y no
+confirma). Con todo en regla marca los límites como confirmados
+(`confirmados_en`) y pasa el modo a `activo`. Un intento fallido **no lanza excepción**:
 devuelve `activated: false`, la lista exacta de requisitos pendientes y
 los motivos legibles, y queda en el Diario.
 
@@ -131,6 +197,9 @@ tiene tope natural. Se exige, además de lo común (modo `activo`, límites
 confirmados, nocional con margen de hueco dentro del límite por orden,
 posiciones abiertas, pérdida diaria — compartida por largos y cortos):
 
+- primero, los **requisitos propios del corto** cumplidos
+  (`LIVE_SHORT_REQUIREMENTS`): sin ellos la entrada se rechaza con
+  «[corto-requisitos] motivo» aunque todo lo demás esté en regla;
 - los **límites del corto** escritos y confirmados con los tres valores
   > 0 (a 0 la entrada se rechaza: «el corto no está habilitado»);
 - el **nocional del corto** con margen ≤ `shortOrderUsd` y también ≤ el
@@ -170,7 +239,21 @@ una cuenta **de margen** con el préstamo de valores habilitado
 2 000 USD** — el suelo reglamentario de margen en Estados Unidos — y
 títulos **prestables** (`shortable` y `easy_to_borrow` en el activo).
 Sin cualquiera de las tres condiciones la puerta rechaza la entrada con
-el motivo exacto.
+el motivo exacto. Activar el margen y el préstamo en Alpaca es un trámite
+que hace el usuario en su cuenta: la app solo lo comprueba y, si falta,
+rechaza la orden.
+
+## Migraciones del dinero real
+
+- **011**: `live_checklist`, `live_limits` y `live_mode` (la lista, los
+  límites escritos y el estado del modo real).
+- **012**: `broker_orders_live` (el libro de órdenes de la cuenta real).
+- **016**: límites del corto en `live_limits` (`corto_orden_usd`,
+  `corto_exposicion_usd`, `corto_posiciones_max`), nacen a 0.
+- **017**: requisitos del corto en `live_checklist`
+  (`revision-legal-corto` y `paper-cortos`, nacen pendientes) y `cuenta`
+  en `reconcile_runs` ('paper' | 'live') para que `paper-cortos` solo
+  mida los descuadres abiertos de la conciliación de paper.
 
 ## Prueba de humo con el importe mínimo
 

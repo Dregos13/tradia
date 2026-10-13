@@ -80,8 +80,8 @@ it('lista evidencia, fecha y cada motivo pendiente, con activación bloqueada', 
   expect(
     screen.getByText('3,2 meses de paper continuo · 36 operaciones · desviación −4 %.'),
   ).toBeInTheDocument();
-  expect(screen.getAllByText('Verificación automática')).toHaveLength(4);
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+  expect(screen.getAllByText('Verificación automática')).toHaveLength(6);
+  expect(screen.getAllByRole('checkbox')).toHaveLength(4);
   expect(screen.getAllByText(/Sin evidencia guardada/)).toHaveLength(3);
   expect(activate).not.toHaveBeenCalled();
 });
@@ -101,7 +101,7 @@ it('obtiene evidencia de parada y alerta por sus canales reales, sin declaracion
   expect(alert).toHaveBeenCalledWith({ channel: 'correo' });
   expect(await screen.findByText('Alerta de prueba enviada correctamente.')).toBeInTheDocument();
   expect(declare).not.toHaveBeenCalled();
-  expect(screen.getAllByText('Cumplido')).toHaveLength(4);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(5);
 });
 
 it('muestra los fallos seguros de las pruebas sin completar requisitos', async () => {
@@ -120,7 +120,7 @@ it('muestra los fallos seguros de las pruebas sin completar requisitos', async (
   expect(await screen.findByRole('alert')).toHaveTextContent('La parada ya está activa.');
   await userEvent.click(screen.getByRole('button', { name: 'Enviar alerta de prueba' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Configura primero el correo.');
-  expect(screen.getAllByText('Cumplido')).toHaveLength(2);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(3);
 });
 
 it('las declaraciones se guardan con texto contractual y el plan exige detalle y ofrece plantilla', async () => {
@@ -184,6 +184,8 @@ it.each([
   ['Máximo por orden', '-1', /mayor que cero/],
 ])('valida %s con error accesible junto al campo', async (label, value, expected) => {
   const save = vi.spyOn(adapter.api.live, 'setLimits');
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await mount();
   fillLimits();
   const input = screen.getByLabelText(label);
@@ -238,6 +240,9 @@ it('abre con foco seguro, frase exacta accesible y activa solo tras confirmar lo
   ).toBeInTheDocument();
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   await waitFor(() => expect(screen.getByText('Dinero real activo')).toHaveFocus());
+  expect(document.querySelectorAll('.live-mode-status')).toHaveLength(1);
+  expect(document.querySelector('.live-mode-status')).toHaveTextContent('Dinero real activo');
+  expect(screen.getByText('Corto real bloqueado')).toHaveClass('live-short-status');
   expect(screen.queryByText(/faltan 0 de 7/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Los requisitos cambiaron/)).not.toBeInTheDocument();
   expect(
@@ -572,7 +577,7 @@ it('no habilita por caché durante carga o error y conserva la evidencia anterio
   await userEvent.click(screen.getByRole('button', { name: 'Reintentar verificación' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo verificar la lista');
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
-  expect(screen.getAllByText('Cumplido')).toHaveLength(7);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(9);
 });
 
 it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmontar', async () => {
@@ -581,6 +586,22 @@ it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmon
     allComplete: false,
     total: 7,
     completedCount: 0,
+    short: {
+      items: [],
+      account: {
+        state: 'revisar',
+        paper: null,
+        shortingEnabled: null,
+        equityUsd: null,
+        minEquityUsd: 2000,
+        checkedAt: null,
+        evidence: 'No se pudo comprobar la cuenta de Alpaca. El corto real permanece bloqueado.',
+      },
+      completedCount: 0,
+      total: 0,
+      allComplete: false,
+      blockReason: null,
+    },
     limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
     evaluatedAt: null,
   });
@@ -618,6 +639,8 @@ it('N6: Dinero real permite desactivar desde su pantalla y vuelve a listo', asyn
 
 it('guarda los tres límites del corto y confirma la frase que los incluye', async () => {
   await complete();
+  // Los límites del corto > 0 exigen antes su declaración legal propia.
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await mount();
   for (const [label, value] of [
     ['Máximo por orden en corto', '100'],

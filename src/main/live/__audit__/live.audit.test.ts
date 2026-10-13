@@ -131,8 +131,15 @@ const completeChecklist = async (): Promise<void> => {
     finalTestDone: true,
     killSwitchTested: true,
     alertsTested: true,
+    paperShortTrades: 5,
+    paperShortWeeks: 5,
   });
-  for (const requirement of ['claves-sin-retirada', 'plan-contingencia', 'revision-legal']) {
+  for (const requirement of [
+    'claves-sin-retirada',
+    'plan-contingencia',
+    'revision-legal',
+    'revision-legal-corto',
+  ]) {
     await invoke(IPC_CHANNELS.live.declare, { requirement, confirmed: true });
   }
 };
@@ -141,13 +148,15 @@ const completeChecklist = async (): Promise<void> => {
 const activeLiveAccount = async (limits: LiveLimits = LIVE_LIMITS) => {
   const handle = makeLive();
   await completeChecklist();
+  // La conexión deja `checklist.short.account` en 'cumplido' — los
+  // límites del corto > 0 la exigen ya lista al guardarse.
+  await invoke(IPC_CHANNELS.live.useSimulatedBroker, { enabled: true });
+  await invoke(IPC_CHANNELS.live.connect, LIVE_KEYS);
   await invoke(IPC_CHANNELS.live.setLimits, limits);
   const result = (await invoke(IPC_CHANNELS.live.activate, {
     phrase: liveConfirmationPhrase(limits),
   })) as LiveActivateResult;
   expect(result.activated).toBe(true);
-  await invoke(IPC_CHANNELS.live.useSimulatedBroker, { enabled: true });
-  await invoke(IPC_CHANNELS.live.connect, LIVE_KEYS);
   expect(handle.live.liveExecutionActive()).toBe(true);
   return handle;
 };

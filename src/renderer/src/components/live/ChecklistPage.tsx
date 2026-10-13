@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { DeliveryTestableChannel } from '../../../../shared/journal';
 import { liveConfirmationPhrase, type LiveLimits } from '../../../../shared/live';
 import { ChecklistRow } from './ChecklistRow';
+import { ShortReadiness, shortLimitsBlockReason } from './ShortReadiness';
 import { LimitsForm } from './LimitsForm';
 import { LiveDeactivationButton } from './LiveDeactivationButton';
 import { LiveActivationDialog } from './LiveActivationDialog';
@@ -23,6 +24,7 @@ export function ChecklistPage({
 }: ChecklistPageProps = {}) {
   const state = useLiveChecklist();
   const id = useId();
+  const error = state.loadError || state.error;
   const [channel, setChannel] = useState<DeliveryTestableChannel>('telegram');
   const [dirty, setDirty] = useState(false);
   const [dialog, setDialog] = useState<LiveLimits | null>(null);
@@ -30,13 +32,31 @@ export function ChecklistPage({
   const status = useRef<HTMLParagraphElement>(null);
   const activateButton = useRef<HTMLButtonElement>(null);
   const disabled = state.loading || state.busy || state.offline;
+  const shortBlockReason =
+    shortLimitsBlockReason(
+      state.snapshot?.checklist,
+      state.loading,
+      state.loadError,
+      state.offline,
+    ) ??
+    (state.shortSaveError
+      ? 'El corto real permanece bloqueado. Revisa sus requisitos o pon sus límites a 0.'
+      : undefined);
+  const shortBlocked = !!shortBlockReason;
+  const savedShort =
+    !!state.limits &&
+    (state.limits.shortOrderUsd > 0 ||
+      state.limits.shortExposureUsd > 0 ||
+      state.limits.shortPositions > 0);
   const reasons = [
     ...new Set([
       ...checklistReasons(state.snapshot),
       ...state.rejection,
       ...(state.loading ? ['Comprobando requisitos en el proceso principal…'] : []),
       ...(state.offline ? ['Sin conexión · no se puede activar dinero real.'] : []),
-      ...(state.error ? [state.error] : []),
+      ...(error ? [error] : []),
+      ...(state.saveError ? [state.saveError] : []),
+      ...(state.shortSaveError ? [state.shortSaveError] : []),
       ...(!state.limits || dirty
         ? ['Guarda los límites de capital real antes de confirmarlos por escrito.']
         : []),
@@ -51,13 +71,25 @@ export function ChecklistPage({
       !state.busy &&
       (state.loading ||
         state.offline ||
-        state.error ||
+        error ||
+        state.saveError ||
+        state.shortSaveError ||
         checklistReasons(state.snapshot).length > 0 ||
         !state.limits ||
         (dialog && liveConfirmationPhrase(dialog) !== liveConfirmationPhrase(state.limits)))
     )
       setDialog(null);
-  }, [state.busy, state.loading, state.offline, state.error, state.limits, state.snapshot, dialog]);
+  }, [
+    state.busy,
+    state.loading,
+    state.offline,
+    error,
+    state.saveError,
+    state.shortSaveError,
+    state.limits,
+    state.snapshot,
+    dialog,
+  ]);
   return (
     <div className="live-checklist-page" aria-busy={state.loading || state.busy}>
       <style>{liveTokens()}</style>
@@ -109,9 +141,14 @@ export function ChecklistPage({
           {state.snapshot.state.suspension.detail}
         </p>
       )}
-      {state.error && (
+      {error && (
         <p className="live-warning" role="alert">
-          {state.error}
+          {error}
+        </p>
+      )}
+      {state.saveError && (
+        <p className="live-warning" role="alert">
+          {state.saveError}
         </p>
       )}
       {state.offline && (
@@ -189,12 +226,24 @@ export function ChecklistPage({
           </ul>
         </section>
       )}
+      <ShortReadiness
+        checklist={state.snapshot?.checklist}
+        loading={state.loading}
+        disabled={disabled || !!error || !state.snapshot}
+        blocked={shortBlocked}
+        savedShort={savedShort}
+        onDeclare={state.declare}
+        onReload={() => void state.reload()}
+      />
       <div className="live-bottom-grid">
         <div>
           <LimitsForm
             key={state.limits ? liveConfirmationPhrase(state.limits) : 'unsaved'}
             saved={state.limits}
-            disabled={disabled || !state.snapshot || active}
+            disabled={disabled || !!error || !state.snapshot || active}
+            shortBlocked={shortBlocked}
+            shortBlockReason={shortBlockReason}
+            shortSaveError={state.shortSaveError}
             onSave={state.save}
             onDirty={setDirty}
             confirmed={active}

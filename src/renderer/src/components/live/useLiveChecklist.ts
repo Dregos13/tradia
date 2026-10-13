@@ -26,6 +26,15 @@ export function checklistReasons(snapshot: Snapshot | null) {
     reasons.push('El proceso principal aún no confirma todos los requisitos.');
   if (!snapshot.state.hasCredentials || !snapshot.state.accountMasked)
     reasons.push('Conecta y verifica las claves live del broker.');
+  const limits = snapshot.checklist.limits.limits;
+  if (
+    limits &&
+    (limits.shortOrderUsd > 0 || limits.shortExposureUsd > 0 || limits.shortPositions > 0) &&
+    !snapshot.checklist.short?.allComplete
+  )
+    reasons.push(
+      snapshot.checklist.short?.blockReason ?? 'Los requisitos del corto aún no se han verificado.',
+    );
   if (snapshot.stopActive)
     reasons.push('La parada de emergencia está activa. Revisa Riesgo antes de continuar.');
   if (snapshot.state.mode === 'activo') reasons.push('Dinero real ya está activo.');
@@ -39,6 +48,9 @@ export function useLiveChecklist() {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [shortSaveError, setShortSaveError] = useState('');
   const [notice, setNotice] = useState('');
   const [rejection, setRejection] = useState<string[]>([]);
   const mounted = useRef(false);
@@ -67,12 +79,13 @@ export function useLiveChecklist() {
         next = { checklist, state, stopActive: stop.active };
       } while (pendingRead.current && mounted.current && id === generation.current);
       setSnapshot(next);
+      setLoadError('');
       // The checklist also persists unconfirmed limits, unlike live:state.
       setLimits(next.checklist.limits.limits ?? next.state.limits);
       return disconnected.current ? null : next;
     } catch {
       if (mounted.current && id === generation.current)
-        setError('No se pudo verificar la lista. Dinero real permanece bloqueado.');
+        setLoadError('No se pudo verificar la lista. Dinero real permanece bloqueado.');
       return null;
     } finally {
       if (mounted.current && id === generation.current) setLoading(false);
@@ -83,7 +96,12 @@ export function useLiveChecklist() {
     setError('');
     setRejection([]);
     setNotice('');
-    return read();
+    const next = await read();
+    if (next) {
+      setSaveError('');
+      setShortSaveError('');
+    }
+    return next;
   }, [read]);
   const reconnect = async () => {
     if (working.current) return;
@@ -97,7 +115,7 @@ export function useLiveChecklist() {
       if (mounted.current) setError('No se pudo comprobar la conexión. Reintenta conexión.');
     }
   };
-  const run = async (action: () => Promise<void>, fallback: string) => {
+  const run = async (action: () => Promise<void>, fallback: string, saving = false) => {
     if (working.current || disconnected.current) return false;
     working.current = true;
     generation.current++;
@@ -105,11 +123,22 @@ export function useLiveChecklist() {
     setError('');
     setNotice('');
     setRejection([]);
+    if (saving) {
+      setSaveError('');
+      setShortSaveError('');
+    }
     try {
       await action();
       return mounted.current && !disconnected.current;
-    } catch {
-      if (mounted.current) setError(fallback);
+    } catch (cause) {
+      if (mounted.current) {
+        const message = cause instanceof Error ? cause.message : '';
+        const shortCode = '[corto-requisitos]';
+        if (saving && message.includes(shortCode))
+          setShortSaveError(message.slice(message.indexOf(shortCode) + shortCode.length).trim());
+        else if (saving) setSaveError(fallback);
+        else setError(fallback);
+      }
       return false;
     } finally {
       if (pendingRead.current && mounted.current) await read();
@@ -127,13 +156,22 @@ export function useLiveChecklist() {
         setNotice(request.confirmed ? 'Declaración guardada con fecha.' : 'Declaración retirada.');
     }, 'No se pudo guardar la declaración. Reintenta y verifica su estado.');
   const save = (input: LiveLimits) =>
-    run(async () => {
-      const saved = await window.tradia.live.setLimits(input);
-      if (!saved.limits) throw new Error('Sin límites guardados');
-      if (!mounted.current) return;
-      setLimits(saved.limits);
-      if (await read()) setNotice('Límites guardados · todavía debes confirmarlos por escrito.');
-    }, 'No se pudieron guardar los límites. Dinero real permanece bloqueado.');
+    run(
+      async () => {
+        const saved = await window.tradia.live.setLimits(input);
+        if (!saved.limits) throw new Error('Sin límites guardados');
+        if (!mounted.current) return;
+        setLimits(saved.limits);
+        if (await read())
+          setNotice(
+            input.shortOrderUsd > 0 || input.shortExposureUsd > 0 || input.shortPositions > 0
+              ? 'Límites del corto guardados · todavía debes confirmar la nueva frase por escrito.'
+              : 'Límites guardados · todavía debes confirmarlos por escrito.',
+          );
+      },
+      'No se pudieron guardar los límites. Dinero real permanece bloqueado.',
+      true,
+    );
   const testStop = () =>
     run(async () => {
       const result = await window.tradia.live.testKillSwitch();
@@ -222,6 +260,9 @@ export function useLiveChecklist() {
     busy,
     offline,
     error,
+    loadError,
+    saveError,
+    shortSaveError,
     notice,
     rejection,
     reload,

@@ -31,12 +31,15 @@ import {
   type RiskOverview,
 } from '../../shared/ipc';
 import {
+  LIVE_ALL_DECLARATION_REQUIREMENTS,
   LIVE_AUTOMATIC_REQUIREMENTS,
-  LIVE_DECLARATION_REQUIREMENTS,
   LIVE_DECLARATION_TEXTS,
   LIVE_FIXED_CAPS,
   LIVE_REQUIREMENT_TITLES,
   LIVE_REQUIREMENTS,
+  LIVE_SHORT_AUTOMATIC_REQUIREMENTS,
+  LIVE_SHORT_ERROR_CODE,
+  LIVE_SHORT_REQUIREMENTS,
   liveConfirmationPhrase,
   livePhraseMatches,
   type LiveActivateRequest,
@@ -53,6 +56,7 @@ import {
   type LiveRequirement,
   type LiveRequirementState,
   type LiveSeedProgressRequest,
+  type LiveShortChecklist,
   type LiveSmokeTestResult,
   type LiveState,
   type LiveSuspensionReason,
@@ -63,13 +67,19 @@ import {
   evaluateFinalTest,
   evaluateKillSwitchTest,
   evaluatePaperProgress,
+  evaluatePaperShorts,
+  evaluateShortAccount,
   formatLiveDate,
   pendingRequirementsOf,
+  paperShortStatsFromOrders,
   paperStatsFromOrders,
+  shortAccountBlockReason,
   type AlertTestEvidence,
   type FinalTestCoverage,
   type PaperProgressStats,
+  type PaperShortStats,
   type RequirementVerdict,
+  type ShortAccountReading,
 } from './checklist';
 import type { BrokerOrder } from '../../shared/ipc';
 import type { StrategyExpectation } from '../broker/deviation';
@@ -78,7 +88,11 @@ import type { StrategyExpectation } from '../broker/deviation';
 // Errores
 // ---------------------------------------------------------------------------
 
-export const LIVE_SERVICE_ERROR_CODES = ['limites-fuera-techo', 'declaracion-invalida'] as const;
+export const LIVE_SERVICE_ERROR_CODES = [
+  'limites-fuera-techo',
+  'declaracion-invalida',
+  'corto-requisitos',
+] as const;
 export type LiveServiceErrorCode = (typeof LIVE_SERVICE_ERROR_CODES)[number];
 
 export class LiveServiceError extends Error {
@@ -178,6 +192,20 @@ export interface LiveStore {
   hasFinalTest(strategyId: number, version: number): boolean;
   /** Última reanudación de la parada (prueba de que activa y suelta). */
   latestKillSwitchResumeAt(): string | null;
+  /**
+   * Descuadres aún abiertos de la conciliación de la cuenta paper
+   * (`reconcile_discrepancies` unidas a `reconcile_runs` con
+   * `cuenta = 'paper'`). Es la evidencia de 'paper-cortos': la
+   * conciliación debe cuadrar —ninguna abierta— para habilitar el corto
+   * con dinero real.
+   */
+  listOpenPaperDiscrepancies(): {
+    id: number;
+    type: string;
+    ticker: string | null;
+    detail: string;
+    createdAt: string;
+  }[];
 }
 
 export function createLiveStore(db: Database.Database): LiveStore {
@@ -249,6 +277,14 @@ export function createLiveStore(db: Database.Database): LiveStore {
   const resumeStmt = db.prepare(
     `SELECT creado_en FROM kill_switch_events
      WHERE accion = 'reanudada' ORDER BY id DESC LIMIT 1`,
+  );
+  const openPaperDiscrepanciesStmt = db.prepare(
+    `SELECT d.id, d.tipo AS type, d.ticker, d.detalle AS detail,
+       d.creada_en AS createdAt
+     FROM reconcile_discrepancies d
+     JOIN reconcile_runs r ON r.id = d.run_id
+     WHERE d.estado = 'abierta' AND r.cuenta = 'paper'
+     ORDER BY d.id`,
   );
 
   return {
@@ -328,6 +364,15 @@ export function createLiveStore(db: Database.Database): LiveStore {
       const row = resumeStmt.get() as { creado_en: string } | undefined;
       return row?.creado_en ?? null;
     },
+
+    listOpenPaperDiscrepancies: () =>
+      openPaperDiscrepanciesStmt.all() as {
+        id: number;
+        type: string;
+        ticker: string | null;
+        detail: string;
+        createdAt: string;
+      }[],
   };
 }
 
@@ -348,6 +393,10 @@ export interface LiveEvidenceRecord {
   paperTrades?: number;
   /** Semilla: desviación frente al backtest en %. */
   deviationPct?: number;
+  /** Semilla: cortos cerrados en paper a simular ('paper-cortos'). */
+  paperShortTrades?: number;
+  /** Semilla: semanas entre el primer y el último corto en paper. */
+  paperShortWeeks?: number;
   /** Semilla: la prueba final consta ejecutada (ISO 8601). */
   finalTestDoneAt?: string;
   /** Sello: última prueba de parada correcta (acción o semilla). */
@@ -450,6 +499,16 @@ export interface LiveServiceDeps {
   alertTest?(): AlertTestEvidence | null;
   /** Parada de emergencia real (la acción «Probar parada» la ejerce). */
   killSwitch?: LiveKillSwitchLike;
+  /**
+   * Último retrato de la cuenta live (lo mantiene `live/broker.ts` con
+   * timeout y caché corta; null sin cuenta conectada o sin lectura).
+   * Es la lectura del control de cuenta del corto
+   * (`checklist.short.account`): llamarla puede relanzar una relectura
+   * en segundo plano cuando la caché está vieja, pero nunca espera a la
+   * red — la evaluación trabaja con el último dato conocido y, sin él,
+   * la cuenta queda 'revisar' (nunca se asume permiso).
+   */
+  shortAccount?(): ShortAccountReading | null;
   /** Claves live guardadas en su ranura (secrets.hasKey). */
   hasLiveCredentials?(): boolean | Promise<boolean>;
   /** Cuenta live enmascarada para la franja (la anota be-broker-real). */
@@ -501,8 +560,11 @@ const SUSPENSION_LABELS: Record<LiveSuspensionReason, string> = {
   'requisito-vencido': 'Un requisito de la lista dejó de cumplirse',
 };
 
-const AUTOMATIC_SET = new Set<string>(LIVE_AUTOMATIC_REQUIREMENTS);
-const DECLARATION_SET = new Set<string>(LIVE_DECLARATION_REQUIREMENTS);
+const AUTOMATIC_SET = new Set<string>([
+  ...LIVE_AUTOMATIC_REQUIREMENTS,
+  ...LIVE_SHORT_AUTOMATIC_REQUIREMENTS,
+]);
+const DECLARATION_SET = new Set<string>(LIVE_ALL_DECLARATION_REQUIREMENTS);
 
 const fmtUsd = (value: number): string =>
   `${Number.isInteger(value) ? String(value) : value.toFixed(2)} USD`;
@@ -542,6 +604,10 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     states: Map<LiveRequirement, LiveRequirementState>;
     pending: LiveRequirement[];
     reasons: string[];
+    /** Requisitos del corto aún pendientes (vacío si el corto está listo). */
+    shortPending: LiveRequirement[];
+    /** Motivos legibles de lo que falta para el corto. */
+    shortReasons: string[];
   }
 
   const evaluateAutomatic = (): Map<LiveRequirement, RequirementVerdict> => {
@@ -567,8 +633,9 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     );
 
     // 2. Paper continuo: órdenes reales + expectativa del backtest.
+    const executedOrders = deps.listExecutedOrders?.() ?? [];
     const computed: PaperProgressStats = paperStatsFromOrders(
-      deps.listExecutedOrders?.() ?? [],
+      executedOrders,
       deps.expectationFor ?? (() => ({ perTradeReturnPct: null })),
     );
     const stats: PaperProgressStats = {
@@ -577,6 +644,23 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       deviationPct: evidence.deviationPct ?? computed.deviationPct,
     };
     verdicts.set('paper-continuo', evaluatePaperProgress(stats));
+
+    // 2b. Cortos en paper ('paper-cortos'): sobre las mismas órdenes
+    // paper ejecutadas — un corto es la operación cerrada cuya entrada
+    // es una venta — más la conciliación de paper, que debe cuadrar sin
+    // ningún descuadre abierto. La semilla solo vale en E2E, igual que
+    // el resto de la evidencia sembrada; los descuadres se leen siempre
+    // de la base (una semilla no puede «cuadrar» la conciliación).
+    const computedShorts = paperShortStatsFromOrders(executedOrders);
+    const shortStats: PaperShortStats = {
+      closedShorts: evidence.paperShortTrades ?? computedShorts.closedShorts,
+      spanDays:
+        evidence.paperShortWeeks !== undefined
+          ? evidence.paperShortWeeks * 7
+          : computedShorts.spanDays,
+      openDiscrepancies: deps.store.listOpenPaperDiscrepancies().length,
+    };
+    verdicts.set('paper-cortos', evaluatePaperShorts(shortStats));
 
     // 3. Parada probada: sello propio o cualquier reanudación real.
     const resumeAt = deps.store.latestKillSwitchResumeAt();
@@ -621,7 +705,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       });
     }
 
-    const items: LiveChecklistItem[] = LIVE_REQUIREMENTS.map((requirement) => {
+    const buildItem = (requirement: LiveRequirement): LiveChecklistItem => {
       const row = deps.store.getChecklistRow(requirement);
       const isDeclaration = DECLARATION_SET.has(requirement);
       const declared = isDeclaration && row?.declaracion !== null && row?.declaracion !== undefined;
@@ -648,21 +732,47 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
         declarationDetail: row?.detalle_declaracion ?? null,
         markedAt: row?.marcado_en ?? null,
       };
-    });
+    };
+
+    const items: LiveChecklistItem[] = LIVE_REQUIREMENTS.map(buildItem);
+    const shortItems: LiveChecklistItem[] = LIVE_SHORT_REQUIREMENTS.map(buildItem);
 
     const states = new Map<LiveRequirement, LiveRequirementState>(
-      items.map((item) => [item.requirement, item.state]),
+      [...items, ...shortItems].map((item) => [item.requirement, item.state]),
     );
     const pending = pendingRequirementsOf(LIVE_REQUIREMENTS, states);
-    const reasons: string[] = [];
-    for (const requirement of pending) {
-      const verdict = verdicts.get(requirement);
-      if (verdict !== undefined && verdict.reasons.length > 0) {
-        reasons.push(...verdict.reasons);
-      } else {
-        reasons.push(declarationPendingReason(LIVE_REQUIREMENT_TITLES[requirement]));
+    const reasonsOf = (list: readonly LiveRequirement[]): string[] => {
+      const result: string[] = [];
+      for (const requirement of list) {
+        const verdict = verdicts.get(requirement);
+        if (verdict !== undefined && verdict.reasons.length > 0) {
+          result.push(...verdict.reasons);
+        } else {
+          result.push(declarationPendingReason(LIVE_REQUIREMENT_TITLES[requirement]));
+        }
       }
-    }
+      return result;
+    };
+    const reasons = reasonsOf(pending);
+    // Los requisitos del corto se evalúan con los mismos veredictos pero
+    // nunca cuentan para la puerta del largo (allComplete sigue siendo
+    // la de los siete). La cuenta live es un control automático aparte
+    // de los items: se evalúa con el último retrato leído del adaptador
+    // (la lectura en red la mantiene el broker real con timeout y caché
+    // corta; aquí nunca se espera a la red).
+    const shortPending = pendingRequirementsOf(LIVE_SHORT_REQUIREMENTS, states);
+    const shortReasons = reasonsOf(shortPending);
+    const account = evaluateShortAccount(deps.shortAccount?.() ?? null);
+    const accountReason = shortAccountBlockReason(account.state);
+    const shortBlockReasons = [...shortReasons, ...(accountReason === null ? [] : [accountReason])];
+    const short: LiveShortChecklist = {
+      items: shortItems,
+      account,
+      completedCount: shortItems.filter((item) => item.state === 'cumplido').length,
+      total: shortItems.length,
+      allComplete: shortPending.length === 0 && account.state === 'cumplido',
+      blockReason: shortBlockReasons.length === 0 ? null : shortBlockReasons.join(' '),
+    };
 
     // Los límites guardados viajan con la lista aunque no estén
     // confirmados: la pantalla recupera el borrador al volver a ella.
@@ -682,6 +792,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       completedCount: items.filter((item) => item.state === 'cumplido').length,
       total: items.length,
       allComplete: pending.length === 0,
+      short,
       limits,
       evaluatedAt,
     };
@@ -713,7 +824,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       }
     }
 
-    return { checklist, states, pending, reasons };
+    return { checklist, states, pending, reasons, shortPending, shortReasons };
   };
 
   // -- Estado del modo real ----------------------------------------------------
@@ -726,6 +837,40 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     } catch {
       return null;
     }
+  };
+
+  /**
+   * Estado de los requisitos del corto leído de `live_checklist` (la
+   * última evaluación ya escribió el veredicto de 'paper-cortos') más la
+   * última lectura de la cuenta live: no reevalúa, así `buildState`
+   * sigue siendo barato y sin efectos.
+   */
+  const shortStatusFromRows = (): LiveState['short'] => {
+    const missing = LIVE_SHORT_REQUIREMENTS.filter((requirement) => {
+      const row = deps.store.getChecklistRow(requirement);
+      if (DECLARATION_SET.has(requirement)) {
+        return row?.estado !== 'cumplido' || row.declaracion === null;
+      }
+      return row?.estado !== 'cumplido';
+    });
+    const accountReason = shortAccountBlockReason(
+      evaluateShortAccount(deps.shortAccount?.() ?? null).state,
+    );
+    if (missing.length === 0 && accountReason === null) {
+      return { allComplete: true, blockReason: null };
+    }
+    return {
+      allComplete: false,
+      blockReason: [
+        ...(missing.length === 0
+          ? []
+          : [
+              'los requisitos propios del corto siguen pendientes: ' +
+                missing.map((requirement) => LIVE_REQUIREMENT_TITLES[requirement]).join(' · '),
+            ]),
+        ...(accountReason === null ? [] : [accountReason]),
+      ].join(' '),
+    };
   };
 
   const buildState = (hasCredentials: boolean): LiveState => {
@@ -741,6 +886,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       accountMasked: mode.cuenta,
       limits: limits !== null && limits.confirmados === 1 ? limitsOf(limits) : null,
       caps: { ...LIVE_FIXED_CAPS } as LiveFixedCaps,
+      short: shortStatusFromRows(),
       smokeTest: parseSmokeTest(mode.prueba_humo),
       activatedAt: mode.activado_en,
       suspendedAt: mode.suspendido_en,
@@ -849,6 +995,29 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
           'los límites escritos superan los techos fijos de la fase o no son positivos',
         );
       }
+      // El corto lleva además sus requisitos propios: sin ellos ningún
+      // límite del corto mayor que 0 se guarda — la interfaz y cualquier
+      // cliente IPC tropican con la misma puerta. El código va en el
+      // propio mensaje («[corto-requisitos] motivo») porque las
+      // propiedades tipadas no cruzan el IPC de Electron.
+      const shortRequested =
+        limits.shortOrderUsd > 0 || limits.shortExposureUsd > 0 || limits.shortPositions > 0;
+      if (shortRequested) {
+        const shortCheck = evaluate().checklist.short;
+        if (!shortCheck.allComplete) {
+          const message =
+            `[${LIVE_SHORT_ERROR_CODE}] ` +
+            (shortCheck.blockReason ?? 'los requisitos propios del corto no están cumplidos');
+          journal({
+            type: 'limite',
+            result: 'alcanzado',
+            reason: 'Límites del corto rechazados: faltan sus requisitos propios.',
+            errors: [message],
+          });
+          logger.warn(`[live] límites del corto rechazados: ${shortCheck.blockReason}`);
+          throw new LiveServiceError('corto-requisitos', message);
+        }
+      }
       const savedAt = isoNow();
       deps.store.saveLimits(limits, savedAt);
       journal({
@@ -937,9 +1106,10 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       const finish = async (
         activated: boolean,
         reasons: string[],
+        pending = evaluation.pending,
       ): Promise<LiveActivateResult> => ({
         activated,
-        pendingRequirements: activated ? [] : evaluation.pending,
+        pendingRequirements: activated ? [] : pending,
         reasons,
         state: await service.getState(),
       });
@@ -974,6 +1144,30 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
         return finish(false, reasons);
       }
       const written = limitsOf(limits)!;
+      // Confirmar los límites también exige los requisitos del corto
+      // cuando algún límite del corto es mayor que 0: una declaración
+      // retirada o un descuadre nuevo de la conciliación de paper entre
+      // guardar y confirmar deja la confirmación fuera — los valores
+      // escritos se conservan, pero el corto queda bloqueado.
+      const shortWritten =
+        written.shortOrderUsd > 0 || written.shortExposureUsd > 0 || written.shortPositions > 0;
+      if (shortWritten && !evaluation.checklist.short.allComplete) {
+        const reasons = [
+          `[${LIVE_SHORT_ERROR_CODE}] ` +
+            (evaluation.checklist.short.blockReason ??
+              'los requisitos propios del corto no están cumplidos'),
+        ];
+        journal({
+          type: 'limite',
+          result: 'alcanzado',
+          reason:
+            'Activación de dinero real rechazada: los límites del corto no se ' +
+            'pueden confirmar sin sus requisitos propios.',
+          errors: reasons,
+        });
+        logger.warn('[live] activación rechazada: requisitos del corto sin cumplir');
+        return finish(false, reasons, [...evaluation.pending, ...evaluation.shortPending]);
+      }
       if (!livePhraseMatches(request.phrase, written)) {
         const reasons = ['La frase de confirmación no coincide con la generada para tus límites.'];
         journal({
@@ -1154,6 +1348,12 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       }
       if (request.paperTrades !== undefined) patch.paperTrades = request.paperTrades;
       if (request.deviationPct !== undefined) patch.deviationPct = request.deviationPct;
+      if (request.paperShortTrades !== undefined) {
+        patch.paperShortTrades = request.paperShortTrades;
+      }
+      if (request.paperShortWeeks !== undefined) {
+        patch.paperShortWeeks = request.paperShortWeeks;
+      }
       if (request.finalTestDone !== undefined) {
         patch.finalTestDoneAt = request.finalTestDone ? isoNow() : null;
       }
