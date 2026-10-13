@@ -1,7 +1,7 @@
 {
-  "reconnectMs": 51311,
-  "tiingoRequestsBefore": 4,
-  "tiingoRequestsAfter": 8,
+  "reconnectMs": 41288,
+  "tiingoRequestsBefore": 5,
+  "tiingoRequestsAfter": 9,
   "fredRequestsBefore": 6,
   "fredRequestsAfter": 12,
   "lastBars": {

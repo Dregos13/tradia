@@ -18,9 +18,11 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada
+Poniéndose al día…
 
-Datos al día.
+Descargando 6 de 10 activos. Régimen, predicciones y señales esperan a terminar.
 
+Ver detalles
 Primeros pasos
 2 de 3 hechos
 Hecho
@@ -31,7 +33,7 @@ Sin ellas no hay velas ni datos macro reales.
 Revisar
 Prueba la conexión
 
-Tiingo: El proveedor no respondió como se esperaba (HTTP 503).
+Tiingo: faltan datos recientes; último dato: 9 oct 2026
 
 Probar conexión
 Hecho
@@ -44,11 +46,15 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 15:43:22 CEST
+Actualizado 16:52:05 CEST
 
 Conexión y fuentes
 Ver fuentes
-Al día · cierre del 9 oct 2026
+Poniéndose al día…
+
+Descargando 6 de 10 activos. Régimen, predicciones y señales esperan a terminar.
+
+Ver detalles
 
 En línea
 
@@ -64,41 +70,41 @@ Macro · FRED
 Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Noticias · BCE — notas de prensa
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Noticias · BLS — nóminas no agrícolas e IPC
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Noticias · BEA — comunicados (PIB, PCE…)
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Noticias · CNMV — información privilegiada y relevante
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:49 CEST
 
 Disponible
 Contexto macro
 Ver macro
 
-Régimen · Tendencia · Volatilidad baja · Referencia SPY · Fuente precios diarios
+Régimen · En pausa: poniéndose al día · Referencia SPY · Fuente precios diarios
 
 VIXCLS
-✓ Fiable
+◷ Desactualizado
 Volatilidad VIX
 2,26 puntos
 
@@ -109,6 +115,9 @@ Banda baja
 
 Dato diario
 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
 DGS10
 ✓ Fiable
 Treasury · 10 años
@@ -130,7 +139,7 @@ Dato mensual
 Señales vivas
 Ver en Diario
 
-Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+Sin señales nuevas: en pausa hasta poner al día los datos del 8 oct 2026.
 
 Posiciones simuladas
 ◇ Simulación
@@ -147,7 +156,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 12 oct 2026, 15:43 CEST
+Datos de 13 oct 2026, 16:52 CEST
 
 Ver límites de riesgo
 Exposición
@@ -190,6 +199,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 15:43:11
+Última comprobación 16:51:55
 Próximo reintento —
-Último latido 15:43:20
+Último latido 16:51:43

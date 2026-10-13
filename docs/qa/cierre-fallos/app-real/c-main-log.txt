@@ -1,0 +1,52 @@
+[ai/regime] SPY: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] QQQ: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] AAPL: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] MSFT: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] SPY: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[routine] preapertura del 2026-10-13 enviado con retraso (diario #1)
+(node:20981) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `Electron --trace-warnings ...` to show where the warning was created)
+[market] ingesta de SPY falló ([tiingo] fallo de transporte: TypeError: fetch failed)
+[macro] refresco de 'DFF' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[connectivity] conexión perdida; las decisiones quedan en pausa
+[macro] refresco de 'CPIAUCSL' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[market] ingesta de QQQ falló ([tiingo] fallo de transporte: TypeError: fetch failed)
+[backtest] la semilla de 'cross-asset-momentum' falló: [tiingo] fallo de transporte: TypeError: fetch failed
+[macro] refresco de 'DGS2' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[market] ingesta de AAPL falló ([tiingo] fallo de transporte: TypeError: fetch failed)
+[macro] refresco de 'DGS10' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[market] ingesta de MSFT falló ([tiingo] fallo de transporte: TypeError: fetch failed)
+[market] actualización incompleta; reintento 1/4
+[macro] refresco de 'T10Y2Y' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[macro] refresco de 'VIXCLS' falló: network: [fred] fallo de transporte: TypeError: fetch failed
+[ai/prediction] SPY: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] QQQ: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] AAPL: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] MSFT: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[risk] parada de emergencia activada (sin-conexion: sin conexión durante más de 60 s)
+[connectivity] conexión recuperada; las decisiones se reanudan
+[market] se pide una puesta al día inmediata
+[news] conexión recuperada; pasada inmediata del lector
+[ai/regime] SPY: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] SPY: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[market] SPY: lote v2 con 1270 velas hasta 2026-10-09
+[ai/prediction] SPY: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/regime] QQQ: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[market] QQQ: lote v2 con 1270 velas hasta 2026-10-09
+[ai/prediction] QQQ: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/regime] AAPL: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[market] AAPL: lote v2 con 1270 velas hasta 2026-10-09
+[ai/prediction] AAPL: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/regime] MSFT: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[market] MSFT: lote v2 con 1270 velas hasta 2026-10-09
+[ai/prediction] MSFT: última vela 2026-10-09 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[risk] parada por pérdida de conexión levantada: la conexión volvió
+[news] conexión recuperada; pasada inmediata del lector
+[scheduler] latido 2026-10-13T14:51:43.869Z
+[news] conexión recuperada; pasada inmediata del lector
+[macro] refresco de 'DFF' falló: network: [fred] error del servidor (HTTP 503): {}
+[macro] refresco de 'CPIAUCSL' falló: network: [fred] error del servidor (HTTP 503): {}
+[macro] refresco de 'DGS2' falló: network: [fred] error del servidor (HTTP 503): {}
+[macro] refresco de 'DGS10' falló: network: [fred] error del servidor (HTTP 503): {}
+[macro] refresco de 'T10Y2Y' falló: network: [fred] error del servidor (HTTP 503): {}
+[macro] refresco de 'VIXCLS' falló: network: [fred] error del servidor (HTTP 503): {}

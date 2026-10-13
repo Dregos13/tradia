@@ -2,6 +2,8 @@
 
 _Claude · Predeterminado (Testing) · 12-10-2026 · rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `ca851496` (incluye be-motivo-regimen-fechas, fe-fechas-desactualizado-unicas y be-motivos-frescura-sin-iso)_
 
+_Revisado a fondo por Devin · SWE (Testing) el 13-10-2026 sobre `4c20d652`: la entrega cuadra — las 23 filas llevan estado y regresión, y la batería repetida dio `typecheck`/`lint`/`format:check` en verde, `npm test` ×3 con 2.510/2.510, `test:e2e` 47/47, `live-gate --repeat-each=5` 10/10, la pasada de regresiones 406/406 y la app real 3/3 (evidencia regenerada en `cierre-fallos/app-real/`). Precisión menor: el grep de §1 usa `\.skip\(` y no alcanza los dos `skipIf(ON_WINDOWS)` de `src/main/ai/news/claudeCli.test.ts` (patrón completo del plan: `skipIf|runIf`); corren en macOS y ya están eliminados en `main` (`cdf232f5`, `b129271a`), como recoge la re-verificación del final._
+
 ## Veredicto
 
 - **22 de los 23 fallos están cerrados.** Cada uno tiene su prueba de regresión, ejecutada en verde sobre la rama conjunta.

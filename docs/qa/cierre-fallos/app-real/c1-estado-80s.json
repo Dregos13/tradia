@@ -1,59 +1,59 @@
 {
-  "now": "2026-10-12T13:41:50.976Z",
+  "now": "2026-10-13T14:50:44.213Z",
   "connectivity": {
     "status": "offline",
-    "lastCheckedAt": "2026-10-12T13:41:25.283Z",
-    "nextRetryAt": "2026-10-12T13:42:41.916Z",
+    "lastCheckedAt": "2026-10-13T14:50:24.612Z",
+    "nextRetryAt": "2026-10-13T14:51:25.207Z",
     "attempt": 6
   },
   "dataStatus": [
     {
       "key": "macro:CPIAUCSL",
       "state": "fiable",
-      "lastOkAt": "2026-10-12T13:40:21.108Z",
+      "lastOkAt": "2026-10-13T14:49:14.159Z",
       "consecutiveFailures": 0,
       "reason": null,
-      "updatedAt": "2026-10-12T13:40:21.108Z"
+      "updatedAt": "2026-10-13T14:49:14.159Z"
     },
     {
       "key": "macro:DFF",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.362Z",
+      "lastOkAt": "2026-09-19T10:00:01.590Z",
       "consecutiveFailures": 1,
       "reason": "falta la observación esperada; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.089Z"
+      "updatedAt": "2026-10-13T14:49:14.127Z"
     },
     {
       "key": "macro:DGS10",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.404Z",
+      "lastOkAt": "2026-09-19T10:00:01.644Z",
       "consecutiveFailures": 1,
       "reason": "falta la observación esperada; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.196Z"
+      "updatedAt": "2026-10-13T14:49:14.286Z"
     },
     {
       "key": "macro:DGS2",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.390Z",
+      "lastOkAt": "2026-09-19T10:00:01.627Z",
       "consecutiveFailures": 1,
       "reason": "falta la observación esperada; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.142Z"
+      "updatedAt": "2026-10-13T14:49:14.202Z"
     },
     {
       "key": "macro:T10Y2Y",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.421Z",
+      "lastOkAt": "2026-09-19T10:00:01.663Z",
       "consecutiveFailures": 1,
       "reason": "falta la observación esperada; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.220Z"
+      "updatedAt": "2026-10-13T14:49:14.321Z"
     },
     {
       "key": "macro:VIXCLS",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.437Z",
+      "lastOkAt": "2026-09-19T10:00:01.687Z",
       "consecutiveFailures": 1,
       "reason": "falta la observación esperada; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.289Z"
+      "updatedAt": "2026-10-13T14:49:14.416Z"
     },
     {
       "key": "modelo:0.1.0",
@@ -61,55 +61,55 @@
       "lastOkAt": null,
       "consecutiveFailures": 0,
       "reason": "Datos sintéticos · no apto",
-      "updatedAt": "2026-10-12T13:40:21.336Z"
+      "updatedAt": "2026-10-13T14:49:14.473Z"
     },
     {
       "key": "provider:fred",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.438Z",
+      "lastOkAt": "2026-09-19T10:00:01.689Z",
       "consecutiveFailures": 1,
       "reason": "faltan datos recientes; último dato: 17 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.293Z"
+      "updatedAt": "2026-10-13T14:49:14.420Z"
     },
     {
       "key": "provider:tiingo",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.245Z",
+      "lastOkAt": "2026-09-19T10:00:01.434Z",
       "consecutiveFailures": 1,
       "reason": "faltan datos recientes; último dato: 18 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.081Z"
+      "updatedAt": "2026-10-13T14:49:14.118Z"
     },
     {
       "key": "ticker:AAPL",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:02.016Z",
+      "lastOkAt": "2026-09-19T10:00:02.295Z",
       "consecutiveFailures": 1,
-      "reason": "falta la vela del 21 sept 2026 (+14 más); último dato: 18 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.130Z"
+      "reason": "falta la vela del 21 sept 2026 (+15 más); último dato: 18 sept 2026",
+      "updatedAt": "2026-10-13T14:49:14.253Z"
     },
     {
       "key": "ticker:MSFT",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:02.250Z",
+      "lastOkAt": "2026-09-19T10:00:02.548Z",
       "consecutiveFailures": 1,
-      "reason": "falta la vela del 21 sept 2026 (+14 más); último dato: 18 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.204Z"
+      "reason": "falta la vela del 21 sept 2026 (+15 más); último dato: 18 sept 2026",
+      "updatedAt": "2026-10-13T14:49:14.306Z"
     },
     {
       "key": "ticker:QQQ",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.831Z",
+      "lastOkAt": "2026-09-19T10:00:02.111Z",
       "consecutiveFailures": 1,
-      "reason": "falta la vela del 21 sept 2026 (+14 más); último dato: 18 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.115Z"
+      "reason": "falta la vela del 21 sept 2026 (+15 más); último dato: 18 sept 2026",
+      "updatedAt": "2026-10-13T14:49:14.172Z"
     },
     {
       "key": "ticker:SPY",
       "state": "desactualizado",
-      "lastOkAt": "2026-09-19T10:00:01.499Z",
+      "lastOkAt": "2026-09-19T10:00:01.752Z",
       "consecutiveFailures": 1,
-      "reason": "falta la vela del 21 sept 2026 (+14 más); último dato: 18 sept 2026",
-      "updatedAt": "2026-10-12T13:40:21.079Z"
+      "reason": "falta la vela del 21 sept 2026 (+15 más); último dato: 18 sept 2026",
+      "updatedAt": "2026-10-13T14:49:14.115Z"
     }
   ],
   "lastBars": {
@@ -151,7 +151,7 @@
         "direction": "tendencia",
         "sessionDate": "2026-09-15"
       },
-      "computedAt": "2026-09-19T10:00:01.702Z"
+      "computedAt": "2026-09-19T10:00:01.969Z"
     },
     "assets": [
       {
@@ -170,7 +170,7 @@
           "direction": "tendencia",
           "sessionDate": "2026-09-15"
         },
-        "computedAt": "2026-09-19T10:00:01.601Z"
+        "computedAt": "2026-09-19T10:00:01.862Z"
       },
       {
         "scope": "activo",
@@ -188,7 +188,7 @@
           "direction": "lateral",
           "sessionDate": "2026-02-18"
         },
-        "computedAt": "2026-09-19T10:00:01.941Z"
+        "computedAt": "2026-09-19T10:00:02.228Z"
       },
       {
         "scope": "activo",
@@ -206,7 +206,7 @@
           "direction": "lateral",
           "sessionDate": "2026-08-04"
         },
-        "computedAt": "2026-09-19T10:00:02.128Z"
+        "computedAt": "2026-09-19T10:00:02.416Z"
       },
       {
         "scope": "activo",
@@ -224,7 +224,7 @@
           "direction": "lateral",
           "sessionDate": "2026-01-28"
         },
-        "computedAt": "2026-09-19T10:00:02.359Z"
+        "computedAt": "2026-09-19T10:00:02.666Z"
       }
     ],
     "strategies": [
@@ -238,7 +238,7 @@
         ],
         "failsIn": [],
         "regimeState": "desactualizada",
-        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 9 oct 2026: no habilita ni desactiva hasta ponerse al día."
+        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 12 oct 2026: no habilita ni desactiva hasta ponerse al día."
       },
       {
         "strategyId": 2,
@@ -252,7 +252,7 @@
           "tendencia"
         ],
         "regimeState": "desactualizada",
-        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 9 oct 2026: no habilita ni desactiva hasta ponerse al día."
+        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 12 oct 2026: no habilita ni desactiva hasta ponerse al día."
       },
       {
         "strategyId": 3,
@@ -264,7 +264,7 @@
         ],
         "failsIn": [],
         "regimeState": "desactualizada",
-        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 9 oct 2026: no habilita ni desactiva hasta ponerse al día."
+        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 12 oct 2026: no habilita ni desactiva hasta ponerse al día."
       },
       {
         "strategyId": 4,
@@ -276,11 +276,11 @@
         ],
         "failsIn": [],
         "regimeState": "desactualizada",
-        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 9 oct 2026: no habilita ni desactiva hasta ponerse al día."
+        "reason": "Régimen calculado con el cierre del 18 sept 2026; se esperaba la sesión del 12 oct 2026: no habilita ni desactiva hasta ponerse al día."
       }
     ],
-    "computedAt": "2026-09-19T10:00:02.359Z",
-    "expectedSessionDate": "2026-10-09",
+    "computedAt": "2026-09-19T10:00:02.666Z",
+    "expectedSessionDate": "2026-10-12",
     "stale": true
   },
   "predictions": [
@@ -295,7 +295,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.471Z",
+      "createdAt": "2026-10-13T14:48:18.016Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -311,7 +311,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.402Z",
+      "createdAt": "2026-10-13T14:48:17.933Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -327,7 +327,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.143Z",
+      "createdAt": "2026-10-13T14:48:17.652Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -343,7 +343,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:25.723Z",
+      "createdAt": "2026-10-13T14:48:17.214Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -359,7 +359,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.471Z",
+      "createdAt": "2026-10-13T14:48:18.016Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -375,7 +375,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.402Z",
+      "createdAt": "2026-10-13T14:48:17.933Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -391,7 +391,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.143Z",
+      "createdAt": "2026-10-13T14:48:17.652Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -407,7 +407,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:25.723Z",
+      "createdAt": "2026-10-13T14:48:17.214Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -423,7 +423,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.471Z",
+      "createdAt": "2026-10-13T14:48:18.016Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -439,7 +439,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.402Z",
+      "createdAt": "2026-10-13T14:48:17.933Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -455,7 +455,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.143Z",
+      "createdAt": "2026-10-13T14:48:17.652Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -471,7 +471,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:25.723Z",
+      "createdAt": "2026-10-13T14:48:17.214Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -487,7 +487,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.471Z",
+      "createdAt": "2026-10-13T14:48:18.016Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -503,7 +503,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.402Z",
+      "createdAt": "2026-10-13T14:48:17.933Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -519,7 +519,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.143Z",
+      "createdAt": "2026-10-13T14:48:17.652Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -535,7 +535,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:25.723Z",
+      "createdAt": "2026-10-13T14:48:17.214Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -551,7 +551,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.471Z",
+      "createdAt": "2026-10-13T14:48:18.016Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -567,7 +567,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.402Z",
+      "createdAt": "2026-10-13T14:48:17.933Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -583,7 +583,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:26.143Z",
+      "createdAt": "2026-10-13T14:48:17.652Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -599,7 +599,7 @@
       "modelVersion": "0.1.0",
       "modelHash": "0cfda4e5424f789beed05e834dbe34ce4684088a6672cdf99c05e99d7ac906b6",
       "modelCardId": 1,
-      "createdAt": "2026-10-12T13:39:25.723Z",
+      "createdAt": "2026-10-13T14:48:17.214Z",
       "resolvedSession": null,
       "outcomeUp": null,
       "realizedBrier": null
@@ -623,101 +623,101 @@
               "name": "ret_1",
               "psi": 1.531,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "ret_5",
               "psi": 0.6011,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "ret_10",
               "psi": 1.5129,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "ret_21",
               "psi": 2.165,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "sma_ratio_10",
               "psi": 0.9849,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "sma_ratio_20",
               "psi": 1.9139,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "sma_ratio_50",
               "psi": 3.7437,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "ema_ratio_12_26",
               "psi": 4.8491,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "rsi_14",
               "psi": 2.6325,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "atr_14_pct",
               "psi": 3.727,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "vol_5",
               "psi": 5.3947,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "vol_20",
               "psi": 6.5221,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "range_pct",
               "psi": 3.5979,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "close_pos",
               "psi": 4.759,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "gap_pct",
               "psi": 8.2805,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             },
             {
               "name": "vol_rel_20",
               "psi": 0.5975,
               "overThreshold": true,
-              "overThresholdSince": "2026-09-19T10:00:12.501Z"
+              "overThresholdSince": "2026-09-19T10:00:12.844Z"
             }
           ],
           "driftedFeatures": 16,
-          "driftSince": "2026-09-19T10:00:12.501Z"
+          "driftSince": "2026-09-19T10:00:12.844Z"
         },
         "resultsDrift": {
           "drifted": true,
@@ -725,12 +725,12 @@
           "rollingBrier": 0.4102,
           "cardBrier": 0.1966856234489903,
           "delta": 0.2135,
-          "driftSince": "2026-10-12T13:40:20.972Z",
+          "driftSince": "2026-10-13T14:49:13.982Z",
           "missingReason": null
         },
         "strategyEval": null,
         "reason": "Drift de datos en vigilancia: 1 de 20 sesiones.",
-        "lastReviewedAt": "2026-10-12T13:40:20.972Z"
+        "lastReviewedAt": "2026-10-13T14:49:13.982Z"
       },
       {
         "subject": "estrategia",
@@ -795,11 +795,11 @@
         "resultsDrift": null,
         "strategyEval": {
           "trades": 0,
-          "deviationPct": 0,
+          "deviationPct": null,
           "consecutiveReviews": 0,
           "losingStreak": 0,
-          "maxLosingStreakBacktest": 7,
-          "missingReason": null
+          "maxLosingStreakBacktest": null,
+          "missingReason": "Sin backtest de referencia: no hay expectativa con la que comparar la desviación."
         },
         "reason": "Sin revisiones todavía.",
         "lastReviewedAt": null
@@ -812,7 +812,7 @@
       "insuficiente": 4
     },
     "proposals": [],
-    "evaluatedAt": "2026-10-12T13:40:20.972Z"
+    "evaluatedAt": "2026-10-13T14:49:13.982Z"
   },
   "signals": [],
   "signalStrategies": [
