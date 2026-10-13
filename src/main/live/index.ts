@@ -43,6 +43,7 @@ import { expectationFromReport } from '../broker/deviation';
 import type { BrokerSecretsStore } from '../broker/index';
 import { createBrokerRepository } from '../broker/repository';
 import { createAlpacaLiveFakeFetch } from '../broker/__fixtures__/fake-server';
+import accountFixture from '../broker/__fixtures__/account.json';
 import { openDatabase } from '../db/database';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
 import { createMarketRepository } from '../market/repository';
@@ -210,6 +211,10 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
           resume: (request) => ctx.services.killSwitch!.resume(request),
         }
       : undefined,
+    // Retrato de la cuenta live para el control del corto: lo mantiene
+    // el broker real (se crea justo después — la evaluación solo lo
+    // invoca cuando ya existe, igual que la indirección de la parada).
+    shortAccount: () => liveBroker?.shortAccount() ?? null,
     hasLiveCredentials: () => secrets.hasKey(LIVE_BROKER_SECRET_KEYS.apiKeyId),
     recordJournal: (input) => ctx.services.journal?.record(input),
     notify: (payload) => ctx.services.notifications?.notify(payload),
@@ -220,6 +225,15 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
   // La puerta del modo real: la lista completa, evaluada en el proceso
   // principal en cada construcción del adaptador y en cada envío.
   const liveGateOpen = (): boolean => service.getChecklist().allComplete;
+
+  /**
+   * Cuenta que reporta el servidor falso en la próxima conexión E2E
+   * (`live:use-simulated-broker` con `account`): null usa el fixture
+   * grabado, que ya acredita una cuenta lista para el corto. No es un
+   * interruptor de margen: la checklist sigue leyendo `getAccount()`
+   * del adaptador como en producción.
+   */
+  let simulatedLiveAccount: Record<string, unknown> | null = null;
 
   const liveBroker = createLiveBrokerService({
     live: service,
@@ -235,7 +249,9 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
     // Solo E2E y sin empaquetar: el adaptador live contra el servidor
     // falso de __fixtures__ (misma API, mismo contrato, sin red). La
     // cuenta falsa arranca sin posiciones para que la prueba de humo
-    // (compra + cierre) quede plana y concilie sin descuadres. Ejecuta
+    // (compra + cierre) quede plana y concilie sin descuadres, y con la
+    // forma que pida `live:use-simulated-broker` (por defecto la del
+    // fixture: margen, corto y capital listos). Ejecuta
     // al último cierre ingerido, como haría un broker real al contado:
     // así el slippage frente a la referencia es el honesto (≈ 0).
     createSimulatedAdapter: e2eEnabled
@@ -244,6 +260,13 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
             fetch: createAlpacaLiveFakeFetch({
               positions: [],
               priceFor: (ticker) => lastClose(ticker)?.price,
+              account:
+                simulatedLiveAccount === null
+                  ? undefined
+                  : {
+                      ...(accountFixture as Record<string, unknown>),
+                      ...simulatedLiveAccount,
+                    },
             }),
             getCredentials,
             isLiveGateOpen: liveGateOpen,
@@ -374,9 +397,23 @@ export function registerLive(ctx: ServiceContext, options?: RegisterLiveOptions)
       if (!isLiveSimulatedBrokerRequest(request)) {
         throw new IpcValidationError(
           IPC_CHANNELS.live.useSimulatedBroker,
-          'se esperaba {enabled: boolean}',
+          'se esperaba {enabled: boolean, account?: {equityUsd?, shortingEnabled?}}',
         );
       }
+      // La cuenta falsa de la próxima conexión (sin `account` vuelve al
+      // fixture listo para el corto). El adaptador se crea en connect,
+      // así el cambio vale desde entonces.
+      simulatedLiveAccount =
+        request.account === undefined
+          ? null
+          : {
+              ...(request.account.equityUsd !== undefined
+                ? { equity: String(request.account.equityUsd) }
+                : {}),
+              ...(request.account.shortingEnabled !== undefined
+                ? { shorting_enabled: request.account.shortingEnabled }
+                : {}),
+            };
       return liveBroker.useSimulatedBroker(request.enabled);
     });
   }

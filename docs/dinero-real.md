@@ -49,7 +49,31 @@ La semilla de `live:seed-progress` admite `paperShortTrades` y
 `paperShortWeeks` con la misma regla que el resto: solo cuenta en el
 contexto E2E; los descuadres siempre se leen de la base.
 
-**Lo que bloquean.** Con cualquiera de los dos sin cumplir:
+**La cuenta live de Alpaca.** El tercer requisito no es un
+`LiveRequirement`, es un control automático aparte —
+`checklist.short.account` (`LiveShortAccountCheck`): solo queda
+'cumplido' con una cuenta **real** (no paper, `paper === false`),
+`shorting_enabled` en Alpaca y al menos **2.000,00 USD** de capital
+(`LIVE_SHORT_MIN_EQUITY_USD`, el suelo de margen que exige Alpaca, a
+activar y financiar en su propio panel). Lo lee el proceso principal del
+`getAccount()` del **adaptador live** (`live/broker.ts`), nunca del
+paper: la conexión lo siembra con la cuenta ya validada y las lecturas
+de la lista usan una caché de 30 s (`LIVE_ACCOUNT_CACHE_MS`) que se
+relee en segundo plano con un tiempo máximo de 5 s
+(`LIVE_ACCOUNT_READ_TIMEOUT_MS`) — la lista nunca espera a la red.
+Sin lectura, con lectura fallida o con un dato ausente (margen sin
+acreditar, `shorting_enabled` no reportado, capital ilegible) el control
+queda 'revisar'; una cuenta leída que no acredita queda 'pendiente'.
+En ambos casos el corto permanece bloqueado: el estado nunca asume el
+permiso del broker y ningún interruptor local puede simularlo (el
+conmutador E2E solo cambia la *cuenta que el servidor falso responde*,
+la lectura sigue pasando por `getAccount()`). `paper`, `shortingEnabled`
+y `equityUsd` se devuelven crudos; `checkedAt` marca la última
+comprobación y la evidencia nunca lleva credenciales ni datos
+personales.
+
+**Lo que bloquean.** Con cualquiera de los dos requisitos sin cumplir o
+la cuenta sin 'cumplido':
 
 - `live:set-limits` **rechaza** guardar cualquier límite del corto
   mayor que 0 (`LiveServiceError` con código `corto-requisitos` y el
@@ -97,10 +121,11 @@ posiciones), y admite además los **límites del corto**
 exposición corta y 1 posición corta), opcionales y ≥ 0 — a 0 el corto
 queda desactivado (un campo ausente vale 0, así una interfaz que aún no
 lo expone nunca lo habilita sin querer). Escribir cualquier límite del
-corto **mayor que 0 exige antes los dos requisitos del corto**
-(`revision-legal-corto` y `paper-cortos`): sin ellos el servicio rechaza
-la escritura con «[corto-requisitos] motivo», venga por la interfaz o
-por IPC. La validación se aplica tres veces: guarda `isLiveLimitsInput`
+corto **mayor que 0 exige antes los dos requisitos del corto y la cuenta
+live 'cumplido'** (`revision-legal-corto`, `paper-cortos` y
+`checklist.short.account.state === 'cumplido'`): sin ellos el servicio
+rechaza la escritura con «[corto-requisitos] motivo», venga por la
+interfaz o por IPC. La validación se aplica tres veces: guarda `isLiveLimitsInput`
 en el borde, doble comprobación en el servicio y CHECK en `live_limits`.
 Guardarlos reinicia la confirmación escrita y devuelve la frase exacta
 generada con esos valores (`liveConfirmationPhrase`), que incluye los

@@ -1,5 +1,6 @@
 import { parseStrategyRules } from '../../../shared/strategyRules';
 import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
+import { evaluateShortAccount, shortAccountBlockReason } from '../../../main/live/checklist';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
   dataStatusKey,
@@ -1697,7 +1698,7 @@ export function createSimulatedAdapter() {
   };
   let liveLimitsSaved: LiveLimits | null = null;
   let liveLimitsConfirmedAt: string | null = null;
-  let liveCredentials: { accountMasked: string } | null = null;
+  let liveCredentials: { accountMasked: string; at: string } | null = null;
   let liveSmoke: LiveSmokeTestResult | null = null;
   let liveModeNow: {
     mode: 'bloqueado' | 'listo' | 'activo' | 'suspendido';
@@ -1812,12 +1813,32 @@ export function createSimulatedAdapter() {
           ? `No has declarado: ${item.title.toLowerCase()}.`
           : `${item.title}: ${item.evidence ?? 'pendiente'}.`,
       );
+    // La cuenta del corto se comprueba igual que en el proceso
+    // principal: sin cuenta live conectada queda 'revisar' y con ella
+    // 'cumplido' (margen, corto habilitado y capital simulados listos).
+    const account = evaluateShortAccount(
+      liveCredentials === null
+        ? null
+        : {
+            paper: false,
+            shortingEnabled: true,
+            equityUsd: 10_000,
+            readError: false,
+            checkedAt: liveCredentials.at,
+          },
+    );
+    const accountReason = shortAccountBlockReason(account.state);
+    const shortBlockReasons = [
+      ...shortPendingReasons,
+      ...(accountReason === null ? [] : [accountReason]),
+    ];
     const short = {
       items: shortItems,
+      account,
       completedCount: shortItems.length - shortPendingReasons.length,
       total: shortItems.length,
-      allComplete: shortPendingReasons.length === 0,
-      blockReason: shortPendingReasons.length === 0 ? null : shortPendingReasons.join(' '),
+      allComplete: shortPendingReasons.length === 0 && account.state === 'cumplido',
+      blockReason: shortBlockReasons.length === 0 ? null : shortBlockReasons.join(' '),
     };
     return {
       items,
@@ -3048,11 +3069,11 @@ export function createSimulatedAdapter() {
         // Misma puerta que el servicio real: sin los requisitos propios
         // del corto ningún límite del corto mayor que 0 se guarda.
         const shortRequested =
-          resolved.shortOrderUsd > 0 || resolved.shortExposureUsd > 0 || resolved.shortPositions > 0;
+          resolved.shortOrderUsd > 0 ||
+          resolved.shortExposureUsd > 0 ||
+          resolved.shortPositions > 0;
         if (shortRequested && !buildLiveChecklist().short.allComplete) {
-          throw new Error(
-            `[corto-requisitos] ${buildLiveChecklist().short.blockReason}`,
-          );
+          throw new Error(`[corto-requisitos] ${buildLiveChecklist().short.blockReason}`);
         }
         const changed = JSON.stringify(liveLimitsSaved) !== JSON.stringify(resolved);
         liveLimitsSaved = resolved;
@@ -3071,7 +3092,7 @@ export function createSimulatedAdapter() {
         if (!isLiveConnectRequest(request)) {
           throw new Error('Claves live inválidas.');
         }
-        liveCredentials = { accountMasked: '•••• 4821' };
+        liveCredentials = { accountMasked: '•••• 4821', at: nowIso() };
         emitLiveChanged();
         return buildLiveState();
       },

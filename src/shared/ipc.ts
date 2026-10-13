@@ -204,11 +204,7 @@ import type {
   SimulateDriftRequest,
   SimulateRegimeRequest,
 } from './ai';
-import {
-  LIVE_ALL_DECLARATION_REQUIREMENTS,
-  LIVE_FIXED_CAPS,
-  LIVE_REQUIREMENTS,
-} from './live';
+import { LIVE_ALL_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
 import type {
   LiveActivateRequest,
   LiveActivateResult,
@@ -3702,8 +3698,16 @@ export function isLiveSeedProgressRequest(
 export function isLiveSimulatedBrokerRequest(value: unknown): value is LiveSimulatedBrokerRequest {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((k) => k !== 'enabled')) return false;
-  return typeof v.enabled === 'boolean';
+  if (Object.keys(v).some((k) => k !== 'enabled' && k !== 'account')) return false;
+  if (typeof v.enabled !== 'boolean') return false;
+  if (v.account === undefined) return true;
+  if (typeof v.account !== 'object' || v.account === null) return false;
+  const a = v.account as Record<string, unknown>;
+  if (Object.keys(a).some((k) => k !== 'equityUsd' && k !== 'shortingEnabled')) return false;
+  if (a.equityUsd !== undefined && (typeof a.equityUsd !== 'number' || a.equityUsd < 0))
+    return false;
+  if (a.shortingEnabled !== undefined && typeof a.shortingEnabled !== 'boolean') return false;
+  return true;
 }
 
 /** Lista plana de todos los canales, para pruebas y comprobaciones. */

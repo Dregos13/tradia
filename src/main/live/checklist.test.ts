@@ -13,10 +13,13 @@ import {
   evaluateKillSwitchTest,
   evaluatePaperProgress,
   evaluatePaperShorts,
+  evaluateShortAccount,
   formatLiveDate,
   paperShortStatsFromOrders,
   paperStatsFromOrders,
+  shortAccountBlockReason,
   type AlertTestEvidence,
+  type ShortAccountReading,
 } from './checklist';
 
 const DAY_MS = 86_400_000;
@@ -327,14 +330,24 @@ const closedShort = (opts: {
 describe('paperShortStatsFromOrders', () => {
   it('solo cuenta las operaciones cerradas cuya entrada es una venta', () => {
     const orders = [
-      ...closedShort({ strategyId: 1, signalId: 1, entryAt: isoDaysAgo(40), exitAt: isoDaysAgo(35) }),
+      ...closedShort({
+        strategyId: 1,
+        signalId: 1,
+        entryAt: isoDaysAgo(40),
+        exitAt: isoDaysAgo(35),
+      }),
       ...closedTrade({
         strategyId: 1,
         signalId: 2,
         entryAt: isoDaysAgo(30),
         exitAt: isoDaysAgo(25),
       }),
-      ...closedShort({ strategyId: 1, signalId: 3, entryAt: isoDaysAgo(10), exitAt: isoDaysAgo(5) }),
+      ...closedShort({
+        strategyId: 1,
+        signalId: 3,
+        entryAt: isoDaysAgo(10),
+        exitAt: isoDaysAgo(5),
+      }),
     ];
     const stats = paperShortStatsFromOrders(orders);
     expect(stats.closedShorts).toBe(2);
@@ -376,5 +389,70 @@ describe('evaluatePaperShorts', () => {
     expect(verdict.evidence).toContain('5 de 5 cortos cerrados');
     expect(verdict.evidence).toContain('4 de 4 semanas');
     expect(verdict.evidence).toContain('conciliación cuadrada');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cuenta live de Alpaca para el corto (evaluateShortAccount)
+// ---------------------------------------------------------------------------
+
+const READY_READING: ShortAccountReading = {
+  paper: false,
+  shortingEnabled: true,
+  equityUsd: 10_000,
+  readError: false,
+  checkedAt: '2026-10-09T15:00:00.000Z',
+};
+
+const reading = (patch: Partial<ShortAccountReading> = {}): ShortAccountReading => ({
+  ...READY_READING,
+  ...patch,
+});
+
+describe('evaluateShortAccount', () => {
+  it('cuenta live con corto habilitado y capital suficiente queda cumplido', () => {
+    const check = evaluateShortAccount(READY_READING);
+    expect(check.state).toBe('cumplido');
+    expect(check.minEquityUsd).toBe(2000);
+    expect(check.evidence).toContain('Cuenta live con margen');
+    expect(check.evidence).toContain('10.000,00 USD');
+    expect(check.evidence).toContain('mínimo 2.000,00 USD');
+    expect(check.checkedAt).toBe(READY_READING.checkedAt);
+  });
+
+  it('exactamente 2.000 USD de capital cumple el mínimo', () => {
+    expect(evaluateShortAccount(reading({ equityUsd: 2_000 })).state).toBe('cumplido');
+  });
+
+  it.each([
+    ['corto no habilitado', { shortingEnabled: false }],
+    ['capital por debajo del mínimo', { equityUsd: 1_999.99 }],
+    ['cuenta paper', { paper: true }],
+  ])('una cuenta con %s queda pendiente', (_label, patch) => {
+    const check = evaluateShortAccount(reading(patch));
+    expect(check.state).toBe('pendiente');
+    expect(check.evidence).toContain('2.000,00 USD');
+    expect(shortAccountBlockReason(check.state)).toContain('margen');
+  });
+
+  it.each([
+    ['sin lectura', null],
+    ['lectura fallida', { readError: true }],
+    ['corto no reportado', { shortingEnabled: null }],
+    ['capital no legible', { equityUsd: null }],
+    ['capital no finito', { equityUsd: Number.NaN }],
+    ['paper desconocido', { paper: null }],
+  ])('con %s queda en revisar', (_label, value) => {
+    const check = evaluateShortAccount(value === null ? null : reading(value));
+    expect(check.state).toBe('revisar');
+    expect(check.evidence).toContain('No se pudo comprobar la cuenta de Alpaca');
+    expect(check.evidence).toContain('permanece bloqueado');
+    expect(shortAccountBlockReason(check.state)).toBe(check.evidence);
+  });
+
+  it('el motivo del bloqueo es null solo con la cuenta cumplida', () => {
+    expect(shortAccountBlockReason('cumplido')).toBeNull();
+    expect(shortAccountBlockReason('pendiente')).toContain('2.000,00 USD');
+    expect(shortAccountBlockReason('revisar')).toContain('No se pudo comprobar');
   });
 });

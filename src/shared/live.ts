@@ -31,9 +31,12 @@
  *
  * El corto exige además sus **propios requisitos**
  * (`LIVE_SHORT_REQUIREMENTS`): la declaración de revisión legal y
- * fiscal específica de las ventas en corto (CNMV/MiFID II e IRPF) y la
+ * fiscal específica de las ventas en corto (CNMV/MiFID II e IRPF), la
  * evidencia automática de semanas de cortos en paper con la
- * conciliación cuadrada. Sin ellos no se guardan ni confirman límites
+ * conciliación cuadrada y la comprobación automática de la cuenta live
+ * (`LiveShortAccountCheck`: margen, `shorting_enabled` y al menos
+ * `LIVE_SHORT_MIN_EQUITY_USD` de capital, leída del adaptador con
+ * timeout y caché corta). Sin ellos no se guardan ni confirman límites
  * del corto mayores que 0 y ninguna entrada en corto real pasa la
  * guarda — siempre con el motivo «[corto-requisitos] …». Una cuenta con
  * límites del corto ya confirmados los conserva intactos, pero el corto
@@ -83,6 +86,13 @@ export type LiveRequirement = LiveBaseRequirement | LiveShortRequirement;
  */
 export const LIVE_SHORT_PAPER_MIN_WEEKS = 4;
 export const LIVE_SHORT_PAPER_MIN_TRADES = 5;
+
+/**
+ * Capital mínimo que Alpaca exige para vender en corto (cuenta con
+ * margen: el suelo reglamentario de margen en Estados Unidos), aunque la
+ * app use mucho menos — los techos del corto son propios y menores.
+ */
+export const LIVE_SHORT_MIN_EQUITY_USD = 2000;
 
 /**
  * Código de los rechazos por requisitos del corto sin cumplir; viaja en
@@ -178,15 +188,46 @@ export interface LiveChecklistItem {
 }
 
 /**
- * Estado de los requisitos propios del corto (`LIVE_SHORT_REQUIREMENTS`).
- * Solo bloquea el corto con dinero real; el largo mide `allComplete`
+ * Comprobación automática de la cuenta live de Alpaca para el corto
+ * (`checklist.short.account`): solo queda 'cumplido' con una cuenta real
+ * (no paper), `shortingEnabled === true` y al menos
+ * `LIVE_SHORT_MIN_EQUITY_USD` de capital. Si la cuenta no se pudo leer
+ * (error, tiempo agotado, sin conexión live o dato ausente) queda
+ * 'revisar' — nunca se asume permiso. No es un tercer `LiveRequirement`:
+ * viaja aparte de `items` y cuenta para `allComplete`.
+ */
+export interface LiveShortAccountCheck {
+  state: LiveRequirementState;
+  /** true en una cuenta paper; false en la live; null si no se leyó. */
+  paper: boolean | null;
+  /** `shorting_enabled` en Alpaca; null si el broker no lo reporta. */
+  shortingEnabled: boolean | null;
+  /** Capital de la cuenta en USD; null si no se pudo leer. */
+  equityUsd: number | null;
+  /** Capital mínimo exigido por Alpaca para el corto: 2.000 USD. */
+  minEquityUsd: typeof LIVE_SHORT_MIN_EQUITY_USD;
+  /** Última comprobación de la cuenta (ISO 8601); null si nunca se hizo. */
+  checkedAt: string | null;
+  /** Evidencia legible del estado (textos fijos de la guía de diseño). */
+  evidence: string;
+}
+
+/**
+ * Estado de los requisitos propios del corto (`LIVE_SHORT_REQUIREMENTS`)
+ * más la comprobación automática de la cuenta live (`account`). Solo
+ * bloquea el corto con dinero real; el largo mide `allComplete`
  * de la lista de los siete, que no cambia.
  */
 export interface LiveShortChecklist {
   items: LiveChecklistItem[];
+  /** Cuenta Alpaca preparada para ventas en corto (control automático). */
+  account: LiveShortAccountCheck;
   completedCount: number;
   total: number;
-  /** true solo con los dos requisitos del corto cumplidos. */
+  /**
+   * true solo con los dos requisitos del corto cumplidos y la cuenta
+   * live acreditando margen, corto habilitado y el capital mínimo.
+   */
   allComplete: boolean;
   /**
    * Motivo legible del bloqueo del corto (lo que falta para habilitarlo);
@@ -580,4 +621,17 @@ export interface LiveSeedProgressRequest {
 /** Petición del gancho `live:use-simulated-broker`: broker real simulado. */
 export interface LiveSimulatedBrokerRequest {
   enabled: boolean;
+  /**
+   * Cuenta del servidor falso para la siguiente conexión (capital y
+   * permiso de corto; sin él la falsa acredita una cuenta lista). Así el
+   * E2E puede dejar la cuenta tanto lista como no lista: la lectura
+   * sigue pasando por `getAccount()` del adaptador, nunca se simula con
+   * un interruptor local.
+   */
+  account?: {
+    /** Capital que reporta la cuenta falsa (≥ 2.000 deja el corto apto). */
+    equityUsd?: number;
+    /** `shorting_enabled` que reporta la cuenta falsa. */
+    shortingEnabled?: boolean;
+  };
 }

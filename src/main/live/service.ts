@@ -68,15 +68,18 @@ import {
   evaluateKillSwitchTest,
   evaluatePaperProgress,
   evaluatePaperShorts,
+  evaluateShortAccount,
   formatLiveDate,
   pendingRequirementsOf,
   paperShortStatsFromOrders,
   paperStatsFromOrders,
+  shortAccountBlockReason,
   type AlertTestEvidence,
   type FinalTestCoverage,
   type PaperProgressStats,
   type PaperShortStats,
   type RequirementVerdict,
+  type ShortAccountReading,
 } from './checklist';
 import type { BrokerOrder } from '../../shared/ipc';
 import type { StrategyExpectation } from '../broker/deviation';
@@ -496,6 +499,16 @@ export interface LiveServiceDeps {
   alertTest?(): AlertTestEvidence | null;
   /** Parada de emergencia real (la acción «Probar parada» la ejerce). */
   killSwitch?: LiveKillSwitchLike;
+  /**
+   * Último retrato de la cuenta live (lo mantiene `live/broker.ts` con
+   * timeout y caché corta; null sin cuenta conectada o sin lectura).
+   * Es la lectura del control de cuenta del corto
+   * (`checklist.short.account`): llamarla puede relanzar una relectura
+   * en segundo plano cuando la caché está vieja, pero nunca espera a la
+   * red — la evaluación trabaja con el último dato conocido y, sin él,
+   * la cuenta queda 'revisar' (nunca se asume permiso).
+   */
+  shortAccount?(): ShortAccountReading | null;
   /** Claves live guardadas en su ranura (secrets.hasKey). */
   hasLiveCredentials?(): boolean | Promise<boolean>;
   /** Cuenta live enmascarada para la franja (la anota be-broker-real). */
@@ -743,15 +756,22 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
     const reasons = reasonsOf(pending);
     // Los requisitos del corto se evalúan con los mismos veredictos pero
     // nunca cuentan para la puerta del largo (allComplete sigue siendo
-    // la de los siete).
+    // la de los siete). La cuenta live es un control automático aparte
+    // de los items: se evalúa con el último retrato leído del adaptador
+    // (la lectura en red la mantiene el broker real con timeout y caché
+    // corta; aquí nunca se espera a la red).
     const shortPending = pendingRequirementsOf(LIVE_SHORT_REQUIREMENTS, states);
     const shortReasons = reasonsOf(shortPending);
+    const account = evaluateShortAccount(deps.shortAccount?.() ?? null);
+    const accountReason = shortAccountBlockReason(account.state);
+    const shortBlockReasons = [...shortReasons, ...(accountReason === null ? [] : [accountReason])];
     const short: LiveShortChecklist = {
       items: shortItems,
+      account,
       completedCount: shortItems.filter((item) => item.state === 'cumplido').length,
       total: shortItems.length,
-      allComplete: shortPending.length === 0,
-      blockReason: shortPending.length === 0 ? null : shortReasons.join(' '),
+      allComplete: shortPending.length === 0 && account.state === 'cumplido',
+      blockReason: shortBlockReasons.length === 0 ? null : shortBlockReasons.join(' '),
     };
 
     // Los límites guardados viajan con la lista aunque no estén
@@ -821,8 +841,9 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
 
   /**
    * Estado de los requisitos del corto leído de `live_checklist` (la
-   * última evaluación ya escribió el veredicto de 'paper-cortos'): no
-   * reevalúa, así `buildState` sigue siendo barato y sin efectos.
+   * última evaluación ya escribió el veredicto de 'paper-cortos') más la
+   * última lectura de la cuenta live: no reevalúa, así `buildState`
+   * sigue siendo barato y sin efectos.
    */
   const shortStatusFromRows = (): LiveState['short'] => {
     const missing = LIVE_SHORT_REQUIREMENTS.filter((requirement) => {
@@ -832,12 +853,23 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
       }
       return row?.estado !== 'cumplido';
     });
-    if (missing.length === 0) return { allComplete: true, blockReason: null };
+    const accountReason = shortAccountBlockReason(
+      evaluateShortAccount(deps.shortAccount?.() ?? null).state,
+    );
+    if (missing.length === 0 && accountReason === null) {
+      return { allComplete: true, blockReason: null };
+    }
     return {
       allComplete: false,
-      blockReason:
-        'los requisitos propios del corto siguen pendientes: ' +
-        missing.map((requirement) => LIVE_REQUIREMENT_TITLES[requirement]).join(' · '),
+      blockReason: [
+        ...(missing.length === 0
+          ? []
+          : [
+              'los requisitos propios del corto siguen pendientes: ' +
+                missing.map((requirement) => LIVE_REQUIREMENT_TITLES[requirement]).join(' · '),
+            ]),
+        ...(accountReason === null ? [] : [accountReason]),
+      ].join(' '),
     };
   };
 
@@ -1134,11 +1166,7 @@ export function createLiveService(deps: LiveServiceDeps): LiveService {
           errors: reasons,
         });
         logger.warn('[live] activación rechazada: requisitos del corto sin cumplir');
-        return finish(
-          false,
-          reasons,
-          [...evaluation.pending, ...evaluation.shortPending],
-        );
+        return finish(false, reasons, [...evaluation.pending, ...evaluation.shortPending]);
       }
       if (!livePhraseMatches(request.phrase, written)) {
         const reasons = ['La frase de confirmación no coincide con la generada para tus límites.'];

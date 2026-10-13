@@ -138,6 +138,31 @@ test('los requisitos del corto bloquean edición, conservan límites y abren ór
   const context = await launchPhaseApp('tradia-short-readiness');
   try {
     const { page } = context;
+    // El control de cuenta del corto exige una cuenta live conectada:
+    // lista del largo cumplida y conexión contra el broker live falso
+    // (su cuenta acredita margen, corto habilitado y capital ≥ 2.000).
+    await page.evaluate(async () => {
+      await window.tradia.testing!.live.useSimulatedBroker({ enabled: true });
+      await window.tradia.testing!.live.seedProgress({
+        paperMonths: 4,
+        paperTrades: 34,
+        deviationPct: -4,
+        finalTestDone: true,
+        killSwitchTested: true,
+        alertsTested: true,
+      });
+      for (const requirement of [
+        'claves-sin-retirada',
+        'plan-contingencia',
+        'revision-legal',
+      ] as const) {
+        await window.tradia.live.declare({ requirement, confirmed: true });
+      }
+      await window.tradia.live.connect({
+        apiKeyId: 'AKE2ELIVE0001',
+        apiSecret: 'e2e-live-secret-0001',
+      });
+    });
     await openPage(page, 'Ajustes');
     const readiness = page.getByRole('region', { name: 'Preparación del corto con dinero real' });
     const order = page.getByLabel('Máximo por orden en corto', { exact: true });

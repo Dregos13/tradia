@@ -85,6 +85,7 @@ it('Ajustes guarda y confirma el corto, retiene el foco y lo devuelve al cancela
 });
 it('Ajustes conserva el borrador y muestra un error de guardado accesible', async () => {
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits(limits);
   await act(async () => {
     render(<LiveLimitsSettings />);
@@ -156,6 +157,8 @@ it('bloquea solo el corto, conserva foco y permite guardar el largo con los tres
 
 it('guarda la declaración específica y desbloquea los campos al releer evidencia paper', async () => {
   const declare = vi.spyOn(adapter.api.live, 'declare');
+  // Con la cuenta live lista solo falta la declaración para desbloquear.
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   render(<LiveLimitsSettings />);
   const section = await screen.findByRole('region', {
     name: 'Preparación del corto con dinero real',
@@ -181,6 +184,7 @@ it('guarda la declaración específica y desbloquea los campos al releer evidenc
 
 it('conserva los límites confirmados al retirar la declaración y bloquea guardado y confirmación', async () => {
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits(limits);
   render(<LiveLimitsSettings />);
   await waitFor(() => expect(screen.getByLabelText('Máximo por orden en corto')).toHaveValue(100));
@@ -204,6 +208,7 @@ it('conserva los límites confirmados al retirar la declaración y bloquea guard
 
 it('muestra literalmente el rechazo del proceso principal y conserva el borrador', async () => {
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits(limits);
   render(<LiveLimitsSettings />);
   await waitFor(() => expect(screen.getByLabelText('Máximo por orden en corto')).toHaveValue(100));

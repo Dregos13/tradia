@@ -23,7 +23,7 @@ import type { ServiceContext } from '../services';
 import { createSettingsService } from '../services/settings';
 import { createKillSwitchService, createKillSwitchStore } from '../risk/killSwitch';
 import { DELIVERY_CONFIG_KEY } from '../delivery';
-import { DELIVERY_TEST_EVIDENCE_KEY, formatLiveDate } from './checklist';
+import { DELIVERY_TEST_EVIDENCE_KEY, formatLiveDate, type ShortAccountReading } from './checklist';
 import { registerLive, type LiveService } from './index';
 import {
   LiveServiceError,
@@ -59,6 +59,7 @@ let nowMs: number;
 let sent: { channel: string; payload: unknown }[];
 let journal: JournalRecordInput[];
 let notifications: NotificationPayload[];
+let secretKeys: Map<string, string>;
 
 const invoke = async (channel: string, ...args: unknown[]): Promise<unknown> => {
   const handler = electron.handlers.get(channel);
@@ -122,7 +123,18 @@ const makeCtx = (extra: Partial<ServiceContext['services']> = {}): Harness => {
       }),
       journal: { record: (input: JournalRecordInput) => journal.push(input) } as never,
       notifications: { notify: (p: NotificationPayload) => notifications.push(p) } as never,
-      secrets: { hasKey: () => Promise.resolve(false) } as never,
+      // Ranura de claves en memoria: permite conectar la cuenta live
+      // simulada en las pruebas IPC (la real cifra en el llavero del SO).
+      secrets: {
+        hasKey: async (provider: string) => secretKeys.has(provider),
+        getKey: async (provider: string) => secretKeys.get(provider) ?? null,
+        setKey: async (provider: string, apiKey: string) => {
+          secretKeys.set(provider, apiKey);
+        },
+        deleteKey: async (provider: string) => {
+          secretKeys.delete(provider);
+        },
+      } as never,
       ...extra,
     },
   };
@@ -191,6 +203,20 @@ const completeChecklist = async (service: LiveService): Promise<void> => {
   }
 };
 
+/**
+ * Deja la cuenta live conectada contra el broker falso E2E (exige la
+ * lista del largo completa): la checklist ve entonces
+ * `short.account.state === 'cumplido'`. Solo con TRADIA_E2E activo.
+ */
+const connectSimulatedLiveAccount = async (service: LiveService): Promise<void> => {
+  await invoke(IPC_CHANNELS.live.useSimulatedBroker, { enabled: true });
+  await completeChecklist(service);
+  await invoke(IPC_CHANNELS.live.connect, {
+    apiKeyId: 'AKTESTKEY01',
+    apiSecret: 'SK-test-secret',
+  });
+};
+
 const VALID_LIMITS: LiveLimitsInput = {
   capitalUsd: 500,
   orderUsd: 100,
@@ -207,6 +233,7 @@ beforeEach(() => {
   sent = [];
   journal = [];
   notifications = [];
+  secretKeys = new Map();
   electron.handlers.clear();
   electron.isPackaged = true;
   delete process.env.TRADIA_E2E;
@@ -399,9 +426,11 @@ describe('live:set-limits', () => {
   it('los límites del corto entran en la frase: cambiarlos exige confirmar de nuevo', async () => {
     electron.isPackaged = false;
     process.env.TRADIA_E2E = '1';
-    makeCtx();
+    const { service } = makeCtx();
     await invoke(IPC_CHANNELS.live.setLimits, VALID_LIMITS);
-    // Los requisitos propios del corto deben cumplirse para guardar > 0.
+    // Los requisitos propios del corto deben cumplirse para guardar > 0:
+    // la declaración, la evidencia paper y la cuenta live lista.
+    await connectSimulatedLiveAccount(service);
     await invoke(IPC_CHANNELS.live.seedProgress, { paperShortTrades: 5, paperShortWeeks: 5 });
     await invoke(IPC_CHANNELS.live.declare, {
       requirement: 'revision-legal-corto',
@@ -872,6 +901,24 @@ const SHORT_LIMITS: LiveLimitsInput = {
   shortPositions: 1,
 };
 
+/**
+ * Retrato de una cuenta live lista para el corto (margen,
+ * `shortingEnabled` y capital ≥ 2.000 USD), como la que deja en caché
+ * el broker real tras leer `getAccount()`.
+ */
+const READY_ACCOUNT: ShortAccountReading = {
+  paper: false,
+  shortingEnabled: true,
+  equityUsd: 10_000,
+  readError: false,
+  checkedAt: new Date(NOW).toISOString(),
+};
+
+const accountReading = (patch: Partial<ShortAccountReading> = {}): ShortAccountReading => ({
+  ...READY_ACCOUNT,
+  ...patch,
+});
+
 /** Cumple los dos requisitos propios del corto con evidencia sembrada. */
 const completeShortRequirements = (service: LiveService): void => {
   service.declare({ requirement: 'revision-legal-corto', confirmed: true });
@@ -910,7 +957,8 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
   it('con los requisitos cumplidos los límites del corto sí se guardan', async () => {
     electron.isPackaged = false;
     process.env.TRADIA_E2E = '1';
-    makeCtx();
+    const { service } = makeCtx();
+    await connectSimulatedLiveAccount(service);
     await invoke(IPC_CHANNELS.live.seedProgress, { paperShortTrades: 5, paperShortWeeks: 5 });
     await invoke(IPC_CHANNELS.live.declare, {
       requirement: 'revision-legal-corto',
@@ -931,7 +979,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
   });
 
   it('activar con corto > 0 sin requisitos rechaza con «[corto-requisitos]» y no confirma', async () => {
-    const service = makeService();
+    const service = makeService({ shortAccount: () => READY_ACCOUNT });
     await completeChecklist(service);
     completeShortRequirements(service);
     service.setLimits(SHORT_LIMITS);
@@ -953,7 +1001,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
   });
 
   it('con todo cumplido la activación confirma los límites del corto', async () => {
-    const service = makeService();
+    const service = makeService({ shortAccount: () => READY_ACCOUNT });
     await completeChecklist(service);
     completeShortRequirements(service);
     service.setLimits(SHORT_LIMITS);
@@ -1039,5 +1087,160 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     await expect(
       invoke(IPC_CHANNELS.live.declare, { requirement: 'paper-cortos', confirmed: true }),
     ).rejects.toBeInstanceOf(IpcValidationError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Control de cuenta live del corto (checklist.short.account)
+// ---------------------------------------------------------------------------
+
+describe('cuenta live de Alpaca para el corto (checklist.short.account)', () => {
+  it('sin lectura queda en revisar, el corto bloqueado y el largo intacto', async () => {
+    const service = makeService();
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    const checklist = service.getChecklist();
+    // Los dos requisitos cumplidos pero sin cuenta leída: 'revisar'.
+    expect(checklist.short.items.every((i) => i.state === 'cumplido')).toBe(true);
+    expect(checklist.short.account).toMatchObject({
+      state: 'revisar',
+      paper: null,
+      shortingEnabled: null,
+      equityUsd: null,
+      minEquityUsd: 2000,
+    });
+    expect(checklist.short.allComplete).toBe(false);
+    expect(checklist.short.blockReason).toContain('No se pudo comprobar la cuenta de Alpaca');
+    // El largo sigue midiendo solo sus siete requisitos.
+    expect(checklist.allComplete).toBe(true);
+    const state = await service.getState();
+    expect(state.short.allComplete).toBe(false);
+    expect(state.short.blockReason).toContain('cuenta de Alpaca');
+  });
+
+  it('una cuenta live con corto habilitado y capital suficiente queda cumplido', async () => {
+    const service = makeService({ shortAccount: () => READY_ACCOUNT });
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    const checklist = service.getChecklist();
+    expect(checklist.short.account.state).toBe('cumplido');
+    expect(checklist.short.account.evidence).toContain('Cuenta live con margen');
+    expect(checklist.short.account.evidence).toContain('10.000,00 USD');
+    expect(checklist.short.account.evidence).toContain('2.000,00 USD');
+    expect(checklist.short.allComplete).toBe(true);
+    expect(checklist.short.blockReason).toBeNull();
+    const saved = service.setLimits(SHORT_LIMITS);
+    expect(saved.limits?.shortOrderUsd).toBe(100);
+  });
+
+  it.each([
+    ['shortingEnabled en false', { shortingEnabled: false }],
+    ['capital por debajo del mínimo', { equityUsd: 1_999.99 }],
+    ['cuenta paper', { paper: true }],
+  ])('una cuenta con %s queda pendiente y rechaza los límites del corto', async (_label, patch) => {
+    const service = makeService({ shortAccount: () => accountReading(patch) });
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    const checklist = service.getChecklist();
+    expect(checklist.short.account.state).toBe('pendiente');
+    expect(checklist.short.account.evidence).toContain('2.000,00 USD');
+    expect(checklist.short.allComplete).toBe(false);
+    expect(() => service.setLimits(SHORT_LIMITS)).toThrow(/^\[corto-requisitos\] /);
+    expect(() => service.setLimits(SHORT_LIMITS)).toThrow(
+      /cuenta live de Alpaca debe tener margen/,
+    );
+    // El corto a 0 sigue guardando los límites del largo.
+    expect(service.setLimits(VALID_LIMITS).limits?.shortOrderUsd).toBe(0);
+  });
+
+  it.each([
+    ['sin lectura', null],
+    ['lectura fallida', { readError: true, paper: null, shortingEnabled: null, equityUsd: null }],
+    ['shortingEnabled ausente', { shortingEnabled: null }],
+    ['capital ausente', { equityUsd: null }],
+    ['paper desconocido', { paper: null }],
+  ])('con %s queda revisar y la lista no lanza', async (_label, reading) => {
+    const service = makeService({
+      shortAccount: () => (reading === null ? null : accountReading(reading)),
+    });
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    const checklist = service.getChecklist();
+    expect(checklist.short.account.state).toBe('revisar');
+    expect(checklist.short.account.evidence).toContain('No se pudo comprobar la cuenta de Alpaca');
+    expect(checklist.short.allComplete).toBe(false);
+    expect(checklist.short.blockReason).toContain('permanece bloqueado');
+  });
+
+  it('los límites cortos confirmados se conservan con la cuenta pendiente', async () => {
+    // La fila se escribe directamente, sin pasar por setLimits: una
+    // cuenta que confirmó el corto antes de perder el margen lo
+    // conserva escrito, pero bloqueado.
+    db.prepare(
+      `INSERT INTO live_limits (id, capital_usd, orden_usd, perdida_diaria_usd,
+         posiciones_max, corto_orden_usd, corto_exposicion_usd, corto_posiciones_max,
+         confirmados, guardados_en, confirmados_en)
+       VALUES (1, 500, 100, 10, 1, 100, 200, 1, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:01:00.000Z')`,
+    ).run();
+    const service = makeService({
+      shortAccount: () => accountReading({ shortingEnabled: false }),
+    });
+    await completeChecklist(service);
+    completeShortRequirements(service);
+    const checklist = service.getChecklist();
+    expect(checklist.limits.limits?.shortOrderUsd).toBe(100);
+    expect(checklist.limits.confirmed).toBe(true);
+    expect(checklist.short.account.state).toBe('pendiente');
+    expect(checklist.short.allComplete).toBe(false);
+    const result = await service.activate({ phrase: liveConfirmationPhrase(SHORT_LIMITS) });
+    expect(result.activated).toBe(false);
+    expect(result.reasons.join(' ')).toContain('[corto-requisitos]');
+    expect(result.reasons.join(' ')).toContain('cuenta live de Alpaca');
+    // Los valores siguen guardados tras el rechazo.
+    expect(service.getChecklist().limits.limits?.shortOrderUsd).toBe(100);
+  });
+
+  it('por IPC la conexión deja la cuenta lista y set-limits del corto guarda', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
+    const { service } = makeCtx();
+    // Antes de conectar la cuenta queda 'revisar'.
+    let checklist = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    expect(checklist.short.account.state).toBe('revisar');
+    await connectSimulatedLiveAccount(service);
+    checklist = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    expect(checklist.short.account).toMatchObject({
+      state: 'cumplido',
+      paper: false,
+      shortingEnabled: true,
+      minEquityUsd: 2000,
+    });
+    expect(checklist.short.account.equityUsd).toBeGreaterThanOrEqual(2000);
+  });
+
+  it('una cuenta no lista por IPC también rechaza con «[corto-requisitos] …»', async () => {
+    electron.isPackaged = false;
+    process.env.TRADIA_E2E = '1';
+    const { service } = makeCtx();
+    // La cuenta falsa acredita corto deshabilitado: pendiente.
+    await invoke(IPC_CHANNELS.live.useSimulatedBroker, {
+      enabled: true,
+      account: { shortingEnabled: false },
+    });
+    await completeChecklist(service);
+    await invoke(IPC_CHANNELS.live.connect, {
+      apiKeyId: 'AKTESTKEY01',
+      apiSecret: 'SK-test-secret',
+    });
+    await invoke(IPC_CHANNELS.live.seedProgress, { paperShortTrades: 5, paperShortWeeks: 5 });
+    await invoke(IPC_CHANNELS.live.declare, {
+      requirement: 'revision-legal-corto',
+      confirmed: true,
+    });
+    const checklist = (await invoke(IPC_CHANNELS.live.checklist)) as LiveChecklist;
+    expect(checklist.short.account.state).toBe('pendiente');
+    await expect(invoke(IPC_CHANNELS.live.setLimits, SHORT_LIMITS)).rejects.toThrow(
+      /\[corto-requisitos\]/,
+    );
   });
 });

@@ -185,6 +185,7 @@ it.each([
 ])('valida %s con error accesible junto al campo', async (label, value, expected) => {
   const save = vi.spyOn(adapter.api.live, 'setLimits');
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await mount();
   fillLimits();
   const input = screen.getByLabelText(label);
@@ -582,7 +583,22 @@ it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmon
     allComplete: false,
     total: 7,
     completedCount: 0,
-    short: { items: [], completedCount: 0, total: 0, allComplete: false, blockReason: null },
+    short: {
+      items: [],
+      account: {
+        state: 'revisar',
+        paper: null,
+        shortingEnabled: null,
+        equityUsd: null,
+        minEquityUsd: 2000,
+        checkedAt: null,
+        evidence: 'No se pudo comprobar la cuenta de Alpaca. El corto real permanece bloqueado.',
+      },
+      completedCount: 0,
+      total: 0,
+      allComplete: false,
+      blockReason: null,
+    },
     limits: { limits: null, confirmationPhrase: null, confirmed: false, savedAt: null },
     evaluatedAt: null,
   });
