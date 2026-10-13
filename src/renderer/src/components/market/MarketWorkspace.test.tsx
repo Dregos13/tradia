@@ -239,7 +239,9 @@ it('mantiene el formulario bloqueado y muestra descarga mientras el alta ingiere
   await screen.findByText('Tu lista está vacía.');
   await add('AAPL');
   expect(screen.getByRole('progressbar').hasAttribute('value')).toBe(false);
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Añadir' }).disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Comprobando…' }).disabled).toBe(
+    true,
+  );
   await act(async () => {
     finish();
   });
