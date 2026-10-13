@@ -3,7 +3,8 @@
 La app **avisa pero no ejecuta**: el motor evalúa las estrategias al cierre
 de cada vela y emite señales informativas que pasan por el motor de riesgo.
 Una señal aprobada solo puede abrir una posición en la cartera simulada;
-nunca se envía ninguna orden a un broker.
+nunca se envía ninguna orden a un broker. Las divisas siguen las mismas
+reglas con su calendario 24/5 (ver «Divisas»).
 
 ## Disparo
 
@@ -216,6 +217,110 @@ el tracker la usa a través de `services.risk`
 `risk:get-portfolio` devuelve al panel la cartera completa: posiciones
 abiertas con marca y P&L no realizado, drawdown y pérdida diaria frente a
 su límite, y exposición por activo y por sector frente a su límite.
+
+## Divisas (EUR/USD y compañía)
+
+Las divisas se operan **solo en la cartera simulada interna**. Ninguna
+orden de divisas llega al bróker, ni en paper ni con dinero real: el
+bróker conectado (Alpaca) no opera divisas. Reglas compartidas en
+`src/shared/fxTrading.ts`.
+
+### Calendario 24/5
+
+- Cada activo usa su calendario (`market/assetCalendar.ts`): NYSE para
+  acciones y ETF; `fxCalendar` (lunes a viernes por día UTC, también en
+  los festivos de NYSE; sin vela esperada el 25-12 ni el 01-01) para los
+  pares.
+- La guarda de frescura del motor de señales, del régimen y de la
+  predicción pide la última sesión esperada **del activo**: la vela del
+  4 de julio de un par se evalúa (NYSE cierra, divisas no) y la del 3 ya
+  llega atrasada. La sesión anterior que acota la predicción también es
+  la del calendario del activo.
+- Régimen que habilita las estrategias: en un par, el **régimen del propio
+  par** (con su frescura 24/5); en acciones, el del mercado (SPY).
+- Drift: la muestra del PSI son las últimas sesiones de la serie de cada
+  activo, así que un par aporta sus sesiones 24/5 sin conversión.
+- Modo cautela: a un par solo le aplican `alto-impacto` (FOMC, NFP, IPC…)
+  y `vix`. Las reglas de sesión de NYSE (`festivo`, `apertura`,
+  `sesion-corta`, `vencimiento`) y `resultados` no: el par cotiza en los
+  festivos de EE. UU. y su vela del viernes llega el sábado a la 01:00 UTC.
+
+### Destino de cada señal
+
+Cada señal lleva `destination` (y `destinationReason`):
+
+| Activo | Destino | Qué pasa con una aprobada |
+| --- | --- | --- |
+| Acción / ETF | `cartera-simulada` | Abre posición simulada |
+| EURUSD, GBPUSD (cotizados en USD) | `cartera-simulada` | Abre posición simulada (largo o corto) |
+| USDJPY, USDCHF | `solo-analisis` | Nunca abre: «par no cotizado en USD: solo análisis por ahora» |
+
+Los pares no cotizados en USD tienen régimen, predicción y señal, pero la
+pasarela los veta con `ANALYSIS_ONLY` («Par no cotizado en USD: solo
+análisis por ahora»): su P&L iría en JPY o CHF y la cartera no convierte
+divisas. La cartera tampoco los admite por la vía directa
+(`openPaperPosition`).
+
+### Tamaño, exposición y P&L
+
+- El tamaño que da la pasarela son **unidades de la moneda base** (euros
+  en EURUSD): capital × riesgo % / |entrada − stop|, en unidades enteras.
+  Como el precio va en USD, el nominal (tamaño × precio), el riesgo y el
+  P&L ((salida − entrada) × tamaño, con signo del lado) salen en USD, la
+  divisa de la cuenta.
+- Para los límites, un par **expone a su moneda base** (`divisa` = 'EUR')
+  y cuenta en el sector `divisas`. Entran por activo, sector, divisa
+  (`maxCurrencyExposurePct`), apalancamiento, correlación, posiciones
+  abiertas, pérdidas y drawdown igual que una acción.
+- El límite de **liquidez no aplica** a los pares: las velas diarias de
+  divisas no traen volumen (Tiingo FX lo da a 0) y su profundidad es de
+  otro orden que la cartera simulada.
+- Largo y corto con las mismas reglas de stop y objetivo que una acción;
+  el diario de la operación lleva `divisa` (moneda de exposición) y
+  `divisaPnl` = 'USD', y muestra precios a 5 decimales.
+- Con la parada de emergencia activa no se abre ninguna posición (la
+  pasarela veta, el seguidor no abre y la cartera rechaza con
+  `[parada-activa]`). Los cierres por stop u objetivo siguen.
+
+### Nunca al bróker
+
+El rechazo es «[divisa-sin-broker] el bróker conectado no opera divisas:
+se opera solo en la cartera simulada» (`FX_BROKER_REJECTION_MESSAGE`), en
+cuatro puertas:
+
+1. Gestor de órdenes (`broker/orderManager.ts`, paper y real): una señal
+   de un par no crea orden (resultado `bloqueada` con el motivo); una
+   orden limitada manual se rechaza; y, como última defensa, ningún envío
+   de un par llega al adaptador (la orden queda `rechazada`).
+2. Rutina: el postmercado solo concilia con la cuenta (no envía
+   órdenes); la sincronización periódica del gestor, que sí lanza los OCO
+   pendientes, no puede lanzar el de un par (misma última defensa).
+3. Guardián de órdenes reales (`live/orderGuard.ts`): bloquea cualquier
+   orden de un par, incluida una pata de salida.
+4. Adaptador Alpaca (paper y live): rechaza la orden sin salir a la red.
+
+### Conciliación diaria
+
+La rutina sigue el calendario de NYSE y la vela de divisas del día D llega
+a la 01:00 UTC de D+1, después de la conciliación de las 17:30. Por eso
+las señales, los cierres y las operaciones de los pares se concilian en el
+siguiente día de NYSE: ventana [sesión anterior de NYSE, día). Las de un
+festivo de NYSE (4 de julio) entran en la conciliación del siguiente día
+hábil. Una señal `solo-analisis` nunca exige posición.
+
+### Backtest
+
+- Coste de divisas propio: **2 pb de deslizamiento fijo por ejecución,
+  siempre en contra, sin comisión ni spread aparte**
+  (`FX_BACKTEST_COSTS` / `DEFAULT_FX_COSTS`). Cubre el diferencial típico
+  de EUR/USD y GBP/USD (0,1–1,5 pips) más el deslizamiento de una orden
+  de mercado. Se aplica por activo: en un universo mixto las acciones
+  siguen con sus costes. Se puede fijar por ejecución con `fxCosts`.
+- Anualización: con algún par en el universo, la curva sigue el 24/5 y se
+  anualiza con **260 sesiones** por año; solo acciones, 252.
+- Calentamiento: en sesiones del calendario del universo (24/5 si todo son
+  pares; NYSE en cuanto hay una acción). Las ventanas de walk-forward se
+  cuentan en velas, así que ya siguen el calendario de cada serie.
 
 ## Estado por estrategia (`signals:strategies`)
 

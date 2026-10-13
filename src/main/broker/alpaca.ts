@@ -40,6 +40,7 @@ import type {
   BrokerOrderType,
   BrokerPosition,
 } from '../../shared/broker';
+import { FX_BROKER_REJECTION_MESSAGE, isFxSymbol } from '../../shared/fxTrading';
 import {
   assertValidOrderRequest,
   BROKER_TICKER_PATTERN,
@@ -466,6 +467,14 @@ export function createAlpacaAdapter(
     },
 
     submitOrder: async (req: BrokerOrderRequest) => {
+      // Alpaca no opera divisas: una orden de un par no sale a la red, ni
+      // en paper ni en live (el adaptador live envuelve este núcleo).
+      if (isFxSymbol(req.ticker)) {
+        throw new BrokerError('reject', FX_BROKER_REJECTION_MESSAGE, {
+          adapter: profile.adapterId,
+          clientOrderId: req.clientOrderId,
+        });
+      }
       assertValidOrderRequest(req, profile.adapterId);
       const raw = await request('/v2/orders', {
         method: 'POST',

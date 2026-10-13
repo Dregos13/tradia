@@ -4,7 +4,11 @@
  * - La serie de precios es un paseo aleatorio con semilla anclado a una fecha
  *   génesis fija: el mismo (seed, ticker) produce siempre la misma serie, sin
  *   importar el rango consultado ni el orden de las llamadas.
- * - Solo genera sesiones del calendario NYSE y excluye sus festivos.
+ * - Las acciones solo generan sesiones del calendario NYSE y excluyen sus
+ *   festivos; los pares admitidos (`isFxPair`, p. ej. 'EURUSD') generan
+ *   velas del calendario de divisas 24/5: cada día UTC de lunes a viernes,
+ *   festivos de NYSE incluidos (salvo los huecos tolerados 25-12 y 01-01),
+ *   sin volumen ni acciones corporativas.
  * - Una sesión solo existe si su cierre ya pasó según el reloj inyectado
  *   (`now`), con su horario real y sus cierres anticipados.
  * - `adjClose` se calcula hacia atrás como en un proveedor real: continuo a
@@ -14,7 +18,13 @@
  *   defectos de datos (hueco, duplicado, valor anómalo), más fallos
  *   programados del proveedor, para probar limpieza, ingesta y salud del dato.
  */
-import { isTradingDay, lastExpectedSession } from '../calendar';
+import { inferAssetClass, isFxPair } from '../../../shared/fx';
+import {
+  fxLastExpectedSession,
+  isFxSessionDay,
+  isTradingDay,
+  lastExpectedSession,
+} from '../calendar';
 import {
   MarketDataError,
   assertValidDateRange,
@@ -204,27 +214,33 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
 
   /**
    * Paseo aleatorio continuo desde el génesis hasta `lastDay` inclusive
-   * (solo sesiones NYSE). Determinista por (seed, ticker); no depende del rango.
+   * (sesiones NYSE, o días UTC de lunes a viernes para los pares de
+   * divisas). Determinista por (seed, ticker); no depende del rango.
    */
   const buildContinuousSeries = (ticker: string, lastDay: SessionDate): ContinuousDay[] => {
     const rng = mulberry32(hashSeed(`${String(seed)}:${ticker}`));
+    const fx = isFxPair(ticker);
+    const isSessionDay = fx ? isFxSessionDay : isTradingDay;
+    // Cinco decimales y nivel ~1 en divisas, dos y ~cientos en acciones.
+    const decimals = fx ? 5 : 2;
     const days: ContinuousDay[] = [];
-    let close = round(20 + rng() * 480, 2);
+    let close = fx ? round(0.5 + rng() * 1.5, decimals) : round(20 + rng() * 480, decimals);
     const baseVolume = Math.round(1_000_000 + rng() * 50_000_000);
 
     const cursor = new Date(`${genesis}T00:00:00.000Z`);
     const end = new Date(`${lastDay}T00:00:00.000Z`);
     while (cursor <= end) {
       const date = toSessionDate(cursor.getTime());
-      if (isTradingDay(date)) {
+      if (isSessionDay(date)) {
         // Ruido triangular en [-dailyVol, dailyVol) más una deriva suave.
         const noise = ((rng() + rng() + rng()) / 1.5 - 1) * dailyVol;
         const prev = close;
-        close = round(prev * (1 + noise + drift), 2);
-        const open = round(prev * (1 + (rng() + rng() - 1) * 0.005), 2);
-        const high = round(Math.max(open, close) * (1 + rng() * 0.01), 2);
-        const low = round(Math.min(open, close) * (1 - rng() * 0.01), 2);
-        const volume = Math.round(baseVolume * (0.5 + rng() * 1.5));
+        close = round(prev * (1 + noise + drift), decimals);
+        const open = round(prev * (1 + (rng() + rng() - 1) * 0.005), decimals);
+        const high = round(Math.max(open, close) * (1 + rng() * 0.01), decimals);
+        const low = round(Math.min(open, close) * (1 - rng() * 0.01), decimals);
+        // El mercado de divisas no publica volumen negociado.
+        const volume = fx ? 0 : Math.round(baseVolume * (0.5 + rng() * 1.5));
         days.push({ date, open, high, low, close, volume });
       }
       cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -235,6 +251,7 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
   const buildBars = (ticker: string, inj: MergedInjections, lastDay: SessionDate): Bar[] => {
     const days = buildContinuousSeries(ticker, lastDay);
     if (days.length === 0) return [];
+    const fx = isFxPair(ticker);
 
     const splitDates = [...inj.splits.keys()].sort();
     const dividendDates = [...inj.dividends.keys()].sort();
@@ -281,17 +298,17 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
 
     const bars: Bar[] = [];
     for (const day of days) {
-      const scale = cumSplit(day.date);
+      const scale = fx ? 1 : cumSplit(day.date);
       const bar: Bar = {
         date: day.date,
-        open: round(day.open * scale, 2),
-        high: round(day.high * scale, 2),
-        low: round(day.low * scale, 2),
-        close: round(day.close * scale, 2),
+        open: round(day.open * scale, fx ? 5 : 2),
+        high: round(day.high * scale, fx ? 5 : 2),
+        low: round(day.low * scale, fx ? 5 : 2),
+        close: round(day.close * scale, fx ? 5 : 2),
         volume: Math.round(day.volume / scale),
-        adjClose: round(day.close * cumDividend(day.date), 4),
-        splitFactor: inj.splits.get(day.date) ?? 1,
-        dividend: inj.dividends.get(day.date) ?? 0,
+        adjClose: round(day.close * (fx ? 1 : cumDividend(day.date)), fx ? 5 : 4),
+        splitFactor: fx ? 1 : (inj.splits.get(day.date) ?? 1),
+        dividend: fx ? 0 : (inj.dividends.get(day.date) ?? 0),
       };
       bars.push(bar);
       // El duplicado llega como una segunda fila idéntica inmediatamente después.
@@ -300,8 +317,11 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     return bars;
   };
 
-  /** Última sesión NYSE cuyo cierre real ya pasó según el reloj inyectado. */
-  const lastAvailableSession = (): SessionDate | null => lastExpectedSession(now())?.date ?? null;
+  /** Última sesión cuyo cierre ya pasó según el reloj (NYSE o 24/5, según el activo). */
+  const lastAvailableSession = (ticker: string): SessionDate | null =>
+    isFxPair(ticker)
+      ? (fxLastExpectedSession(now())?.date ?? null)
+      : (lastExpectedSession(now())?.date ?? null);
 
   const validateCall = (ticker: string): string => {
     assertValidTicker(ticker, SIMULATED_PROVIDER_ID);
@@ -317,7 +337,7 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
     getBars: async (ticker, desde, hasta) => {
       const key = validateCall(ticker);
       assertValidDateRange(desde, hasta, SIMULATED_PROVIDER_ID);
-      const lastSession = lastAvailableSession();
+      const lastSession = lastAvailableSession(key);
       if (lastSession === null) return [];
       const end = lastSession < hasta ? lastSession : hasta;
       if (desde > end || end < genesis) return [];
@@ -334,9 +354,14 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
       return visible;
     },
 
+    getTickerInfo: async (ticker) => {
+      const key = validateCall(ticker);
+      return { ticker: key, assetClass: inferAssetClass(key) };
+    },
+
     getQuote: async (ticker) => {
       const key = validateCall(ticker);
-      const lastSession = lastAvailableSession();
+      const lastSession = lastAvailableSession(key);
       if (lastSession === null) {
         throw new MarketDataError('not-found', `sin cotización disponible para '${key}'`, {
           provider: SIMULATED_PROVIDER_ID,
@@ -351,12 +376,19 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
           ticker: key,
         });
       }
-      return { ticker: key, date: bar.date, last: bar.close, volume: bar.volume };
+      return {
+        ticker: key,
+        date: bar.date,
+        last: bar.close,
+        volume: isFxPair(key) ? null : bar.volume,
+      };
     },
 
     getCorporateActions: async (ticker, desde, hasta) => {
       const key = validateCall(ticker);
       assertValidDateRange(desde, hasta, SIMULATED_PROVIDER_ID);
+      // Un par de divisas no tiene acciones corporativas.
+      if (isFxPair(key)) return [];
       const inj = injectionsFor(key);
       const actions: CorporateAction[] = [];
       for (const [date, factor] of inj.splits) {

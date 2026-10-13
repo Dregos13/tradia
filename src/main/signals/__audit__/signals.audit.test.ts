@@ -93,6 +93,8 @@ const makeSignal = (input: NewSignal, id: number): Signal => ({
   strategies: input.strategies,
   dataUsed: input.dataUsed,
   decision: input.decision,
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: new Date(NOW).toISOString(),
 });
 

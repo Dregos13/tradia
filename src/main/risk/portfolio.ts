@@ -24,6 +24,7 @@
  *   colas de ambas series (los últimos valores son los más recientes).
  */
 
+import { exposureCurrencyOf, FX_SECTOR, isFxSymbol } from '../../shared/fxTrading';
 import { CORRELATION_WINDOW_DAYS, type SignalDirection } from '../../shared/risk';
 
 // ---------------------------------------------------------------------------
@@ -187,7 +188,10 @@ export interface PaperRiskState {
 export interface InstrumentInfo {
   /** Sector para el límite sectorial; null = desconocido. */
   sector: string | null;
-  /** Divisa de cotización (ISO 4217). */
+  /**
+   * Divisa a la que expone (ISO 4217): la de cotización en una acción,
+   * la moneda base en un par de divisas.
+   */
   currency: string;
   /** Volumen medio diario de 20 días en unidades; null si no se conoce. */
   avgDailyVolume20d: number | null;
@@ -221,13 +225,18 @@ export interface PortfolioSnapshot {
 /**
  * Metadatos de un ticker: primero los de la instantánea (dato fresco del
  * mercado), después la tabla local del universo y por último los valores
- * neutros (sector desconocido, USD, volumen desconocido).
+ * neutros (sector desconocido, USD, volumen desconocido). Un par de
+ * divisas cuenta en el sector 'divisas' y expone a su moneda base (EUR
+ * en EURUSD).
  */
 export function resolveInstrument(snapshot: PortfolioSnapshot, ticker: string): InstrumentInfo {
   const provided = snapshot.instruments[ticker];
   return {
-    sector: provided?.sector ?? TRADIA_UNIVERSE_SECTORS[ticker] ?? null,
-    currency: provided?.currency ?? UNIVERSE_CURRENCY,
+    sector:
+      provided?.sector ??
+      TRADIA_UNIVERSE_SECTORS[ticker] ??
+      (isFxSymbol(ticker) ? FX_SECTOR : null),
+    currency: provided?.currency ?? exposureCurrencyOf(ticker),
     avgDailyVolume20d: provided?.avgDailyVolume20d ?? null,
   };
 }

@@ -154,6 +154,8 @@ const makeSignal = (patch: Partial<Signal> = {}): Signal => ({
     reasons: [],
     decidedAt: '2026-10-07T20:00:00.000Z',
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: '2026-10-07T20:00:00.000Z',
   ...patch,
 });
@@ -452,6 +454,30 @@ describe('rutina diaria · contenido de los resúmenes', () => {
     expect(errores[0]!.reason).toContain('Conciliación del 2026-10-07');
     expect(errores[0]!.errors[0]).toContain('señal #7');
     expect(errores[0]!.errors[0]).toContain('posición simulada');
+    service.stop();
+  });
+
+  it('la conciliación cubre la señal de divisas de la víspera (llegó tras las 17:30) y no repite las acciones', () => {
+    // EURUSD de la vela del martes 6 (llega a la 01:00 UTC del miércoles,
+    // después de la conciliación del martes); AAPL del martes ya se
+    // concilió el martes.
+    signalsList = [
+      makeSignal({
+        id: 8,
+        ticker: 'EURUSD',
+        entry: 1.09,
+        dataUsed: { ...makeSignal().dataUsed, barDate: '2026-10-06' },
+      }),
+      makeSignal({ id: 9, dataUsed: { ...makeSignal().dataUsed, barDate: '2026-10-06' } }),
+    ];
+    const service = makeService();
+    service.start();
+    service.advanceClock!(OPEN_DAY.conciliacion - at(2026, 10, 7, 7, 0));
+
+    const errores = entries('error');
+    expect(errores).toHaveLength(1);
+    expect(errores[0]!.errors).toHaveLength(1);
+    expect(errores[0]!.errors[0]).toContain('señal #8 de EURUSD');
     service.stop();
   });
 

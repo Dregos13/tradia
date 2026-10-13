@@ -39,6 +39,7 @@
  *      drawdown por encima del 10 %.
  */
 import { runBacktest } from './engine';
+import { annualizationFor } from './annualization';
 import { computeMetrics, type BacktestMetrics, type MetricTrade } from './metrics';
 import type { BacktestInput, BacktestResult, EngineBar, Strategy, StrategyParams } from './types';
 import type { SessionDate } from '../market/providers/types';
@@ -425,7 +426,7 @@ export function runWalkForward(input: WalkForwardInput): WalkForwardResult {
         startDate: window.train.startDate,
         endDate: window.train.endDate,
       });
-      const metrics = computeMetrics(result.equityCurve, result.trades);
+      const metrics = computeMetrics(result.equityCurve, result.trades, annualizationFor(input));
       const value = metricValue(metrics, objective) ?? Number.NEGATIVE_INFINITY;
       if (bestMetrics === null || value > bestValue) {
         bestValue = value;
@@ -441,7 +442,11 @@ export function runWalkForward(input: WalkForwardInput): WalkForwardResult {
       startDate: window.test.startDate,
       endDate: window.test.endDate,
     });
-    const testMetrics = computeMetrics(testResult.equityCurve, testResult.trades);
+    const testMetrics = computeMetrics(
+      testResult.equityCurve,
+      testResult.trades,
+      annualizationFor(input),
+    );
 
     return {
       index: window.index,
@@ -555,7 +560,10 @@ export function runSensitivityMap(input: SensitivityInput): SensitivityMap {
         startDate: input.startDate,
         endDate: input.endDate,
       });
-      return metricValue(computeMetrics(result.equityCurve, result.trades), metric);
+      return metricValue(
+        computeMetrics(result.equityCurve, result.trades, annualizationFor(input)),
+        metric,
+      );
     }),
   );
 
@@ -908,7 +916,7 @@ export function runFinalTest(input: FinalTestInput): FinalTestResult {
   const result = runBacktest(input);
   return {
     result,
-    metrics: computeMetrics(result.equityCurve, result.trades),
+    metrics: computeMetrics(result.equityCurve, result.trades, annualizationFor(input)),
     executed: true,
   };
 }

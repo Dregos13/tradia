@@ -50,6 +50,13 @@ import {
   type SignalIntent,
   type SimulateCalendarEventRequest,
 } from '../../shared/ipc';
+import {
+  exposureCurrencyOf,
+  FX_ANALYSIS_ONLY_REASON,
+  FX_SECTOR,
+  isFxSymbol,
+  signalDestinationOf,
+} from '../../shared/fxTrading';
 import { openDatabase } from '../db/database';
 import { TICKER_PATTERN } from '../market/providers/types';
 import type { ServiceContext } from '../services';
@@ -85,6 +92,7 @@ export const RISK_SERVICE_ERROR_CODES = [
   'limites-invalidos',
   'limites-fuera-de-margen',
   'posicion-invalida',
+  'parada-activa',
 ] as const;
 export type RiskServiceErrorCode = (typeof RISK_SERVICE_ERROR_CODES)[number];
 
@@ -337,7 +345,10 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
             mark === null || !(row.entry > 0)
               ? null
               : round2(((mark - row.entry) / row.entry) * 100 * sign),
-          sector: row.sector ?? TRADIA_UNIVERSE_SECTORS[row.ticker] ?? null,
+          sector:
+            row.sector ??
+            TRADIA_UNIVERSE_SECTORS[row.ticker] ??
+            (isFxSymbol(row.ticker) ? FX_SECTOR : null),
           currency: row.currency,
           signalId: row.signalId,
           openedAt: row.openedAt,
@@ -387,11 +398,28 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
       if (input.openedOnBar !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.openedOnBar)) {
         throw invalidPosition('vela_apertura debe tener formato YYYY-MM-DD');
       }
+      // Un par no cotizado en USD es solo análisis: la cartera no lo abre
+      // aunque llegue una petición (defensa en profundidad del seguidor).
+      if (signalDestinationOf(ticker).destination === 'solo-analisis') {
+        throw invalidPosition(`${ticker}: ${FX_ANALYSIS_ONLY_REASON}`);
+      }
+      // Con la parada activa no entra ninguna posición nueva (acciones o
+      // divisas), aunque la señal se aprobara antes de activarse.
+      if (deps.killSwitch.getState().active) {
+        throw new RiskServiceError(
+          'parada-activa',
+          `[parada-activa] no se abre la posición simulada de ${ticker}: parada de emergencia activa`,
+        );
+      }
       return deps.repo.openPaperPosition({
         ...input,
         ticker,
-        sector: input.sector ?? TRADIA_UNIVERSE_SECTORS[ticker] ?? null,
-        currency: input.currency || UNIVERSE_CURRENCY,
+        sector:
+          input.sector ??
+          TRADIA_UNIVERSE_SECTORS[ticker] ??
+          (isFxSymbol(ticker) ? FX_SECTOR : null),
+        // Un par expone a su moneda base (EUR en EURUSD); el P&L va en USD.
+        currency: input.currency || exposureCurrencyOf(ticker),
       });
     },
 

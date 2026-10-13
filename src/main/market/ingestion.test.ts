@@ -16,7 +16,10 @@ import {
   type MarketIngestionService,
   type MarketPowerMonitorLike,
 } from './ingestion';
+import eurusdPrices from './providers/__fixtures__/eurusd-prices.json';
+import fxUnknown404 from './providers/__fixtures__/fx-unknown-404.json';
 import { createSimulatedProvider, type SimulatedProvider } from './providers/simulated';
+import { createTiingoProvider } from './providers/tiingo';
 import { InvalidStoredKeyError, type MarketDataProvider } from './providers/types';
 import { createMarketRepository, type MarketRepository } from './repository';
 
@@ -278,6 +281,9 @@ describe('actualización diaria programada', () => {
       getBars: async () => {
         throw new InvalidStoredKeyError({ provider: 'tiingo', ticker: 'AAPL' });
       },
+      getTickerInfo: async () => {
+        throw new InvalidStoredKeyError({ provider: 'tiingo' });
+      },
       getQuote: async () => {
         throw new InvalidStoredKeyError({ provider: 'tiingo' });
       },
@@ -391,6 +397,7 @@ describe('actualización incremental', () => {
         new Promise((resolve) => {
           release = () => void provider.getBars(t, desde, hasta).then(resolve);
         }),
+      getTickerInfo: (t) => provider.getTickerInfo(t),
       getQuote: (t) => provider.getQuote(t),
       getCorporateActions: (t, desde, hasta) => provider.getCorporateActions(t, desde, hasta),
     };
@@ -496,6 +503,7 @@ describe('salud del dato', () => {
       rateLimits: provider.rateLimits,
       getBars: (ticker, desde, hasta) =>
         ticker === 'EUR' ? Promise.resolve([]) : provider.getBars(ticker, desde, hasta),
+      getTickerInfo: (t) => provider.getTickerInfo(t),
       getQuote: (t) => provider.getQuote(t),
       getCorporateActions: (t, desde, hasta) => provider.getCorporateActions(t, desde, hasta),
     };
@@ -577,6 +585,107 @@ describe('salud del dato', () => {
     expect(list).toEqual([]);
     // Las velas guardadas se conservan (historial del activo).
     expect(repo.getBars('AAPL').length).toBeGreaterThan(0);
+  });
+});
+
+describe('ingesta de divisas', () => {
+  /** Sábado 17-10-2026 12:00 UTC: la última vela de divisas esperada es la del viernes 16. */
+  const FX_NOW = Date.parse('2026-10-17T12:00:00.000Z');
+
+  /** Proveedor Tiingo real sobre un fetch que graba la URL y sirve el cuerpo dado. */
+  const makeTiingo = (body: unknown, status = 200) => {
+    const calls: string[] = [];
+    const fetch: typeof globalThis.fetch = async (input) => {
+      calls.push(String(input));
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+    return {
+      provider: createTiingoProvider({
+        fetch,
+        getApiKey: async () => 'TEST-KEY',
+        now: () => FX_NOW,
+      }),
+      calls,
+    };
+  };
+
+  it('con el fixture de eurusd guarda velas de lunes a viernes y deja EURUSD al día', async () => {
+    vi.setSystemTime(FX_NOW);
+    const { provider: tiingo, calls } = makeTiingo(eurusdPrices);
+    service = setup({ resolveProvider: async () => tiingo });
+
+    const list = await service.addTicker('eurusd');
+
+    // El alta infiere el tipo divisa y la petición va al endpoint FX.
+    expect(list[0]).toMatchObject({ ticker: 'EURUSD', assetClass: 'fx' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('/tiingo/fx/eurusd/prices');
+    expect(calls[0]).toContain('resampleFreq=1day');
+
+    const stored = repo.getBars('EURUSD');
+    expect(stored.map((b) => b.date)).toEqual([
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-12',
+      '2026-10-13',
+      '2026-10-14',
+      '2026-10-15',
+      '2026-10-16',
+    ]);
+    for (const bar of stored) {
+      const day = new Date(`${bar.date}T00:00:00.000Z`).getUTCDay();
+      expect(day).toBeGreaterThanOrEqual(1);
+      expect(day).toBeLessThanOrEqual(5);
+    }
+    // Al día: la última vela guardada es la última sesión del calendario 24/5.
+    expect(repo.lastBarDate('EURUSD')).toBe('2026-10-16');
+    expect(tickerStatus('EURUSD')).toMatchObject({
+      state: 'fiable',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('un par inexistente queda sin-cobertura sin marcar provider:tiingo como no fiable', async () => {
+    vi.setSystemTime(FX_NOW);
+    const { provider: tiingo } = makeTiingo(fxUnknown404, 404);
+    service = setup({ resolveProvider: async () => tiingo });
+
+    await service.addTicker('USDCHF');
+    expect(tickerStatus('USDCHF')).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+
+    // La pasada completa confirma el 404 como caso del par, no del proveedor.
+    const refresh = await service.refreshNow();
+    expect(refresh).toMatchObject({ accepted: true, ok: false, failedTickers: ['USDCHF'] });
+    expect(repo.getDataStatus(dataStatusKey.provider('tiingo'))).toMatchObject({
+      state: 'fiable',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('enruta por assetClass: el par sigue al día en un festivo de NYSE', async () => {
+    // Sábado 04-07-2026: el viernes 03-07 fue festivo observado de NYSE
+    // (Independence Day cayó en sábado) pero sesión normal de divisas.
+    vi.setSystemTime('2026-07-04T12:00:00.000Z');
+    service = setup();
+
+    await service.addTicker('AAPL');
+    await service.addTicker('EURUSD');
+
+    // La acción espera la última sesión de NYSE (jueves 02); el par, la de
+    // divisas del viernes 03 — el proveedor simulado la tiene.
+    expect(repo.lastBarDate('AAPL')).toBe('2026-07-02');
+    expect(repo.lastBarDate('EURUSD')).toBe('2026-07-03');
+    expect(repo.getBars('EURUSD').some((b) => b.date === '2026-07-03')).toBe(true);
+    expect(tickerStatus('EURUSD')).toMatchObject({ state: 'fiable' });
   });
 });
 

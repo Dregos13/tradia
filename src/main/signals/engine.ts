@@ -20,7 +20,9 @@
  *   media de los votos.
  * - Fase 6 (`deps.ai`): la habilitación por régimen de cada ficha se
  *   resuelve contra el régimen del mercado (referencia SPY) — la
- *   desactivada no vota y queda en el Diario. La confianza combinada es
+ *   desactivada no vota y queda en el Diario. En un par de divisas el
+ *   régimen que habilita es el del propio par (`marketRegime(ticker)`):
+ *   la renta variable de EE. UU. no describe el mercado de divisas. La confianza combinada es
  *   votos × probabilidad calibrada del modelo apto en la dirección
  *   (×2·p sobre el 0,5 neutral) × ajuste del sentimiento confirmado
  *   (±`SIGNAL_NEWS_SENTIMENT_ADJUST`): si el modelo contradice la
@@ -43,6 +45,13 @@
  *   mismo cierre reintenta la evaluación completa.
  * - Emite `signals:new` (por el `broadcast` perezoso, que delivery
  *   intercepta para los avisos) y registra la entrada del diario.
+ * - Calendario por activo: la guarda de frescura y la sesión anterior que
+ *   acota la predicción se piden con el ticker (`expectedSessionDate`,
+ *   `previousExpectedSession`), así un par de divisas sigue el 24/5 y
+ *   una acción el de NYSE.
+ * - Destino: cada señal sale con `destination` ('cartera-simulada' o
+ *   'solo-analisis', ver shared/fxTrading). Un par no cotizado en USD
+ *   también pasa por la pasarela, que lo veta con 'ANALYSIS_ONLY'.
  */
 import type { Strategy as ExecutableStrategy } from '../backtest/types';
 import { DEFAULT_MAX_POSITIONS } from '../backtest/types';
@@ -179,8 +188,12 @@ export interface SignalNewsRef {
  *   y queda como 'confianza baja' en el Diario.
  */
 export interface SignalAiSources {
-  /** Régimen del mercado vigente (referencia SPY); null si aún no hay. */
-  marketRegime?(): ActiveRegime | null;
+  /**
+   * Régimen vigente que habilita las estrategias del activo evaluado:
+   * el del mercado (referencia SPY) para acciones y el del propio par
+   * para divisas; null si aún no hay o está desactualizado.
+   */
+  marketRegime?(ticker: string): ActiveRegime | null;
   /** Modelo apto vigente; null si no hay servible o la ficha no lo es. */
   eligibleModel?(): EligibleModelRef | null;
   /**
@@ -229,7 +242,7 @@ export interface SignalEngineDeps {
    * al día atrasada y una señal sobre ella sería una decisión con datos
    * viejos. Sin la dependencia el motor no aplica la guarda de frescura.
    */
-  expectedSessionDate?(nowMs: number): SessionDate | null;
+  expectedSessionDate?(nowMs: number, ticker: string): SessionDate | null;
   /**
    * Sesión de negociación inmediatamente anterior a `barDate`
    * ('YYYY-MM-DD'), según el calendario de mercado. Es la frescura
@@ -239,7 +252,7 @@ export interface SignalEngineDeps {
    * que estuvo atrasada y no debe ajustar la confianza. Sin la
    * dependencia se exige la sesión exacta de la vela.
    */
-  previousExpectedSession?(barDate: SessionDate): SessionDate | null;
+  previousExpectedSession?(barDate: SessionDate, ticker: string): SessionDate | null;
   /**
    * Fuentes de IA de la fase 6 (régimen, modelo apto y noticias
    * confirmadas). Sin el bloque el motor replica la fase 4 a la letra.
@@ -453,12 +466,16 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
    * descarta. Sin `sessionDate` no se puede acotar: el llamador que la
    * sirve sin fecha (pruebas) la trata como vigente.
    */
-  const predictionIsCurrent = (prediction: SignalPredictionRef, barDate: SessionDate): boolean => {
+  const predictionIsCurrent = (
+    prediction: SignalPredictionRef,
+    ticker: string,
+    barDate: SessionDate,
+  ): boolean => {
     const session = prediction.sessionDate;
     if (session === undefined) return true;
     if (session === barDate) return true;
     if (session > barDate) return false;
-    const previous = deps.previousExpectedSession?.(barDate) ?? null;
+    const previous = deps.previousExpectedSession?.(barDate, ticker) ?? null;
     return previous !== null && session >= previous;
   };
 
@@ -597,7 +614,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     // no se evalúa (llega de una puesta al día atrasada). Solo la sesión
     // vigente puede emitir una señal; la vela vieja tampoco queda marcada
     // como procesada, no era evaluable.
-    const expectedSession = deps.expectedSessionDate?.(now());
+    const expectedSession = deps.expectedSessionDate?.(now(), ticker);
     if (expectedSession != null && barDate < expectedSession) {
       logger.info?.(
         `[signals] ${ticker} ${barDate}: vela anterior a la sesión esperada ` +
@@ -619,7 +636,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     // con el motivo de su ficha; con régimen desconocido solo votan las
     // que no declaran `failsIn` (regla de cierre de enablement).
     const ai = deps.ai;
-    const marketRegime = ai?.marketRegime?.() ?? null;
+    const marketRegime = ai?.marketRegime?.(ticker) ?? null;
 
     const proposals: VoteWithOrder[] = [];
     let evalErrors = 0;
@@ -773,7 +790,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         prediction !== null &&
         prediction.modelVersion === eligible.version &&
         prediction.modelHash === eligible.hash &&
-        predictionIsCurrent(prediction, barDate);
+        predictionIsCurrent(prediction, ticker, barDate);
       if (usable) {
         const factor = modelDirectionFactor(prediction!.probUp, direction);
         if (factor === null) {

@@ -41,6 +41,8 @@ const makeSignal = (patch: Partial<Signal> = {}): Signal => ({
     reasons: [],
     decidedAt: '2026-10-07T20:00:00.000Z',
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: '2026-10-07T20:00:00.000Z',
   ...patch,
 });
@@ -219,5 +221,128 @@ describe('reconcileDay', () => {
     const result = reconcileDay(input);
     expect(result.discrepancies).toEqual([]);
     expect(result.checked.posicionesCerradasHoy).toBe(1);
+  });
+});
+
+describe('reconcileDay · divisas en la cartera simulada', () => {
+  /**
+   * Conciliación del lunes 7 de julio de 2025: la sesión anterior de NYSE
+   * es el jueves 3; la vela de divisas del viernes 4 (festivo de NYSE)
+   * llegó el sábado a la 01:00 UTC y su señal y su cierre se concilian hoy.
+   */
+  const LUNES = '2025-07-07';
+  const JUEVES = '2025-07-03';
+  /** Sábado 5, 01:30 UTC = viernes 4, 21:30 en Nueva York. */
+  const CIERRE_FX = '2025-07-05T01:30:00.000Z';
+
+  const fxInput = () => {
+    const signal = makeSignal({
+      id: 7,
+      ticker: 'EURUSD',
+      entry: 1.09,
+      stop: 1.0464,
+      target: 1.199,
+      dataUsed: { ...makeSignal().dataUsed, barDate: '2025-07-03' },
+      decision: { ...makeSignal().decision, size: 11_467 },
+    });
+    // Abierta con la vela del jueves 3 y cerrada por stop con la del viernes 4.
+    const position = makePosition({
+      id: 70,
+      ticker: 'EURUSD',
+      entry: 1.09,
+      stop: 1.0464,
+      target: 1.199,
+      size: 11_467,
+      currency: 'EUR',
+      sector: 'divisas',
+      signalId: 7,
+      openedOnBar: '2025-07-03',
+      closedAt: CIERRE_FX,
+      exit: 1.0464,
+      exitReason: 'stop',
+    });
+    const pnl = Math.round((1.0464 - 1.09) * 11_467 * 100) / 100;
+    const operation = makeOperation({
+      id: 71,
+      ticker: 'EURUSD',
+      createdAt: CIERRE_FX,
+      dataUsed: { posicionId: 70, pnl },
+      result: 'perdida',
+      signalId: 7,
+    });
+    return {
+      dia: LUNES,
+      fxWindowStart: JUEVES,
+      signals: [signal],
+      positions: [position],
+      operations: [operation],
+      equityHistory: [
+        { fecha: '2025-07-03T20:00:00.000Z', capital: 100_000 },
+        { fecha: CIERRE_FX, capital: 100_000 + pnl },
+      ] as EquityHistoryRow[],
+    };
+  };
+
+  it('la señal, el cierre y la operación del par en la ventana [sesión anterior, día) cuadran', () => {
+    const result = reconcileDay(fxInput());
+    expect(result.discrepancies).toEqual([]);
+    expect(result.checked).toEqual({
+      senalesAprobadas: 1,
+      posicionesCerradasHoy: 1,
+      operacionesHoy: 1,
+      cierresConCurva: 1,
+    });
+  });
+
+  it('un P&L del diario que no cuadra con la posición de divisas es discrepancia', () => {
+    const input = fxInput();
+    input.operations = [
+      makeOperation({ ...input.operations[0]!, dataUsed: { posicionId: 70, pnl: -1 } }),
+    ];
+    const result = reconcileDay(input);
+    expect(result.discrepancies.some((d) => d.includes('posición #70'))).toBe(true);
+  });
+
+  it('una señal aprobada del par sin posición se detecta en la conciliación siguiente', () => {
+    const input = fxInput();
+    input.positions = [];
+    input.operations = [];
+    input.equityHistory = [];
+    const result = reconcileDay(input);
+    expect(result.discrepancies).toHaveLength(1);
+    expect(result.discrepancies[0]).toContain('EURUSD');
+  });
+
+  it('cada día de divisas cae en una sola conciliación: el del propio día queda para la siguiente', () => {
+    const input = fxInput();
+    // Mismos datos, pero conciliando el jueves 3: la vela del 3 y el
+    // cierre del 4 todavía no le tocan (llegan después de las 17:30).
+    const result = reconcileDay({ ...input, dia: JUEVES, fxWindowStart: '2025-07-02' });
+    expect(result.checked.senalesAprobadas).toBe(0);
+    expect(result.checked.posicionesCerradasHoy).toBe(0);
+  });
+
+  it('una señal de solo análisis (USDJPY) nunca exige posición', () => {
+    const input = fxInput();
+    input.signals = [
+      makeSignal({
+        id: 8,
+        ticker: 'USDJPY',
+        dataUsed: { ...makeSignal().dataUsed, barDate: '2025-07-03' },
+        destination: 'solo-analisis',
+        destinationReason: 'par no cotizado en USD: solo análisis por ahora',
+      }),
+    ];
+    input.positions = [];
+    input.operations = [];
+    input.equityHistory = [];
+    expect(reconcileDay(input).discrepancies).toEqual([]);
+  });
+
+  it('las acciones siguen conciliándose solo en su día', () => {
+    const input = baseInput();
+    const result = reconcileDay({ ...input, fxWindowStart: '2026-10-06' });
+    expect(result.discrepancies).toEqual([]);
+    expect(result.checked.senalesAprobadas).toBe(1);
   });
 });

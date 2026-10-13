@@ -74,6 +74,8 @@ const makeSignal = (patch: Partial<Signal> = {}): Signal => ({
     reasons: [],
     decidedAt: '2026-10-08T20:00:00.000Z',
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: '2026-10-08T20:00:00.000Z',
   ...patch,
 });

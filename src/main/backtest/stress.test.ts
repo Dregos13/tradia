@@ -349,6 +349,7 @@ describe('fuente de datos', () => {
       id: 'tiingo',
       rateLimits: { perHour: 50, perDay: 1000 },
       getBars: async () => [],
+      getTickerInfo: async () => ({ ticker: 'SPY', assetClass: 'equity' }),
       getQuote: async () => ({ ticker: 'SPY', date: '2020-01-02', last: 1, volume: 1 }),
       getCorporateActions: async () => [],
     });

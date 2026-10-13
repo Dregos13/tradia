@@ -127,6 +127,8 @@ const approvedSignal = (patch: Partial<Signal> = {}): Signal => ({
     reasons: [],
     decidedAt: new Date(NOW).toISOString(),
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: new Date(NOW).toISOString(),
   ...patch,
 });

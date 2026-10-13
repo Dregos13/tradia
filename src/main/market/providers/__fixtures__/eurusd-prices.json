@@ -1,0 +1,102 @@
+[
+  {
+    "date": "2026-10-05T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1712,
+    "high": 1.1745,
+    "low": 1.1698,
+    "close": 1.1731,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-06T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1731,
+    "high": 1.1762,
+    "low": 1.171,
+    "close": 1.1724,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-07T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1724,
+    "high": 1.1758,
+    "low": 1.1702,
+    "close": 1.1749,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-08T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1749,
+    "high": 1.1773,
+    "low": 1.1729,
+    "close": 1.1736,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-09T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1736,
+    "high": 1.1781,
+    "low": 1.173,
+    "close": 1.1775,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-12T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1775,
+    "high": 1.1804,
+    "low": 1.1761,
+    "close": 1.1798,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-13T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1798,
+    "high": 1.1823,
+    "low": 1.1782,
+    "close": 1.181,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-14T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.181,
+    "high": 1.1836,
+    "low": 1.1794,
+    "close": 1.1802,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-15T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1802,
+    "high": 1.1841,
+    "low": 1.1798,
+    "close": 1.1833,
+    "volume": 0,
+    "tradesDone": 0
+  },
+  {
+    "date": "2026-10-16T00:00:00.000Z",
+    "ticker": "eurusd",
+    "open": 1.1833,
+    "high": 1.1852,
+    "low": 1.1816,
+    "close": 1.1847,
+    "volume": 0,
+    "tradesDone": 0
+  }
+]
