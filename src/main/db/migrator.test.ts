@@ -109,9 +109,9 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(rollbackLast(db, MIGRATIONS)).toBe(17);
-    const cuentaCol = db
-      .prepare("SELECT name FROM pragma_table_info('reconcile_runs')")
-      .all() as { name: string }[];
+    const cuentaCol = db.prepare("SELECT name FROM pragma_table_info('reconcile_runs')").all() as {
+      name: string;
+    }[];
     expect(cuentaCol.map((c) => c.name)).not.toContain('cuenta');
     expect(() =>
       db.prepare(`INSERT INTO live_checklist (requisito) VALUES ('paper-cortos')`).run(),

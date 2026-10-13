@@ -10,9 +10,11 @@ const PHASE_0_16 = MIGRATIONS.filter((m) => m.version <= 16);
 const ALL = MIGRATIONS.filter((m) => m.version <= 17);
 
 const requirements = (db: Database.Database): string[] =>
-  (db.prepare('SELECT requisito FROM live_checklist ORDER BY requisito').all() as {
-    requisito: string;
-  }[]).map((row) => row.requisito);
+  (
+    db.prepare('SELECT requisito FROM live_checklist ORDER BY requisito').all() as {
+      requisito: string;
+    }[]
+  ).map((row) => row.requisito);
 
 function columnNames(db: Database.Database, table: string): string[] {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(
@@ -45,7 +47,9 @@ describe('migración 017 · requisitos propios del corto', () => {
     expect(names).toContain('paper-cortos');
     // Las nuevas nacen pendientes, sin evidencia ni declaración.
     const paperCortos = db
-      .prepare(`SELECT estado, evidencia, declaracion FROM live_checklist WHERE requisito = 'paper-cortos'`)
+      .prepare(
+        `SELECT estado, evidencia, declaracion FROM live_checklist WHERE requisito = 'paper-cortos'`,
+      )
       .get() as { estado: string; evidencia: string | null; declaracion: string | null };
     expect(paperCortos).toEqual({ estado: 'pendiente', evidencia: null, declaracion: null });
     // La declaración ya suscrita queda intacta.
@@ -64,8 +68,9 @@ describe('migración 017 · requisitos propios del corto', () => {
     const db = new Database(':memory:');
     migrate(db, PHASE_0_16);
     // Una pasada anterior a la migración migra como 'paper' (conservador).
-    db.prepare(`INSERT INTO reconcile_runs (origen, iniciada_en) VALUES ('manual', '2026-10-01')`)
-      .run();
+    db.prepare(
+      `INSERT INTO reconcile_runs (origen, iniciada_en) VALUES ('manual', '2026-10-01')`,
+    ).run();
 
     expect(migrate(db, ALL)).toEqual([17]);
     expect(columnNames(db, 'reconcile_runs')).toContain('cuenta');
