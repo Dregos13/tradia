@@ -102,3 +102,16 @@ apunto por si alguien revisa el lector de pantalla.
   tarea «Puertas en verde y cierre con evidencia», que lo lanza y se pisaría
   con mis capturas. Ejecuté los 5 specs de estos recorridos (13/13).
 - Otros sistemas operativos y lector de pantalla manual.
+
+## Ronda de correcciones
+
+No había hallazgos de gravedad media o alta en esta regresión ni en `perfiles-regresion-4.md`, así que no se ha tocado código. Puertas ejecutadas de nuevo (2026-10-13):
+
+- `npm run typecheck`: EXIT 0
+- `npm run lint`: EXIT 0
+- `npm run format:check`: EXIT 0 (incluye `src/main/live/scaling.test.ts`)
+- `npm test`: EXIT 0, 2717/2717
+- `npx electron-vite build`: EXIT 0
+- `npm run test:e2e`: EXIT 0, 54 passed (4,5 min)
+- `git ls-files .venv-ml`: vacío
+- `grep -rnE '\b(it|test|describe)\.(only|skip|fails|skipIf|runIf)\(|\.fixme\(' src e2e`: vacío
