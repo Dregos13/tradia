@@ -68,3 +68,17 @@ API de pago, incluyendo la cuenta del broker para el corto real. No se
 han usado cuentas reales, enviado órdenes reales ni probado manualmente
 un lector de pantalla. Las pruebas de integración usan los adaptadores
 simulados acordados.
+
+`npm run test:e2e`: **55/55**, sin reintentos, EXIT 0 (4,7 min), incluyendo
+el recorrido modificado del corto. Log: `/tmp/tradia-short-e2e.log`. Se
+compiló y probó una copia temporal del código del worktree con las mismas
+dependencias, para no reescribir las capturas de otras tareas ni compartir
+su compilación durante las pruebas. Las capturas de esa ejecución están
+en la copia cuya ruta figura en `/tmp/tradia-short-qa-path`.
+
+La validación final de formato tras añadir la evidencia también pasó
+(`/tmp/tradia-short-format-final.log`). No se hicieron commits, push ni
+cambios de rama por parte de este agente. Orquesta recogió los cambios de
+código de esta revisión en `0741d7a0` al cerrar otra tarea del mismo
+worktree; esta sección y el enlace en estado-pendientes completan su
+verificación.

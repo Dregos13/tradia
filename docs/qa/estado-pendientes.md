@@ -1,5 +1,16 @@
 # Estado de los puntos pendientes del objetivo
 
+## Revisión de Ajustes y ficha del corto real · 13-10-2026
+
+**Hecho.** Revisados los cambios provisionales y el contrato de límites
+confirmados. Se mantienen los techos 100/200/1 y stop máximo del 5 %.
+Corregido el borrador vacío que se comparaba como cero y permitía abrir la
+confirmación: `LimitsForm.tsx:61`. Regresión que fallaba antes en
+`LiveLimitsSettings.test.tsx:101`; validaciones en `LimitsForm.test.tsx:18`,
+estado parcial y retirada del permiso en `LiveShortStatus.test.tsx:54`,
+recorrido Electron ampliado en `e2e/live-short-limits.spec.ts:77`.
+Evidencia y resultados en [revisión de límites del corto](revision-limites-corto-real.md).
+
 ## Revisión de O2 y del grep de saltos · 13-10-2026
 
 **Hecho.** Revisado el cambio provisional `02834ae5`: grep acordado y ampliado vacíos; los comentarios conservan su sentido. La ayuda de Objetivo ahora precisa que el veto afecta a las entradas en largo y en corto (`src/renderer/src/components/strategies/RuleEditor.tsx:22`). Prueba por teclado en ambos casos, antes y después de insertar «Sin objetivo»: `RuleEditor.test.tsx:367`. Evidencia y comprobaciones actuales en [revisión del editor](revision-editor-sin-objetivo.md). Las secciones siguientes conservan los resultados históricos de cada ronda.
