@@ -6,6 +6,7 @@ import {
   LIVE_ALL_DECLARATION_REQUIREMENTS,
   liveConfirmationPhrase,
   type LiveLimits,
+  type LiveShortAccountCheck,
 } from '../../../../shared/live';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { LiveLimitsSettings } from './LiveLimitsSettings';
@@ -33,6 +34,119 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+it.each<LiveShortAccountCheck>([
+  {
+    state: 'pendiente',
+    paper: false,
+    shortingEnabled: false,
+    equityUsd: 1500,
+    minEquityUsd: 2000,
+    checkedAt: '2026-10-13T09:00:00.000Z',
+    evidence:
+      'Alpaca no acredita todavía una cuenta live con margen, el corto habilitado y al menos 2.000,00 USD de capital.',
+  },
+  {
+    state: 'revisar',
+    paper: null,
+    shortingEnabled: null,
+    equityUsd: null,
+    minEquityUsd: 2000,
+    checkedAt: null,
+    evidence: 'No se pudo comprobar la cuenta de Alpaca. El corto real permanece bloqueado.',
+  },
+])(
+  'la cuenta $state bloquea los tres campos con el motivo del proceso principal',
+  async (account) => {
+    await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+    await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
+    const checklist = await adapter.api.live.checklist();
+    checklist.short = {
+      ...checklist.short,
+      account,
+      allComplete: false,
+      blockReason: account.evidence,
+    };
+    vi.spyOn(adapter.api.live, 'checklist').mockResolvedValue(checklist);
+    render(<LiveLimitsSettings />);
+    const row = (
+      await screen.findByRole('heading', {
+        name: 'Cuenta Alpaca preparada para ventas en corto',
+      })
+    ).closest('li')!;
+    expect(
+      within(row).getByText(account.state === 'pendiente' ? 'Pendiente' : 'Revisar'),
+    ).toBeVisible();
+    expect(within(row).getByText('Verificación automática')).toBeVisible();
+    expect(within(row).getByText(account.evidence)).toBeVisible();
+    expect(within(row).getByText(/Capital leído:/)).toHaveTextContent(
+      `Capital leído: ${account.equityUsd === null ? 'no disponible' : '1.500,00 USD'} · mínimo 2.000,00 USD.`,
+    );
+    for (const label of [
+      'Máximo por orden en corto',
+      'Exposición corta total máxima',
+      'Posiciones cortas simultáneas',
+    ]) {
+      const input = screen.getByLabelText(label);
+      expect(input).not.toBeDisabled();
+      expect(input).toHaveAttribute('readonly');
+      expect(input).toHaveAttribute('aria-disabled', 'true');
+      expect(input).toHaveAccessibleDescription(
+        new RegExp(account.evidence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      );
+      fireEvent.change(input, { target: { value: '1' } });
+      expect(input).toHaveValue(0);
+    }
+  },
+);
+
+it('Revisar conexión live relee la cuenta y habilita el guardado del corto al cumplirse', async () => {
+  await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
+  const check = vi.spyOn(adapter.api.live, 'checklist');
+  render(<LiveLimitsSettings />);
+  const heading = await screen.findByRole('heading', {
+    name: 'Cuenta Alpaca preparada para ventas en corto',
+  });
+  expect(within(heading.closest('li')!).getByText('Revisar')).toBeVisible();
+  expect(screen.getByLabelText('Máximo por orden en corto')).toHaveAttribute('readonly');
+  // La acción vuelve a consultar el IPC, sin navegar ni inferir el permiso en el renderer.
+  await act(async () => {
+    await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
+  });
+  const reads = check.mock.calls.length;
+  await userEvent.click(await screen.findByRole('button', { name: 'Revisar conexión live' }));
+  await waitFor(() => expect(check.mock.calls.length).toBeGreaterThan(reads));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Máximo por orden en corto')).not.toHaveAttribute('readonly'),
+  );
+  const row = screen
+    .getByRole('heading', { name: 'Cuenta Alpaca preparada para ventas en corto' })
+    .closest('li')!;
+  expect(within(row).getByText('Cumplido')).toBeVisible();
+  expect(
+    within(row).getByText(
+      'Cuenta live con margen · corto habilitado · capital 10.000,00 USD, mínimo 2.000,00 USD.',
+    ),
+  ).toHaveClass('live-account-evidence');
+  for (const [label, key] of [
+    ['Capital total en real', 'capitalUsd'],
+    ['Máximo por orden', 'orderUsd'],
+    ['Pérdida diaria máxima', 'dailyLossUsd'],
+    ['Posiciones abiertas simultáneas', 'openPositions'],
+    ['Máximo por orden en corto', 'shortOrderUsd'],
+    ['Exposición corta total máxima', 'shortExposureUsd'],
+    ['Posiciones cortas simultáneas', 'shortPositions'],
+  ] as const) {
+    const input = screen.getByLabelText(label);
+    expect(input).not.toHaveAttribute('aria-disabled');
+    fireEvent.change(input, { target: { value: String(limits[key]) } });
+  }
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  await screen.findByText(
+    'Límites del corto guardados · todavía debes confirmar la nueva frase por escrito.',
+  );
+  expect((await adapter.api.live.checklist()).limits.limits).toEqual(limits);
 });
 it('Ajustes guarda y confirma el corto, retiene el foco y lo devuelve al cancelar', async () => {
   await adapter.api.live.testKillSwitch();

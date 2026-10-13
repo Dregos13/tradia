@@ -102,6 +102,7 @@
   font-size: var(--type-xs);
 }
 .live-checklist-page time,
+.live-account-evidence,
 .live-confirm-facts dd,
 .live-phrase,
 .live-field input {

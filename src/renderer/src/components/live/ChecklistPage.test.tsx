@@ -80,7 +80,7 @@ it('lista evidencia, fecha y cada motivo pendiente, con activación bloqueada', 
   expect(
     screen.getByText('3,2 meses de paper continuo · 36 operaciones · desviación −4 %.'),
   ).toBeInTheDocument();
-  expect(screen.getAllByText('Verificación automática')).toHaveLength(5);
+  expect(screen.getAllByText('Verificación automática')).toHaveLength(6);
   expect(screen.getAllByRole('checkbox')).toHaveLength(4);
   expect(screen.getAllByText(/Sin evidencia guardada/)).toHaveLength(3);
   expect(activate).not.toHaveBeenCalled();
@@ -574,7 +574,7 @@ it('no habilita por caché durante carga o error y conserva la evidencia anterio
   await userEvent.click(screen.getByRole('button', { name: 'Reintentar verificación' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo verificar la lista');
   expect(screen.getByRole('button', { name: 'Activar dinero real' })).toBeDisabled();
-  expect(screen.getAllByText('Cumplido')).toHaveLength(8);
+  expect(screen.getAllByText('Cumplido')).toHaveLength(9);
 });
 
 it('el vacío permanece bloqueado y todas las suscripciones se limpian al desmontar', async () => {

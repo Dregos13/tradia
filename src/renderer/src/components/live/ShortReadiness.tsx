@@ -1,11 +1,12 @@
 import { useId } from 'react';
 import {
   LIVE_SHORT_REQUIREMENTS,
+  LIVE_SHORT_MIN_EQUITY_USD,
   type LiveChecklist,
   type LiveDeclareRequest,
 } from '../../../../shared/live';
 import { DeclarationForm } from './DeclarationForm';
-import { LiveIcon, RequirementStatus, timestamp } from './presentation';
+import { LiveIcon, RequirementStatus, timestamp, usd } from './presentation';
 
 export function shortLimitsBlockReason(
   checklist: LiveChecklist | undefined,
@@ -41,6 +42,7 @@ export function ShortReadiness({
   onReload: () => void;
 }) {
   const id = useId();
+  const account = checklist?.short?.account;
   const paperEvidence = checklist?.short?.items.find(
     (item) => item.requirement === 'paper-cortos',
   )?.evidence;
@@ -87,22 +89,39 @@ export function ShortReadiness({
         <ul className="live-checklist">
           <li className="live-checklist-row">
             <div>
-              <RequirementStatus state="revisar" />
+              <RequirementStatus state={account?.state ?? 'revisar'} />
               <p className="live-origin">
                 <LiveIcon kind="lock" />
-                Cuenta de Alpaca
+                Verificación automática
               </p>
             </div>
             <div>
               <h4>Cuenta Alpaca preparada para ventas en corto</h4>
-              <p>
-                Activa en Alpaca la cuenta live con margen y el corto, con al menos 2.000,00 USD de
-                capital, aunque la app use menos. El estado de margen, permiso de corto y capital no
-                está disponible en esta pantalla; revísalo en Alpaca.
+              <p className={account?.state === 'cumplido' ? 'live-account-evidence' : undefined}>
+                {account?.evidence ??
+                  'No se pudo comprobar la cuenta de Alpaca. El corto real permanece bloqueado.'}
               </p>
-              <a className="live-link" href="#ajustes?seccion=broker-live">
+              {account?.state !== 'cumplido' && (
+                <p className="live-account-evidence">
+                  Capital leído:{' '}
+                  {account?.equityUsd == null ? 'no disponible' : usd(account.equityUsd)}
+                  {' · mínimo '}
+                  {usd(account?.minEquityUsd ?? LIVE_SHORT_MIN_EQUITY_USD)}.
+                </p>
+              )}
+              {account?.checkedAt && (
+                <p className="live-meta">
+                  Evaluado el{' '}
+                  <time dateTime={account.checkedAt}>{timestamp(account.checkedAt)}</time>.
+                </p>
+              )}
+              <p>
+                El margen y el corto se habilitan en el panel de Alpaca. El mínimo de capital se
+                aplica aunque la app use menos.
+              </p>
+              <button className="button" type="button" disabled={loading} onClick={onReload}>
                 Revisar conexión live
-              </a>
+              </button>
             </div>
           </li>
           {LIVE_SHORT_REQUIREMENTS.map((requirement) => {

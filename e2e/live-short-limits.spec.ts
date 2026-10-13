@@ -69,6 +69,16 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
     await expect(
       page.getByText('Cuenta live verificada. Conectar las claves no activa dinero real.'),
     ).toBeVisible();
+    const accountRow = page.getByRole('listitem').filter({
+      has: page.getByRole('heading', { name: 'Cuenta Alpaca preparada para ventas en corto' }),
+    });
+    await expect(accountRow.getByText('Cumplido', { exact: true })).toBeVisible();
+    await expect(accountRow.getByText('Verificación automática')).toBeVisible();
+    const capital = accountRow.getByText(
+      'Cuenta live con margen · corto habilitado · capital 100.250,55 USD, mínimo 2.000,00 USD.',
+    );
+    await expect(capital).toBeVisible();
+    await expect(capital).toHaveCSS('font-variant-numeric', 'tabular-nums');
     const fields = [
       ['Capital total en real', limits.capitalUsd],
       ['Máximo por orden', limits.orderUsd],
@@ -133,6 +143,92 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
     await closePhaseApp(context);
   }
 });
+
+for (const account of [
+  { equityUsd: 1999.99, shortingEnabled: true, capital: '1.999,99 USD' },
+  { equityUsd: 2500, shortingEnabled: false, capital: '2.500,00 USD' },
+]) {
+  test(`cuenta Alpaca pendiente (${account.capital}, corto ${account.shortingEnabled}) bloquea hasta una nueva verificación`, async () => {
+    const context = await launchPhaseApp('tradia-short-account');
+    try {
+      const { page } = context;
+      await openPage(page, 'Ajustes');
+      const accountRow = page.getByRole('listitem').filter({
+        has: page.getByRole('heading', { name: 'Cuenta Alpaca preparada para ventas en corto' }),
+      });
+      const shortInputs = [
+        page.getByLabel('Máximo por orden en corto', { exact: true }),
+        page.getByLabel('Exposición corta total máxima', { exact: true }),
+        page.getByLabel('Posiciones cortas simultáneas', { exact: true }),
+      ];
+      await expect(accountRow.getByText('Revisar', { exact: true })).toBeVisible();
+      await expect(
+        accountRow.getByText('Capital leído: no disponible · mínimo 2.000,00 USD.'),
+      ).toBeVisible();
+      for (const input of shortInputs) {
+        await expect(input).toHaveAttribute('readonly', '');
+        await expect(input).toHaveAttribute('aria-disabled', 'true');
+      }
+      await page.evaluate(async (fixture) => {
+        await window.tradia.testing!.live.useSimulatedBroker({
+          enabled: true,
+          account: { equityUsd: fixture.equityUsd, shortingEnabled: fixture.shortingEnabled },
+        });
+        await window.tradia.testing!.live.seedProgress({
+          paperMonths: 4,
+          paperTrades: 34,
+          deviationPct: -4,
+          finalTestDone: true,
+          killSwitchTested: true,
+          alertsTested: true,
+          paperShortTrades: 5,
+          paperShortWeeks: 5,
+        });
+        for (const requirement of [
+          'claves-sin-retirada',
+          'plan-contingencia',
+          'revision-legal',
+          'revision-legal-corto',
+        ] as const)
+          await window.tradia.live.declare({ requirement, confirmed: true });
+        await window.tradia.live.connect({
+          apiKeyId: 'AKE2ELIVE0001',
+          apiSecret: 'e2e-live-secret-0001',
+        });
+      }, account);
+      await accountRow.getByRole('button', { name: 'Revisar conexión live' }).click();
+      await expect(accountRow.getByText('Pendiente', { exact: true })).toBeVisible();
+      await expect(
+        accountRow.getByText(`Capital leído: ${account.capital} · mínimo 2.000,00 USD.`),
+      ).toBeVisible();
+      for (const input of shortInputs) {
+        await expect(input).toHaveAttribute('readonly', '');
+        await expect(input).toHaveAttribute('aria-disabled', 'true');
+        await expect(input).toHaveAccessibleDescription(
+          /La cuenta live de Alpaca debe tener margen, el corto habilitado y al menos 2\.000,00 USD de capital/,
+        );
+        await input.focus();
+        await page.keyboard.type('1');
+        await expect(input).toHaveValue('0');
+      }
+      await page.evaluate(async () => {
+        await window.tradia.testing!.live.useSimulatedBroker({ enabled: true });
+        await window.tradia.live.connect({
+          apiKeyId: 'AKE2ELIVE0001',
+          apiSecret: 'e2e-live-secret-0001',
+        });
+      });
+      await accountRow.getByRole('button', { name: 'Revisar conexión live' }).click();
+      await expect(accountRow.getByText('Cumplido', { exact: true })).toBeVisible();
+      for (const input of shortInputs) {
+        await expect(input).not.toHaveAttribute('readonly');
+        await expect(input).not.toHaveAttribute('aria-disabled');
+      }
+    } finally {
+      await closePhaseApp(context);
+    }
+  });
+}
 
 test('los requisitos del corto bloquean edición, conservan límites y abren órdenes paper', async () => {
   const context = await launchPhaseApp('tradia-short-readiness');
