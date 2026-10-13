@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import type { UncoveredAsset } from '../../../shared/ipc';
 import { DataStateIcon } from './DataStateIcon';
 import { notifyWatchlistChanged } from '../hooks/watchlistEvents';
+import { fxPairForCurrency } from '../../../shared/fx';
+import { assetSymbol } from './assetPresentation';
 
 export function UncoveredAssets({
   assets,
@@ -114,6 +116,14 @@ export function UncoveredAssets({
                 Tiingo no ofrece datos para {asset.ticker} en este conector. Puedes quitarlo de la
                 lista{asset.suggestion ? ` o cambiarlo por ${asset.suggestion}` : ''}.
               </p>
+              {fxPairForCurrency(asset.ticker) && (
+                <p>
+                  Para seguir el tipo de cambio, añade{' '}
+                  {assetSymbol(fxPairForCurrency(asset.ticker) ?? '')} desde la lista de
+                  seguimiento: es una divisa con calendario 24/5, sin datos en fin de semana y con
+                  datos en los festivos de EE. UU.
+                </p>
+              )}
             </details>
           </li>
         ))}

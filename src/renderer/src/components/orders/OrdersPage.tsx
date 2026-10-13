@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { normalizeFxPair } from '../../../../shared/fx';
+import { FX_BROKER_REJECTION_REASON } from '../../../../shared/fxTrading';
+import { assetSymbol } from '../assetPresentation';
 import type {
   BrokerOrder,
   BrokerOrderMode,
@@ -83,6 +86,13 @@ export function OrdersPage() {
     const limitPrice = Number(formPrice);
     const symbol = formTicker.trim().toUpperCase();
     if (createBusy.current || offline || symbol === '' || !(quantity > 0) || !(limitPrice > 0)) {
+      return;
+    }
+    const pair = normalizeFxPair(symbol);
+    if (pair) {
+      setCreateError(
+        `${assetSymbol(pair)} es una divisa y no se envía al bróker: ${FX_BROKER_REJECTION_REASON}. Sus señales aprobadas se operan en la cartera simulada.`,
+      );
       return;
     }
     createBusy.current = true;

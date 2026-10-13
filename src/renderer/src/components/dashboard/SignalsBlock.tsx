@@ -1,3 +1,9 @@
+import { assetSymbol, fxLabel } from '../assetPresentation';
+import {
+  FX_ANALYSIS_ONLY_REASON,
+  FX_BROKER_REJECTION_REASON,
+  isFxSymbol,
+} from '../../../../shared/fxTrading';
 import { useDataFreshness } from '../../hooks/useDataFreshness';
 import { sessionDateLabel } from '../DataFreshness';
 import type { Signal, SignalStrategyState } from '../../../../shared/signals';
@@ -45,7 +51,7 @@ export function SignalsBlock({
             <li key={`signal-${row.value.id}`}>
               <div className="dashboard-signal-summary">
                 <time dateTime={row.value.createdAt}>{time(row.value.createdAt)}</time>
-                <strong>{row.value.ticker}</strong>
+                <strong>{assetSymbol(row.value.ticker)}</strong>
                 <span>{direction(row.value.direction)}</span>
                 <span className={`dashboard-badge dashboard-${row.value.decision.status}`}>
                   {decisions[row.value.decision.status]}
@@ -54,12 +60,21 @@ export function SignalsBlock({
               <div>
                 <strong>Confianza {number(row.value.confidence * 100)} %</strong>
                 <progress
-                  aria-label={`Confianza de ${row.value.ticker}`}
+                  aria-label={`Confianza de ${assetSymbol(row.value.ticker)}`}
                   max={100}
                   value={Math.min(100, Math.max(0, row.value.confidence * 100))}
                   aria-valuenow={Math.min(100, Math.max(0, row.value.confidence * 100))}
                   aria-valuetext={`${number(row.value.confidence * 100)} %`}
                 />
+                {isFxSymbol(row.value.ticker) && (
+                  <p className="dashboard-fx-destination">
+                    <strong>{fxLabel(row.value.ticker)}.</strong>{' '}
+                    {row.value.destination === 'solo-analisis'
+                      ? `No abre posición: ${row.value.destinationReason ?? FX_ANALYSIS_ONLY_REASON}.`
+                      : 'Si Riesgo la aprueba, se opera en la cartera simulada.'}{' '}
+                    No va al bróker ni usa dinero real: {FX_BROKER_REJECTION_REASON}.
+                  </p>
+                )}
                 <p>{row.value.reason}</p>
                 <p>
                   {row.value.strategies
@@ -69,7 +84,9 @@ export function SignalsBlock({
                 {row.value.decision.reasons.map((reason, index) => (
                   <p key={index}>Riesgo: {reason.message}</p>
                 ))}
-                <a href={`#diario?signalId=${row.value.id}`}>Ver en Diario · {row.value.ticker}</a>
+                <a href={`#diario?signalId=${row.value.id}`}>
+                  Ver en Diario · {assetSymbol(row.value.ticker)}
+                </a>
               </div>
             </li>
           ) : (

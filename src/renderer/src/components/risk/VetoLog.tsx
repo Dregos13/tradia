@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useState } from 'react';
 import {
   VETO_REASON_CODES,
@@ -93,7 +94,7 @@ export function VetoLog({
                       {new Date(row.createdAt).toLocaleString('es-ES', { timeZoneName: 'short' })}
                     </time>
                   </td>
-                  <td>{row.ticker}</td>
+                  <td>{assetSymbol(row.ticker)}</td>
                   <td>
                     <strong>{row.code}</strong>
                     <br />

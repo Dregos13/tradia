@@ -10,6 +10,8 @@ import {
 import type { MarketBarsResult, DataStatusEntry } from '../../../../shared/ipc';
 import { chartData, priceFormat, rangeStart, type AdjustedCandle } from './chartData';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
+import { assetSymbol, FX_CALENDAR_HELP, fxLabel, fxPrice } from '../assetPresentation';
+import { isFxSymbol } from '../../../../shared/fxTrading';
 
 export function PriceChart({
   result,
@@ -145,23 +147,38 @@ export function PriceChart({
     };
     // Range selection intentionally resets the viewport; indicator visibility does not.
   }, [data, years, theme]);
+  const fx = isFxSymbol(result.ticker);
+  const symbol = assetSymbol(result.ticker);
   useEffect(() => {
     averages.current.forEach((series, index) => series.applyOptions({ visible: visible[index] }));
   }, [visible, data, years, theme]);
   return (
     <section
       className={`market-chart-card${status?.state === 'no-fiable' ? ' data-unreliable' : ''}`}
-      aria-label={`Precio de ${result.ticker}`}
+      aria-label={`Precio de ${symbol}`}
     >
       <header className="market-chart-heading">
         <div>
-          <h3>{result.ticker}</h3>
-          <p>USD · Precios ajustados por splits y dividendos</p>
+          <h3>{symbol}</h3>
+          {fx ? (
+            <>
+              <p>
+                USD por {result.ticker.slice(0, 3)} · {fxLabel(result.ticker)}
+              </p>
+              <p className="market-fx-calendar">{FX_CALENDAR_HELP}</p>
+            </>
+          ) : (
+            <p>USD · Precios ajustados por splits y dividendos</p>
+          )}
           <p>
             Fuente: {result.source ?? 'Pendiente'} · Última vela:{' '}
             {last?.time ?? 'Sin velas ajustadas'}
           </p>
-          {last && <strong className="market-close">{priceFormat.format(last.close)} USD</strong>}
+          {last && (
+            <strong className="market-close">
+              {fx ? fxPrice(last.close) : priceFormat.format(last.close)} USD
+            </strong>
+          )}
         </div>
         <div className="market-chart-controls">
           <MarketStatus status={status} simulated={result.source === 'simulated'} />
@@ -239,7 +256,7 @@ export function PriceChart({
             ref={container}
             className="market-chart"
             role="img"
-            aria-label={`Velas diarias ajustadas de ${result.ticker}, rango ${years} años, SMA 20, 50 y 200, paneles RSI 14 y ATR 14`}
+            aria-label={`Velas diarias ajustadas de ${symbol}, rango ${years} años, SMA 20, 50 y 200, paneles RSI 14 y ATR 14`}
           />
           {chartError && (
             <p className="market-error" role="alert">
@@ -263,7 +280,7 @@ export function PriceChart({
               <div tabIndex={0} role="region" aria-label="Tabla de velas ajustadas">
                 <table>
                   <caption>
-                    {result.ticker} · OHLCV ajustado · {years} años
+                    {symbol} · OHLCV ajustado · {years} años
                   </caption>
                   <thead>
                     <tr>

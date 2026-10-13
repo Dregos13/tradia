@@ -10,6 +10,8 @@ import { DataStateIcon } from './DataStateIcon';
 import { dataStateTokenStylesheet } from './dataStateTokens';
 import { useDataFreshness } from '../hooks/useDataFreshness';
 import { UncoveredAssets } from './UncoveredAssets';
+import { assetSymbol, FX_CALENDAR_HELP } from './assetPresentation';
+import { isFxSymbol } from '../../../shared/fxTrading';
 
 export { sessionDateLabel } from '../../../shared/dates';
 
@@ -226,6 +228,8 @@ function DataFreshnessContent({
   const provider =
     oldest?.key.startsWith('macro:') || oldest?.key.includes('fred') ? 'fred' : 'tiingo';
   const title = freshnessTitle(summary, { offline, snapshotSessionDate });
+  const fxTicker = (key: string) => key.startsWith('ticker:') && isFxSymbol(key.slice(7));
+  const fxAffected = summary.items.some((item) => fxTicker(item.key));
   const modifier = uncoveredOnly
     ? 'uncovered'
     : summary.state === 'unreliable'
@@ -255,6 +259,7 @@ function DataFreshnessContent({
               </p>
             )}
             {paused && <p>Régimen, predicciones y señales en pausa hasta ponerse al día.</p>}
+            {fxAffected && <p className="data-freshness-fx">{FX_CALENDAR_HELP}</p>}
             {summary.state === 'catching-up' && (
               <p>
                 {summary.progress
@@ -275,7 +280,10 @@ function DataFreshnessContent({
             <ul>
               {summary.items.map((item) => (
                 <li key={item.key}>
-                  {item.label} · último dato{' '}
+                  {fxTicker(item.key)
+                    ? `${assetSymbol(item.key.slice(7))} · divisa 24/5`
+                    : item.label}{' '}
+                  · último dato{' '}
                   <time dateTime={item.lastDataDate ?? undefined}>
                     {sessionDateLabel(item.lastDataDate)}
                   </time>{' '}

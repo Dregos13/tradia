@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useEffect, useRef, useState } from 'react';
 import type { JournalEntry } from '../../../../shared/journal';
 import { entryLabel, localDate, resultLabel } from './labels';
@@ -69,7 +70,9 @@ export function JournalDetail({ id, close }: { id: number; close: () => void }) 
         <header>
           <h2 id="journal-detail-title" tabIndex={-1} ref={title}>
             Detalle del diario
-            {entry ? ` · ${entryLabel(entry)} · ${entry.ticker ?? 'General'}` : ''}
+            {entry
+              ? ` · ${entryLabel(entry)} · ${entry.ticker ? assetSymbol(entry.ticker) : 'General'}`
+              : ''}
           </h2>
           <button onClick={close} aria-label="Cerrar detalle">
             ×
@@ -93,7 +96,7 @@ export function JournalDetail({ id, close }: { id: number; close: () => void }) 
               <dt>Tipo</dt>
               <dd>{entryLabel(entry)}</dd>
               <dt>Activo</dt>
-              <dd>{entry.ticker ?? 'No aplica'}</dd>
+              <dd>{entry.ticker ? assetSymbol(entry.ticker) : 'No aplica'}</dd>
               <dt>Estrategias y versiones</dt>
               <dd>
                 {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') || 'No aplica'}
@@ -126,6 +129,7 @@ export function JournalDetail({ id, close }: { id: number; close: () => void }) 
             </section>
             <section>
               <h3>Resultado</h3>
+              {entry.dataUsed?.divisaPnl === 'USD' && <p>P&amp;L en USD · cartera simulada</p>}
               <p>{entry.result ? resultLabel[entry.result] : 'No aplica'}</p>
             </section>
             <section>

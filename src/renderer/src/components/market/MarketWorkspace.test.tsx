@@ -122,6 +122,29 @@ describe('Lista y gráfico con adaptador simulado', () => {
       true,
     );
   });
+  it('EUR se rechaza, «Añadir EUR/USD (divisa)» lo añade al día con su etiqueta y su calendario 24/5', async () => {
+    simulation.markTickerUncovered('EUR');
+    const user = userEvent.setup();
+    render(<MarketWorkspace />);
+    await screen.findByText('Tu lista está vacía.');
+    await add('EUR');
+    await user.click(await screen.findByRole('button', { name: 'Añadir EUR/USD (divisa)' }));
+    const row = await screen.findByRole('button', { name: 'EUR/USD' });
+    await waitFor(() =>
+      expect(row).toHaveAccessibleDescription(/Divisa · 24\/5 · cartera simulada.*Fiable/),
+    );
+    const card = await screen.findByRole('region', { name: 'Precio de EUR/USD' });
+    expect(within(card).getByRole('heading', { name: 'EUR/USD' })).toBeVisible();
+    expect(within(card).getByText(/USD por EUR · Divisa · 24\/5 · cartera simulada/)).toBeVisible();
+    expect(
+      within(card).getByText(
+        /No se esperan datos en fin de semana; sí en los festivos de EE\. UU\./,
+      ),
+    ).toBeVisible();
+    expect(await simulation.api.watchlist.list()).toEqual([
+      expect.objectContaining({ ticker: 'EURUSD', assetClass: 'fx' }),
+    ]);
+  });
   it('rechaza formato, duplicados y el límite de 25; añade el universo mediante IPC', async () => {
     const addSpy = vi.spyOn(simulation.api.watchlist, 'add');
     const universe = vi.spyOn(simulation.api.watchlist, 'addUniverse');

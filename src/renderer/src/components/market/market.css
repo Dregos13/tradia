@@ -390,6 +390,19 @@
 .market-asset-coverage {
   padding: var(--space-2) var(--space-4);
 }
+.market-asset-class {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--data-clarity-type-caption);
+  line-height: var(--data-clarity-leading-caption);
+}
+.market-chart-heading .market-fx-calendar {
+  max-width: 70ch;
+  color: var(--color-text);
+  font-size: var(--data-clarity-type-caption);
+  line-height: var(--data-clarity-leading-caption);
+}
 .market-coverage-uncovered {
   color: var(--data-clarity-uncovered);
   background: var(--data-clarity-uncovered-surface);

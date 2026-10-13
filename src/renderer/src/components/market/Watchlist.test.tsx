@@ -40,7 +40,7 @@ it('rechaza EUR, conserva la lista y el valor, anuncia y enfoca el campo', async
   await add('EUR');
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent(
-    'Tiingo no ofrece datos para EUR. Puedes añadir FXE, un ETF que sigue una exposición parecida.',
+    'Tiingo no ofrece datos para EUR. Puedes añadir EUR/USD, una divisa con calendario 24/5, o cambiar por FXE, un ETF que sigue una exposición parecida.',
   );
   expect(alert).toHaveAttribute('aria-live', 'assertive');
   expect(screen.getByLabelText('Ticker')).toHaveAttribute(
@@ -51,8 +51,12 @@ it('rechaza EUR, conserva la lista y el valor, anuncia y enfoca el campo', async
   expect(screen.getByLabelText('Ticker')).toHaveValue('EUR');
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Ticker')));
   expect((await simulation.api.watchlist.list()).map((item) => item.ticker)).toEqual(['SPY']);
-  expect(screen.getByRole('button', { name: 'Añadir FXE' })).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Añadir EURUSD' })).toBeEnabled();
+  // La divisa va primero; el ETF, después.
+  expect(
+    within(alert)
+      .getAllByRole('button')
+      .map((button) => button.textContent),
+  ).toEqual(['Añadir EUR/USD (divisa)', 'Cambiar por FXE']);
 });
 it('añade FXE con un clic, muestra el nombre real devuelto y devuelve foco estable', async () => {
   simulation.markTickerUncovered('EUR');
@@ -63,7 +67,7 @@ it('añade FXE con un clic, muestra el nombre real devuelto y devuelve foco esta
   });
   render(<Harness />);
   await add('EUR');
-  await userEvent.click(await screen.findByRole('button', { name: 'Añadir FXE' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Cambiar por FXE' }));
   const row = await screen.findByRole('button', { name: 'FXE' });
   expect(row).toHaveAttribute('aria-pressed', 'true');
   expect(row).toHaveTextContent('Invesco CurrencyShares Euro Trust');
@@ -116,7 +120,7 @@ it('una alternativa rechazada no entra en la lista y queda en el campo', async (
   simulation.markTickerUncovered('FXE');
   render(<Harness />);
   await add('EUR');
-  await userEvent.click(await screen.findByRole('button', { name: 'Añadir FXE' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Cambiar por FXE' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Tiingo no ofrece datos para FXE.');
   expect(await simulation.api.watchlist.list()).toEqual([]);
   expect(screen.getByLabelText('Ticker')).toHaveValue('FXE');
@@ -186,4 +190,51 @@ it('valida el formato sin llamar al proveedor y no expone excepciones', async ()
   await add('AAPL');
   expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos actualizar la lista');
   expect(screen.queryByText(/private token/)).not.toBeInTheDocument();
+});
+
+it('añade EUR/USD en un paso desde el rechazo de EUR y lo muestra como divisa de la cartera simulada', async () => {
+  simulation.markTickerUncovered('EUR');
+  render(<Harness />);
+  await add('EUR');
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Añadir EUR/USD (divisa)' }));
+  const row = await screen.findByRole('button', { name: 'EUR/USD' });
+  expect(row).toHaveAttribute('aria-pressed', 'true');
+  await waitFor(() =>
+    expect(row).toHaveAccessibleDescription(/^Divisa · 24\/5 · cartera simulada/),
+  );
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'EUR/USD se ha añadido a tu lista: divisa · 24/5 · cartera simulada.',
+  );
+  expect(screen.getByRole('button', { name: 'Quitar EUR/USD' })).toBeEnabled();
+  expect((await simulation.api.watchlist.list()).map((item) => item.ticker)).toEqual(['EURUSD']);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Ticker')));
+});
+it.each([
+  ['EUR/USD', 'EURUSD', 'EUR/USD', 'cartera simulada'],
+  ['gbpusd', 'GBPUSD', 'GBP/USD', 'cartera simulada'],
+  ['USD/JPY', 'USDJPY', 'USD/JPY', 'solo análisis'],
+])('acepta %s escrito directamente', async (typed, stored, shown, destination) => {
+  render(<Harness />);
+  await add(typed);
+  const row = await screen.findByRole('button', { name: shown });
+  await waitFor(() =>
+    expect(row).toHaveAccessibleDescription(new RegExp(`Divisa · 24/5 · ${destination}`)),
+  );
+  expect((await simulation.api.watchlist.list()).map((item) => item.ticker)).toEqual([stored]);
+});
+it('el rechazo de EUR se maneja con teclado: Tab llega a la divisa y Enter la añade', async () => {
+  simulation.markTickerUncovered('EUR');
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Ticker'), 'EUR{Enter}');
+  await screen.findByRole('alert');
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Ticker')));
+  await user.tab();
+  await user.tab();
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Añadir EUR/USD (divisa)' }),
+  );
+  await user.keyboard('{Enter}');
+  expect(await screen.findByRole('button', { name: 'EUR/USD' })).toBeVisible();
 });

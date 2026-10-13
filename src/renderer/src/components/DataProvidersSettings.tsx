@@ -6,6 +6,8 @@ import { focusProviderKey, ProviderConnectionResult } from './ProviderConnection
 import { refreshResultMessage } from './DataFreshness';
 import { subscribeWatchlistChanged } from '../hooks/watchlistEvents';
 import { DataStateIcon } from './DataStateIcon';
+import { assetSymbol, fxLabel } from './assetPresentation';
+import { isFxSymbol } from '../../../shared/fxTrading';
 import './settings/settings.css';
 
 function TiingoCoverage() {
@@ -39,6 +41,12 @@ function TiingoCoverage() {
   }, [retry]);
   const uncovered = entries?.filter((entry) => entry.coverage === 'sin-cobertura') ?? [];
   const pending = entries?.filter((entry) => entry.coverage === 'pendiente-verificar') ?? [];
+  const pairs = entries?.filter((entry) => isFxSymbol(entry.ticker)) ?? [];
+  const pairState = {
+    cubierto: 'cubierta por Tiingo FX',
+    'pendiente-verificar': 'pendiente de verificar en Tiingo FX',
+    'sin-cobertura': 'sin cobertura en Tiingo FX',
+  } as const;
   return (
     <section
       className={`connector-coverage ${uncovered.length ? 'connector-coverage--uncovered' : ''}`}
@@ -71,7 +79,7 @@ function TiingoCoverage() {
               {uncovered.map((entry) => (
                 <li key={entry.ticker}>
                   <DataStateIcon kind="warning" />
-                  <strong>{entry.ticker} no está disponible en Tiingo</strong>
+                  <strong>{assetSymbol(entry.ticker)} no está disponible en Tiingo</strong>
                   {entry.suggestion && <p>Alternativa disponible: {entry.suggestion}.</p>}
                 </li>
               ))}
@@ -83,10 +91,37 @@ function TiingoCoverage() {
                 : 'Tu lista de seguimiento está vacía.'}
             </p>
           )}
+          {pairs.length > 0 && (
+            <div className="connector-fx-coverage">
+              <h5>Divisas de tu lista</h5>
+              <ul>
+                {pairs.map((entry) => (
+                  <li key={entry.ticker}>
+                    <DataStateIcon
+                      kind={
+                        entry.coverage === 'cubierto'
+                          ? 'ok'
+                          : entry.coverage === 'sin-cobertura'
+                            ? 'uncovered'
+                            : 'pending'
+                      }
+                    />
+                    <strong>{assetSymbol(entry.ticker)}</strong> · {pairState[entry.coverage]} ·{' '}
+                    {fxLabel(entry.ticker)}
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Velas diarias de lunes a viernes: sin datos en fin de semana y con datos en los
+                festivos de EE. UU.
+              </p>
+            </div>
+          )}
           {pending.length > 0 && (
             <p>
-              Pendientes de verificar: {pending.map((entry) => entry.ticker).join(', ')}. Actualiza
-              los datos cuando Tiingo esté conectado.
+              Pendientes de verificar:{' '}
+              {pending.map((entry) => assetSymbol(entry.ticker)).join(', ')}. Actualiza los datos
+              cuando Tiingo esté conectado.
             </p>
           )}
           <a href="#mercado">

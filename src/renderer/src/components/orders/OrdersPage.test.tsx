@@ -397,3 +397,20 @@ it('muestra en español el motivo del rechazo de una entrada en corto real', asy
   expect(reason.closest('tr')).toHaveTextContent('Dinero real');
   expect(reason.closest('tr')).toHaveTextContent('Rechazada');
 });
+
+it('una orden manual de EUR/USD no se envía al bróker y explica que se opera en la cartera simulada', async () => {
+  const create = vi.spyOn(window.tradia.orders, 'create');
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'EUR/USD');
+  await user.type(screen.getByLabelText('Cantidad'), '1000');
+  await user.type(screen.getByLabelText('Precio límite'), '1.08');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'EUR/USD es una divisa y no se envía al bróker: el bróker conectado no opera divisas: se opera solo en la cartera simulada.',
+  );
+  expect(create).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');
+});

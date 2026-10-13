@@ -661,3 +661,45 @@ it('R4: IA sin red conserva la fecha conocida en ambos paneles sin negarla ni mo
   expect(view.container).not.toHaveTextContent('fecha del último dato no disponible');
   expect(view.container.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}/);
 });
+
+it('un EUR/USD desactualizado explica el calendario 24/5 de las divisas', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    ...uncoveredSummary,
+    state: 'stale',
+    uncovered: [],
+    items: [
+      {
+        key: 'ticker:EURUSD',
+        label: 'EURUSD',
+        state: 'desactualizado',
+        lastDataDate: '2026-10-08',
+        reason: 'Falta la vela del 9 de octubre.',
+      },
+    ],
+  });
+  render(<DataFreshness />);
+  expect(
+    await screen.findByText(
+      /Divisas: calendario 24\/5, de lunes a viernes\. No se esperan datos en fin de semana; sí en los festivos de EE\. UU\./,
+    ),
+  ).toBeVisible();
+  await userEvent.click(screen.getByText('Ver detalles'));
+  expect(screen.getByText(/EUR\/USD · divisa 24\/5\s+· último dato/)).toBeVisible();
+});
+it('el detalle de EUR sin cobertura propone seguir EUR/USD como divisa 24/5', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(uncoveredSummary);
+  render(<DataFreshness />);
+  const notice = await screen.findByRole('region', { name: 'Activos sin datos' });
+  await userEvent.click(within(notice).getByText('Por qué ocurre'));
+  expect(
+    within(notice).getByText(
+      /añade EUR\/USD desde la lista de seguimiento: es una divisa con calendario 24\/5, sin datos en fin de semana y con datos en los festivos de EE\. UU\./,
+    ),
+  ).toBeVisible();
+  // El orden de teclado del aviso no cambia: la alternativa, quitar y el detalle.
+  expect(
+    within(notice)
+      .getAllByRole('button')
+      .map((button) => button.textContent),
+  ).toEqual(['Cambiar por FXE', 'Quitar de la lista']);
+});

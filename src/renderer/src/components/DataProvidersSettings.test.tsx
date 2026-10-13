@@ -227,3 +227,25 @@ it('el acceso desde el tour abre el campo de la clave incluso con una clave guar
   await waitFor(() => expect(screen.getByLabelText('Clave de API de Tiingo')).toHaveFocus());
   expect(document.getElementById('tiingo-key-details')).toHaveAttribute('open');
 });
+it('Tiingo dice qué divisas de la lista cubre y su calendario 24/5', async () => {
+  vi.spyOn(simulation.api.watchlist, 'coverage').mockResolvedValue([
+    { ticker: 'AAPL', coverage: 'cubierto', reason: null, suggestion: null },
+    { ticker: 'EURUSD', coverage: 'cubierto', reason: null, suggestion: null },
+    { ticker: 'USDJPY', coverage: 'pendiente-verificar', reason: 'sin-red', suggestion: null },
+  ]);
+  render(<DataProvidersSettings />);
+  const form = within(screen.getByRole('form', { name: 'Proveedor Tiingo' }));
+  const fx = (await form.findByRole('heading', { name: 'Divisas de tu lista' })).parentElement!;
+  const rows = within(fx)
+    .getAllByRole('listitem')
+    .map((row) => row.textContent);
+  expect(rows).toEqual([
+    'EUR/USD · cubierta por Tiingo FX · Divisa · 24/5 · cartera simulada',
+    'USD/JPY · pendiente de verificar en Tiingo FX · Divisa · 24/5 · solo análisis',
+  ]);
+  expect(
+    within(fx).getByText(/sin datos en fin de semana y con datos en los festivos/),
+  ).toBeVisible();
+  expect(form.getByText(/Pendientes de verificar: USD\/JPY/)).toBeInTheDocument();
+  expect(within(fx).queryByText(/AAPL/)).toBeNull();
+});
