@@ -50,3 +50,51 @@ it('carga sin asumir permiso y permite reintentar tras un error', async () => {
   });
   expect(await screen.findByText(/Corto con dinero real desactivado/)).toBeVisible();
 });
+
+it.each(['shortOrderUsd', 'shortExposureUsd', 'shortPositions'] as const)(
+  'no anuncia permiso cuando %s es cero',
+  async (key) => {
+    const state = await window.tradia.live.state();
+    vi.spyOn(window.tradia.live, 'state').mockResolvedValue({
+      ...state,
+      limits: {
+        capitalUsd: 500,
+        orderUsd: 100,
+        dailyLossUsd: 10,
+        openPositions: 1,
+        shortOrderUsd: 100,
+        shortExposureUsd: 200,
+        shortPositions: 1,
+        [key]: 0,
+      },
+    });
+    render(<LiveShortStatus />);
+    expect(await screen.findByText(/Corto con dinero real desactivado/)).toBeVisible();
+    expect(screen.queryByText(/Corto con dinero real permitido/)).not.toBeInTheDocument();
+  },
+);
+it('retira el permiso de la ficha al recibir límites pendientes de confirmación', async () => {
+  const state = await window.tradia.live.state();
+  vi.spyOn(window.tradia.live, 'state').mockResolvedValue({
+    ...state,
+    limits: {
+      capitalUsd: 500,
+      orderUsd: 100,
+      dailyLossUsd: 10,
+      openPositions: 1,
+      shortOrderUsd: 100,
+      shortExposureUsd: 200,
+      shortPositions: 1,
+    },
+  });
+  let changed!: Parameters<typeof window.tradia.live.onChanged>[0];
+  vi.spyOn(window.tradia.live, 'onChanged').mockImplementation((listener) => {
+    changed = listener;
+    return vi.fn();
+  });
+  render(<LiveShortStatus />);
+  expect(await screen.findByText(/Corto con dinero real permitido/)).toBeVisible();
+  act(() => changed({ ...state, limits: null }));
+  expect(screen.getByText(/Corto con dinero real desactivado/)).toBeVisible();
+  expect(screen.queryByText(/Corto con dinero real permitido/)).not.toBeInTheDocument();
+});

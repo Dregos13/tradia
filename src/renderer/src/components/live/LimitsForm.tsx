@@ -58,7 +58,10 @@ export function LimitsForm({
   const errors = Object.fromEntries(
     LIMIT_FIELDS.map(({ key }) => [key, validate(key, values[key])]),
   ) as Record<Field, string>;
-  const dirty = !saved || LIMIT_FIELDS.some(({ key }) => Number(values[key]) !== saved[key]);
+  const isDirty = (next: Values) =>
+    !saved ||
+    LIMIT_FIELDS.some(({ key }) => !!validate(key, next[key]) || Number(next[key]) !== saved[key]);
+  const dirty = isDirty(values);
   return (
     <section className="live-sheet" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>Límites de capital real</h3>
@@ -112,10 +115,7 @@ export function LimitsForm({
                   const next = { ...values, [key]: event.target.value };
                   setValues(next);
                   setTouched((old) => ({ ...old, [key]: true }));
-                  onDirty(
-                    !saved ||
-                      LIMIT_FIELDS.some(({ key: field }) => Number(next[field]) !== saved[field]),
-                  );
+                  onDirty(isDirty(next));
                 }}
               />
               {touched[key] && errors[key] && (

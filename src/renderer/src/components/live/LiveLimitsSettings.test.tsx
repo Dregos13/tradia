@@ -97,3 +97,27 @@ it('Ajustes conserva el borrador y muestra un error de guardado accesible', asyn
     screen.getByRole('button', { name: 'Confirmar límites y activar dinero real' }),
   ).toBeDisabled();
 });
+
+it('un límite del corto vacío bloquea la confirmación aunque el guardado sea cero', async () => {
+  await adapter.api.live.testKillSwitch();
+  await adapter.api.delivery.test({ channel: 'telegram' });
+  for (const requirement of LIVE_DECLARATION_REQUIREMENTS)
+    await adapter.api.live.declare({ requirement, confirmed: true, detail: 'Plan revisado' });
+  await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
+  await adapter.api.live.setLimits({ ...limits, shortOrderUsd: 0 });
+  render(<LiveLimitsSettings />);
+  const confirm = await screen.findByRole('button', {
+    name: 'Confirmar límites y activar dinero real',
+  });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  const input = screen.getByLabelText('Máximo por orden en corto');
+  fireEvent.change(input, { target: { value: '' } });
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeDisabled();
+  expect(confirm).toBeDisabled();
+  expect(
+    screen.queryByText(liveConfirmationPhrase({ ...limits, shortOrderUsd: 0 })),
+  ).not.toBeInTheDocument();
+  fireEvent.change(input, { target: { value: '0' } });
+  expect(confirm).toBeEnabled();
+});

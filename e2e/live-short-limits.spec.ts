@@ -74,6 +74,16 @@ test('Ajustes valida los techos del corto, confirma su frase y la ficha muestra 
     ] as const;
     for (const [label, value] of fields)
       await page.getByLabel(label, { exact: true }).fill(String(value));
+    await page.getByRole('button', { name: 'Guardar límites' }).click();
+    const confirm = page.getByRole('button', { name: 'Confirmar límites y activar dinero real' });
+    await expect(confirm).toBeEnabled();
+    const shortOrder = page.getByLabel('Máximo por orden en corto', { exact: true });
+    await shortOrder.fill('');
+    await expect(shortOrder).toHaveAttribute('aria-invalid', 'true');
+    await expect(confirm).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Guardar límites' })).toBeDisabled();
+    await shortOrder.fill('0');
+    await expect(confirm).toBeEnabled();
     for (const [label, value] of [
       ['Máximo por orden en corto', limits.shortOrderUsd],
       ['Exposición corta total máxima', limits.shortExposureUsd],

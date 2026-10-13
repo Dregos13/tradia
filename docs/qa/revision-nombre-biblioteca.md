@@ -28,4 +28,31 @@ Se mantienen las pruebas de contador, pegado y semántica de `StrategyNameAndLib
 
 ## Comprobaciones
 
-Pendiente de registrar los resultados de las baterías completas al terminar su ejecución.
+Revisión completada el 13 de octubre de 2026 sobre el árbol compartido:
+
+| Comando | Resultado |
+| --- | --- |
+| `npm run typecheck` | EXIT 0 |
+| `npm run lint` | EXIT 0 |
+| `npm run format:check` | EXIT 0 |
+| `npm test -- --maxWorkers=2` | 2.731/2.731 pruebas, 193 archivos, EXIT 0 |
+| `npm run test:e2e` | 55/55, sin reintentos, 4,9 min, EXIT 0 |
+| `git ls-files .venv-ml` | Vacío |
+| Búsqueda de `it/test/describe.fails/skip/fixme/only` y `skipIf/runIf` en `src` y `e2e` | Vacía |
+
+Logs locales: `/tmp/tradia-audit-name-format.log`,
+`/tmp/tradia-audit-name-unit-final.log` y `/tmp/tradia-audit-name-e2e.log`.
+Se inspeccionaron las capturas actuales de `test-results/strategy-name-columns-{1440,700}.png`:
+cifras del backtest, cabeceras y «Sin datos» sin partir a 1440 px; tarjetas sin desbordamiento a 700 px.
+
+La primera batería unitaria coincidió con la incorporación de una prueba de límites del corto
+y falló en `LiveLimitsSettings.test.tsx:117` (confirmación habilitada con un campo vacío).
+La tarea paralela de límites corrigió el estado pendiente; la batería completa repetida pasó.
+Esta revisión no modifica esos componentes ni sus pruebas.
+
+Se conserva la corrección ya integrada del localizador de fila en
+`e2e/strategy-name-and-columns.spec.ts:78`: el filtro `has` busca el enlace dentro de la fila,
+sin volver a exigir la tabla como ancestro relativo. La ejecución completa confirma la corrección.
+No se han añadido dependencias ni pasos para el usuario. No se ha probado manualmente un lector de pantalla.
+Los criterios globales de noticias, riesgo y equivalencia de estrategias pertenecen a las otras tareas;
+esta revisión verifica los dos fallos asignados y las baterías compartidas.
