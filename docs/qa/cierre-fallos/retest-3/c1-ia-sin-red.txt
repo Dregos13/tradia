@@ -18,14 +18,14 @@ Ajustes
 IA
 Señales + paper trading
 Parada activa
-Parada activa: Pérdida de conexión · 16:41:18 CEST · Activada por Sistema
+Parada activa: Pérdida de conexión · 16:44:44 CEST · Activada por Sistema
 sin conexión durante más de 60 s
 
 Sin conexión. Ver estado
 
 Ver en Riesgo
 Reanudar
-Sin conexión: las decisiones están en pausa. Reintentando en 42 s.
+Sin conexión: las decisiones están en pausa. Reintentando en 39 s.
 Comprobar ahora
 Datos desactualizados desde el 17 sept 2026
 
@@ -132,6 +132,6 @@ Ver datos del gráfico
 Sin conexión
 Agentes en pausa
 · Pérdida de conexión
-Última comprobación 16:41:16
-Próximo reintento 16:42:26
+Última comprobación 16:44:36
+Próximo reintento 16:45:50
 Último latido Pendiente

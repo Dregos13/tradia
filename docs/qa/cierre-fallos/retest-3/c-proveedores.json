@@ -1,15 +1,65 @@
 {
-  "ok-Tiingo": "Conectado · Conectado. Último dato disponible: 9 oct 2026. Comprobado hoy a las 16:43 (2 ms).",
-  "ok-FRED": "Conectado · Conectado. Último dato disponible: 8 oct 2026. Comprobado hoy a las 16:43 (1 ms).",
+  "ok-Tiingo": "Conectado · Conectado. Último dato disponible: 9 oct 2026. Comprobado hoy a las 16:46 (2 ms).",
+  "ok-FRED": "Conectado · Conectado. Último dato disponible: 8 oct 2026. Comprobado hoy a las 16:46 (1 ms).",
   "error-Tiingo": "Error del proveedor · Tiingo no ha respondido como esperábamos: El proveedor no respondió como se esperaba (HTTP 503). Vuelve a probar; si se repite, revisa el estado del servicio.",
   "freshness-tras-error": {
-    "state": "current",
-    "sinceDate": null,
-    "expectedSessionDate": "2026-10-09",
-    "missingSessions": 0,
-    "items": [],
+    "state": "stale",
+    "sinceDate": "2026-10-08",
+    "expectedSessionDate": "2026-10-12",
+    "missingSessions": 2,
+    "items": [
+      {
+        "key": "macro:VIXCLS",
+        "label": "VIX (volatilidad CBOE)",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-08",
+        "reason": "falta la observación esperada; último dato: 8 oct 2026"
+      },
+      {
+        "key": "provider:fred",
+        "label": "FRED",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-08",
+        "reason": "faltan datos recientes; último dato: 8 oct 2026"
+      },
+      {
+        "key": "provider:tiingo",
+        "label": "Tiingo",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "faltan datos recientes; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:AAPL",
+        "label": "AAPL",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:MSFT",
+        "label": "MSFT",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:QQQ",
+        "label": "QQQ",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:SPY",
+        "label": "SPY",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      }
+    ],
     "progress": null,
-    "updatedAt": "2026-10-12T14:43:01.875Z"
+    "updatedAt": "2026-10-13T14:46:25.284Z"
   },
   "macro-refresh": {
     "accepted": true,
@@ -18,12 +68,65 @@
     "detail": "network: [fred] error del servidor (HTTP 503): {}"
   },
   "freshness-tras-macro": {
-    "state": "current",
-    "sinceDate": null,
-    "expectedSessionDate": "2026-10-09",
-    "missingSessions": 0,
-    "items": [],
-    "progress": null,
-    "updatedAt": "2026-10-12T14:43:06.553Z"
+    "state": "catching-up",
+    "sinceDate": "2026-10-08",
+    "expectedSessionDate": "2026-10-12",
+    "missingSessions": 2,
+    "items": [
+      {
+        "key": "macro:VIXCLS",
+        "label": "VIX (volatilidad CBOE)",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-08",
+        "reason": "falta la observación esperada; último dato: 8 oct 2026"
+      },
+      {
+        "key": "provider:fred",
+        "label": "FRED",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-08",
+        "reason": "faltan datos recientes; último dato: 8 oct 2026"
+      },
+      {
+        "key": "provider:tiingo",
+        "label": "Tiingo",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "faltan datos recientes; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:AAPL",
+        "label": "AAPL",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:MSFT",
+        "label": "MSFT",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:QQQ",
+        "label": "QQQ",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      },
+      {
+        "key": "ticker:SPY",
+        "label": "SPY",
+        "state": "desactualizado",
+        "lastDataDate": "2026-10-09",
+        "reason": "falta la vela del 12 oct 2026; último dato: 9 oct 2026"
+      }
+    ],
+    "progress": {
+      "done": 6,
+      "total": 10
+    },
+    "updatedAt": "2026-10-13T14:46:30.013Z"
   }
 }

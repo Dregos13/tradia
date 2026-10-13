@@ -18,14 +18,14 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada activa
-Parada activa: Pérdida de conexión · 16:41:18 CEST · Activada por Sistema
+Parada activa: Pérdida de conexión · 16:44:44 CEST · Activada por Sistema
 sin conexión durante más de 60 s
 
 Sin conexión. Ver estado
 
 Ver en Riesgo
 Reanudar
-Sin conexión: las decisiones están en pausa. Reintentando en 44 s.
+Sin conexión: las decisiones están en pausa. Reintentando en 41 s.
 Comprobar ahora
 Datos desactualizados desde el 17 sept 2026
 
@@ -177,7 +177,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 12 oct 2026, 16:40 CEST
+Datos de 13 oct 2026, 16:43 CEST
 
 Ver límites de riesgo
 Exposición
@@ -221,6 +221,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 Sin conexión
 Agentes en pausa
 · Pérdida de conexión
-Última comprobación 16:41:16
-Próximo reintento 16:42:26
+Última comprobación 16:44:36
+Próximo reintento 16:45:50
 Último latido Pendiente

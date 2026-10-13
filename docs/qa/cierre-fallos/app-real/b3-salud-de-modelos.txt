@@ -31,7 +31,7 @@ Salud de modelos
 
 Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
 
-Revisado 12 oct 2026, 15:39 CEST
+Revisado 13 oct 2026, 16:48 CEST
 
 Revisar ahora
 
@@ -63,13 +63,13 @@ desde 19 sept 2026, 12:00 CEST
 	Brier móvil 0,376
 Ficha 0,197 · diferencia 0,179 · umbral +0,02
 60/60 predicciones resueltas
-desde 12 oct 2026, 15:39 CEST
+desde 13 oct 2026, 16:48 CEST
 	
 
 Desde hace 1 sesiones · mínimo 20 en 2 variables
 
 Ventana de 60 predicciones.
-	12 oct 2026, 15:39 CEST	Ver detalle
+	13 oct 2026, 16:48 CEST	Ver detalle
 Cruce de medias · v1
 Estrategia
 	Sin datos suficientes
@@ -80,7 +80,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	12 oct 2026, 15:39 CEST	Ver detalle
+	13 oct 2026, 16:48 CEST	Ver detalle
 Reversión RSI/Bollinger · v1
 Estrategia
 	Sin datos suficientes
@@ -91,7 +91,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	12 oct 2026, 15:39 CEST	Ver detalle
+	13 oct 2026, 16:48 CEST	Ver detalle
 Ruptura de rangos · v1
 Estrategia
 	Sin datos suficientes
@@ -102,7 +102,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	12 oct 2026, 15:39 CEST	Ver detalle
+	13 oct 2026, 16:48 CEST	Ver detalle
 Momentum entre activos · v1
 Estrategia
 	Sin datos suficientes
@@ -113,7 +113,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	12 oct 2026, 15:39 CEST	Ver detalle
+	13 oct 2026, 16:48 CEST	Ver detalle
 Propuestas de reentrenamiento
 
 Como máximo una propuesta por trimestre natural.
@@ -124,6 +124,6 @@ Los modelos se mantienen bajo vigilancia.
 
 En línea
 Agentes activos
-Última comprobación 15:40:00
+Última comprobación 16:48:53
 Próximo reintento —
-Último latido 15:40:15
+Último latido 16:49:07

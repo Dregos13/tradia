@@ -1,5 +1,5 @@
 {
-  "reconnectMs": 40300,
+  "reconnectMs": 37193,
   "tiingoRequestsBefore": 4,
   "tiingoRequestsAfter": 8,
   "fredRequestsBefore": 6,

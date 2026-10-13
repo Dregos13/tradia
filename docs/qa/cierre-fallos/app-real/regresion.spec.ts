@@ -251,7 +251,7 @@ async function launch(
 
 async function close(session: Session | undefined, name: string): Promise<void> {
   if (!session) return;
-  writeFileSync(join(evidenceDir, `${name}-main.log`), session.logs.join(''));
+  writeFileSync(join(evidenceDir, `${name}-main-log.txt`), session.logs.join(''));
   await session.app.close().catch(() => undefined);
 }
 
@@ -424,9 +424,9 @@ async function journalTail(page: Page, name: string): Promise<void> {
       out.agents = String(e);
     }
     try {
-      out.overview = await t.risk!.getOverview!();
+      out.caution = await t.risk!.getCaution!();
     } catch (e) {
-      out.overview = String(e);
+      out.caution = String(e);
     }
     return out;
   });

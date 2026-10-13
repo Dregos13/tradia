@@ -50,7 +50,7 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 15:40:01 CEST
+Actualizado 16:48:53 CEST
 
 Conexión y fuentes
 Ver fuentes
@@ -75,35 +75,35 @@ Macro · FRED
 
 Última observación 8 oct 2026
 
-Disponible
+Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
 
-12 oct 2026, 15:39 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Noticias · BCE — notas de prensa
 
-12 oct 2026, 15:39 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Noticias · BLS — nóminas no agrícolas e IPC
 
-12 oct 2026, 15:39 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Noticias · BEA — comunicados (PIB, PCE…)
 
-12 oct 2026, 15:39 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Noticias · CNMV — información privilegiada y relevante
 
-12 oct 2026, 15:40 CEST
+13 oct 2026, 16:48 CEST
 
 Disponible
 Contexto macro
@@ -112,7 +112,7 @@ Ver macro
 Régimen · En pausa: datos desactualizados · Referencia SPY · Fuente precios diarios
 
 VIXCLS
-✓ Fiable
+◷ Desactualizado
 Volatilidad VIX
 2,26 puntos
 
@@ -123,6 +123,9 @@ Banda baja
 
 Dato diario
 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
 DGS10
 ✓ Fiable
 Treasury · 10 años
@@ -161,7 +164,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 12 oct 2026, 15:40 CEST
+Datos de 13 oct 2026, 16:48 CEST
 
 Ver límites de riesgo
 Exposición
@@ -204,6 +207,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 15:40:00
+Última comprobación 16:48:53
 Próximo reintento —
 Último latido Pendiente

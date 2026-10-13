@@ -1,0 +1,10 @@
+[macro] 'fred' sin credencial configurada: refresco omitido
+(node:15203) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `Electron --trace-warnings ...` to show where the warning was created)
+[news] conexión recuperada; pasada inmediata del lector
+[backup] copia creada: tradia-20260919-120000.db (704512 bytes)
+[market] se pide una puesta al día inmediata
+[market] SPY: lote v1 con 1255 velas hasta 2026-09-18
+[market] QQQ: lote v1 con 1255 velas hasta 2026-09-18
+[market] AAPL: lote v1 con 1255 velas hasta 2026-09-18
+[market] MSFT: lote v1 con 1255 velas hasta 2026-09-18

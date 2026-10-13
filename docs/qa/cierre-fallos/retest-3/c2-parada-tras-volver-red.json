@@ -3,13 +3,20 @@
     "active": false,
     "cause": "sin-conexion",
     "actor": "automatico",
-    "activatedAt": "2026-10-12T14:41:18.335Z",
+    "activatedAt": "2026-10-13T14:44:44.703Z",
     "detail": "sin conexión durante más de 60 s"
   },
   "agents": {
     "paused": false,
     "pauseReason": null,
-    "lastHeartbeatAt": "2026-10-12T14:42:43.264Z"
+    "lastHeartbeatAt": "2026-10-13T14:46:09.591Z"
   },
-  "overview": "TypeError: t.risk.getOverview is not a function"
+  "caution": {
+    "active": false,
+    "effect": "ninguno",
+    "sizeFactor": 1,
+    "cause": null,
+    "eventTitle": null,
+    "until": null
+  }
 }

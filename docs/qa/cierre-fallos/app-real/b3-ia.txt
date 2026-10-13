@@ -121,6 +121,6 @@ Modelo · línea sólida
 Ver datos del gráfico
 En línea
 Agentes activos
-Última comprobación 15:40:00
+Última comprobación 16:48:53
 Próximo reintento —
 Último latido Pendiente

@@ -70,12 +70,12 @@ Desplázate para ver todas las columnas.
 
 Diario ordenado por fecha descendente
 Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
-12 oct 2026, 15:39:45 CEST	Resumen	No aplica	No aplica	Con retraso	Resumen previo a la apertura del 2026-10-12: 0 noticias relevantes, 0 eventos de calendario y 0 huecos en seguimiento.	Ver detalle
+13 oct 2026, 16:48:38 CEST	Resumen	No aplica	No aplica	Con retraso	Resumen previo a la apertura del 2026-10-13: 0 noticias relevantes, 0 eventos de calendario y 0 huecos en seguimiento.	Ver detalle
 Anterior
 Página 1 de 1
 Siguiente
 En línea
 Agentes activos
-Última comprobación 15:40:15
+Última comprobación 16:49:08
 Próximo reintento —
-Último latido 15:40:15
+Último latido 16:49:07

@@ -1,0 +1,33 @@
+[ai/regime] SPY: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] QQQ: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] AAPL: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] MSFT: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] SPY: última vela 2026-09-18 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[routine] preapertura del 2026-10-13 enviado con retraso (diario #1)
+(node:19810) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `Electron --trace-warnings ...` to show where the warning was created)
+[news] conexión recuperada; pasada inmediata del lector
+[ai/regime] SPY: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[ai/regime] SPY: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[signals] SPY 2026-09-25: vela anterior a la sesión esperada 2026-10-12; no se evalúa
+[market] SPY: lote v2 con 1260 velas hasta 2026-09-25
+[ai/regime] QQQ: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[signals] QQQ 2026-09-25: vela anterior a la sesión esperada 2026-10-12; no se evalúa
+[market] QQQ: lote v2 con 1260 velas hasta 2026-09-25
+[ai/regime] AAPL: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[signals] AAPL 2026-09-25: vela anterior a la sesión esperada 2026-10-12; no se evalúa
+[market] AAPL: lote v2 con 1260 velas hasta 2026-09-25
+[ai/regime] MSFT: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se recalcula el régimen
+[signals] MSFT 2026-09-25: vela anterior a la sesión esperada 2026-10-12; no se evalúa
+[market] MSFT: lote v2 con 1260 velas hasta 2026-09-25
+[ai/prediction] SPY: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] QQQ: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] AAPL: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] MSFT: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] SPY: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] QQQ: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] AAPL: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[ai/prediction] MSFT: última vela 2026-09-25 anterior a la sesión esperada 2026-10-12; no se predicen sesiones
+[news] conexión recuperada; pasada inmediata del lector
+[scheduler] latido 2026-10-13T14:49:07.977Z
+[news] conexión recuperada; pasada inmediata del lector

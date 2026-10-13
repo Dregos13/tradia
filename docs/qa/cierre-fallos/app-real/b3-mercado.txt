@@ -71,7 +71,7 @@ Desactualizado
 3A
 5A
 
-falta la vela del 28 sept 2026 (+9 más); último dato: 25 sept 2026
+falta la vela del 28 sept 2026 (+10 más); último dato: 25 sept 2026
 
 El histórico está desactualizado; puede faltar el último cierre.
 
@@ -107,6 +107,6 @@ Gráficos con TradingView Lightweight Charts™.
 
 En línea
 Agentes activos
-Última comprobación 15:40:00
+Última comprobación 16:48:53
 Próximo reintento —
 Último latido Pendiente
