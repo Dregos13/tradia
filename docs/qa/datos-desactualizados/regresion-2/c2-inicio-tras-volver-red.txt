@@ -18,64 +18,101 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada
+Datos desactualizados desde el 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
+Primeros pasos
+2 de 3 hechos
+Hecho
+Añade tus claves de Tiingo y FRED
+
+Sin ellas no hay velas ni datos macro reales.
+
+Revisar
+Prueba la conexión
+
+Tiingo: faltan datos recientes; último dato: 9 oct 2026
+
+Probar conexión
+Hecho
+Añade tus fuentes de noticias
+
+Elige al menos una fuente para recibir titulares.
+
+Ver el tour
 Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Actualizado 12:09:10 CEST
+Actualizado 15:55:16 CEST
 
 Conexión y fuentes
 Ver fuentes
+Datos desactualizados desde el 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
 
 En línea
 
 Precios · Tiingo
 
-11 oct 2026, 12:09 CEST
+Último cierre 9 oct 2026
 
-Disponible
+Con retraso
 Macro · FRED
 
-11 oct 2026, 12:09 CEST
+Última observación 8 oct 2026
 
-Disponible
+Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
 
-11 oct 2026, 12:06 CEST
+13 oct 2026, 15:52 CEST
 
 Disponible
 Noticias · BCE — notas de prensa
 
-11 oct 2026, 12:06 CEST
+13 oct 2026, 15:52 CEST
 
 Disponible
 Noticias · BLS — nóminas no agrícolas e IPC
 
-11 oct 2026, 12:06 CEST
+13 oct 2026, 15:52 CEST
 
 Disponible
 Noticias · BEA — comunicados (PIB, PCE…)
 
-11 oct 2026, 12:06 CEST
+13 oct 2026, 15:52 CEST
 
 Disponible
 Noticias · SEC EDGAR — 8-K y Form 4 de los activos seguidos
 
-11 oct 2026, 12:07 CEST
+13 oct 2026, 15:53 CEST
 
 Disponible
 Noticias · CNMV — información privilegiada y relevante
 
-11 oct 2026, 12:07 CEST
+13 oct 2026, 15:53 CEST
 
 Disponible
 Contexto macro
 Ver macro
 
-Régimen · Tendencia · Volatilidad baja · Fuente FRED
+Régimen · En pausa: datos desactualizados · Referencia SPY · Fuente precios diarios
 
 VIXCLS
-✓ Fiable
+◷ Desactualizado
 Volatilidad VIX
 2,26 puntos
 
@@ -86,6 +123,9 @@ Banda baja
 
 Dato diario
 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
 DGS10
 ✓ Fiable
 Treasury · 10 años
@@ -107,7 +147,7 @@ Dato mensual
 Señales vivas
 Ver en Diario
 
-Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+Sin señales nuevas: en pausa hasta poner al día los datos del 8 oct 2026.
 
 Posiciones simuladas
 ◇ Simulación
@@ -124,7 +164,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 12:09 CEST
+Datos de 13 oct 2026, 15:55 CEST
 
 Ver límites de riesgo
 Exposición
@@ -167,6 +207,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 
 En línea
 Agentes activos
-Última comprobación 12:09:39
+Última comprobación 15:55:43
 Próximo reintento —
-Último latido 12:09:20
+Último latido 15:55:21

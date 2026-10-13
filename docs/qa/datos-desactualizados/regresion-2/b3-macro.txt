@@ -18,17 +18,28 @@ Ajustes
 Contexto macro
 Señales + paper trading
 Parada
-Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+Datos desactualizados desde el 25 sept 2026
 
-falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+faltan datos recientes; último dato: 25 sept 2026
 
 Régimen, predicciones y señales en pausa hasta ponerse al día.
 
+Ver detalles
 Actualizar ahora
+Probar conexión
 El contexto detrás del precio.
 
 Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.
 
+Datos desactualizados desde el 25 sept 2026
+
+faltan datos recientes; último dato: 25 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
+Actualizar ahora
+Probar conexión
 DFF
 ✓ Fiable
 Tipo efectivo federal
@@ -75,7 +86,7 @@ Diferencial 10–2
 Dato diario
 8 oct 2026
 VIXCLS
-✓ Fiable
+◷ Desactualizado
 Volatilidad VIX
 2,26 puntos
 
@@ -86,8 +97,11 @@ Banda baja
 
 Dato diario
 8 oct 2026
+
+falta la observación esperada; último dato: 8 oct 2026
+
 En línea
 Agentes activos
-Última comprobación 12:06:38
+Última comprobación 15:52:42
 Próximo reintento —
-Último latido Pendiente
+Último latido 15:52:41

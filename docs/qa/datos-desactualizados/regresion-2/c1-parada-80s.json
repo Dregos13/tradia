@@ -3,7 +3,7 @@
     "active": true,
     "cause": "sin-conexion",
     "actor": "automatico",
-    "activatedAt": "2026-10-11T10:07:55.232Z",
+    "activatedAt": "2026-10-13T13:53:56.386Z",
     "detail": "sin conexión durante más de 60 s"
   },
   "agents": {

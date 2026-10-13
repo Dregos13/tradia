@@ -18,18 +18,20 @@ Ajustes
 Diario
 Señales + paper trading
 Parada
-Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+Datos desactualizados desde el 25 sept 2026
 
-falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+faltan datos recientes; último dato: 25 sept 2026
 
 Régimen, predicciones y señales en pausa hasta ponerse al día.
 
+Ver detalles
 Actualizar ahora
+Probar conexión
 Diario
 
-0 entradas · Señales, operaciones simuladas y decisiones auditables.
+1 entradas · Señales, operaciones paper y de dinero real, y decisiones auditables.
 
-Exportar CSV · 0 entradas
+Exportar CSV · 1 entradas
 Desde
 Hasta
 Tipo
@@ -37,7 +39,7 @@ Todos
 Señal
 Veto
 Contradicción
-Operación simulada
+Operación (paper o dinero real)
 Resumen
 Error
 Límite
@@ -68,14 +70,12 @@ Desplázate para ver todas las columnas.
 
 Diario ordenado por fecha descendente
 Fecha	Tipo	Activo	Estrategia	Decisión / resultado	Motivo	Detalle
-
-El diario todavía está vacío
-
+13 oct 2026, 15:52:12 CEST	Resumen	No aplica	No aplica	Con retraso	Resumen previo a la apertura del 2026-10-13: 0 noticias relevantes, 0 eventos de calendario y 0 huecos en seguimiento.	Ver detalle
 Anterior
 Página 1 de 1
 Siguiente
 En línea
 Agentes activos
-Última comprobación 12:06:38
+Última comprobación 15:52:42
 Próximo reintento —
-Último latido Pendiente
+Último latido 15:52:41

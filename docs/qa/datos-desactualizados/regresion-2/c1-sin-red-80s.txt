@@ -18,22 +18,41 @@ Ajustes
 Estado del sistema
 Señales + paper trading
 Parada activa
-Parada activa: Pérdida de conexión · 12:07:55 CEST · Activada por Sistema
+Parada activa: Pérdida de conexión · 15:53:56 CEST · Activada por Sistema
 sin conexión durante más de 60 s
 
 Sin conexión. Ver estado
 
 Ver en Riesgo
 Reanudar
-Sin conexión: las decisiones están en pausa. Reintentando en 58 s.
+Sin conexión: las decisiones están en pausa. Reintentando en 50 s.
 Comprobar ahora
-Datos desactualizados desde el 17 sept 2026 · faltan 16 sesiones
+Datos desactualizados desde el 17 sept 2026
 
-falta la observación esperada; último dato: 2026-09-17
+falta la observación esperada; último dato: 17 sept 2026
 
 Régimen, predicciones y señales en pausa hasta ponerse al día.
 
-Actualizar ahora
+Ver detalles
+Primeros pasos
+2 de 3 hechos
+Hecho
+Añade tus claves de Tiingo y FRED
+
+Sin ellas no hay velas ni datos macro reales.
+
+Revisar
+Prueba la conexión
+
+Tiingo: faltan datos recientes; último dato: 18 sept 2026
+
+Probar conexión
+Hecho
+Añade tus fuentes de noticias
+
+Elige al menos una fuente para recibir titulares.
+
+Ver el tour
 
 Sin conexión · revisión de salud pausada. Ver última revisión
 
@@ -41,21 +60,28 @@ Situación del mercado
 
 Seguridad, señales y cartera simulada de un vistazo.
 
-Datos congelados · Actualizado 12:06:50 CEST
+Datos congelados · Esperando datos
 
 Conexión y fuentes
 Ver fuentes
+Datos desactualizados desde el 17 sept 2026
+
+falta la observación esperada; último dato: 17 sept 2026
+
+Régimen, predicciones y señales en pausa hasta ponerse al día.
+
+Ver detalles
 
 Sin conexión
 
 Precios · Tiingo
 
-19 sept 2026, 12:00 CEST
+Último cierre 18 sept 2026
 
 Con retraso
 Macro · FRED
 
-11 oct 2026, 12:06 CEST
+Última observación 17 sept 2026
 
 Con retraso
 Noticias · Reserva Federal — comunicados y FOMC
@@ -91,10 +117,10 @@ Sin evaluar
 Contexto macro
 Ver macro
 
-Régimen · Desactualizado (cierre 2026-09-18) · Fuente FRED
+Régimen · En pausa: datos desactualizados · Referencia SPY · Fuente precios diarios
 
 VIXCLS
-◌ Actualizando
+◷ Desactualizado
 Volatilidad VIX
 2,46 puntos
 
@@ -106,7 +132,7 @@ Banda baja
 Dato diario
 17 sept 2026
 
-descargando observaciones del 2026-09-17 al 2026-10-11 en 'fred'
+falta la observación esperada; último dato: 17 sept 2026
 
 DGS10
 ◷ Desactualizado
@@ -118,7 +144,7 @@ Treasury · 10 años
 Dato diario
 17 sept 2026
 
-falta la observación esperada; último dato: 2026-09-17
+falta la observación esperada; último dato: 17 sept 2026
 
 CPIAUCSL
 ✓ Fiable
@@ -134,7 +160,7 @@ Ver en Diario
 
 No se admiten nuevas señales.
 
-Todavía no hay señales. Activa una estrategia y espera el siguiente cierre de vela.
+Sin señales nuevas: en pausa hasta poner al día los datos del 17 sept 2026.
 
 Posiciones simuladas
 ◇ Simulación
@@ -151,7 +177,7 @@ Máximo permitido −10 % · quedan 10 puntos
 
 Dentro del límite
 
-Datos de 11 oct 2026, 12:06 CEST
+Datos de 13 oct 2026, 15:52 CEST
 
 Ver límites de riesgo
 Exposición
@@ -195,6 +221,6 @@ Tradia informa y simula; no ejecuta órdenes reales.
 Sin conexión
 Agentes en pausa
 · Pérdida de conexión
-Última comprobación 12:07:57
-Próximo reintento 12:09:09
+Última comprobación 15:54:00
+Próximo reintento 15:55:13
 Último latido Pendiente

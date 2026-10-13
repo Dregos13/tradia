@@ -18,18 +18,20 @@ Ajustes
 Salud de modelos
 Señales + paper trading
 Parada
-Datos desactualizados desde el 25 sept 2026 · faltan 10 sesiones
+Datos desactualizados desde el 25 sept 2026
 
-falta la vela del 2026-09-28 (+9 más); último dato: 2026-09-25
+faltan datos recientes; último dato: 25 sept 2026
 
 Régimen, predicciones y señales en pausa hasta ponerse al día.
 
+Ver detalles
 Actualizar ahora
+Probar conexión
 Salud de modelos
 
 Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.
 
-Revisado 11 oct 2026, 12:06 CEST
+Revisado 13 oct 2026, 15:52 CEST
 
 Revisar ahora
 
@@ -58,27 +60,27 @@ Modelo
 Drift de datos en vigilancia: 1 de 20 sesiones.
 	16 variables con PSI > 0,25
 desde 19 sept 2026, 12:00 CEST
-	Brier móvil 0,41
-Ficha 0,197 · diferencia 0,214 · umbral +0,02
+	Brier móvil 0,376
+Ficha 0,197 · diferencia 0,179 · umbral +0,02
 60/60 predicciones resueltas
-desde 11 oct 2026, 12:06 CEST
+desde 13 oct 2026, 15:52 CEST
 	
 
 Desde hace 1 sesiones · mínimo 20 en 2 variables
 
 Ventana de 60 predicciones.
-	11 oct 2026, 12:06 CEST	Ver detalle
+	13 oct 2026, 15:52 CEST	Ver detalle
 Cruce de medias · v1
 Estrategia
 	Sin datos suficientes
 Sin muestra suficiente: 0 de 30 operaciones.
-	No aplica	0 operaciones · desviación Sin referencia %
+	No aplica	0 operaciones · desviación Sin backtest de referencia: no hay expectativa con la que comparar la desviación.
 Umbral ±30 % · mínimo 30 operaciones
 	
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	11 oct 2026, 12:06 CEST	Ver detalle
+	13 oct 2026, 15:52 CEST	Ver detalle
 Reversión RSI/Bollinger · v1
 Estrategia
 	Sin datos suficientes
@@ -89,7 +91,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	11 oct 2026, 12:06 CEST	Ver detalle
+	13 oct 2026, 15:52 CEST	Ver detalle
 Ruptura de rangos · v1
 Estrategia
 	Sin datos suficientes
@@ -100,7 +102,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	11 oct 2026, 12:06 CEST	Ver detalle
+	13 oct 2026, 15:52 CEST	Ver detalle
 Momentum entre activos · v1
 Estrategia
 	Sin datos suficientes
@@ -111,7 +113,7 @@ Umbral ±30 % · mínimo 30 operaciones
 
 Desde hace 0 revisiones mensuales · mínimo 2
 
-	11 oct 2026, 12:06 CEST	Ver detalle
+	13 oct 2026, 15:52 CEST	Ver detalle
 Propuestas de reentrenamiento
 
 Como máximo una propuesta por trimestre natural.
@@ -122,6 +124,6 @@ Los modelos se mantienen bajo vigilancia.
 
 En línea
 Agentes activos
-Última comprobación 12:06:38
+Última comprobación 15:52:42
 Próximo reintento —
-Último latido Pendiente
+Último latido 15:52:41
