@@ -24,7 +24,8 @@
   font-size: var(--type-md);
 }
 .live-warning,
-.live-mode-status {
+.live-mode-status,
+.live-short-status {
   max-width: none;
   margin: 0;
   padding: var(--space-4);
@@ -32,12 +33,14 @@
   color: var(--live-live-text);
   background: var(--live-live-surface);
 }
-.live-mode-ready {
+.live-mode-ready,
+.live-short-ready {
   color: var(--live-liveMode-ready);
   background: var(--live-liveMode-ready-surface);
 }
 .live-warning .live-icon,
-.live-mode-status .live-icon {
+.live-mode-status .live-icon,
+.live-short-status .live-icon {
   vertical-align: middle;
   margin-right: var(--space-2);
 }

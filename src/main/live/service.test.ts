@@ -1037,7 +1037,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     const item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
     expect(item.state).toBe('cumplido');
     expect(item.evidence).toContain('5 de 5 cortos cerrados');
-    expect(item.evidence).toContain('conciliación cuadrada');
+    expect(item.evidence).toContain('sin descuadres de paper abiertos en el periodo');
   });
 
   it('un descuadre abierto de la conciliación paper deja paper-cortos pendiente; uno live no cuenta', () => {
@@ -1050,7 +1050,7 @@ describe('requisitos propios del corto (corto-requisitos)', () => {
     openDiscrepancy('paper');
     item = service.getChecklist().short.items.find((i) => i.requirement === 'paper-cortos')!;
     expect(item.state).toBe('pendiente');
-    expect(item.evidence).toContain('1 descuadre abierto');
+    expect(item.evidence).toContain('1 descuadres de paper abiertos en el periodo');
   });
 
   it('la evidencia sembrada de paper-cortos no cuenta fuera del contexto E2E', () => {

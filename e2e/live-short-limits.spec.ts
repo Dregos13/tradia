@@ -297,6 +297,40 @@ test('los requisitos del corto bloquean edición, conservan límites y abren ór
     await expect(order).toHaveAttribute('readonly', '');
     await expect(page.getByRole('button', { name: 'Guardar límites', exact: true })).toBeDisabled();
     await expect(readiness.getByText(/Tus límites del corto siguen guardados/)).toBeVisible();
+    await page.getByLabel('Capital total en real', { exact: true }).fill('400');
+    const reset = page.getByRole('button', { name: 'Poner el corto a 0', exact: true });
+    await reset.focus();
+    await expect(reset).toBeFocused();
+    await page.keyboard.press('Enter');
+    for (const label of [
+      'Máximo por orden en corto',
+      'Exposición corta total máxima',
+      'Posiciones cortas simultáneas',
+    ]) {
+      const input = page.getByLabel(label, { exact: true });
+      await expect(input).toHaveValue('0');
+      await expect(input).toHaveAttribute('readonly', '');
+      await expect(input).toHaveAttribute('aria-disabled', 'true');
+      await expect(input).toHaveAccessibleDescription(/declaración|requisitos/i);
+      await input.focus();
+      await page.keyboard.type('1');
+      await expect(input).toHaveValue('0');
+    }
+    const save = page.getByRole('button', { name: 'Guardar límites', exact: true });
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Límites guardados · todavía debes confirmarlos por escrito.' }),
+    ).toBeVisible();
+    expect((await page.evaluate(() => window.tradia.live.checklist())).limits.limits).toEqual({
+      ...limits,
+      capitalUsd: 400,
+      shortOrderUsd: 0,
+      shortExposureUsd: 0,
+      shortPositions: 0,
+    });
     for (const [width, theme] of [
       [1440, 'light'],
       [700, 'dark'],

@@ -299,7 +299,7 @@ describe('evaluateAlertChannel', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 'paper-cortos': evidencia de cortos en paper + conciliación cuadrada
+// 'paper-cortos': evidencia de cortos en paper + conciliación sin descuadres
 // ---------------------------------------------------------------------------
 
 /** Un corto cerrado: entrada de venta + recompra ejecutadas. */
@@ -376,19 +376,21 @@ describe('evaluatePaperShorts', () => {
     expect(verdict.evidence).toContain('2 de 5');
   });
 
-  it('un descuadre abierto de la conciliación de paper la mantiene pendiente', () => {
+  it('los descuadres abiertos de la conciliación de paper la mantienen pendiente', () => {
     const verdict = evaluatePaperShorts({ closedShorts: 6, spanDays: 35, openDiscrepancies: 2 });
     expect(verdict.state).toBe('pendiente');
     expect(verdict.reasons.join(' ')).toContain('2 descuadres');
-    expect(verdict.evidence).toContain('2 descuadres abiertos');
+    expect(verdict.evidence).toBe(
+      '5 de 4 semanas · 6 de 5 cortos cerrados · 2 descuadres de paper abiertos en el periodo',
+    );
   });
 
-  it('con los umbrales cubiertos y la conciliación cuadrada cumple', () => {
+  it('con los umbrales cubiertos y sin descuadres abiertos cumple', () => {
     const verdict = evaluatePaperShorts({ closedShorts: 5, spanDays: 28, openDiscrepancies: 0 });
     expect(verdict.state).toBe('cumplido');
-    expect(verdict.evidence).toContain('5 de 5 cortos cerrados');
-    expect(verdict.evidence).toContain('4 de 4 semanas');
-    expect(verdict.evidence).toContain('conciliación cuadrada');
+    expect(verdict.evidence).toBe(
+      '4 de 4 semanas · 5 de 5 cortos cerrados · sin descuadres de paper abiertos en el periodo',
+    );
   });
 });
 

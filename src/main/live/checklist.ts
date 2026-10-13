@@ -272,8 +272,8 @@ const shortEvidence = (stats: PaperShortStats): string => {
   const weeks = Math.floor(stats.spanDays / 7);
   const reconciliation =
     stats.openDiscrepancies === 0
-      ? 'conciliación cuadrada'
-      : `${stats.openDiscrepancies} descuadre${stats.openDiscrepancies === 1 ? '' : 's'} abierto${stats.openDiscrepancies === 1 ? '' : 's'}`;
+      ? 'sin descuadres de paper abiertos en el periodo'
+      : `${stats.openDiscrepancies} descuadres de paper abiertos en el periodo`;
   return (
     `${weeks} de ${LIVE_SHORT_PAPER_MIN_WEEKS} semanas · ` +
     `${stats.closedShorts} de ${LIVE_SHORT_PAPER_MIN_TRADES} cortos cerrados · ${reconciliation}`

@@ -1800,7 +1800,8 @@ export function createSimulatedAdapter() {
         kind: 'automatica',
         title: LIVE_REQUIREMENT_TITLES['paper-cortos'],
         state: 'cumplido',
-        evidence: '6 cortos cerrados · 7 semanas · conciliación cuadrada (simulado).',
+        evidence:
+          '7 de 4 semanas · 6 de 5 cortos cerrados · sin descuadres de paper abiertos en el periodo',
         declaration: null,
         declarationDetail: null,
         markedAt: day,

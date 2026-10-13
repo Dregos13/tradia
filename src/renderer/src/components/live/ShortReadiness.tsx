@@ -65,7 +65,7 @@ export function ShortReadiness({
         El corto nace desactivado: sus tres límites están a 0. La revisión general no sustituye la
         revisión específica del corto.
       </p>
-      <p className={`live-mode-status${!blocked ? ' live-mode-ready' : ''}`}>
+      <p className={`live-short-status${!blocked ? ' live-short-ready' : ''}`}>
         <LiveIcon kind={blocked ? 'lock' : 'cumplido'} />
         {loading
           ? 'Comprobando los requisitos del corto…'

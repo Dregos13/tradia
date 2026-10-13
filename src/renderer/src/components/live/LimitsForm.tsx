@@ -39,6 +39,7 @@ export function LimitsForm({
   confirmed = false,
   shortBlocked = false,
   shortBlockReason,
+  shortSaveError,
 }: {
   saved: LiveLimits | null;
   disabled: boolean;
@@ -47,6 +48,7 @@ export function LimitsForm({
   confirmed?: boolean;
   shortBlocked?: boolean;
   shortBlockReason?: string;
+  shortSaveError?: string;
 }) {
   const id = useId();
   const [values, setValues] = useState<Values>(
@@ -75,6 +77,7 @@ export function LimitsForm({
     shortRequested &&
     LIMIT_FIELDS.some(({ key }) => isShortLimit(key) && Number(values[key]) === 0);
   const shortReasonId = `${id}-short-block`;
+  const shortErrorId = `${id}-short-save-error`;
   const renderField = ({ key, label }: (typeof LIMIT_FIELDS)[number]) => (
     <div className="live-field" key={key}>
       <label htmlFor={`${id}-${key}`}>{label}</label>
@@ -94,7 +97,7 @@ export function LimitsForm({
         aria-disabled={isShortLimit(key) && (shortBlocked || disabled) ? true : undefined}
         value={values[key]}
         aria-invalid={!!(touched[key] && errors[key])}
-        aria-describedby={`${id}-${key}-cap${isShortLimit(key) && (shortBlocked || disabled) ? ` ${shortReasonId}` : ''}${touched[key] && errors[key] ? ` ${id}-${key}-error` : ''}`}
+        aria-describedby={`${id}-${key}-cap${isShortLimit(key) && (shortBlocked || disabled) ? ` ${shortReasonId}` : ''}${isShortLimit(key) && shortSaveError ? ` ${shortErrorId}` : ''}${touched[key] && errors[key] ? ` ${id}-${key}-error` : ''}`}
         onBlur={() => setTouched((old) => ({ ...old, [key]: true }))}
         onChange={(event) => {
           if (disabled || (isShortLimit(key) && shortBlocked)) return;
@@ -162,6 +165,32 @@ export function LimitsForm({
           <div className="live-limits-grid">
             {LIMIT_FIELDS.filter(({ key }) => isShortLimit(key)).map(renderField)}
           </div>
+          {shortSaveError && (
+            <p id={shortErrorId} className="live-field-error" role="alert">
+              {shortSaveError}
+            </p>
+          )}
+          {shortBlocked && shortRequested && (
+            <button
+              className="button"
+              type="button"
+              disabled={disabled}
+              aria-describedby={shortReasonId}
+              onClick={() => {
+                if (disabled) return;
+                const next = {
+                  ...values,
+                  shortOrderUsd: '0',
+                  shortExposureUsd: '0',
+                  shortPositions: '0',
+                };
+                setValues(next);
+                onDirty(isDirty(next));
+              }}
+            >
+              Poner el corto a 0
+            </button>
+          )}
         </fieldset>
         {partialShort && (
           <p className="live-field-error" role="alert">

@@ -240,6 +240,9 @@ it('abre con foco seguro, frase exacta accesible y activa solo tras confirmar lo
   ).toBeInTheDocument();
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   await waitFor(() => expect(screen.getByText('Dinero real activo')).toHaveFocus());
+  expect(document.querySelectorAll('.live-mode-status')).toHaveLength(1);
+  expect(document.querySelector('.live-mode-status')).toHaveTextContent('Dinero real activo');
+  expect(screen.getByText('Corto real bloqueado')).toHaveClass('live-short-status');
   expect(screen.queryByText(/faltan 0 de 7/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Los requisitos cambiaron/)).not.toBeInTheDocument();
   expect(

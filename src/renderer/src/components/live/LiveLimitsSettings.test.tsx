@@ -296,7 +296,7 @@ it('guarda la declaración específica y desbloquea los campos al releer evidenc
   );
 });
 
-it('conserva los límites confirmados al retirar la declaración y bloquea guardado y confirmación', async () => {
+it('conserva los límites al retirar la declaración y permite poner el corto a 0 y guardar el largo', async () => {
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits(limits);
@@ -318,23 +318,83 @@ it('conserva los límites confirmados al retirar la declaración y bloquea guard
   fireEvent.submit(screen.getByLabelText('Máximo por orden en corto').closest('form')!);
   expect(save).not.toHaveBeenCalled();
   expect((await adapter.api.live.checklist()).limits.limits).toEqual(limits);
+  fireEvent.change(screen.getByLabelText('Capital total en real'), { target: { value: '400' } });
+  const reset = screen.getByRole('button', { name: 'Poner el corto a 0' });
+  reset.focus();
+  await userEvent.keyboard('{Enter}');
+  for (const label of [
+    'Máximo por orden en corto',
+    'Exposición corta total máxima',
+    'Posiciones cortas simultáneas',
+  ]) {
+    const input = screen.getByLabelText(label);
+    expect(input).toHaveValue(0);
+    expect(input).toHaveAttribute('readonly');
+    expect(input).toHaveAttribute('aria-disabled', 'true');
+    expect(input).toHaveAccessibleDescription(/No has declarado|Falta|Completa/);
+  }
+  expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeEnabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  await waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Límites guardados · todavía debes confirmarlos por escrito.',
+    ),
+  );
+  expect((await adapter.api.live.checklist()).limits.limits).toEqual({
+    ...limits,
+    capitalUsd: 400,
+    shortOrderUsd: 0,
+    shortExposureUsd: 0,
+    shortPositions: 0,
+  });
 });
 
-it('muestra literalmente el rechazo del proceso principal y conserva el borrador', async () => {
+it.each([
+  '[corto-requisitos] Evidencia paper vencida.',
+  "Error invoking remote method 'live:set-limits': Error: [corto-requisitos] Evidencia paper vencida.",
+])('muestra limpio el rechazo %s junto al corto sin bloquear el largo', async (message) => {
   await adapter.api.live.declare({ requirement: 'revision-legal-corto', confirmed: true });
   await adapter.api.live.connect({ apiKeyId: 'AKTESTKEY', apiSecret: 'test-secret' });
   await adapter.api.live.setLimits(limits);
   render(<LiveLimitsSettings />);
   await waitFor(() => expect(screen.getByLabelText('Máximo por orden en corto')).toHaveValue(100));
-  vi.spyOn(adapter.api.live, 'setLimits').mockRejectedValue(
-    new Error('[corto-requisitos] Evidencia paper vencida.'),
-  );
+  vi.spyOn(adapter.api.live, 'setLimits').mockRejectedValue(new Error(message));
   fireEvent.change(screen.getByLabelText('Máximo por orden en corto'), { target: { value: '50' } });
   await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    '[corto-requisitos] Evidencia paper vencida.',
+  expect(await screen.findByRole('alert')).toHaveTextContent('Evidencia paper vencida.');
+  const alert = screen.getByRole('alert');
+  expect(alert).toHaveTextContent(/^Evidencia paper vencida\.$/);
+  expect(alert.closest('fieldset')).toHaveAccessibleName('Límites propios del corto');
+  expect(
+    screen.queryByText(/No se pudieron comprobar los requisitos del corto/),
+  ).not.toBeInTheDocument();
+  const input = screen.getByLabelText('Máximo por orden en corto');
+  expect(input).toHaveValue(50);
+  expect(input).toHaveAttribute('readonly');
+  expect(input).toHaveAttribute('aria-disabled', 'true');
+  expect(input).toHaveAccessibleDescription(/Evidencia paper vencida/);
+  fireEvent.change(input, { target: { value: '100' } });
+  expect(input).toHaveValue(50);
+  expect(screen.getByLabelText('Capital total en real')).toBeEnabled();
+  fireEvent.change(screen.getByLabelText('Capital total en real'), { target: { value: '400' } });
+  expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Poner el corto a 0' }));
+  expect(screen.getByRole('button', { name: 'Guardar límites' })).toBeEnabled();
+  vi.mocked(adapter.api.live.setLimits).mockRestore();
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar límites' }));
+  await waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Límites guardados · todavía debes confirmarlos por escrito.',
+    ),
   );
-  expect(screen.getByLabelText('Máximo por orden en corto')).toHaveValue(50);
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect((await adapter.api.live.checklist()).limits.limits).toEqual({
+    ...limits,
+    capitalUsd: 400,
+    shortOrderUsd: 0,
+    shortExposureUsd: 0,
+    shortPositions: 0,
+  });
 });
 
 it('una lectura fallida bloquea los campos cortos y ofrece reintento', async () => {
