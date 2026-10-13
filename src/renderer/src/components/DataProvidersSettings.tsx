@@ -53,7 +53,7 @@ function TiingoCoverage() {
       aria-label="Cobertura de la lista en Tiingo"
     >
       <h4 ref={heading} tabIndex={-1}>
-        Activos de tu lista sin cobertura
+        Cobertura de tu lista en Tiingo
       </h4>
       {error ? (
         <>
@@ -84,10 +84,10 @@ function TiingoCoverage() {
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : pending.length ? null : (
             <p>
               {entries.length
-                ? 'No hay activos marcados sin cobertura.'
+                ? 'Tiingo cubre todos los activos de tu lista.'
                 : 'Tu lista de seguimiento está vacía.'}
             </p>
           )}

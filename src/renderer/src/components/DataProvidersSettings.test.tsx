@@ -214,9 +214,7 @@ it('cobertura con error permite reintentar sin declarar la lista cubierta', asyn
   expect(await screen.findByText('Tu lista de seguimiento está vacía.')).toBeInTheDocument();
   expect(coverage).toHaveBeenCalledTimes(2);
   await waitFor(() =>
-    expect(
-      screen.getByRole('heading', { name: 'Activos de tu lista sin cobertura' }),
-    ).toHaveFocus(),
+    expect(screen.getByRole('heading', { name: 'Cobertura de tu lista en Tiingo' })).toHaveFocus(),
   );
 });
 
@@ -247,5 +245,24 @@ it('Tiingo dice qué divisas de la lista cubre y su calendario 24/5', async () =
     within(fx).getByText(/sin datos en fin de semana y con datos en los festivos/),
   ).toBeVisible();
   expect(form.getByText(/Pendientes de verificar: USD\/JPY/)).toBeInTheDocument();
+  expect(form.queryByText('Tiingo cubre todos los activos de tu lista.')).not.toBeInTheDocument();
   expect(within(fx).queryByText(/AAPL/)).toBeNull();
+});
+
+it('confirma que Tiingo cubre SPY y AAPL sin anunciar activos sin cobertura', async () => {
+  vi.spyOn(simulation.api.watchlist, 'coverage').mockResolvedValue([
+    { ticker: 'SPY', coverage: 'cubierto', reason: null, suggestion: null },
+    { ticker: 'AAPL', coverage: 'cubierto', reason: null, suggestion: null },
+  ]);
+  render(<DataProvidersSettings />);
+  expect(await screen.findByText('Tiingo cubre todos los activos de tu lista.')).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Cobertura de tu lista en Tiingo' })).toBeVisible();
+  expect(document.body).not.toHaveTextContent(/sin cobertura/i);
+});
+
+it('mantiene el mensaje de lista vacía sin afirmar que todos los activos están cubiertos', async () => {
+  vi.spyOn(simulation.api.watchlist, 'coverage').mockResolvedValue([]);
+  render(<DataProvidersSettings />);
+  expect(await screen.findByText('Tu lista de seguimiento está vacía.')).toBeVisible();
+  expect(screen.queryByText('Tiingo cubre todos los activos de tu lista.')).not.toBeInTheDocument();
 });
