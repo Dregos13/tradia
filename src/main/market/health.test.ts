@@ -787,6 +787,7 @@ describe('resumen de frescura', () => {
     expect(service.freshness().state).toBe('no-data');
 
     repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('MSFT');
     seedBars('AAPL', PREV_SESSION);
     repo.setDataStatus({
       key: dataStatusKey.ticker('MSFT'),
@@ -892,6 +893,75 @@ describe('resumen de frescura', () => {
     expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({ state: 'sin-cobertura' });
     const entries = service.freshness().uncovered;
     expect(entries.map((a) => a.ticker)).toEqual(['EUR']);
+  });
+
+  it('una fila ticker:X huérfana no entra en uncovered ni decide el estado de frescura', () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    // Filas heredadas de activos ya quitados: una baja que no las borró o
+    // una versión anterior que no lo hacía. Ninguna puede resucitar el
+    // aviso de un activo que ya no está en la lista.
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('VIEJO'),
+      state: 'desactualizado',
+      reason: 'falta la vela esperada',
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('ROTO'),
+      state: 'no-fiable',
+      consecutiveFailures: HEALTH_MAX_CONSECUTIVE_FAILURES,
+      reason: '3 fallos seguidos del proveedor',
+    });
+
+    const summary = service.freshness();
+    expect(summary.uncovered).toEqual([]);
+    expect(summary.items).toEqual([]);
+    expect(summary.state).toBe('current');
+  });
+
+  it('al quitar el activo su sin-cobertura sale del resumen y su fila muere con la baja', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    service.evaluate();
+    await flush();
+    expect(service.freshness().uncovered.map((a) => a.ticker)).toEqual(['EUR']);
+
+    expect(repo.removeWatchlistTicker('EUR')).toBe(true);
+
+    const summary = service.freshness();
+    expect(summary.uncovered).toEqual([]);
+    expect(summary.items).toEqual([]);
+    expect(summary.state).toBe('current');
+    // La fila murió con la baja: ni una lectura directa la recupera.
+    expect(status(dataStatusKey.ticker('EUR'))).toBeNull();
+    // Y una pasada posterior tampoco la resucita: el ticker ya no se evalúa.
+    service.evaluate();
+    await flush();
+    expect(status(dataStatusKey.ticker('EUR'))).toBeNull();
+    expect(service.freshness().uncovered).toEqual([]);
   });
 
   it('registra el handler data-status:freshness', () => {

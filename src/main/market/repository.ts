@@ -321,7 +321,12 @@ export interface MarketRepository {
   addWatchlistTicker(ticker: string, assetClass?: AssetClass): WatchlistEntry;
   /** Añade en orden los tickers que falten, hasta WATCHLIST_MAX_ITEMS. */
   addWatchlistUniverse(tickers: readonly string[]): WatchlistEntry[];
-  /** Quita el ticker y compacta el orden. Devuelve si existía. */
+  /**
+   * Quita el ticker, compacta el orden y borra su fila 'ticker:X' de
+   * `data_status` en la misma transacción: un estado viejo no debe
+   * sobrevivir a la baja y resucitar el aviso tras reiniciar. Devuelve si
+   * existía.
+   */
   removeWatchlistTicker(ticker: string): boolean;
 
   // Velas
@@ -563,6 +568,9 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
       const removed = db.transaction(() => {
         const result = db.prepare('DELETE FROM watchlist WHERE ticker = ?').run(key);
         if (result.changes > 0) compactWatchlist();
+        // La baja también limpia su estado de salud (aunque el ticker ya no
+        // estuviera en la lista: la fila huérfana es igual de inservible).
+        db.prepare('DELETE FROM data_status WHERE clave = ?').run(dataStatusKey.ticker(key));
         return result.changes > 0;
       });
       return removed();

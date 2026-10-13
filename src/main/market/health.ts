@@ -780,13 +780,19 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   };
 
   const freshness = (): DataFreshnessSummary => {
+    const watchlist = repo.listWatchlist();
+    // Solo pesan los estados de los activos que siguen en la lista: una
+    // fila 'ticker:X' huérfana (una baja que no la borró, un estado
+    // reescrito por una pasada en vuelo o una versión anterior que no lo
+    // hacía) no puede volver a mostrar el aviso del activo quitado.
+    const watchedTickerKeys = new Set(watchlist.map((item) => dataStatusKey.ticker(item.ticker)));
     const entries = repo
       .listDataStatus()
       .filter(
         (entry) =>
-          entry.key.startsWith('ticker:') ||
           entry.key.startsWith('macro:') ||
-          entry.key.startsWith('provider:'),
+          entry.key.startsWith('provider:') ||
+          (entry.key.startsWith('ticker:') && watchedTickerKeys.has(entry.key)),
       );
     // Los 'actualizando' escritos sin pasar por observe() (p. ej. antes
     // de que la vigilancia envolviera broadcast) también abren ventana.
@@ -807,7 +813,6 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // datos todavía no cuenta: no hay «último dato» que caducar —el
     // estado 'sin datos' lo da el conjunto, no el fallo del proveedor.
     const behind = new Set<string>();
-    const watchlist = repo.listWatchlist();
     for (const { ticker, assetClass } of watchlist) {
       const expected = calendarForAsset(assetClass).lastExpectedSession(now());
       const last = repo.lastBarDate(ticker);
