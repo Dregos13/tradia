@@ -198,7 +198,7 @@ Estas comprobaciones son tareas del usuario (`docs/tareas-del-usuario.md`):
 
 Aquí se han usado el modo E2E, la CLI falsa y, en la app real, un servidor local que imita a Tiingo y FRED.
 
-## Verificación final (entrega, 12 oct 2026)
+## Verificación final (entrega, 12 oct 2026; re-verificada el 13 oct 2026)
 
 Ejecutado sobre `da4a4891` en la rama conjunta:
 
@@ -207,5 +207,14 @@ Ejecutado sobre `da4a4891` en la rama conjunta:
 - `npx electron-vite build` y `npx playwright test`: 47/47 en verde.
 - `npx playwright test e2e/live-gate.spec.ts --repeat-each=5`: 10/10 en verde.
 - `grep -rnE 'it\.fails|test\.fixme|\.skip\(|\.only\(' src e2e`: sin resultados. `git ls-files .venv-ml`: vacío.
+
+Re-verificación de la auditoría (Devin · SWE, 13 oct 2026) sobre `428591c8`, con las evidencias de las revisiones posteriores ya integradas:
+
+- `npm run typecheck`, `npm run lint` y `npm run format:check`: en verde.
+- `npm test` ×3 seguidas: 183 archivos y 2.510/2.510 pruebas en verde en las tres.
+- `npm run test:e2e` (incluye `npm run build`): 47/47 en verde.
+- `npx playwright test e2e/live-gate.spec.ts --repeat-each=5`: 10/10 en verde.
+- `grep -rnE 'it\.fails|test\.fixme|test\.skip\(|it\.skip\(|describe\.skip\(|\.only\(' src e2e`: 0. `grep -rn 'console\.log' e2e`: 0. `git ls-files .venv-ml`: 0. Los únicos condicionales son `skipIf(ON_WINDOWS)` en `claudeCli.test.ts`, que en macOS corren.
+- La tabla de §2 tiene una fila por cada uno de los 23 fallos con su estado y su prueba de regresión; R1–R4 están cerrados en la propia tabla y R5 (clave con espacios en los extremos) en `docs/qa/cierre-fallos/retest-3/README.md` con su regresión en `src/main/services/secrets.test.ts`.
 
 Los 23 fallos y R1–R5 quedan cerrados con su prueba de regresión. Las comprobaciones con claves reales, `claude.cmd` en Windows real, la app empaquetada y la revisión legal y fiscal siguen siendo del usuario.
