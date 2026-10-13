@@ -729,7 +729,7 @@ describe('gestor de órdenes · divisas', () => {
     expect(result.outcome).toBe('bloqueada');
     expect(result.reason).toBe(FX_BROKER_REJECTION_MESSAGE);
     expect(result.reason).toContain(
-      'el bróker conectado no opera divisas: se opera solo en la cartera simulada',
+      'el bróker conectado no opera divisas; se opera solo en la cartera simulada',
     );
     expect(result.entry).toBeNull();
     expect(repo.listOrders()).toEqual([]);

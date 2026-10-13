@@ -586,7 +586,7 @@ describe('liveOrderBlockReason — divisas', () => {
     const reason = liveOrderBlockReason(shortSnapshot(), order, ctx);
     expect(reason).toBe(FX_BROKER_REJECTION_MESSAGE);
     expect(reason).toContain(
-      'el bróker conectado no opera divisas: se opera solo en la cartera simulada',
+      'el bróker conectado no opera divisas; se opera solo en la cartera simulada',
     );
   });
 

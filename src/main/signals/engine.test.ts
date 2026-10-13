@@ -242,6 +242,31 @@ describe('motor de señales al cierre de vela', () => {
     expect(states[0]!.lastBarDate).toBe(BAR_DATE);
   });
 
+  it.each([
+    ['EURUSD', 'EUR/USD'],
+    ['AAPL', 'AAPL'],
+  ])('el Diario dice «no vota en %s» con el símbolo formateado', (ticker, shown) => {
+    evaluables = [
+      evaluable(1, () => buyer(ticker, 190), {
+        worksIn: ['tendencia'],
+        failsIn: [],
+        markets: [ticker],
+      }),
+    ];
+    const engine = createSignalEngine({
+      ...makeDeps(),
+      ai: {
+        marketRegime: () => ({ direction: 'lateral', volatility: 'volatilidad-baja' }),
+      },
+    });
+
+    expect(engine.evaluateTicker(ticker, BAR_DATE)).not.toBe('emitted');
+
+    const entry = journalEntries.find((e) => e.type === 'resumen');
+    expect(entry?.reason).toContain(`no vota en ${shown} (régimen:`);
+    if (ticker === 'EURUSD') expect(entry?.reason).not.toContain('EURUSD');
+  });
+
   it('contradicción: largo y corto sobre el mismo activo no emiten señal', () => {
     evaluables = [evaluable(1, () => buyer('AAPL', 190)), evaluable(2, () => seller('AAPL'))];
     const engine = createSignalEngine(makeDeps());

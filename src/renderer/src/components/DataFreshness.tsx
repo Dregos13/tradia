@@ -265,7 +265,8 @@ function DataFreshnessContent({
                 {summary.progress
                   ? `Descargando ${summary.progress.done} de ${summary.progress.total} activos.`
                   : 'Poniéndose al día…'}{' '}
-                Régimen, predicciones y señales esperan a terminar.
+                Régimen, predicciones y señales siguen con el último dato fiable; un activo vuelve a
+                emitir señal cuando su última vela está al día.
               </p>
             )}
             {summary.state === 'no-data' && (

@@ -53,6 +53,7 @@
  *   'solo-analisis', ver shared/fxTrading). Un par no cotizado en USD
  *   también pasa por la pasarela, que lo veta con 'ANALYSIS_ONLY'.
  */
+import { formatAssetSymbol, inferAssetClass } from '../../shared/fx';
 import type { Strategy as ExecutableStrategy } from '../backtest/types';
 import { DEFAULT_MAX_POSITIONS } from '../backtest/types';
 import type { SessionDate } from '../market/providers/types';
@@ -661,7 +662,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
             ],
             reason:
               `'${evaluable.ficha.name}' v${evaluable.ficha.version} no vota en ` +
-              `${ticker} (régimen: ${resolution.regimeState}): ${resolution.reason}`,
+              `${formatAssetSymbol(ticker, inferAssetClass(ticker))} (régimen: ${resolution.regimeState}): ${resolution.reason}`,
             dataUsed: { barDate, regimen: marketRegime },
             result: 'sin-senal',
           });

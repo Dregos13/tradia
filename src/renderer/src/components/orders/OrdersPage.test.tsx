@@ -409,7 +409,7 @@ it('una orden manual de EUR/USD no se envía al bróker y explica que se opera e
   await user.type(screen.getByLabelText('Precio límite'), '1.08');
   await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'EUR/USD es una divisa y no se envía al bróker: el bróker conectado no opera divisas: se opera solo en la cartera simulada.',
+    'EUR/USD es una divisa y no se envía al bróker: el bróker conectado no opera divisas; se opera solo en la cartera simulada.',
   );
   expect(create).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');

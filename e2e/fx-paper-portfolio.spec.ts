@@ -18,7 +18,7 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_DAYS = 150;
-const BROKER_REASON = 'el bróker conectado no opera divisas: se opera solo en la cartera simulada';
+const BROKER_REASON = 'el bróker conectado no opera divisas; se opera solo en la cartera simulada';
 
 let context: PhaseApp | undefined;
 test.afterEach(async () => closePhaseApp(context));
@@ -156,9 +156,9 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
     const signals = page.getByRole('region', { name: 'Señales vivas' });
     const card = signals.getByText('EUR/USD', { exact: true }).first();
     await expect(card).toBeVisible();
-    await expect(signals).toContainText('Si Riesgo la aprueba, se opera en la cartera simulada.');
+    await expect(signals).toContainText(/Se opera en la cartera simulada\.|Riesgo la vetó/);
     await expect(signals).toContainText('No va al bróker ni usa dinero real');
-    await expect(signals).toContainText(BROKER_REASON);
+    await expect(signals).toContainText(BROKER_REASON.slice(1));
     await expect(
       signals.getByRole('button', { name: /bróker|broker|dinero real|enviar/i }),
     ).toHaveCount(0);

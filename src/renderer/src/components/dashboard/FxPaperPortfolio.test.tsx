@@ -72,16 +72,38 @@ it('la señal aprobada de EUR/USD se opera en la cartera simulada, sin bróker n
   const signals = screen.getByRole('region', { name: 'Señales vivas' });
   const item = (await within(signals).findByText('EUR/USD')).closest('li')!;
   expect(item).toHaveTextContent('Divisa · 24/5 · cartera simulada.');
-  expect(item).toHaveTextContent('Si Riesgo la aprueba, se opera en la cartera simulada.');
+  expect(item).toHaveTextContent('Se opera en la cartera simulada.');
+  expect(item).not.toHaveTextContent('Si Riesgo la aprueba');
   expect(item).toHaveTextContent(
-    'No va al bróker ni usa dinero real: el bróker conectado no opera divisas: se opera solo en la cartera simulada.',
+    'No va al bróker ni usa dinero real. El bróker conectado no opera divisas; se opera solo en la cartera simulada.',
   );
+  expect(item.textContent).not.toContain('divisas: se opera');
   expect(within(item).queryAllByRole('button')).toHaveLength(0);
   expect(
     within(item)
       .getAllByRole('link')
       .map((link) => link.textContent),
   ).toEqual(['Ver en Diario · EUR/USD']);
+});
+
+it('una señal vetada de EUR/USD dice que Riesgo la vetó, sin condicional', async () => {
+  vi.spyOn(window.tradia.signals, 'list').mockResolvedValue([
+    {
+      ...fxSignal,
+      decision: {
+        ...fxSignal.decision,
+        status: 'vetada',
+        size: 0,
+        reasons: [{ code: 'exposicion', message: 'Supera la exposición máxima' }] as never,
+      },
+    },
+  ]);
+  render(<Dashboard system={system} />);
+  const signals = screen.getByRole('region', { name: 'Señales vivas' });
+  const item = (await within(signals).findByText('EUR/USD')).closest('li')!;
+  expect(item).toHaveTextContent('Riesgo la vetó: Supera la exposición máxima.');
+  expect(item).not.toHaveTextContent('Si Riesgo la aprueba');
+  expect(item).not.toHaveTextContent('Se opera en la cartera simulada. No va');
 });
 
 it('USD/JPY sale como solo análisis con su motivo', async () => {

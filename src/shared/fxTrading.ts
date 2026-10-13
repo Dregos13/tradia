@@ -33,7 +33,7 @@ export const FX_BROKER_REJECTION_CODE = 'divisa-sin-broker';
 
 /** Motivo legible del rechazo de una orden de divisas hacia el bróker. */
 export const FX_BROKER_REJECTION_REASON =
-  'el bróker conectado no opera divisas: se opera solo en la cartera simulada';
+  'el bróker conectado no opera divisas; se opera solo en la cartera simulada';
 
 /**
  * Mensaje del rechazo tal como sale en errores y motivos: el código va

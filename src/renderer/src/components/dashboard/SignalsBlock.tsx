@@ -9,6 +9,18 @@ import { sessionDateLabel } from '../DataFreshness';
 import type { Signal, SignalStrategyState } from '../../../../shared/signals';
 import type { JournalEntry } from '../../../../shared/journal';
 import { direction, number, time } from './model';
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+/** Qué pasa con la señal de una divisa según su destino y su estado ya decidido. */
+function fxDestinationText(signal: Signal): string {
+  if (signal.destination === 'solo-analisis') {
+    return `No abre posición: ${signal.destinationReason ?? FX_ANALYSIS_ONLY_REASON}.`;
+  }
+  if (signal.decision.status === 'vetada') {
+    const why = signal.decision.reasons[0]?.message;
+    return why ? `Riesgo la vetó: ${why}.` : 'Riesgo la vetó; no se opera.';
+  }
+  return 'Se opera en la cartera simulada.';
+}
 const decisions = { aprobada: '✓ Aprobada', reducida: '△ Reducida', vetada: '× Vetada' };
 export function SignalsBlock({
   signals,
@@ -68,11 +80,8 @@ export function SignalsBlock({
                 />
                 {isFxSymbol(row.value.ticker) && (
                   <p className="dashboard-fx-destination">
-                    <strong>{fxLabel(row.value.ticker)}.</strong>{' '}
-                    {row.value.destination === 'solo-analisis'
-                      ? `No abre posición: ${row.value.destinationReason ?? FX_ANALYSIS_ONLY_REASON}.`
-                      : 'Si Riesgo la aprueba, se opera en la cartera simulada.'}{' '}
-                    No va al bróker ni usa dinero real: {FX_BROKER_REJECTION_REASON}.
+                    <strong>{fxLabel(row.value.ticker)}.</strong> {fxDestinationText(row.value)} No
+                    va al bróker ni usa dinero real. {capitalize(FX_BROKER_REJECTION_REASON)}.
                   </p>
                 )}
                 <p>{row.value.reason}</p>

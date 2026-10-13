@@ -349,12 +349,11 @@ it.each([{ done: 3, total: 7 }, null])(
     });
     render(<DataFreshness />);
     expect(
-      await screen.findByText(
-        progress
-          ? /Descargando 3 de 7 activos/
-          : /Régimen, predicciones y señales esperan a terminar/,
-      ),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(progress ? /Descargando 3 de 7 activos/ : /Poniéndose al día/))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/siguen con el último dato fiable/)).toBeInTheDocument();
+    expect(screen.queryByText(/esperan a terminar/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Actualizar ahora' })).not.toBeInTheDocument();
   },
 );
