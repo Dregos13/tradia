@@ -826,14 +826,86 @@ describe('resumen de frescura', () => {
     // El global no se ensombrece: sigue 'current' y sin entradas malas.
     expect(summary.state).toBe('current');
     expect(summary.items).toEqual([]);
-    // El activo va en su lista aparte, con motivo y alternativa.
+    // El activo va en su lista aparte, con motivo llano y alternativa.
     expect(summary.uncovered).toEqual([
       {
         ticker: 'EUR',
-        reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+        reason: 'Tiingo no tiene datos de EUR.',
         suggestion: 'FXE',
       },
     ]);
+  });
+
+  it('una fila antigua con motivo técnico sale en llano en uncovered', async () => {
+    repo.addWatchlistTicker('EUR');
+    // Así lo guardaban las versiones anteriores: «ticker 'EUR' no existe»,
+    // frase técnica y falsa (EUR existe; Tiingo no lo cubre).
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "ticker 'EUR' no existe",
+    });
+
+    const uncovered = service.freshness().uncovered;
+    expect(uncovered).toHaveLength(1);
+    const reason = uncovered[0]!.reason ?? '';
+    expect(reason).toBe('Tiingo no tiene datos de EUR.');
+    expect(reason).not.toContain("'");
+    expect(reason).not.toContain('no existe');
+    expect(reason).not.toContain('tiingo');
+    expect(reason).toContain('Tiingo');
+    expect(reason).toContain('EUR');
+  });
+
+  it('un motivo técnico heredado en un activo desactualizado sale en llano', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    // La frase que vio el usuario («Por qué ocurre») en la versión anterior.
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'desactualizado',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    const item = service.freshness().items.find((entry) => entry.key === 'ticker:EUR');
+    expect(item).toBeDefined();
+    const reason = item!.reason ?? '';
+    expect(reason).not.toContain("'");
+    expect(reason).not.toContain('no devolvió datos');
+    expect(reason).toContain('Tiingo');
+    expect(reason).toContain('EUR');
+    // El mismo motivo llano sale por data-status:get.
+    expect(service.list().find((entry) => entry.key === 'ticker:EUR')?.reason).toBe(reason);
+  });
+
+  it('los motivos de clave, cuota y red guardados en técnico mantienen su significado', () => {
+    const cases: [string, string][] = [
+      ['credencial rechazada (HTTP 401)', 'Tiingo rechazó la clave guardada.'],
+      [
+        'cuota excedida (HTTP 429): demasiadas peticiones',
+        'La cuota de Tiingo está agotada por hoy.',
+      ],
+      ['fallo de transporte: fetch failed', 'No se pudo conectar con Tiingo.'],
+      ['error del servidor (HTTP 503): caída', 'El servicio de Tiingo devolvió un error.'],
+    ];
+    const providerKey = dataStatusKey.provider('tiingo');
+    for (const [stored, expected] of cases) {
+      repo.setDataStatus({
+        key: providerKey,
+        state: 'desactualizado',
+        consecutiveFailures: 1,
+        reason: stored,
+      });
+      expect(service.list().find((entry) => entry.key === providerKey)?.reason).toBe(expected);
+    }
   });
 
   it('la evaluación no degrada un sin-cobertura aunque falte la vela esperada', async () => {

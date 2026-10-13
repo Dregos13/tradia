@@ -1140,7 +1140,11 @@ export interface DataFreshnessProgress {
 export interface UncoveredAsset {
   /** Ticker sin cobertura ('EUR' en una fila 'ticker:EUR'). */
   ticker: string;
-  /** Motivo legible del estado (la razón guardada en data_status). */
+  /**
+   * Motivo en español llano («Tiingo no tiene datos de EUR.»): la capa de
+   * datos lo traduce al guardar y al leer, así que nunca lleva comillas,
+   * ids internos de proveedor ni texto técnico.
+   */
   reason: string | null;
   /**
    * Alternativa operable sugerida (p. ej. 'FXE' para 'EUR'), o null si

@@ -81,6 +81,7 @@ import {
   type MarketRepository,
   type StoredBar,
 } from './repository';
+import { plainStatusReason } from './statusReason';
 
 // ---------------------------------------------------------------------------
 // Constantes y tipos
@@ -334,8 +335,24 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
   const isoNow = (): string => new Date(now()).toISOString();
 
-  const publishStatus = (patch: DataStatusPatch): void => {
-    const entry = repo.setDataStatus(patch);
+  /**
+   * Todo motivo que llega a la interfaz va en español llano («Tiingo no
+   * tiene datos de EUR.», no «el proveedor 'tiingo' no devolvió datos»):
+   * la traducción vive en `statusReason` y se aplica aquí, al guardar.
+   */
+  const publishStatus = (patch: DataStatusPatch, providerId?: string): void => {
+    const entry = repo.setDataStatus({
+      ...patch,
+      reason:
+        patch.reason === undefined || patch.reason === null
+          ? patch.reason
+          : plainStatusReason({
+              key: patch.key,
+              state: patch.state,
+              reason: patch.reason,
+              providerId,
+            }),
+    });
     deps.broadcast(IPC_CHANNELS.dataStatus.changed, entry);
   };
 
@@ -363,26 +380,32 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const key = dataStatusKey.provider(provider.id);
     const current = repo.getDataStatus(key);
     const failures = (current?.consecutiveFailures ?? 0) + 1;
-    publishStatus({
-      key,
-      // La credencial rechazada o varios fallos seguidos ya son "no fiable".
-      state: failures >= 3 ? 'no-fiable' : 'desactualizado',
-      consecutiveFailures: failures,
-      reason,
-    });
+    publishStatus(
+      {
+        key,
+        // La credencial rechazada o varios fallos seguidos ya son "no fiable".
+        state: failures >= 3 ? 'no-fiable' : 'desactualizado',
+        consecutiveFailures: failures,
+        reason,
+      },
+      provider.id,
+    );
   };
 
   const markProviderOk = (provider: MarketDataProvider): void => {
     const key = dataStatusKey.provider(provider.id);
     const current = repo.getDataStatus(key);
     if (current?.state === 'fiable' && current.consecutiveFailures === 0) return;
-    publishStatus({
-      key,
-      state: 'fiable',
-      lastOkAt: isoNow(),
-      consecutiveFailures: 0,
-      reason: null,
-    });
+    publishStatus(
+      {
+        key,
+        state: 'fiable',
+        lastOkAt: isoNow(),
+        consecutiveFailures: 0,
+        reason: null,
+      },
+      provider.id,
+    );
   };
 
   const classifyFailure = (
@@ -444,23 +467,35 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     error: unknown,
     onProviderFailure?: (reason: string) => void,
   ): TickerIngestResult => {
-    const { retryable, reason, tickerState, providerError } = classifyFailure(error);
+    const { retryable, reason: rawReason, tickerState, providerError } = classifyFailure(error);
     const key = dataStatusKey.ticker(ticker);
     const current = repo.getDataStatus(key);
-    publishStatus({
-      key,
-      state: tickerState,
-      // 'sin-cobertura' no es un fallo: el contador queda a 0 para que la
-      // regla de los 3 fallos (proveedor caído) nunca lo degrade.
-      consecutiveFailures:
-        tickerState === 'sin-cobertura' ? 0 : (current?.consecutiveFailures ?? 0) + 1,
-      reason,
-    });
+    // El motivo guardado (y devuelto) va ya en llano; el texto técnico
+    // del adaptador queda solo en el log.
+    const reason =
+      plainStatusReason({
+        key,
+        state: tickerState,
+        reason: rawReason,
+        providerId: isMarketDataError(error) ? error.provider : provider.id,
+      }) ?? rawReason;
+    publishStatus(
+      {
+        key,
+        state: tickerState,
+        // 'sin-cobertura' no es un fallo: el contador queda a 0 para que la
+        // regla de los 3 fallos (proveedor caído) nunca lo degrade.
+        consecutiveFailures:
+          tickerState === 'sin-cobertura' ? 0 : (current?.consecutiveFailures ?? 0) + 1,
+        reason,
+      },
+      provider.id,
+    );
     // El fallo del proveedor se cuenta UNA vez por pasada (el primer
     // fallo de la pasada lo escribe justo después del del activo, para
     // que los avisos se agrupen en uno solo).
     if (providerError) onProviderFailure?.(reason);
-    logger.warn?.(`[market] ingesta de ${ticker} falló (${reason})`);
+    logger.warn?.(`[market] ingesta de ${ticker} falló (${rawReason})`);
     return {
       ticker,
       outcome: 'fallido',
@@ -555,11 +590,14 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const desde = lastStored ? addDays(lastStored, 1) : yearsBack(lastExpected.date, HISTORY_YEARS);
     const hasta = lastExpected.date;
 
-    publishStatus({
-      key: statusKey,
-      state: 'actualizando',
-      reason: `descargando velas del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
-    });
+    publishStatus(
+      {
+        key: statusKey,
+        state: 'actualizando',
+        reason: `descargando velas del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
+      },
+      provider.id,
+    );
 
     let newBars: Bar[];
     try {
@@ -575,31 +613,42 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         // proveedor: no suma fallos a provider:<id> ni lo marca no fiable,
         // así el resto de la lista sigue trabajando (régimen, predicciones
         // y señales solo se pausan para este ticker).
-        const reason = `el proveedor '${provider.id}' no devolvió datos para ${ticker}`;
-        publishStatus({
+        const reason = plainStatusReason({
           key: statusKey,
           state: 'sin-cobertura',
-          consecutiveFailures: 0,
-          reason,
+          reason: `el proveedor '${provider.id}' no devolvió datos para ${ticker}`,
+          providerId: provider.id,
         });
+        publishStatus(
+          {
+            key: statusKey,
+            state: 'sin-cobertura',
+            consecutiveFailures: 0,
+            reason,
+          },
+          provider.id,
+        );
         return {
           ticker,
           outcome: 'fallido',
           stored: 0,
           lastDate: null,
           retryable: false,
-          reason,
+          reason: reason ?? undefined,
           providerError: false,
         };
       }
       // La sesión esperada aún no está publicada: merece reintento, pero no
       // es un fallo del proveedor (no se cuentan fallos seguidos).
       const current = repo.getDataStatus(statusKey);
-      publishStatus({
-        key: statusKey,
-        state: current?.state ?? 'desactualizado',
-        reason: `esperando la vela del ${sessionDateLabel(hasta)} en '${provider.id}'`,
-      });
+      publishStatus(
+        {
+          key: statusKey,
+          state: current?.state ?? 'desactualizado',
+          reason: `esperando la vela del ${sessionDateLabel(hasta)} en '${provider.id}'`,
+        },
+        provider.id,
+      );
       return {
         ticker,
         outcome: 'pendiente',
@@ -643,12 +692,15 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     );
 
     if (clean.bars.length === 0) {
-      publishStatus({
-        key: statusKey,
-        state: 'no-fiable',
-        consecutiveFailures: 0,
-        reason: `todas las velas del lote de '${provider.id}' fueron rechazadas`,
-      });
+      publishStatus(
+        {
+          key: statusKey,
+          state: 'no-fiable',
+          consecutiveFailures: 0,
+          reason: `todas las velas del lote de '${provider.id}' fueron rechazadas`,
+        },
+        provider.id,
+      );
       return {
         ticker,
         outcome: 'fallido',
@@ -674,13 +726,16 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const flags = toQualityFlags(batch.id, ticker, clean.report);
     if (flags.length > 0) repo.addQualityFlags(flags);
 
-    publishStatus({
-      key: statusKey,
-      state: clean.report.reliable ? 'fiable' : 'no-fiable',
-      lastOkAt: isoNow(),
-      consecutiveFailures: 0,
-      reason: clean.report.reliable ? null : qualityReason(clean.report),
-    });
+    publishStatus(
+      {
+        key: statusKey,
+        state: clean.report.reliable ? 'fiable' : 'no-fiable',
+        lastOkAt: isoNow(),
+        consecutiveFailures: 0,
+        reason: clean.report.reliable ? null : qualityReason(clean.report),
+      },
+      provider.id,
+    );
 
     const lastDate = clean.bars[clean.bars.length - 1]!.date;
     emitUpdated(ticker, provider.id, lastDate);
@@ -903,13 +958,17 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const addPendingVerification = async (
     ticker: string,
     reason: string,
+    providerId?: string,
   ): Promise<WatchlistAddResult> => {
     const entry = repo.addWatchlistTicker(ticker);
-    publishStatus({
-      key: dataStatusKey.ticker(entry.ticker),
-      state: 'desactualizado',
-      reason,
-    });
+    publishStatus(
+      {
+        key: dataStatusKey.ticker(entry.ticker),
+        state: 'desactualizado',
+        reason,
+      },
+      providerId,
+    );
     emitWatchlistChanged();
     return { added: true, reason: 'pendiente-verificar' };
   };
@@ -973,6 +1032,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
           isMarketDataError(error)
             ? error.message
             : `pendiente de verificar la cobertura en '${provider.id}'`,
+          isMarketDataError(error) ? error.provider : provider.id,
         );
       }
 
@@ -988,12 +1048,15 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
     watchlistCoverage: () =>
       repo.listWatchlist().map((item) => {
-        const status = repo.getDataStatus(dataStatusKey.ticker(item.ticker));
+        const key = dataStatusKey.ticker(item.ticker);
+        const status = repo.getDataStatus(key);
         if (status?.state === 'sin-cobertura') {
           return {
             ticker: item.ticker,
             coverage: 'sin-cobertura' as const,
-            reason: status.reason,
+            // El motivo sale en llano también para filas escritas por
+            // versiones anteriores («ticker 'EUR' no existe»).
+            reason: plainStatusReason({ key, state: status.state, reason: status.reason }),
             // La misma alternativa que `uncovered[].suggestion` del resumen
             // de frescura (la tabla estática), para contar una sola historia.
             suggestion: tickerSuggestions(item.ticker)[0] ?? null,
@@ -1013,7 +1076,10 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         return {
           ticker: item.ticker,
           coverage: 'pendiente-verificar' as const,
-          reason: status?.reason ?? null,
+          reason:
+            status === null
+              ? null
+              : plainStatusReason({ key, state: status.state, reason: status.reason }),
           suggestion: null,
         };
       }),

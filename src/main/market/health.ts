@@ -74,6 +74,7 @@ import { bondCalendar, fxCalendar } from './calendar';
 import type { MarketSession } from './calendar';
 import { tickerSuggestions } from './providers/suggestions';
 import { createMarketRepository, type MarketRepository } from './repository';
+import { plainStatusReason, PROVIDER_LABELS } from './statusReason';
 
 // ---------------------------------------------------------------------------
 // Constantes y tipos
@@ -111,13 +112,6 @@ const BOND_CALENDAR_SERIES = new Set(['DFF', 'DGS2', 'DGS10', 'T10Y2Y']);
  */
 const MONTHLY_PUBLICATION_DAY = 20;
 
-/** Nombres legibles de los proveedores conocidos (franja y resumen de frescura). */
-const PROVIDER_LABELS: Record<string, string> = {
-  tiingo: 'Tiingo',
-  fred: 'FRED',
-  simulated: 'Proveedor simulado',
-  'macro-simulated': 'Proveedor macro simulado',
-};
 const MACRO_PROVIDER_IDS = new Set(['fred', 'macro-simulated']);
 
 export type TimerHandle = ReturnType<typeof setTimeout>;
@@ -247,8 +241,31 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const catchUpTouched = new Set<string>();
   let catchUpLastActivity = Number.NEGATIVE_INFINITY;
 
+  /**
+   * Motivo en español llano para una clave de estado: la misma traducción
+   * (`statusReason`) que la ingesta al escribir, aplicada al leer para que
+   * las filas antiguas con texto técnico también salgan en llano.
+   */
+  const plainReasonFor = (
+    key: string,
+    state: DataStatusState,
+    reason: string | null,
+  ): string | null =>
+    plainStatusReason({
+      key,
+      state,
+      reason,
+      label: key.startsWith('macro:') ? freshnessLabel(key) : undefined,
+    });
+
   const emit = (patch: Parameters<MarketRepository['setDataStatus']>[0]): DataStatusEntry => {
-    const entry = repo.setDataStatus(patch);
+    const entry = repo.setDataStatus({
+      ...patch,
+      reason:
+        patch.reason === undefined || patch.reason === null
+          ? patch.reason
+          : plainReasonFor(patch.key, patch.state, patch.reason),
+    });
     deps.broadcast(IPC_CHANNELS.dataStatus.changed, entry);
     return entry;
   };
@@ -275,7 +292,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         ? `Tradia — ${label} no fiable`
         : `Tradia — ${label} desactualizado`;
     const body =
-      entry.reason ??
+      plainReasonFor(entry.key, entry.state, entry.reason) ??
       (entry.state === 'no-fiable'
         ? 'Fallos repetidos del proveedor o un valor anómalo grave; el dato no se usará para cálculos.'
         : 'Faltan datos recientes; se muestra el último lote válido.');
@@ -554,6 +571,9 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
 
   const applyDesired = (key: string, desired: Desired, written: DataStatusEntry[]): void => {
     const current = repo.getDataStatus(key);
+    // Las filas antiguas con motivo técnico no se reescriben aquí (salen
+    // en llano al leerse): tocar solo el texto emitiría un cambio y
+    // volvería a notificar el mismo estado malo.
     if (!needsWrite(current, desired)) return;
     written.push(
       emit({
@@ -863,7 +883,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
               .map((child) => lastDataDateFor(child))
               .filter((date): date is string => date !== null)
               .sort()[0] ?? null,
-          reason: entry.reason,
+          reason: plainReasonFor(entry.key, entry.state, entry.reason),
         });
         continue;
       }
@@ -872,7 +892,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         label: freshnessLabel(entry.key),
         state: entry.state,
         lastDataDate: lastDataDateFor(entry.key),
-        reason: entry.reason,
+        reason: plainReasonFor(entry.key, entry.state, entry.reason),
       });
     }
 
@@ -891,7 +911,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
           label: ticker,
           state: desired.state,
           lastDataDate: repo.lastBarDate(ticker),
-          reason: desired.reason,
+          reason: plainReasonFor(key, desired.state, desired.reason),
         });
       }
     }
@@ -905,7 +925,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
           label: series.name,
           state: desired.state,
           lastDataDate: repo.lastMacroObservationDate(series.id),
-          reason: desired.reason,
+          reason: plainReasonFor(key, desired.state, desired.reason),
         });
       }
     }
@@ -923,7 +943,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         const ticker = entry.key.slice('ticker:'.length);
         return {
           ticker,
-          reason: entry.reason,
+          reason: plainReasonFor(entry.key, entry.state, entry.reason),
           suggestion: deps.suggestAlternative?.(ticker) ?? null,
         };
       })
@@ -997,7 +1017,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   };
 
   const service: DataHealthService = {
-    list: () => repo.listDataStatus(),
+    // Los motivos salen en llano también para las filas escritas por
+    // versiones anteriores («ticker 'EUR' no existe» y similares).
+    list: () =>
+      repo.listDataStatus().map((entry) => ({
+        ...entry,
+        reason: plainReasonFor(entry.key, entry.state, entry.reason),
+      })),
     evaluate,
     observe,
     freshness,

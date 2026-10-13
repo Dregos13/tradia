@@ -430,7 +430,8 @@ describe('actualización incremental', () => {
     const result = await service.refreshNow();
 
     expect(result).toMatchObject({ accepted: true, ok: false });
-    expect(result.detail).toContain('fallo simulado del proveedor');
+    // El motivo sale en español llano, sin el id interno del proveedor.
+    expect(result.detail).toBe('No se pudo conectar con Proveedor simulado.');
   });
 
   it('getBars devuelve las velas guardadas con su fuente y filtra por rango', async () => {
@@ -498,6 +499,9 @@ describe('salud del dato', () => {
     expect(tickerStatus('EUR')).toMatchObject({
       state: 'sin-cobertura',
       consecutiveFailures: 0,
+      // El motivo se guarda ya en llano («… no tiene datos de EUR.»),
+      // no el «ticker 'EUR' no existe» del adaptador.
+      reason: 'Proveedor simulado no tiene datos de EUR.',
     });
     // El proveedor respondió bien (un 404 no es una caída): no hay
     // incidente en provider:simulated.
@@ -533,11 +537,11 @@ describe('salud del dato', () => {
     expect(result.detail).toContain('EUR');
 
     // El fallo queda aislado: EUR 'sin-cobertura' sin fallos; AAPL y el
-    // proveedor, 'fiable' tras la pasada.
+    // proveedor, 'fiable' tras la pasada. El motivo se guarda en llano.
     expect(tickerStatus('EUR')).toMatchObject({
       state: 'sin-cobertura',
       consecutiveFailures: 0,
-      reason: "el proveedor 'simulated' no devolvió datos para EUR",
+      reason: 'Proveedor simulado no tiene datos de EUR.',
     });
     expect(tickerStatus('AAPL')).toMatchObject({ state: 'fiable', consecutiveFailures: 0 });
     expect(repo.getDataStatus(dataStatusKey.provider('simulated'))).toMatchObject({
@@ -804,6 +808,29 @@ describe('alta de ticker con comprobación de cobertura', () => {
     expect(coverage.get('EUR')).toMatchObject({ coverage: 'sin-cobertura', suggestion: 'FXE' });
     expect(coverage.get('ZZZZ')).toMatchObject({ coverage: 'cubierto' });
     expect(coverage.size).toBe(3);
+  });
+
+  it('watchlistCoverage devuelve en llano el motivo técnico de una fila antigua', async () => {
+    repo.addWatchlistTicker('EUR');
+    // Fila escrita por una versión anterior: el motivo era el mensaje
+    // interno del adaptador («ticker 'EUR' no existe»).
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "ticker 'EUR' no existe",
+    });
+
+    const coverage = new Map(service.watchlistCoverage().map((e) => [e.ticker, e] as const));
+    const entry = coverage.get('EUR');
+    expect(entry?.coverage).toBe('sin-cobertura');
+    const reason = entry?.reason ?? '';
+    expect(reason).toBe('Tiingo no tiene datos de EUR.');
+    expect(reason).not.toContain("'");
+    expect(reason).not.toContain('no existe');
+    expect(reason).not.toContain('tiingo');
+    expect(reason).toContain('Tiingo');
+    expect(reason).toContain('EUR');
   });
 });
 
