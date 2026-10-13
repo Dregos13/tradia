@@ -10,7 +10,7 @@ _Revisado a fondo por Devin · SWE (Testing) el 13-10-2026 sobre `b3a51091`: V1 
 
 - `typecheck`, `lint` y `format:check` pasan.
 - `test:e2e` pasa (47/47) y `live-gate.spec.ts --repeat-each=5` da 10/10.
-- `npm test`: en la verificación original falló 1 de 3 ejecuciones por una carrera de foco en `RiskGate.test.tsx` (V1, corregida con `waitFor` en `145b61a7`). En la revisión, la batería seguía siendo intermitente bajo carga: 1 de 3 ejecuciones falló con tests jsdom pesados que superaban el límite de 5 s (V3, corregido subiendo `testTimeout` a 15 s en `vitest.config.ts`). Con la corrección: 2 de 2 ejecuciones en verde, 183 archivos y 2.510 pruebas.
+- `npm test`: en la verificación original falló 1 de 3 ejecuciones por una carrera de foco en `RiskGate.test.tsx` (V1, corregida con `waitFor` en `145b61a7`). En la revisión la batería siguió siendo intermitente bajo carga (V3): 2 de 5 ejecuciones fallaron, una por timeouts de 5 s en tests jsdom largos y otra por una carrera de `localStorage` en `FirstStepsCard.test.tsx`. Corregido con `testTimeout: 15_000` en `vitest.config.ts` y un `waitFor` en esa prueba; con ambos arreglos, en verde.
 - Los 8 hallazgos de la auditoría (C1–C8), los 3 del E2E (H1–H3), los 7 del QA (N1–N7) y P13 están cerrados con su regresión.
 - No queda ningún `it.fails`, `fixme`, `skip` ni `.only` en las auditorías ni en el E2E.
 - `git ls-files .venv-ml` está vacío.
@@ -108,12 +108,12 @@ Resultado: **14 archivos, 277/277**. Además, `ProviderConnectionResult.test.tsx
 | # | Criterio | Estado | Evidencia |
 | --- | --- | --- | --- |
 | 1 | Activar el dinero real sin la lista cumplida se rechaza desde la pantalla y por IPC, mostrando cada pendiente; solo se activa con todo cumplido y los límites confirmados | **Cumplido** | `live-gate.spec.ts` ×5 (10/10), `live.audit.test.ts`, captura `fase-6-7-dinero-real-bloqueado.png` |
-| 2 | Humo con el importe mínimo, cierre y conciliación sin descuadres; Diario con hora, precio pedido, ejecutado y slippage; los techos bloquean antes del broker | **Cumplido**, con la salvedad de V2 (la hora de la ejecución de compra no se pinta en el panel; sí está en el Diario y en el resultado) | `smoke.test.ts`, `live.audit.test.ts:539,683,700`, `orders-live-mode.spec.ts`, `continuacion-diario-prueba-humo-real.png` |
+| 2 | Humo con el importe mínimo, cierre y conciliación sin descuadres; Diario con hora, precio pedido, ejecutado y slippage; los techos bloquean antes del broker | **Cumplido** (V2 cerrado en `145b61a7`: el panel ya pinta la hora de «Ejecución de compra») | `smoke.test.ts`, `live.audit.test.ts:539,683,700`, `orders-live-mode.spec.ts`, `continuacion-diario-prueba-humo-real.png` |
 | 3 | Régimen en la ficha de estrategia («funciona en» y «falla en») y comparación con y sin filtro; la página IA con el régimen por activo y del mercado y las estrategias activas o desactivadas | **Cumplido** | `service.regime.test.ts`, `StrategyAi.test.tsx`, `AiPage.test.tsx`, `ai-regime-prediction.spec.ts` |
 | 4 | Ficha del modelo con versión, horizonte, periodos, Brier frente a la referencia y calibración; paridad ONNX en Node frente al pipeline | **Cumplido** | `prediction/parity.test.ts` («las salidas servidas coinciden con las del fixture a 1e-6», hash SHA-256), `AiPage.test.tsx`, `continuacion-ia-ver-ficha-modelo.png` |
 | 5 | Titulares etiquetados; un titular sin verificar nunca crea señal; todo pasa por `risk:submit-signal`; un drift sostenido degrada y una racha aislada no | **Cumplido** | `news/local.test.ts:30` (≥90 % activo, ≥70 % sentimiento sobre `headlines.labeled.json`), `ai.audit.test.ts`, `signals.audit.test.ts`, `drift/service.test.ts:253,535,595,770,791` |
-| 6 | Los cuatro comandos en verde | **No del todo**: `npm test` dio verde en 2 de 3 ejecuciones (V1) | §1 |
-| 7 | Lo anterior, sin `it.fails`/`fixme`/`skip`, y cada uno de los 20 fallos con su regresión | **Cumplido salvo V1** | `grep` = 0; tabla de los 20 fallos |
+| 6 | Los cuatro comandos en verde | **Cumplido tras la revisión del 13-10**: en la verificación original `npm test` dio verde en 2 de 3 (V1); con V1, V2 y V3 cerrados, las ejecuciones 4, 6 y 7 de la revisión pasan completas | §1, §7 |
+| 7 | Lo anterior, sin `it.fails`/`fixme`/`skip`, y cada uno de los 20 fallos con su regresión | **Cumplido** | `grep` = 0 (también repetido en la revisión); tabla de los 20 fallos; regresiones de V2 y V3 añadidas |
 | 8 | Dinero real con el broker simulado: rechazo por pantalla e IPC, activación desde la interfaz, `live-gate` ×5; `live.evidence` ignorada fuera de E2E | **Cumplido** | `live-gate.spec.ts --repeat-each=5`: 10/10; `live.audit.test.ts:370,612` |
 | 9 | «Probar conexión» de Tiingo y FRED: «Conectado» con la fecha o el motivo exacto, sin devolver ni registrar la clave | **Cumplido** | `provider-connection.spec.ts` (6 estados × 2 proveedores y clave ausente del IPC, el DOM, `data-status` y los registros), `providers.audit.test.ts:187-253`, `continuacion-probar-conexion-*.png` |
 | 10 | Un único «Datos desactualizados desde …» con acciones; puesta al día al arrancar y al reconectar; régimen, predicciones y señales en pausa | **Cumplido** | `stale-data.spec.ts` (2 pruebas, en las dos ejecuciones), `health.test.ts`, `ai.audit.test.ts:758`, `continuacion-datos-*.png` |
@@ -163,11 +163,11 @@ Las dos sesiones se han hecho repitiendo, sobre la rama conjunta, los recorridos
 
 Hallazgo nuevo de la revisión a fondo (13-10-2026, `b3a51091`):
 
-- **Pasos:** `npm test` completo, 3 ejecuciones en serie sobre `b3a51091`.
+- **Pasos:** `npm test` completo, 5 ejecuciones en serie sobre `b3a51091` (las dos últimas ya con el arreglo de timeout).
 - **Esperado:** 2.510/2.510 siempre.
-- **Observado:** la 1.ª ejecución falló con 3 pruebas en rojo por `Test timed out in 5000ms`: `MarketWorkspace.test.tsx:73` («normaliza el ticker, dibuja OHLC ajustado…») y `StrategiesPage.test.tsx` («crea, exige nota…» en :97, y «valida JSON…» por arrastre del timeout anterior). Aisladas pasan 17/17 en 4,5 s; las ejecuciones 2 y 3 pasaron completas. No es la misma carrera de V1: son tests largos de `user-event` que superan el límite por defecto de 5 s cuando los 183 workers compiten por CPU (en esta máquina corren varios agentes a la vez).
-- **Arreglo aplicado:** `testTimeout: 15_000` en `vitest.config.ts`. Con él, 2 ejecuciones más de `npm test` completas en verde (2.510/2.510 cada una).
-- **Evidencia:** `../vf-audit/test-run{1..5}.log` fuera del árbol; `git show` del cambio en `vitest.config.ts`.
+- **Observado:** la 1.ª ejecución falló con 3 pruebas en rojo por `Test timed out in 5000ms`: `MarketWorkspace.test.tsx:73` («normaliza el ticker, dibuja OHLC ajustado…») y `StrategiesPage.test.tsx` («crea, exige nota…» en :97, y «valida JSON…» por arrastre del timeout anterior). Aisladas pasan 17/17 en 4,5 s; las ejecuciones 2 y 3 pasaron completas. Con el timeout ya subido, la 5.ª ejecución destapó una segunda variante: `FirstStepsCard.test.tsx:142` comprobaba `localStorage` justo al aparecer «1 de 3 hechos», antes de que el `useEffect` que limpia `FIRST_STEPS_HIDDEN_KEY` (`FirstStepsCard.tsx:111-115`) hubiera corrido — la misma clase de carrera que V1.
+- **Arreglos aplicados:** `testTimeout: 15_000` en `vitest.config.ts` para los tests largos de `user-event` bajo 183 workers en paralelo; y `await waitFor(() => expect(localStorage.getItem(FIRST_STEPS_HIDDEN_KEY)).toBeNull())` en `FirstStepsCard.test.tsx:142`, el mismo patrón que cerró V1.
+- **Evidencia:** `../vf-audit/test-run{1..6}.log` fuera del árbol; diffs de `vitest.config.ts` y `FirstStepsCard.test.tsx` en la rama.
 
 ## 6. Fuera de alcance / no comprobado aquí
 
@@ -190,7 +190,9 @@ Rama `orquesta/fase-fase-6-7-ia-predictiva-y-capital-mi-e43b6d` sobre `b3a51091`
 | `npm run format:check` | **EXIT 0** |
 | `npm test`, ejecución 1 | **EXIT 1**: 2.507/2.510; 3 timeouts de 5 s en jsdom (`MarketWorkspace`, `StrategiesPage`) → V3 |
 | `npm test`, ejecuciones 2 y 3 | **EXIT 0**: 183 archivos, 2.510/2.510 |
-| `npm test`, ejecuciones 4 y 5 (con `testTimeout: 15_000`) | **EXIT 0**: 2.510/2.510 |
+| `npm test`, ejecución 4 (con `testTimeout: 15_000`) | **EXIT 0**: 2.510/2.510 |
+| `npm test`, ejecución 5 (con `testTimeout`) | **EXIT 1**: 2.509/2.510; carrera de `localStorage` en `FirstStepsCard.test.tsx:142` → misma clase que V1, corregida con `waitFor` |
+| `npm test`, ejecución 6 (con ambos arreglos) | **EXIT 0**: 2.510/2.510 |
 | `npm run test:e2e` (incluye `npm run build`) | **EXIT 0**: **47 passed** |
 | `npx playwright test e2e/live-gate.spec.ts --repeat-each=5` | **EXIT 0**: **10 passed** |
 | Auditorías + regresiones (`__audit__` ×6, `health`, `smoke`, `drift`, `secrets`, `news/*`, `parity`, `service.regime`) | **15 archivos, 310/310** |

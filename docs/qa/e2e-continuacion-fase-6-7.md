@@ -196,3 +196,9 @@ Ninguno rompe la batería. Los tres son del producto: los he documentado sin cam
 - **H2 corregido (parte Backend):** `freshness()` sintetiza el atraso por calendario aunque ninguna pasada lo haya escrito — sin red, o antes de la primera evaluación — comparando el último dato guardado con la sesión esperada. El resumen ya devuelve `stale` con `sinceDate` y `missingSessions` coherentes con `regimeOverview.stale` en vez de `current`.
   - Regresión: `src/main/market/health.test.ts` («marca el atraso por calendario aunque ninguna pasada lo haya escrito»).
 - **H3:** ya corregido por Frontend en su ronda (un solo punto entre motivo y acción).
+
+## Revisión a fondo · 13-10-2026
+
+- La entrega provisional quedó revisada sobre el árbol actual: `qa-tmp/` ya no existe, no hay `it.fails`, `fixme`, `test.skip`, `test.only`, `runIf` ni `skipIf` en `e2e/` ni en las auditorías, y los tres hallazgos H1–H3 tienen regresión y están cerrados.
+- Verificación repetida en esta revisión: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (**183 archivos · 2.510 pruebas**), `npm run test:e2e` (**47/47**) y `npx playwright test e2e/live-gate.spec.ts --repeat-each=5` (**10/10**) en verde.
+- Las sesiones de los dos perfiles confirman el recorrido completo: tour accesible y persistente, los seis estados de Tiingo/FRED sin exponer claves, una sola frescura coherente con cálculos en pausa y puesta al día, órdenes con modo conservado, vuelta a paper y dinero real estable. No se encontraron problemas nuevos del producto.
