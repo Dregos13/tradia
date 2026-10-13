@@ -41,7 +41,9 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
   expect(within(banner).getByText(/falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
-  expect(within(banner).getByText(/en pausa hasta ponerse al día/)).toBeTruthy();
+  expect(
+    within(banner).getByText(/no se calculan régimen, predicciones ni señales nuevas/),
+  ).toBeTruthy();
 
   act(() =>
     simulation.emitDataStatus({
@@ -174,7 +176,7 @@ it('al recuperarse el resto mantiene EUR visible sin anunciar éxito completo', 
   };
   const freshness = vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(summary);
   render(<ProviderBanner />);
-  await screen.findByText('Régimen, predicciones y señales en pausa hasta ponerse al día.');
+  await screen.findByText(/no se calculan régimen, predicciones ni señales nuevas/);
   freshness.mockResolvedValue({ ...summary, state: 'current', items: [], sinceDate: null });
   act(() => simulation.emitDataStatus({ ...staleTicker, state: 'fiable' }));
   expect(await screen.findByText(/Solo EUR queda en pausa/)).toBeVisible();

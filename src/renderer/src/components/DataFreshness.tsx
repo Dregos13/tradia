@@ -36,6 +36,12 @@ export function freshnessTitle(
         ? 'Poniéndose al día…'
         : 'Aún no hay datos de mercado';
 }
+// Con la última vela por detrás de la sesión esperada, el motor no evalúa señales, no crea
+// predicciones y no recalcula el régimen de ese activo (guardas de frescura de
+// signals/engine, ai/prediction/service y ai/regime/service). Lo ya emitido se conserva.
+// Con datos «no fiables» el motor no pausa nada por sí mismo, así que no se afirma.
+export const STALE_PAUSE_TEXT =
+  'Mientras los datos estén atrasados no se calculan régimen, predicciones ni señales nuevas para esos activos. Lo ya calculado se conserva.';
 export function providerSettingsLink(provider: 'tiingo' | 'fred', focus: 'key' | 'test' = 'test') {
   return `#ajustes?provider=${provider}&focus=${focus}`;
 }
@@ -102,9 +108,18 @@ type DataFreshnessProps = {
   snapshotStale?: boolean;
 };
 
+const onlyUncovered = (summary: DataFreshnessSummary | null) =>
+  !!summary &&
+  (summary.state === 'current' || summary.state === 'no-data') &&
+  summary.uncovered.length > 0;
+
 export function DataFreshness(props: DataFreshnessProps) {
   const focusTarget = useRef<HTMLDivElement>(null);
   const [actionMessage, setActionMessage] = useState('');
+  const { summary } = useDataFreshness();
+  // El aviso por activo vive solo en la franja global: repetirlo en cada pantalla duplicaría
+  // la región, sus botones y el anuncio del lector de pantalla.
+  if ((props.variant ?? 'inline') === 'inline' && onlyUncovered(summary)) return null;
   return (
     <div
       className="data-freshness-container"
@@ -121,9 +136,11 @@ export function DataFreshness(props: DataFreshnessProps) {
           focusTarget.current?.focus();
         }}
       />
-      <p className="data-freshness-action-result" role="status">
-        {actionMessage}
-      </p>
+      {props.variant === 'banner' && (
+        <p className="data-freshness-action-result" role="status">
+          {actionMessage}
+        </p>
+      )}
     </div>
   );
 }
@@ -221,8 +238,7 @@ function DataFreshnessContent({
           : ''}
       </span>
     );
-  const uncoveredOnly =
-    (summary.state === 'current' || summary.state === 'no-data') && summary.uncovered.length > 0;
+  const uncoveredOnly = onlyUncovered(summary);
   const oldest = summary.items[0];
   const paused = summary.state === 'stale' || summary.state === 'unreliable';
   const provider =
@@ -258,7 +274,7 @@ function DataFreshnessContent({
                   `Faltan ${summary.missingSessions} sesiones: la última esperada es la del ${sessionDateLabel(summary.expectedSessionDate)}.`}
               </p>
             )}
-            {paused && <p>Régimen, predicciones y señales en pausa hasta ponerse al día.</p>}
+            {summary.state === 'stale' && <p>{STALE_PAUSE_TEXT}</p>}
             {fxAffected && <p className="data-freshness-fx">{FX_CALENDAR_HELP}</p>}
             {summary.state === 'catching-up' && (
               <p>
@@ -277,7 +293,7 @@ function DataFreshnessContent({
         )}
         {!uncoveredOnly && (
           <details>
-            <summary>Ver detalles</summary>
+            <summary>Por qué ocurre</summary>
             <ul>
               {summary.items.map((item) => (
                 <li key={item.key}>
@@ -294,7 +310,7 @@ function DataFreshnessContent({
             </ul>
           </details>
         )}
-        {summary.uncovered.length > 0 && (
+        {summary.uncovered.length > 0 && variant === 'banner' && (
           <UncoveredAssets
             assets={summary.uncovered}
             current={summary.state === 'current' && !offline}

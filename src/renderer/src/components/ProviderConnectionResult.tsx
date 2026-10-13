@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ProviderTestResult, ProviderTestStatus } from '../../../shared/ipc';
 import { DataStateIcon } from './DataStateIcon';
 import { sessionDateLabel } from './DataFreshness';
@@ -73,6 +74,31 @@ export function ProviderConnectionResult({
               ? 'Vuelve a probar; si se repite, revisa el estado del servicio.'
               : 'Prueba la conexión para saber si el conector responde.';
   const keyProblem = status === 'sin-clave' || status === 'clave-rechazada';
+  // Una sola acción principal en «Siguiente paso»: arreglar la clave, actualizar los datos
+  // si todo funciona o, en cualquier otro caso, volver a probar la conexión.
+  const testPrimary = !keyProblem && status !== 'ok';
+  const refocusTest = useRef(false);
+  useEffect(() => {
+    // El botón cambia de bloque al pasar a «Funciona»: no perder el foco de quien lo pulsó.
+    if (testing || !refocusTest.current) return;
+    refocusTest.current = false;
+    if (!keyProblem) document.getElementById(`${provider}-test`)?.focus();
+  }, [testing, status, keyProblem, provider]);
+  const testButton = (
+    <button
+      id={`${provider}-test`}
+      type="button"
+      className={`button ${testPrimary || testing ? 'primary' : ''}`}
+      disabled={testing || busy}
+      aria-describedby={`${provider}-test-help`}
+      onClick={() => {
+        refocusTest.current = true;
+        onRetry();
+      }}
+    >
+      {testing ? 'Comprobando…' : 'Probar conexión'}
+    </button>
+  );
   return (
     <div className="connector-diagnosis">
       <div id={`${provider}-test-help`} role="status" aria-live="polite">
@@ -98,48 +124,46 @@ export function ProviderConnectionResult({
         <div className="connector-next">
           <h4>{status && status !== 'ok' ? 'Cómo arreglarlo' : 'Siguiente paso'}</h4>
           {status !== 'ok' && <p>{help}</p>}
+          {!testPrimary && (
+            <div className="settings-controls">
+              {status === 'ok' ? (
+                <button type="button" className="button primary" onClick={onRefresh}>
+                  Actualizar datos ahora
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => focusProviderKey(provider)}
+                >
+                  {status === 'sin-clave' ? 'Añadir clave' : 'Revisar la clave'}
+                </button>
+              )}
+            </div>
+          )}
+          {testPrimary && <div className="settings-controls">{testButton}</div>}
         </div>
       )}
-      <div className="settings-controls">
-        {keyProblem && !testing && (
-          <button
-            type="button"
-            className="button primary"
-            onClick={() => focusProviderKey(provider)}
-          >
-            {status === 'sin-clave' ? 'Añadir clave' : 'Revisar la clave'}
-          </button>
-        )}
-        <button
-          id={`${provider}-test`}
-          type="button"
-          className={`button ${keyProblem ? '' : 'primary'}`}
-          disabled={testing || busy}
-          aria-describedby={`${provider}-test-help`}
-          onClick={onRetry}
-        >
-          {testing ? 'Comprobando…' : 'Probar conexión'}
-        </button>
-        {status === 'ok' && !testing && (
-          <button type="button" className="button" onClick={onRefresh}>
-            Actualizar datos ahora
-          </button>
-        )}
-        {status === 'clave-rechazada' && !testing && (
-          <a
-            href={
-              provider === 'tiingo'
-                ? 'https://www.tiingo.com/account/api/token'
-                : 'https://fredaccount.stlouisfed.org/apikeys'
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            Abrir mi cuenta de {name}
-            <span className="sr-only"> (abre en el navegador)</span>
-          </a>
-        )}
-      </div>
+      {/* Con el siguiente paso ya elegido, «Probar conexión» queda como acción secundaria. */}
+      {(testing || !testPrimary) && (
+        <div className="settings-controls">
+          {testButton}
+          {status === 'clave-rechazada' && !testing && (
+            <a
+              href={
+                provider === 'tiingo'
+                  ? 'https://www.tiingo.com/account/api/token'
+                  : 'https://fredaccount.stlouisfed.org/apikeys'
+              }
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir mi cuenta de {name}
+              <span className="sr-only"> (abre en el navegador)</span>
+            </a>
+          )}
+        </div>
+      )}
       {status === 'error' && !testing && (
         <details>
           <summary>Detalles de la conexión</summary>

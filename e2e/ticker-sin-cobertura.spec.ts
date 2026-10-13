@@ -79,6 +79,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(alert).toBeVisible();
     await expect(alert).toContainText('Puedes añadir EUR/USD');
     await expect(alert).toContainText('cambiar por FXE');
+    await expect(alert).toContainText('EUR no está disponible en Tiingo');
+    await expect(alert).not.toContainText(/ETF|24\/5|exposición parecida/);
+    await expect(alert.getByRole('link', { name: 'Abrir Ajustes › Conectores' })).toBeVisible();
     await expect(
       page.getByRole('button', { name: /^(Añadir EUR\/USD|Cambiar por FXE)/ }),
     ).toHaveText(['Añadir EUR/USD (divisa)', 'Cambiar por FXE']);
@@ -118,6 +121,15 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
   test('un activo de la lista sin cobertura: el aviso nombra solo ese, el resto sigue y «Quitar de la lista» lo retira', async () => {
     test.setTimeout(240_000);
     const { page } = await openWithLegacyEur('tradia-ticker-legado');
+    // Inicio: un solo aviso de EUR y «Precios» sigue «Disponible» (SPY está al día).
+    await openPage(page, 'Inicio', 'Estado del sistema');
+    await expect(
+      page.getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+    ).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Quitar EUR de la lista' })).toHaveCount(1);
+    await expect(page.locator('.dashboard-row').filter({ hasText: /^Precios/ })).toContainText(
+      'Disponible',
+    );
     await openPage(page, 'Mercado');
 
     const banner = dataBanner(page);
@@ -128,6 +140,13 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       'Solo EUR queda en pausa. Los demás activos, predicciones y señales siguen al día.',
     );
     await expect(banner).not.toContainText('SPY');
+    // Un solo aviso por activo: ni un segundo encabezado ni acciones repetidas en el orden de Tab.
+    await expect(
+      page.getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+    ).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Quitar EUR de la lista' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Cambiar por FXE para EUR' })).toHaveCount(1);
+    await expect(page.getByRole('group', { name: 'Frescura de datos' })).toHaveCount(0);
     await expect(banner).not.toContainText('Datos actualizados.');
     await expect(banner).not.toContainText('Régimen, predicciones y señales en pausa');
     await expect(banner.getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeVisible();

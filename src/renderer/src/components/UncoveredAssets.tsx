@@ -113,15 +113,15 @@ export function UncoveredAssets({
                 Por qué ocurre<span className="sr-only"> con {asset.ticker}</span>
               </summary>
               <p>
-                Tiingo no ofrece datos para {asset.ticker} en este conector. Puedes quitarlo de la
+                Tiingo ofrece precios diarios de acciones y de fondos cotizados (ETF) de EE. UU.;{' '}
+                {asset.ticker} no es un símbolo disponible en este conector. Puedes quitarlo de la
                 lista{asset.suggestion ? ` o cambiarlo por ${asset.suggestion}` : ''}.
               </p>
               {fxPairForCurrency(asset.ticker) && (
                 <p>
                   Para seguir el tipo de cambio, añade{' '}
                   {assetSymbol(fxPairForCurrency(asset.ticker) ?? '')} desde la lista de
-                  seguimiento: es una divisa con calendario 24/5, sin datos en fin de semana y con
-                  datos en los festivos de EE. UU.
+                  seguimiento: es el par que Tiingo sí cubre. Solo tiene datos de lunes a viernes.
                 </p>
               )}
             </details>

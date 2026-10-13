@@ -125,6 +125,11 @@ for (const provider of PROVIDERS) {
         `provider:${provider.id}`,
       );
       expect(providerStatus?.state).toBe('fiable');
+      // Conector que funciona: una sola acción en «Siguiente paso»; «Probar conexión» queda aparte.
+      const next = form.locator('.connector-next');
+      await expect(next.getByRole('button')).toHaveText(['Actualizar datos ahora']);
+      await expect(next.getByRole('button', { name: 'Probar conexión' })).toHaveCount(0);
+      await expect(testButton(form)).toBeVisible();
       await capturePhaseScreenshot(
         page,
         `continuacion-probar-conexion-${provider.id}-conectado.png`,

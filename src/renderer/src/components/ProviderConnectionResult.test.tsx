@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ProviderConnectionResult } from './ProviderConnectionResult';
 afterEach(cleanup);
@@ -60,4 +60,35 @@ it.each([
   expect(screen.getByText(/6 oct/)).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Probar conexión' })).toBeEnabled();
+});
+
+it.each([
+  ['ok', 'Actualizar datos ahora'],
+  ['clave-rechazada', 'Revisar la clave'],
+  ['error', 'Probar conexión'],
+] as const)('%s deja una sola acción en «Siguiente paso»: %s', (status, action) => {
+  const view = render(
+    <ProviderConnectionResult
+      provider="tiingo"
+      name="Tiingo"
+      testing={false}
+      result={{
+        provider: 'tiingo',
+        status,
+        message: 'Respuesta segura',
+        latestDataDate: null,
+        checkedAt: '2026-10-06T12:00:00Z',
+        latencyMs: null,
+      }}
+      onRetry={vi.fn()}
+      onRefresh={vi.fn()}
+    />,
+  );
+  const next = view.container.querySelector('.connector-next') as HTMLElement;
+  expect(within(next).getAllByRole('button')).toHaveLength(1);
+  expect(within(next).getByRole('button', { name: action })).toBeVisible();
+  // «Probar conexión» sigue disponible, como acción secundaria fuera del bloque.
+  expect(screen.getAllByRole('button', { name: 'Probar conexión' })).toHaveLength(1);
+  if (status !== 'error')
+    expect(next).not.toContainElement(screen.getByRole('button', { name: 'Probar conexión' }));
 });

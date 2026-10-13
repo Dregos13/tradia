@@ -117,8 +117,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       const banner = page.getByRole('region', { name: 'Estado de los datos' });
       await expect(banner).toHaveCount(1);
       await expect(banner.getByRole('status').first()).toContainText(STALE_TITLE);
+      // Texto contrastado con el motor: sin vela al día no se evalúan señales, no se crean
+      // predicciones y no se recalcula el régimen (lo ya calculado se conserva).
       await expect(banner).toContainText(
-        'Régimen, predicciones y señales en pausa hasta ponerse al día.',
+        'no se calculan régimen, predicciones ni señales nuevas para esos activos',
       );
       await expect(banner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
       await expect(banner.getByRole('link', { name: 'Probar conexión' })).toHaveAttribute(
@@ -160,9 +162,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(globalTitle).not.toContainText(/\b\d{4}-\d{2}-\d{2}\b/);
     await capturePhaseScreenshot(page, 'continuacion-datos-desactualizados-ia.png');
 
-    // «Ver detalles»: una fila por entrada, con su último dato y su motivo.
+    // «Por qué ocurre»: una fila por entrada, con su último dato y su motivo.
     const banner = page.getByRole('region', { name: 'Estado de los datos' });
-    await banner.getByText('Ver detalles').click();
+    await banner.getByText('Por qué ocurre').click();
     const details = banner.getByRole('listitem');
     await expect(details.filter({ hasText: /^SPY · último dato 6 oct 2026 · / })).toHaveCount(1);
     await expect(details.filter({ hasText: /^AAPL · último dato 6 oct 2026 · / })).toHaveCount(1);

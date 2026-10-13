@@ -40,7 +40,7 @@ it('rechaza EUR, conserva la lista y el valor, anuncia y enfoca el campo', async
   await add('EUR');
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent(
-    'Tiingo no ofrece datos para EUR. Puedes añadir EUR/USD, una divisa con calendario 24/5, o cambiar por FXE, un ETF que sigue una exposición parecida.',
+    'Tiingo no ofrece datos para EUR. Puedes añadir EUR/USD para seguir el tipo de cambio, o cambiar por FXE, un fondo cotizado en bolsa que se mueve de forma parecida.',
   );
   expect(alert).toHaveAttribute('aria-live', 'assertive');
   expect(screen.getByLabelText('Ticker')).toHaveAttribute(
@@ -108,7 +108,7 @@ it('rechaza sin alternativa y elimina el error al editar', async () => {
   render(<Harness />);
   await add('ZZZZ');
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Prueba con el ticker de una acción o un ETF de EE. UU.',
+    'Prueba con el ticker de una acción o de un fondo cotizado de EE. UU.',
   );
   expect(within(screen.getByRole('alert')).queryByRole('button')).not.toBeInTheDocument();
   await userEvent.type(screen.getByLabelText('Ticker'), 'A');

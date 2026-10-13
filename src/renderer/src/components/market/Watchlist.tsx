@@ -126,12 +126,12 @@ export function Watchlist({
           setInput(ticker);
           reject(
             pair
-              ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${assetSymbol(pair)}, una divisa con calendario 24/5${etf ? `, o cambiar por ${etf}, un ETF que sigue una exposición parecida` : ''}.`
+              ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${assetSymbol(pair)} para seguir el tipo de cambio${etf ? `, o cambiar por ${etf}, un fondo cotizado en bolsa que se mueve de forma parecida` : ''}.`
               : etf
-                ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${etf}, un ETF que sigue una exposición parecida.`
+                ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${etf}, un fondo cotizado en bolsa que se mueve de forma parecida.`
                 : alternatives.length
                   ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${alternatives.join(' o ')}.`
-                  : `Tiingo no ofrece datos para ${ticker}. Prueba con el ticker de una acción o un ETF de EE. UU.`,
+                  : `Tiingo no ofrece datos para ${ticker}. Prueba con el ticker de una acción o de un fondo cotizado de EE. UU.`,
           );
         } else if (result.reason === 'duplicado') {
           reject(`${assetSymbol(ticker)} ya está en tu lista.`);
@@ -210,7 +210,7 @@ export function Watchlist({
               {rejectedTicker && (
                 <strong>
                   <DataStateIcon kind="uncovered" />
-                  {assetSymbol(rejectedTicker)} no está disponible
+                  {assetSymbol(rejectedTicker)} no está disponible en Tiingo
                 </strong>
               )}
               <p>{error}</p>
@@ -230,7 +230,7 @@ export function Watchlist({
                     </button>
                   ))}
                   <a className="button" href="#ajustes?provider=tiingo">
-                    Ver conectores
+                    Abrir Ajustes › Conectores
                   </a>
                 </div>
               )}
