@@ -288,7 +288,7 @@ afterEach(() => {
   window.location.hash = '';
 });
 
-it('banner, Inicio, Mercado, Macro e IA comparten fecha, motivo y acciones del adaptador', async () => {
+it('banner, Inicio, Mercado, Macro e IA comparten fecha; solo la franja lleva motivo y acciones', async () => {
   simulation.emitDataStatus(stale);
   for (const surface of [
     <ProviderBanner />,
@@ -305,15 +305,19 @@ it('banner, Inicio, Mercado, Macro e IA comparten fecha, motivo y acciones del a
         screen.getAllByText('Datos desactualizados desde el 25 sept 2026').length,
       ).toBeGreaterThan(0),
     );
-    const freshness = screen.getByLabelText(
-      surface.type === ProviderBanner ? 'Estado de los datos' : 'Frescura de datos',
-    );
-    expect(within(freshness).getByText(stale.reason, { selector: 'p' })).toBeInTheDocument();
-    expect(within(freshness).getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
-    expect(within(freshness).getByRole('link', { name: 'Probar conexión' })).toHaveAttribute(
-      'href',
-      '#ajustes?provider=tiingo&focus=test',
-    );
+    if (surface.type === ProviderBanner) {
+      const freshness = screen.getByLabelText('Estado de los datos');
+      expect(within(freshness).getByText(stale.reason, { selector: 'p' })).toBeInTheDocument();
+      expect(within(freshness).getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
+      expect(within(freshness).getByRole('link', { name: 'Probar conexión' })).toHaveAttribute(
+        'href',
+        '#ajustes?provider=tiingo&focus=test',
+      );
+    } else {
+      const chip = screen.getByLabelText('Frescura de datos');
+      expect(chip).toHaveTextContent('Datos desactualizados desde el 25 sept 2026');
+      expect(within(chip).queryAllByRole('button')).toHaveLength(0);
+    }
     view.unmount();
   }
   expect(simulation.listenerCount()).toBe(0);
@@ -353,7 +357,7 @@ it.each([{ done: 3, total: 7 }, null])(
       progress,
       updatedAt: '2026-10-11T10:00:00Z',
     });
-    render(<DataFreshness />);
+    render(<DataFreshness variant="banner" />);
     expect(
       (await screen.findAllByText(progress ? /Descargando 3 de 7 activos/ : /Poniéndose al día/))
         .length,
@@ -527,7 +531,12 @@ it('N2: limpia el resultado anterior al recuperarse y no lo lleva al siguiente a
     detail: 'fallo anterior',
     reason: null,
   });
-  render(<DataFreshness />);
+  render(
+    <>
+      <DataFreshness variant="banner" />
+      <DataFreshness />
+    </>,
+  );
   await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
   expect(await screen.findByText('No se pudo actualizar: fallo anterior')).toBeVisible();
   await act(async () => simulation.emitDataStatus({ ...stale, state: 'fiable' }));
@@ -545,7 +554,12 @@ it('N2: una petición antigua no repone su error tras recuperarse', async () => 
       resolve = done;
     }),
   );
-  render(<DataFreshness />);
+  render(
+    <>
+      <DataFreshness variant="banner" />
+      <DataFreshness />
+    </>,
+  );
   await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
   await act(async () => simulation.emitDataStatus({ ...stale, state: 'fiable' }));
   await screen.findByText('Al día');
@@ -580,7 +594,12 @@ it('N2: los eventos de la propia descarga no descartan su resultado de error', a
     await Promise.resolve();
     return { accepted: true, ok: false, detail: 'fallo de esta descarga', reason: null };
   });
-  render(<DataFreshness />);
+  render(
+    <>
+      <DataFreshness variant="banner" />
+      <DataFreshness />
+    </>,
+  );
   await userEvent.click(await screen.findByRole('button', { name: 'Actualizar ahora' }));
   await waitFor(() => {
     expect(screen.getByText('No se pudo actualizar: fallo de esta descarga')).toBeVisible();
@@ -682,7 +701,7 @@ it('un EUR/USD desactualizado explica el calendario 24/5 de las divisas', async 
       },
     ],
   });
-  render(<DataFreshness />);
+  render(<DataFreshness variant="banner" />);
   expect(
     await screen.findByText(
       /Divisas: calendario 24\/5, de lunes a viernes\. No se esperan datos en fin de semana; sí en los festivos de EE\. UU\./,
@@ -780,4 +799,35 @@ it('el aviso de datos atrasados usa «Por qué ocurre» y solo promete lo que el
   expect(STALE_PAUSE_TEXT).not.toMatch(/en pausa/);
   expect(screen.getByText('Por qué ocurre')).toBeVisible();
   expect(screen.queryByText('Ver detalles')).not.toBeInTheDocument();
+});
+it('con datos atrasados la franja lleva el aviso y sus acciones una sola vez en cada pantalla', async () => {
+  simulation.emitDataStatus(stale);
+  render(
+    <>
+      <ProviderBanner />
+      <Dashboard
+        system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+      />
+      <MarketDataPage kind="mercado" />
+      <AiPage />
+    </>,
+  );
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+  await waitFor(() =>
+    expect(screen.getAllByRole('group', { name: 'Frescura de datos' })).toHaveLength(3),
+  );
+  // Cada pantalla conserva un chip con el mismo título, sin repetir acciones ni anuncios.
+  for (const chip of screen.getAllByRole('group', { name: 'Frescura de datos' })) {
+    expect(chip).toHaveTextContent('Datos desactualizados desde el 25 sept 2026');
+    expect(within(chip).queryAllByRole('button')).toHaveLength(0);
+    expect(within(chip).queryAllByRole('link')).toHaveLength(0);
+    expect(within(chip).queryAllByRole('status')).toHaveLength(0);
+    expect(within(chip).queryByText('Por qué ocurre')).not.toBeInTheDocument();
+  }
+  expect(screen.getAllByRole('button', { name: 'Actualizar ahora' })).toHaveLength(1);
+  expect(screen.getAllByRole('link', { name: 'Probar conexión' })).toHaveLength(1);
+  expect(screen.getAllByText('Por qué ocurre')).toHaveLength(1);
+  expect(screen.getAllByText(STALE_PAUSE_TEXT)).toHaveLength(1);
+  expect(within(banner).getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
+  expect(within(banner).getByText(stale.reason, { selector: 'p' })).toBeInTheDocument();
 });

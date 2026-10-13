@@ -255,6 +255,22 @@ function DataFreshnessContent({
         : summary.state === 'catching-up'
           ? 'updating'
           : 'no-data';
+  // La franja global (ProviderBanner) está en todas las pantallas y lleva el motivo, «Por qué
+  // ocurre» y las acciones. Aquí basta un chip con el título: repetirlo todo duplicaría los
+  // botones en el orden de Tab y el anuncio del lector de pantalla.
+  if (variant === 'inline')
+    return (
+      <section
+        className={`provider-banner provider-banner--${modifier} data-freshness-inline`}
+        role="group"
+        aria-label="Frescura de datos"
+      >
+        <strong>
+          <DataStateIcon kind={paused ? 'warning' : 'pending'} />
+          {title}
+        </strong>
+      </section>
+    );
   return (
     <section
       className={`provider-banner provider-banner--${modifier} data-freshness-${variant}`}

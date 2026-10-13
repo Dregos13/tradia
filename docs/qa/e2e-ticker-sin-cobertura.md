@@ -7,7 +7,7 @@ Spec: `e2e/ticker-sin-cobertura.spec.ts` (app Electron real, proveedor simulado 
 | Caso                                                                                                                                                                     | Resultado                       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | 1. Añadir `eur` → rechazo «Tiingo no ofrece datos para EUR» con «Añadir EUR/USD (divisa)» y «Cambiar por FXE», lista intacta, sin aviso de datos → «Cambiar por FXE» con teclado → FXE con más de 250 velas | Pasa                            |
-| 2. EUR heredado: aviso solo de EUR, SPY «fiable», régimen/predicciones/señales sin pausa → «Quitar de la lista» con teclado → el aviso desaparece                          | **Falla** en la última parte (H1) |
+| 2. EUR heredado: aviso solo de EUR, SPY «fiable», régimen/predicciones/señales sin pausa → «Quitar de la lista» con teclado → el aviso desaparece                          | Pasa tras corregir H1 (ver «Estado tras la ronda de correcciones») |
 | 3. «Actualizar ahora» con fallo parcial → «Actualizados 1 de 2 · sin datos: EUR», nunca «Datos actualizados.»                                                              | Pasa                            |
 | 4. Ajustes › Conectores: Tiingo «Funciona» + EUR sin cobertura; «Clave no válida» + EUR sin cobertura, «Cómo arreglarlo», enlace a la cuenta, foco en el campo; FRED aparte | Pasa                            |
 
@@ -20,6 +20,14 @@ Comandos:
 Preparación de los casos 2-4 (un EUR que ya estaba en la lista): se siembra EUR con `TRADIA_E2E_UNCOVERED_TICKERS=''`, se reabre la app con la lista por defecto y se adelanta el reloj un día para que se pida la vela nueva de EUR. Sin ese día, EUR ya tiene velas y nunca se pide, así que no se detecta que no tiene cobertura.
 
 Limitación del caso 3: el estado «desactualizado» de SPY es real (proveedor caído + un cierre más), pero después se congela el resumen por IPC (como `data-uncovered-banner.spec.ts`), porque al apagar el fallo la app se recupera sola y el botón «Actualizar ahora» desaparece. La actualización que lanza el botón sí es real.
+
+## Estado tras la ronda de correcciones
+
+- **H1:** corregido en `7eefc97e`. `removeWatchlistTicker` borra la fila `ticker:X` y `freshness()` solo cuenta los activos de la lista. El caso 2 pasa.
+- **H2:** corregido. Con un activo sin cobertura se corrigió en `54e8337b`. Con datos atrasados, el bloque en línea queda como un chip sin acciones (`fe-correcciones-pruebas`).
+- **H3:** descartado, porque es un texto del proveedor simulado que la interfaz no muestra.
+
+El detalle está en [`cierre-tiingo-claridad.md`](cierre-tiingo-claridad.md). Lo que sigue es el informe original.
 
 ## Hallazgos (por severidad)
 
