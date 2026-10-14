@@ -198,20 +198,22 @@ export function ChecklistPage({
         <section
           data-layout-block="requisitos"
           className="live-sheet"
-          data-tour="dinero-real-lista"
           aria-labelledby={`${id}-checklist`}
         >
-          <h3 id={`${id}-checklist`}>Requisitos previos</h3>
-          <p>
-            Los requisitos automáticos se verifican en el proceso principal; las declaraciones se
-            guardan con fecha.
-          </p>
-          {checklist.evaluatedAt && (
-            <p className="live-meta">
-              Última evaluación:{' '}
-              <time dateTime={checklist.evaluatedAt}>{timestamp(checklist.evaluatedAt)}</time>
+          {/* El tour señala la cabecera de la lista: la sección entera mide varias pantallas. */}
+          <div data-tour="dinero-real-lista">
+            <h3 id={`${id}-checklist`}>Requisitos previos</h3>
+            <p>
+              Los requisitos automáticos se verifican en el proceso principal; las declaraciones se
+              guardan con fecha.
             </p>
-          )}
+            {checklist.evaluatedAt && (
+              <p className="live-meta">
+                Última evaluación:{' '}
+                <time dateTime={checklist.evaluatedAt}>{timestamp(checklist.evaluatedAt)}</time>
+              </p>
+            )}
+          </div>
           <ul className="live-checklist">
             {checklist.items.map((item) => (
               <ChecklistRow

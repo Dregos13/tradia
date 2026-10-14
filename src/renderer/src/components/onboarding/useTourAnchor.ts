@@ -12,6 +12,30 @@ const margin = parseInt(tokens.size.viewportMargin);
 const offset = parseInt(tokens.size.popoverOffset);
 const padding = parseInt(tokens.spacing['2']);
 
+/**
+ * Alineación al desplazar hacia el ancla. Se centra salvo que, centrada, el
+ * globo no quepa a ningún lado (ancla a todo el ancho y sin sitio arriba ni
+ * abajo): entonces el ancla sube al borde superior y el globo va debajo.
+ */
+function scrollBlock(target: HTMLElement, dialog: HTMLDivElement | null): ScrollLogicalPosition {
+  const width = dialog?.offsetWidth ?? 0;
+  const height = dialog?.offsetHeight ?? 0;
+  if (!width || !height) return 'center';
+  const bounds = target.getBoundingClientRect();
+  const side =
+    bounds.right + padding + offset + width <= window.innerWidth - margin ||
+    bounds.left - padding - offset - width >= margin;
+  if (side) return 'center';
+  const top = (window.innerHeight - bounds.height) / 2 - padding;
+  const bottom = top + bounds.height + 2 * padding;
+  const below = bottom + offset + height <= window.innerHeight - margin;
+  const above = top - offset - height >= margin;
+  if (below || above) return 'center';
+  return bounds.height + 2 * padding + offset + height + 2 * margin <= window.innerHeight
+    ? 'start'
+    : 'center';
+}
+
 export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | null>) {
   const current = TOUR_STEPS[step - 1]!;
   const [anchor, setAnchor] = useState<{ step: number; rect: Rect | null; loading: boolean }>({
@@ -63,7 +87,10 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
       target = next;
       resize?.disconnect();
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      next.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+      next.scrollIntoView?.({
+        block: scrollBlock(next, dialog.current),
+        behavior: reduced ? 'auto' : 'smooth',
+      });
       measure();
       if (typeof ResizeObserver !== 'undefined') {
         resize = new ResizeObserver(measure);
@@ -109,7 +136,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
       window.removeEventListener('resize', measure);
       document.removeEventListener('scroll', measure, true);
     };
-  }, [step, current]);
+  }, [step, current, dialog]);
   useLayoutEffect(() => {
     if (!rect || !dialog.current) {
       setPosition({});

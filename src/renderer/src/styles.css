@@ -239,13 +239,27 @@ h3 {
   padding: var(--space-table-row-block) var(--page-inline);
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--space-6);
+  white-space: nowrap;
 }
+/* Una sola línea: el estado cede con puntos suspensivos y las horas no se parten. */
 .statusbar [role='status'] {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-6);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.statusbar [role='status'] > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.statusbar-time {
+  flex-shrink: 0;
+}
+.statusbar-label-short {
+  display: none;
 }
 .skip-link {
   position: fixed;
@@ -270,6 +284,20 @@ h3 {
   :root {
     --page-inline: var(--space-page-inline-compact);
     --page-block: var(--space-page-block-compact);
+  }
+  .statusbar {
+    gap: var(--space-4);
+  }
+  .statusbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .statusbar-label-short {
+    display: inline;
   }
 }
 @media (max-width: 760px) {
@@ -313,6 +341,7 @@ h3 {
   }
   .statusbar {
     grid-column: 1;
+    flex-wrap: wrap;
     padding-inline: var(--page-inline);
   }
 }

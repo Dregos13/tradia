@@ -19,6 +19,10 @@
   flex: 1 1 16ch;
   min-width: 0;
 }
+/* Los selectores no encogen por debajo de su opción más larga: si no caben, la fila salta. */
+.news-filters label:has(select) {
+  min-width: min-content;
+}
 .news-filters select,
 .news-filters input {
   min-height: var(--size-controlMin);
@@ -30,6 +34,9 @@
   border-radius: var(--radius-sm);
   padding: var(--space-2);
   font: inherit;
+}
+.news-filters select {
+  min-width: max-content;
 }
 .news-filters :focus-visible {
   outline: 3px solid var(--color-focus);
