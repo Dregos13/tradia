@@ -199,7 +199,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     );
   }
   await user.click(screen.getByRole('link', { name: 'Configurar claves' }));
-  expect(await screen.findByRole('region', { name: 'Proveedores de datos' })).toBeInTheDocument();
+  expect(await screen.findByRole('region', { name: 'Conectores de datos' })).toBeInTheDocument();
 });
 
 it('prioriza configurar fuentes sin clave aunque fallen las consultas de datos', async () => {

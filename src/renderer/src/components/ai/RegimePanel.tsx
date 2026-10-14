@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import type { DataFreshnessSummary } from '../../../../shared/ipc';
 import { freshnessTitle, sessionDateLabel } from '../DataFreshness';
 import type { RegimeOverview } from '../../../../shared/ai';
@@ -122,7 +123,7 @@ export function RegimePanel({
             <tbody>
               {overview.assets.map((asset) => (
                 <tr key={asset.ticker}>
-                  <th scope="row">{asset.ticker}</th>
+                  <th scope="row">{assetSymbol(asset.ticker)}</th>
                   <td>
                     <RegimeBadge label={asset.direction} />
                   </td>

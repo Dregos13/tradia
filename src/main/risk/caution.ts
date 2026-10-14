@@ -29,6 +29,14 @@
  * - `vix`: por encima de `CAUTION_VIX_REDUCE` reduce; por encima de
  *   `CAUTION_VIX_BLOCK` bloquea. Sin dato no hay regla.
  *
+ * Divisas: con el ticker de un par (EURUSD…) solo aplican las reglas
+ * que mueven también al mercado de divisas —`alto-impacto` (FOMC, NFP,
+ * IPC…) y `vix`—. Las de sesión de NYSE (`festivo`, `apertura`,
+ * `sesion-corta`, `vencimiento`) y `resultados` no: el par cotiza 24/5
+ * también en los festivos de EE. UU. y su vela del viernes se publica el
+ * sábado a la 01:00 UTC; la frescura la decide la guarda de sesión 24/5
+ * del motor de señales, no esta regla.
+ *
  * Cuando varias reglas aplican gana el efecto más restrictivo
  * ('bloquear' > 'reducir') y, a igualdad de efecto, la causa de menor
  * `CAUSE_PRECEDENCE` —así el banner muestra el evento con nombre antes
@@ -57,6 +65,7 @@ import {
   type InstantInput,
 } from '../market/calendar';
 import { addDays } from '../news/calendar/rules';
+import { isFxSymbol } from '../../shared/fxTrading';
 
 /**
  * Evento del calendario tal como lo consume el evaluador: la forma de
@@ -156,36 +165,41 @@ export function cautionCandidates(
   );
   const wanted = normalizeTicker(ticker);
   const candidates: CautionCandidate[] = [];
+  // Un par de divisas no sigue la sesión de NYSE (ver cabecera).
+  const fx = wanted !== null && isFxSymbol(wanted);
 
-  if (session === null) {
-    const dayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
-    candidates.push({
-      effect: 'bloquear',
-      cause: 'festivo',
-      eventTitle:
-        dayOfWeek === 0 || dayOfWeek === 6
-          ? 'Fin de semana (NYSE cerrada)'
-          : 'Festivo de NYSE (mercado cerrado)',
-      until: null,
-    });
-  } else {
-    const openMs = Date.parse(session.opensAtUtc);
-    const openingEndMs = openMs + CAUTION_OPENING_MINUTES * MINUTE_MS;
-    if (nowMs >= openMs && nowMs < openingEndMs) {
+  // Reglas de la sesión de NYSE: no aplican a un par de divisas.
+  if (!fx) {
+    if (session === null) {
+      const dayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
       candidates.push({
         effect: 'bloquear',
-        cause: 'apertura',
-        eventTitle: `Apertura de NYSE (primeros ${CAUTION_OPENING_MINUTES} minutos)`,
-        until: new Date(openingEndMs).toISOString(),
-      });
-    }
-    if (session.earlyClose) {
-      candidates.push({
-        effect: 'reducir',
-        cause: 'sesion-corta',
-        eventTitle: 'Sesión corta (cierre anticipado a las 13:00 ET)',
+        cause: 'festivo',
+        eventTitle:
+          dayOfWeek === 0 || dayOfWeek === 6
+            ? 'Fin de semana (NYSE cerrada)'
+            : 'Festivo de NYSE (mercado cerrado)',
         until: null,
       });
+    } else {
+      const openMs = Date.parse(session.opensAtUtc);
+      const openingEndMs = openMs + CAUTION_OPENING_MINUTES * MINUTE_MS;
+      if (nowMs >= openMs && nowMs < openingEndMs) {
+        candidates.push({
+          effect: 'bloquear',
+          cause: 'apertura',
+          eventTitle: `Apertura de NYSE (primeros ${CAUTION_OPENING_MINUTES} minutos)`,
+          until: new Date(openingEndMs).toISOString(),
+        });
+      }
+      if (session.earlyClose) {
+        candidates.push({
+          effect: 'reducir',
+          cause: 'sesion-corta',
+          eventTitle: 'Sesión corta (cierre anticipado a las 13:00 ET)',
+          until: null,
+        });
+      }
     }
   }
 
@@ -194,6 +208,7 @@ export function cautionCandidates(
   for (const event of context.events) {
     const eventMs = Date.parse(event.dateUtc);
     if (Number.isNaN(eventMs)) continue;
+    if (fx && (event.kind === 'resultados' || event.kind === 'vencimiento')) continue;
     if (event.kind === 'resultados') {
       const asset = normalizeTicker(event.asset);
       if (

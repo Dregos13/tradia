@@ -1,5 +1,7 @@
 /**
- * Calendario de sesiones de NYSE y horario de la actualización diaria.
+ * Calendario de sesiones de NYSE y horario de la actualización diaria, más
+ * los calendarios propios de los bonos (`bondCalendar`) y de las divisas
+ * 24/5 (`fxCalendar`), que la vigilancia de frescura elige por activo.
  *
  * Solo funciones puras. El cambio de horario se resuelve con `Intl` y las
  * zonas IANA America/New_York y Europe/Madrid, sin librerías nuevas, así la
@@ -453,6 +455,135 @@ export function bondExpectedSessionsBetween(
 export const bondCalendar = {
   lastExpectedSession: bondLastExpectedSession,
   expectedSessionsBetween: bondExpectedSessionsBetween,
+};
+
+// --- Calendario de divisas 24/5 ----------------------------------------------
+//
+// El mercado de divisas negocia sin pausa del domingo por la noche al
+// viernes por la noche y no cierra en los festivos de NYSE. Las velas
+// diarias de Tiingo FX (`resampleFreq=1day`) son una por día UTC, fechadas
+// a las 00:00 UTC del día que cubren. `fxCalendar` ofrece la misma
+// superficie que el calendario de NYSE y que `bondCalendar` para la
+// vigilancia de frescura:
+//
+// - Sesión: cada día UTC de lunes a viernes, festivos de NYSE incluidos.
+//   Abre a las 00:00 UTC del día y cierra a las 00:00 UTC del siguiente.
+// - Actualización: `FX_UPDATE_DELAY_MS` tras el cierre (01:00 UTC del día
+//   siguiente), para que el proveedor cierre la vela del día.
+// - El 25 de diciembre y el 1 de enero son huecos tolerados: con el
+//   mercado casi parado muchos proveedores no publican vela, así que no se
+//   esperan (un hueco en esos días no deja el par desactualizado); si la
+//   vela llega, se guarda como cualquier otra.
+// - Fechas: día civil UTC. El cambio de hora de EE. UU. o de Europa no
+//   mueve ni la sesión ni la actualización.
+//
+// Donde se pide un instante, una cadena 'YYYY-MM-DD' sin hora equivale a
+// las 00:00 UTC de ese día (no de Nueva York, como en el calendario de NYSE).
+
+/** Margen tras el cierre de la vela diaria (00:00 UTC) para que el proveedor la publique. */
+export const FX_UPDATE_DELAY_MS = 60 * 60_000;
+
+/** Días (mes, día) sin vela esperada en divisas: Navidad y Año Nuevo. */
+const FX_TOLERATED_GAPS = new Set(['12-25', '01-01']);
+
+/** Día UTC de un instante, o la propia cadena si ya es 'YYYY-MM-DD'. */
+function toFxDate(input: InstantInput): string {
+  if (typeof input === 'string' && sessionDateParts(input)) return input;
+  return isoDay(toFxInstantMs(input));
+}
+
+/** Normaliza un instante; una cadena 'YYYY-MM-DD' equivale a las 00:00 UTC de ese día. */
+function toFxInstantMs(input: InstantInput): number {
+  if (input instanceof Date) return input.getTime();
+  if (typeof input === 'number') return input;
+  const bare = sessionDateParts(input);
+  if (bare) return Date.UTC(bare.year, bare.month - 1, bare.day);
+  const ms = Date.parse(input);
+  if (Number.isNaN(ms)) throw new TypeError(`Instante no válido: ${input}`);
+  return ms;
+}
+
+/** Sesión de divisas del día UTC `date`, o null en fin de semana y en los huecos tolerados. */
+function fxSessionForDate(date: string): MarketSession | null {
+  const parsed = sessionDateParts(date);
+  if (!parsed) return null;
+  const { year, month, day } = parsed;
+  const dow = dayOfWeekUtc(year, month, day);
+  if (dow === 0 || dow === 6) return null;
+  if (FX_TOLERATED_GAPS.has(`${pad2(month)}-${pad2(day)}`)) return null;
+  const opensMs = Date.UTC(year, month - 1, day);
+  const closesMs = opensMs + DAY_MS;
+  return {
+    date: isoDay(opensMs),
+    opensAtUtc: new Date(opensMs).toISOString(),
+    closesAtUtc: new Date(closesMs).toISOString(),
+    updateAtUtc: new Date(closesMs + FX_UPDATE_DELAY_MS).toISOString(),
+    earlyClose: false,
+  };
+}
+
+/** Sesión de divisas del día UTC de `fecha`, o null si ese día no se espera vela. */
+export function getFxSession(fecha: InstantInput): MarketSession | null {
+  return fxSessionForDate(toFxDate(fecha));
+}
+
+/** true si el día UTC de `fecha` tiene vela diaria de divisas esperada (lunes a viernes, salvo 25-12 y 01-01). */
+export function isFxSessionDay(fecha: InstantInput): boolean {
+  return fxSessionForDate(toFxDate(fecha)) !== null;
+}
+
+/** Última vela diaria de divisas cuyo día UTC ya terminó a las `ahora`. */
+export function fxLastExpectedSession(ahora: InstantInput): MarketSession | null {
+  const nowMs = toFxInstantMs(ahora);
+  let dayMs = Math.floor(nowMs / DAY_MS) * DAY_MS;
+  for (let i = 0; i < MAX_SESSION_SEARCH_DAYS; i += 1, dayMs -= DAY_MS) {
+    const session = fxSessionForDate(isoDay(dayMs));
+    if (session && Date.parse(session.closesAtUtc) <= nowMs) return session;
+  }
+  return null;
+}
+
+/** Sesiones de divisas entre `desde` y `hasta` (días UTC, ambos inclusive); [] si `desde` > `hasta`. */
+export function fxExpectedSessionsBetween(
+  desde: InstantInput,
+  hasta: InstantInput,
+): MarketSession[] {
+  const from = sessionDateParts(toFxDate(desde))!;
+  const to = sessionDateParts(toFxDate(hasta))!;
+  let dayMs = Date.UTC(from.year, from.month - 1, from.day);
+  const endMs = Date.UTC(to.year, to.month - 1, to.day);
+  const sessions: MarketSession[] = [];
+  for (; dayMs <= endMs; dayMs += DAY_MS) {
+    const session = fxSessionForDate(isoDay(dayMs));
+    if (session) sessions.push(session);
+  }
+  return sessions;
+}
+
+/**
+ * Próxima actualización de divisas: 01:00 UTC tras el cierre de la próxima
+ * vela esperada, en UTC y en hora de Madrid. Misma convención que
+ * `nextUpdateAt`: si `ahora` ya pasó la de hoy, devuelve la siguiente.
+ */
+export function fxNextUpdateAt(ahora: InstantInput): NextUpdate {
+  const nowMs = toFxInstantMs(ahora);
+  // La vela de ayer se actualiza hoy a la 01:00 UTC: se empieza por ella.
+  let dayMs = Math.floor(nowMs / DAY_MS) * DAY_MS - DAY_MS;
+  for (let i = 0; i < MAX_SESSION_SEARCH_DAYS; i += 1, dayMs += DAY_MS) {
+    const session = fxSessionForDate(isoDay(dayMs));
+    if (!session) continue;
+    const updateMs = Date.parse(session.updateAtUtc);
+    if (updateMs >= nowMs) {
+      return { utc: session.updateAtUtc, madrid: madridIso(updateMs), session };
+    }
+  }
+  throw new RangeError(`No se encontró ninguna sesión de divisas tras ${isoDay(nowMs)}`);
+}
+
+/** Superficie de calendario de divisas 24/5 para `HealthCalendar` (market/health). */
+export const fxCalendar = {
+  lastExpectedSession: fxLastExpectedSession,
+  expectedSessionsBetween: fxExpectedSessionsBetween,
 };
 
 /** Instante en hora de Madrid como ISO 8601 con desplazamiento ('+01:00' / '+02:00'). */

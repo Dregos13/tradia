@@ -2,42 +2,142 @@
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
     "name": "Tradia — Cuaderno cuantitativo",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "contrastStandard": "WCAG 2.2 AA",
     "baseUnit": "4px"
   },
   "color": {
     "light": {
-      "canvas": { "value": "#F5F3ED", "name": "Lienzo" },
-      "surface": { "value": "#FFFEFA", "name": "Superficie" },
-      "surfaceSubtle": { "value": "#ECE9E1", "name": "Superficie tenue" },
-      "surfaceStrong": { "value": "#DCD8CE", "name": "Superficie marcada" },
-      "text": { "value": "#17233A", "name": "Tinta" },
-      "textMuted": { "value": "#566174", "name": "Tinta secundaria" },
-      "textFaint": { "value": "#6A7280", "name": "Tinta terciaria" },
-      "border": { "value": "#CBC7BD", "name": "Línea" },
-      "borderStrong": { "value": "#8D94A0", "name": "Línea marcada" },
-      "accent": { "value": "#1746C6", "name": "Cobalto" },
-      "accentHover": { "value": "#10369E", "name": "Cobalto activo" },
-      "accentSoft": { "value": "#E5EBFF", "name": "Cobalto tenue" },
-      "focus": { "value": "#0C60E8", "name": "Foco" },
-      "inverse": { "value": "#FFFFFF", "name": "Texto inverso" }
+      "canvas": {
+        "value": "#F5F3ED",
+        "name": "Lienzo"
+      },
+      "surface": {
+        "value": "#FFFEFA",
+        "name": "Superficie"
+      },
+      "surfaceSubtle": {
+        "value": "#ECE9E1",
+        "name": "Superficie tenue"
+      },
+      "surfaceStrong": {
+        "value": "#E2DED5",
+        "name": "Superficie marcada"
+      },
+      "text": {
+        "value": "#17233A",
+        "name": "Tinta"
+      },
+      "textMuted": {
+        "value": "#566174",
+        "name": "Tinta secundaria"
+      },
+      "textFaint": {
+        "value": "#566174",
+        "name": "Tinta terciaria"
+      },
+      "border": {
+        "value": "#CBC7BD",
+        "name": "Línea"
+      },
+      "borderStrong": {
+        "value": "#8D94A0",
+        "name": "Línea marcada"
+      },
+      "accent": {
+        "value": "#1746C6",
+        "name": "Cobalto"
+      },
+      "accentHover": {
+        "value": "#10369E",
+        "name": "Cobalto activo"
+      },
+      "accentSoft": {
+        "value": "#E5EBFF",
+        "name": "Cobalto tenue"
+      },
+      "focus": {
+        "value": "#0C60E8",
+        "name": "Foco"
+      },
+      "inverse": {
+        "value": "#FFFFFF",
+        "name": "Texto inverso"
+      },
+      "sidebar": {
+        "value": "#17233A",
+        "name": "Barra lateral"
+      },
+      "sidebarText": {
+        "value": "#F5F3ED",
+        "name": "Texto de navegación"
+      }
     },
     "dark": {
-      "canvas": { "value": "#0E1522", "name": "Lienzo" },
-      "surface": { "value": "#151F30", "name": "Superficie" },
-      "surfaceSubtle": { "value": "#1D293B", "name": "Superficie tenue" },
-      "surfaceStrong": { "value": "#2B384C", "name": "Superficie marcada" },
-      "text": { "value": "#F4F5F7", "name": "Tinta" },
-      "textMuted": { "value": "#B8C1CE", "name": "Tinta secundaria" },
-      "textFaint": { "value": "#98A5B7", "name": "Tinta terciaria" },
-      "border": { "value": "#3B485C", "name": "Línea" },
-      "borderStrong": { "value": "#718096", "name": "Línea marcada" },
-      "accent": { "value": "#7EA2FF", "name": "Cobalto" },
-      "accentHover": { "value": "#A9C0FF", "name": "Cobalto activo" },
-      "accentSoft": { "value": "#1B3265", "name": "Cobalto tenue" },
-      "focus": { "value": "#9DB8FF", "name": "Foco" },
-      "inverse": { "value": "#0E1522", "name": "Texto inverso" }
+      "canvas": {
+        "value": "#0E1522",
+        "name": "Lienzo"
+      },
+      "surface": {
+        "value": "#151F30",
+        "name": "Superficie"
+      },
+      "surfaceSubtle": {
+        "value": "#1D293B",
+        "name": "Superficie tenue"
+      },
+      "surfaceStrong": {
+        "value": "#2B384C",
+        "name": "Superficie marcada"
+      },
+      "text": {
+        "value": "#F4F5F7",
+        "name": "Tinta"
+      },
+      "textMuted": {
+        "value": "#B8C1CE",
+        "name": "Tinta secundaria"
+      },
+      "textFaint": {
+        "value": "#98A5B7",
+        "name": "Tinta terciaria"
+      },
+      "border": {
+        "value": "#3B485C",
+        "name": "Línea"
+      },
+      "borderStrong": {
+        "value": "#718096",
+        "name": "Línea marcada"
+      },
+      "accent": {
+        "value": "#7EA2FF",
+        "name": "Cobalto"
+      },
+      "accentHover": {
+        "value": "#A9C0FF",
+        "name": "Cobalto activo"
+      },
+      "accentSoft": {
+        "value": "#1B3265",
+        "name": "Cobalto tenue"
+      },
+      "focus": {
+        "value": "#9DB8FF",
+        "name": "Foco"
+      },
+      "inverse": {
+        "value": "#0E1522",
+        "name": "Texto inverso"
+      },
+      "sidebar": {
+        "value": "#090F19",
+        "name": "Barra lateral"
+      },
+      "sidebarText": {
+        "value": "#F4F5F7",
+        "name": "Texto de navegación"
+      }
     },
     "state": {
       "online": {
@@ -97,22 +197,52 @@
         "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         "name": "Interfaz"
       },
-      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "editorial": {
+        "value": "Iowan Old Style, Charter, Georgia, serif",
+        "name": "Editorial"
+      },
       "numeric": {
         "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
         "name": "Datos"
       }
     },
     "size": {
-      "xs": { "value": "12px", "lineHeight": "16px" },
-      "sm": { "value": "14px", "lineHeight": "20px" },
-      "md": { "value": "16px", "lineHeight": "24px" },
-      "lg": { "value": "18px", "lineHeight": "26px" },
-      "xl": { "value": "24px", "lineHeight": "32px" },
-      "2xl": { "value": "34px", "lineHeight": "40px" }
+      "xs": {
+        "value": "14px",
+        "lineHeight": "20px"
+      },
+      "sm": {
+        "value": "15px",
+        "lineHeight": "22px"
+      },
+      "md": {
+        "value": "16px",
+        "lineHeight": "24px"
+      },
+      "lg": {
+        "value": "18px",
+        "lineHeight": "26px"
+      },
+      "xl": {
+        "value": "24px",
+        "lineHeight": "32px"
+      },
+      "2xl": {
+        "value": "32px",
+        "lineHeight": "40px"
+      }
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
-    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+    "weight": {
+      "regular": 400,
+      "medium": 560,
+      "semibold": 650,
+      "bold": 740
+    },
+    "tracking": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.04em"
+    }
   },
   "spacing": {
     "0": "0",
@@ -127,17 +257,121 @@
     "12": "48px",
     "16": "64px"
   },
-  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
-  "shadow": {
-    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
-    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" }
+  "radius": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "pill": "999px"
   },
-  "size": { "controlMin": "44px", "sidebar": "228px", "contentMax": "1120px", "statusBar": "48px" },
+  "shadow": {
+    "raised": {
+      "value": "0 10px 28px rgba(23, 35, 58, 0.10)",
+      "name": "Elevado"
+    },
+    "floating": {
+      "value": "0 18px 48px rgba(8, 18, 35, 0.18)",
+      "name": "Flotante"
+    }
+  },
+  "size": {
+    "controlMin": "44px",
+    "sidebar": "228px",
+    "contentMax": "1120px",
+    "statusBar": "48px"
+  },
   "motion": {
     "fast": "120ms",
     "normal": "200ms",
     "slow": "320ms",
     "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
     "reduced": "0ms"
-  }
+  },
+  "focus": {
+    "width": "3px",
+    "offset": "2px",
+    "style": "solid"
+  },
+  "contrastPairs": [
+    {
+      "text": "text",
+      "background": "canvas"
+    },
+    {
+      "text": "text",
+      "background": "surface"
+    },
+    {
+      "text": "text",
+      "background": "surfaceSubtle"
+    },
+    {
+      "text": "text",
+      "background": "surfaceStrong"
+    },
+    {
+      "text": "text",
+      "background": "accentSoft"
+    },
+    {
+      "text": "textMuted",
+      "background": "canvas"
+    },
+    {
+      "text": "textMuted",
+      "background": "surface"
+    },
+    {
+      "text": "textMuted",
+      "background": "surfaceSubtle"
+    },
+    {
+      "text": "textMuted",
+      "background": "surfaceStrong"
+    },
+    {
+      "text": "textMuted",
+      "background": "accentSoft"
+    },
+    {
+      "text": "textFaint",
+      "background": "canvas"
+    },
+    {
+      "text": "textFaint",
+      "background": "surface"
+    },
+    {
+      "text": "textFaint",
+      "background": "surfaceSubtle"
+    },
+    {
+      "text": "textFaint",
+      "background": "surfaceStrong"
+    },
+    {
+      "text": "textFaint",
+      "background": "accentSoft"
+    },
+    {
+      "text": "sidebarText",
+      "background": "sidebar"
+    },
+    {
+      "text": "inverse",
+      "background": "accent"
+    },
+    {
+      "text": "inverse",
+      "background": "accentHover"
+    },
+    {
+      "text": "accent",
+      "background": "surface"
+    },
+    {
+      "text": "accent",
+      "background": "accentSoft"
+    }
+  ]
 }

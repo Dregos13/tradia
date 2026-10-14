@@ -26,7 +26,9 @@
  *   diario convive con su esqueleto) y `ctx.broadcast` perezoso, que
  *   delivery intercepta para `signals:new`.
  * - Guardas: `scheduler` en pausa, `connectivity` 'offline' o parada
- *   activa bloquean la evaluación.
+ *   activa bloquean la evaluación (y la apertura de posiciones simuladas).
+ * - Calendario por activo (`market/assetCalendar`): la frescura de una
+ *   acción sigue NYSE y la de un par de divisas el 24/5.
  * - Idempotencia: marcas persistentes en settings ('signals.processed',
  *   lista acotada) más el UNIQUE (ticker, vela_fecha) de la tabla.
  *
@@ -52,7 +54,11 @@ import { createBacktestRepository } from '../backtest/repository';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
 import { createCustomStrategy } from '../backtest/strategies/custom';
 import { createNewsAnalysisRepository } from '../ai/news/repository';
-import * as nyseCalendar from '../market/calendar';
+import {
+  calendarForSymbol,
+  expectedSessionDateFor,
+  previousSessionDateFor,
+} from '../market/assetCalendar';
 import { createMarketRepository, type StoredBar } from '../market/repository';
 import type { ServiceContext } from '../services';
 import {
@@ -65,6 +71,8 @@ import {
 } from './engine';
 import { createPaperTracker, type PaperTracker } from './paper';
 import { createSignalsRepository } from './repository';
+import { REGIME_MARKET_TICKER } from '../../shared/ai';
+import { isFxSymbol } from '../../shared/fxTrading';
 
 export interface SignalsService {
   /** El núcleo, expuesto para pruebas del propio servicio. */
@@ -261,8 +269,11 @@ export function registerSignals(
     return toSourceBar(bar);
   };
 
+  const clockNow = (): number => options.clock?.now() ?? Date.now();
+
   const tracker = createPaperTracker({
     gateway,
+    isKillSwitchActive: () => ctx.services.killSwitch?.getState().active ?? false,
     barAt,
     getSignal: (id) => repo.getSignal(id),
     recordJournal: (input) => journal?.record?.(input),
@@ -306,33 +317,29 @@ export function registerSignals(
     wasProcessed: (ticker, barDate) => loadMarks().has(`${ticker}|${barDate}`),
     markProcessed,
     // Guarda de frescura: una vela anterior a la última sesión esperada
-    // no se evalúa (datos viejos de una puesta al día atrasada).
-    expectedSessionDate: () =>
-      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
-    // Sesión inmediatamente anterior a la vela evaluada: es la frescura
-    // mínima que el motor exige a la predicción que ajusta la señal.
-    previousExpectedSession: (barDate) => {
-      const dayMs = Date.parse(`${barDate}T00:00:00.000Z`);
-      if (!Number.isFinite(dayMs)) return null;
-      return (
-        nyseCalendar
-          .expectedSessionsBetween(
-            new Date(dayMs - 40 * 86_400_000).toISOString().slice(0, 10),
-            new Date(dayMs - 86_400_000).toISOString().slice(0, 10),
-          )
-          .at(-1)?.date ?? null
-      );
-    },
+    // del calendario del activo no se evalúa (datos viejos de una puesta
+    // al día atrasada). NYSE para acciones, 24/5 para divisas.
+    expectedSessionDate: (_nowMs, ticker) => expectedSessionDateFor(ticker, clockNow()),
+    // Sesión inmediatamente anterior a la vela evaluada, en el calendario
+    // del activo: es la frescura mínima que el motor exige a la
+    // predicción que ajusta la señal.
+    previousExpectedSession: (barDate, ticker) => previousSessionDateFor(ticker, barDate),
     ai: {
       // El régimen del mercado (referencia SPY) habilita o desactiva las
-      // estrategias: misma referencia que la página «IA» y el backtest.
-      // Si el régimen guardado es anterior a la sesión esperada está
-      // desactualizado y no decide nada (como si no hubiera régimen).
-      marketRegime: () => {
-        const snapshot = aiRegime?.service.marketRegime() ?? null;
+      // estrategias de acciones: misma referencia que la página «IA» y el
+      // backtest. En un par de divisas habilita el régimen del propio par
+      // con su calendario 24/5. Si el régimen guardado es anterior a la
+      // sesión esperada está desactualizado y no decide nada (como si no
+      // hubiera régimen).
+      marketRegime: (ticker) => {
+        const fx = isFxSymbol(ticker);
+        const snapshot = fx
+          ? (aiRegime?.service.regimeFor(ticker) ?? null)
+          : (aiRegime?.service.marketRegime() ?? null);
         if (snapshot === null) return null;
         const expected =
-          nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null;
+          calendarForSymbol(fx ? ticker : REGIME_MARKET_TICKER).lastExpectedSession(clockNow())
+            ?.date ?? null;
         if (expected !== null && snapshot.sessionDate < expected) return null;
         return { direction: snapshot.direction, volatility: snapshot.volatility };
       },

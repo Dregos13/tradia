@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import aaplLatest from './__fixtures__/aapl-latest.json';
+import aaplMeta from './__fixtures__/aapl-meta.json';
 import aaplPrices from './__fixtures__/aapl-prices.json';
 import error401 from './__fixtures__/error-401.json';
 import error404 from './__fixtures__/error-404.json';
 import error429 from './__fixtures__/error-429.json';
 import error500 from './__fixtures__/error-500.json';
+import eurusdPrices from './__fixtures__/eurusd-prices.json';
+import fxUnknown404 from './__fixtures__/fx-unknown-404.json';
 import malformedPrices from './__fixtures__/malformed-prices.json';
 import nvdaPrices from './__fixtures__/nvda-prices.json';
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
@@ -243,6 +246,168 @@ describe('adaptador Tiingo', () => {
     const error = await provider
       .getBars('AAPL', '2020-08-01', '2020-09-05')
       .catch((e: unknown) => e);
+    expect(JSON.stringify(error)).not.toContain(API_KEY);
+    for (const call of logger.warn.mock.calls) {
+      expect(String(call[0])).not.toContain(API_KEY);
+    }
+  });
+
+  it('getTickerInfo consume el limitador de cuota antes de la ficha', async () => {
+    const acquire = vi.fn(async () => {});
+    const limiter: RateLimiter = {
+      acquire,
+      tryAcquire: () => true,
+      remaining: () => ({ perHour: 50, perDay: 1000 }),
+      waitTimeMs: () => 0,
+    };
+    const { fetch, calls } = fetchReturning(() => jsonResponse(aaplMeta));
+    const provider = make(fetch, { rateLimiter: limiter });
+    await provider.getTickerInfo('AAPL');
+    expect(acquire).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('la clave nunca aparece en los errores de la ficha (getTickerInfo)', async () => {
+    const logger = { warn: vi.fn() };
+    const { fetch } = fetchReturning(() =>
+      jsonResponse({ detail: `token ${API_KEY} rechazado` }, 404),
+    );
+    const provider = make(fetch, { getApiKey: async () => API_KEY, logger });
+    const error = await provider.getTickerInfo('EUR').catch((e: unknown) => e);
+    expect(isMarketDataError(error, 'not-found')).toBe(true);
+    expect(JSON.stringify(error)).not.toContain(API_KEY);
+    for (const call of logger.warn.mock.calls) {
+      expect(String(call[0])).not.toContain(API_KEY);
+    }
+  });
+});
+
+describe('adaptador Tiingo — endpoint FX', () => {
+  const FX_RANGE: [string, string] = ['2026-10-05', '2026-10-16'];
+
+  it('pide las velas del par a /tiingo/fx/{par}/prices y las normaliza sin volumen ni ajustes', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(eurusdPrices));
+    const provider = make(fetch);
+
+    const bars = await provider.getBars('EURUSD', FX_RANGE[0], FX_RANGE[1]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toContain('/tiingo/fx/eurusd/prices');
+    expect(calls[0]!.url).toContain('startDate=2026-10-05');
+    expect(calls[0]!.url).toContain('endDate=2026-10-16');
+    expect(calls[0]!.url).toContain('resampleFreq=1day');
+    // Las velas grabadas son de lunes a viernes (sin sábado ni domingo).
+    expect(bars.map((b) => b.date)).toEqual([
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-12',
+      '2026-10-13',
+      '2026-10-14',
+      '2026-10-15',
+      '2026-10-16',
+    ]);
+    for (const bar of bars) {
+      const day = new Date(`${bar.date}T00:00:00.000Z`).getUTCDay();
+      expect(day).toBeGreaterThanOrEqual(1);
+      expect(day).toBeLessThanOrEqual(5);
+      expect(bar.volume).toBe(0);
+      expect(bar.adjClose).toBe(bar.close);
+      expect(bar.splitFactor).toBe(1);
+      expect(bar.dividend).toBe(0);
+    }
+  });
+
+  it('un par sin cobertura (404) lanza not-found', async () => {
+    const { fetch } = fetchReturning(() => jsonResponse(fxUnknown404, 404));
+    const provider = make(fetch);
+    const error = await provider
+      .getBars('USDCHF', FX_RANGE[0], FX_RANGE[1])
+      .catch((e: unknown) => e);
+    expect(isMarketDataError(error, 'not-found')).toBe(true);
+    expect((error as { retryable: boolean }).retryable).toBe(false);
+  });
+
+  it('getTickerInfo confirma un par con una ventana corta del endpoint FX', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(eurusdPrices));
+    const provider = make(fetch);
+    await expect(provider.getTickerInfo('EURUSD')).resolves.toEqual({
+      ticker: 'EURUSD',
+      assetClass: 'fx',
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toContain('/tiingo/fx/eurusd/prices');
+    expect(calls[0]!.url).toContain('resampleFreq=1day');
+  });
+
+  it.each<[string, () => Response]>([
+    ['404', () => jsonResponse(fxUnknown404, 404)],
+    ['lista vacía', () => jsonResponse([])],
+  ])('getTickerInfo trata el %s como par inexistente (not-found)', async (_label, respond) => {
+    const { fetch } = fetchReturning(respond);
+    const provider = make(fetch);
+    const error = await provider.getTickerInfo('USDCHF').catch((e: unknown) => e);
+    expect(isMarketDataError(error, 'not-found')).toBe(true);
+  });
+
+  it('getTickerInfo lee la ficha diaria de una acción', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(aaplMeta));
+    const provider = make(fetch);
+    await expect(provider.getTickerInfo('AAPL')).resolves.toEqual({
+      ticker: 'AAPL',
+      assetClass: 'equity',
+      name: 'Apple Inc',
+    });
+    expect(calls[0]!.url).toContain('/tiingo/daily/AAPL');
+    expect(calls[0]!.url).not.toContain('/prices');
+  });
+
+  it('un par de divisas no genera acciones corporativas ni peticiones', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(eurusdPrices));
+    const provider = make(fetch);
+    await expect(provider.getCorporateActions('EURUSD', FX_RANGE[0], FX_RANGE[1])).resolves.toEqual(
+      [],
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it('getQuote del par sale del endpoint FX, sin volumen', async () => {
+    const { fetch, calls } = fetchReturning(() => jsonResponse(eurusdPrices));
+    const provider = make(fetch, { now: () => Date.parse('2026-10-17T12:00:00.000Z') });
+    const quote = await provider.getQuote('EURUSD');
+    expect(calls[0]!.url).toContain('/tiingo/fx/eurusd/prices');
+    expect(quote).toEqual({ ticker: 'EURUSD', date: '2026-10-16', last: 1.1847, volume: null });
+  });
+
+  it('las llamadas FX consumen el mismo limitador de cuota', async () => {
+    const acquire = vi.fn(async () => {});
+    const limiter: RateLimiter = {
+      acquire,
+      tryAcquire: () => true,
+      remaining: () => ({ perHour: 50, perDay: 1000 }),
+      waitTimeMs: () => 0,
+    };
+    const { fetch, calls } = fetchReturning(() => jsonResponse(eurusdPrices));
+    const provider = make(fetch, { rateLimiter: limiter });
+    await provider.getBars('EURUSD', FX_RANGE[0], FX_RANGE[1]);
+    await provider.getTickerInfo('EURUSD');
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('la clave nunca aparece en la URL, los errores ni los logs del endpoint FX', async () => {
+    const logger = { warn: vi.fn() };
+    const { fetch, calls } = fetchReturning(() =>
+      jsonResponse({ detail: `token ${API_KEY} rechazado` }, 401),
+    );
+    const provider = make(fetch, { getApiKey: async () => API_KEY, logger });
+    const error = await provider
+      .getBars('EURUSD', FX_RANGE[0], FX_RANGE[1])
+      .catch((e: unknown) => e);
+    expect(calls[0]!.url).toContain('/tiingo/fx/eurusd/prices');
+    expect(calls[0]!.url).not.toContain(API_KEY);
     expect(JSON.stringify(error)).not.toContain(API_KEY);
     for (const call of logger.warn.mock.calls) {
       expect(String(call[0])).not.toContain(API_KEY);

@@ -6,6 +6,7 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { FX_BROKER_REJECTION_MESSAGE } from '../../shared/fxTrading';
 import type { JournalRecordInput } from '../../shared/journal';
 import { IPC_CHANNELS, IpcValidationError } from '../../shared/ipc';
 import type { RiskDecision } from '../../shared/risk';
@@ -407,6 +408,29 @@ describe('ejecución real con techos de capital', () => {
     await service.handleSignalEvent({ signal });
     expect(liveRepo.listOrders()).toHaveLength(0);
     expect(fetchCalls.filter((c) => c.method === 'POST')).toHaveLength(0);
+  });
+
+  it('una señal aprobada de EURUSD no llega a Alpaca con dinero real: se rechaza con el motivo y no hay envío', async () => {
+    const infos: string[] = [];
+    const service = await connectActive({
+      logger: { info: (m: string) => infos.push(m), warn: () => undefined, error: () => undefined },
+    });
+    expect(service.liveExecutionActive()).toBe(true);
+    const postsBefore = fetchCalls.filter((c) => c.method === 'POST').length;
+    const signal = seedSignal({
+      ticker: 'EURUSD',
+      entry: 1.09,
+      stop: 1.0464,
+      target: 1.199,
+      decision: decision({ size: 50, notional: 54.5 }),
+    });
+
+    await service.handleSignalEvent({ signal });
+
+    expect(liveRepo.listOrders()).toHaveLength(0);
+    expect(fetchCalls.filter((c) => c.method === 'POST')).toHaveLength(postsBefore);
+    expect(fetchCalls.some((c) => c.url.includes('EURUSD'))).toBe(false);
+    expect(infos.some((m) => m.includes(FX_BROKER_REJECTION_MESSAGE))).toBe(true);
   });
 
   it('una orden por encima del techo por orden se bloquea antes de la red, con el motivo en el Diario', async () => {

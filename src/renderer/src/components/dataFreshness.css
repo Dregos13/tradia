@@ -89,15 +89,135 @@
   color: var(--color-text);
 }
 
-.data-freshness-inline {
-  gap: var(--space-4);
+.data-freshness-actions:empty,
+.data-freshness-action-result:empty {
+  display: none;
+}
+.data-freshness-container {
+  min-width: 0;
+}
+.data-freshness-container:focus-visible {
+  outline: var(--data-clarity-focus-width) solid var(--data-clarity-focus);
+  outline-offset: var(--data-clarity-focus-offset);
+}
+.provider-banner.provider-banner--uncovered {
+  background: var(--data-clarity-uncovered-surface);
+  border: 1px solid var(--data-clarity-uncovered);
+  border-inline-start-width: 1px;
+}
+.provider-banner:has(.data-uncovered) {
+  padding: var(--data-clarity-cardPadding);
+  font-size: var(--data-clarity-type-body);
+  line-height: var(--data-clarity-leading-body);
+  color: var(--data-clarity-text);
+}
+.data-freshness-content,
+.data-uncovered,
+.data-uncovered-description {
+  min-width: 0;
+  width: 100%;
+}
+.data-uncovered h2,
+.data-uncovered h3 {
   margin: 0;
-  min-width: 0;
+  font-size: var(--data-clarity-type-titleSmall);
+  line-height: var(--data-clarity-leading-titleSmall);
 }
-.data-freshness-inline p {
-  margin: var(--space-label-control-gap) 0 0;
-  max-width: var(--size-readingMax);
+.data-uncovered h2 {
+  font-size: var(--data-clarity-type-body);
+  line-height: var(--data-clarity-leading-body);
 }
-.data-freshness-inline > div {
-  min-width: 0;
+.data-uncovered h3,
+.data-uncovered .data-uncovered-count {
+  color: var(--data-clarity-uncovered);
+}
+.data-uncovered-count {
+  font-size: var(--data-clarity-type-caption);
+  line-height: var(--data-clarity-leading-caption);
+}
+.data-uncovered-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--data-clarity-contentGap) 0 0;
+}
+.data-uncovered-asset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--data-clarity-contentGap) var(--data-clarity-cardPadding);
+}
+.data-uncovered-asset + .data-uncovered-asset {
+  margin-top: var(--data-clarity-sectionGap);
+}
+.data-uncovered-description p,
+.data-uncovered details p {
+  max-width: var(--data-clarity-copyMaxWidth);
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+.data-uncovered .data-freshness-actions {
+  align-self: center;
+  gap: var(--data-clarity-controlGap);
+}
+.data-uncovered .button,
+.data-uncovered summary {
+  min-height: var(--data-clarity-controlMinHeight);
+  min-width: var(--data-clarity-controlMinWidth);
+  font-size: var(--data-clarity-type-body);
+  line-height: var(--data-clarity-leading-body);
+}
+.data-uncovered .button {
+  white-space: normal;
+  border-radius: var(--data-clarity-control-radius);
+  color: var(--data-clarity-text);
+  background: var(--data-clarity-surface);
+}
+.data-uncovered .button:hover {
+  background: var(--data-clarity-surfaceSubtle);
+}
+.data-uncovered .button.primary {
+  color: var(--data-clarity-inverse);
+  background: var(--data-clarity-accent);
+  border-color: var(--data-clarity-accent);
+}
+.data-uncovered .button.primary:hover {
+  background: var(--data-clarity-accentHover);
+}
+.data-uncovered .button:focus-visible,
+.data-uncovered summary:focus-visible {
+  outline: var(--data-clarity-focus-width) solid var(--data-clarity-focus);
+  outline-offset: var(--data-clarity-focus-offset);
+}
+.data-uncovered details {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  font-size: var(--data-clarity-type-caption);
+  line-height: var(--data-clarity-leading-caption);
+}
+.data-uncovered summary {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.data-uncovered [role='alert'] {
+  color: var(--data-clarity-critical);
+}
+.data-freshness-content > .data-uncovered:not(:first-child) {
+  margin-top: var(--data-clarity-contentGap);
+}
+@media (max-width: 980px) {
+  .data-uncovered-asset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .data-uncovered .data-freshness-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .data-uncovered .button {
+    width: 100%;
+  }
 }

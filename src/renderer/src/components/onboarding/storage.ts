@@ -38,6 +38,11 @@ export function navigateAndFocus(route: string, selector: string) {
     window.clearTimeout(timer);
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
+        let parent = target.parentElement;
+        while (parent) {
+          if (parent instanceof HTMLDetailsElement) parent.open = true;
+          parent = parent.parentElement;
+        }
         target.scrollIntoView?.({ block: 'center', behavior: 'auto' });
         target.focus();
       }),

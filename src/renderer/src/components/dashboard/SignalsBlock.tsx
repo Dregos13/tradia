@@ -1,8 +1,25 @@
+import { assetSymbol, fxLabel } from '../assetPresentation';
+import {
+  FX_ANALYSIS_ONLY_REASON,
+  FX_BROKER_REJECTION_REASON,
+  isFxSymbol,
+} from '../../../../shared/fxTrading';
 import { useDataFreshness } from '../../hooks/useDataFreshness';
-import { sessionDateLabel } from '../DataFreshness';
 import type { Signal, SignalStrategyState } from '../../../../shared/signals';
 import type { JournalEntry } from '../../../../shared/journal';
 import { direction, number, time } from './model';
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+/** Qué pasa con la señal de una divisa según su destino y su estado ya decidido. */
+function fxDestinationText(signal: Signal): string {
+  if (signal.destination === 'solo-analisis') {
+    return `No abre posición: ${signal.destinationReason ?? FX_ANALYSIS_ONLY_REASON}.`;
+  }
+  if (signal.decision.status === 'vetada') {
+    const why = signal.decision.reasons[0]?.message;
+    return why ? `Riesgo la vetó: ${why}.` : 'Riesgo la vetó; no se opera.';
+  }
+  return 'Se opera en la cartera simulada.';
+}
 const decisions = { aprobada: '✓ Aprobada', reducida: '△ Reducida', vetada: '× Vetada' };
 export function SignalsBlock({
   signals,
@@ -17,7 +34,12 @@ export function SignalsBlock({
 }) {
   const { summary } = useDataFreshness();
   const paperCount = strategies.filter((strategy) => strategy.status === 'paper').length;
-  const paused = summary && summary.state !== 'current' && summary.state !== 'no-data';
+  // El motor guarda la frescura por ticker; un fallo de FRED o de otro activo
+  // no detiene las señales de los activos con velas vigentes.
+  const staleAssets =
+    summary?.items
+      .filter((item) => item.key.startsWith('ticker:') && item.state === 'desactualizado')
+      .map((item) => assetSymbol(item.key.slice(7))) ?? [];
   const rows = [
     ...signals.map((signal) => ({ kind: 'signal' as const, value: signal })),
     ...contradictions.map((entry) => ({ kind: 'conflict' as const, value: entry })),
@@ -27,8 +49,8 @@ export function SignalsBlock({
       {stopped && <p className="dashboard-stop">No se admiten nuevas señales.</p>}
       {!rows.length && (
         <p>
-          {paused ? (
-            `Sin señales nuevas: en pausa hasta poner al día los datos del ${sessionDateLabel(summary.sinceDate)}.`
+          {staleAssets.length ? (
+            `Sin señales nuevas. Faltan datos recientes de ${staleAssets.join(', ')}; esos activos no emiten señales nuevas hasta ponerse al día. Los demás siguen evaluándose con sus cierres verificados.`
           ) : paperCount ? (
             `Sin señales nuevas: ${paperCount} estrategias en paper esperan el siguiente cierre verificado.`
           ) : (
@@ -45,7 +67,7 @@ export function SignalsBlock({
             <li key={`signal-${row.value.id}`}>
               <div className="dashboard-signal-summary">
                 <time dateTime={row.value.createdAt}>{time(row.value.createdAt)}</time>
-                <strong>{row.value.ticker}</strong>
+                <strong>{assetSymbol(row.value.ticker)}</strong>
                 <span>{direction(row.value.direction)}</span>
                 <span className={`dashboard-badge dashboard-${row.value.decision.status}`}>
                   {decisions[row.value.decision.status]}
@@ -54,12 +76,18 @@ export function SignalsBlock({
               <div>
                 <strong>Confianza {number(row.value.confidence * 100)} %</strong>
                 <progress
-                  aria-label={`Confianza de ${row.value.ticker}`}
+                  aria-label={`Confianza de ${assetSymbol(row.value.ticker)}`}
                   max={100}
                   value={Math.min(100, Math.max(0, row.value.confidence * 100))}
                   aria-valuenow={Math.min(100, Math.max(0, row.value.confidence * 100))}
                   aria-valuetext={`${number(row.value.confidence * 100)} %`}
                 />
+                {isFxSymbol(row.value.ticker) && (
+                  <p className="dashboard-fx-destination">
+                    <strong>{fxLabel(row.value.ticker)}.</strong> {fxDestinationText(row.value)} No
+                    va al bróker ni usa dinero real. {capitalize(FX_BROKER_REJECTION_REASON)}.
+                  </p>
+                )}
                 <p>{row.value.reason}</p>
                 <p>
                   {row.value.strategies
@@ -69,7 +97,9 @@ export function SignalsBlock({
                 {row.value.decision.reasons.map((reason, index) => (
                   <p key={index}>Riesgo: {reason.message}</p>
                 ))}
-                <a href={`#diario?signalId=${row.value.id}`}>Ver en Diario · {row.value.ticker}</a>
+                <a href={`#diario?signalId=${row.value.id}`}>
+                  Ver en Diario · {assetSymbol(row.value.ticker)}
+                </a>
               </div>
             </li>
           ) : (

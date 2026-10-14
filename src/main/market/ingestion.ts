@@ -13,6 +13,10 @@
  *   ajuste hacia atrás) y se guarda versionado (`data_batches` + marcas en
  *   `quality_flags`); las acciones corporativas se persisten en
  *   `corporate_actions` para reajustar la serie completa en cada ingesta.
+ * - Cada activo usa el calendario de su tipo (`assetClass`): NYSE para las
+ *   acciones y el 24/5 (`fxCalendar`) para los pares de divisas —tanto para
+ *   decidir la vela esperada como para los huecos de la limpieza—; la
+ *   pasada diaria sale en la hora más próxima de los calendarios presentes.
  * - Trabajo diario a la hora `nextUpdateAt` del calendario (16:00 ET + 75
  *   min, convertido a hora de Madrid); si falla algo recuperable, hasta 4
  *   reintentos cada 30 minutos. Al arrancar y al volver de la suspensión
@@ -38,24 +42,27 @@ import {
   isE2eEnabled,
   isGetBarsRequest,
   isTicker,
+  WATCHLIST_MAX_ITEMS,
+  type AssetClass,
   type GetBarsRequest,
   type MarketBar,
   type MarketBarsResult,
   type MarketClockAdvanceResult,
   type MarketRefreshResult,
   type MarketUpdatedEvent,
+  type WatchlistAddResult,
+  type WatchlistCoverageEntry,
   type WatchlistItem,
 } from '../../shared/ipc';
 import { sessionDateLabel } from '../../shared/dates';
+import { fxPairForCurrency } from '../../shared/fx';
+import { tickerSuggestions } from '../../shared/suggestions';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
-import {
-  cleanBars,
-  deriveCorporateActions,
-  type QualityReport,
-  type SessionCalendar,
-} from './cleaning';
+import { fxNextUpdateAt } from './calendar';
+import { calendarForAssetClass, type AssetSessionCalendar } from './assetCalendar';
+import { cleanBars, deriveCorporateActions, type QualityReport } from './cleaning';
 import {
   createSimulatedProvider,
   createTiingoProvider,
@@ -65,6 +72,7 @@ import {
   type MarketDataErrorKind,
   type MarketDataProvider,
   type SessionDate,
+  type TickerInfo,
 } from './providers';
 import {
   createMarketRepository,
@@ -73,6 +81,7 @@ import {
   type MarketRepository,
   type StoredBar,
 } from './repository';
+import { plainStatusReason } from './statusReason';
 
 // ---------------------------------------------------------------------------
 // Constantes y tipos
@@ -126,6 +135,28 @@ export function e2eMarketClockBase(
   return () => pinned + (realNow() - realStart);
 }
 
+/**
+ * Gancho E2E (`TRADIA_E2E_UNCOVERED_TICKERS`, lista separada por comas):
+ * los tickers que el proveedor simulado declara «sin cobertura» — responde
+ * 'not-found' a `getTickerInfo`/`getBars`, como Tiingo con EUR. Por defecto
+ * ['EUR'] para que el E2E reproduzca el rechazo del alta; la cadena vacía
+ * desactiva la lista (pruebas que necesitan EUR con datos simulados).
+ */
+export const E2E_DEFAULT_UNCOVERED_TICKERS: readonly string[] = ['EUR'];
+
+export function e2eUncoveredTickers(
+  isPackaged: boolean,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (!isE2eEnabled(isPackaged, env.TRADIA_E2E)) return [];
+  const raw = env.TRADIA_E2E_UNCOVERED_TICKERS;
+  if (raw === undefined) return [...E2E_DEFAULT_UNCOVERED_TICKERS];
+  return raw
+    .split(',')
+    .map((ticker) => ticker.trim().toUpperCase())
+    .filter((ticker) => ticker !== '');
+}
+
 /** Mínimo de `Electron.PowerMonitor` que usa el servicio (inyectable). */
 export interface MarketPowerMonitorLike {
   on(event: 'resume', listener: () => void): unknown;
@@ -148,7 +179,8 @@ export interface TickerIngestResult {
   /**
    * true si el fallo es del proveedor entero (red, cuota, credencial): la
    * pasada lo cuenta UNA vez en provider:<id>. Los fallos propios del
-   * activo ('not-found', 'bad-data', sin datos) no lo son.
+   * activo ('not-found', 'bad-data', respuesta vacía → 'sin-cobertura')
+   * no lo son.
    */
   providerError?: boolean;
 }
@@ -178,8 +210,8 @@ export interface MarketIngestionDeps {
   isOnline?: () => boolean;
   /** Recuperación al volver de la suspensión. */
   powerMonitor?: MarketPowerMonitorLike;
-  /** Calendario de sesiones para la limpieza por proveedor. */
-  sessionsFor?: (provider: MarketDataProvider) => SessionCalendar;
+  /** Calendario de sesiones por proveedor y tipo de activo. */
+  sessionsFor?: (provider: MarketDataProvider, assetClass: AssetClass) => AssetSessionCalendar;
   retryIntervalMs?: number;
   maxRetries?: number;
   logger?: Partial<MarketIngestionLogger>;
@@ -187,9 +219,17 @@ export interface MarketIngestionDeps {
 
 export interface MarketIngestionService {
   listWatchlist(): WatchlistItem[];
-  /** Añade el ticker, lanza su histórico y devuelve la lista completa. */
-  addTicker(ticker: string): Promise<WatchlistItem[]>;
+  /**
+   * Comprueba la cobertura del ticker en el proveedor (`getTickerInfo`)
+   * antes de darlo de alta: si el proveedor no lo cubre se rechaza con
+   * 'no-cubierto' y sus alternativas; si no se puede comprobar (sin
+   * conexión, sin clave, fallo o cuota) entra como 'pendiente-verificar'
+   * y la siguiente ingesta lo resuelve. Devuelve el resultado tipado.
+   */
+  addTicker(ticker: string): Promise<WatchlistAddResult>;
   removeTicker(ticker: string): WatchlistItem[];
+  /** Cobertura del proveedor por activo de la lista (Ajustes › Conectores). */
+  watchlistCoverage(): WatchlistCoverageEntry[];
   /** Añade el universo inicial e ingiere lo que falte. */
   addUniverse(): Promise<WatchlistItem[]>;
   getBars(request: GetBarsRequest): Promise<MarketBarsResult>;
@@ -235,8 +275,17 @@ export interface MarketIngestionService {
 // Calendario compartido por los proveedores reales y el simulado
 // ---------------------------------------------------------------------------
 
-export function defaultSessionsFor(_provider: MarketDataProvider): SessionCalendar {
-  return nyseCalendar;
+/**
+ * Calendario de un activo: las sesiones esperadas entre dos fechas (huecos
+ * y limpieza) y la última cuyo cierre ya pasó (qué vela toca pedir). La
+ * forma es la de `assetCalendar.ts` — `calendarForAssetClass` la resuelve
+ * por tipo ('equity' → NYSE, 'fx' → 24/5).
+ */
+export function defaultSessionsFor(
+  _provider: MarketDataProvider,
+  assetClass: AssetClass,
+): AssetSessionCalendar {
+  return calendarForAssetClass(assetClass);
 }
 
 // ---------------------------------------------------------------------------
@@ -286,8 +335,24 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
   const isoNow = (): string => new Date(now()).toISOString();
 
-  const publishStatus = (patch: DataStatusPatch): void => {
-    const entry = repo.setDataStatus(patch);
+  /**
+   * Todo motivo que llega a la interfaz va en español llano («Tiingo no
+   * tiene datos de EUR.», no «el proveedor 'tiingo' no devolvió datos»):
+   * la traducción vive en `statusReason` y se aplica aquí, al guardar.
+   */
+  const publishStatus = (patch: DataStatusPatch, providerId?: string): void => {
+    const entry = repo.setDataStatus({
+      ...patch,
+      reason:
+        patch.reason === undefined || patch.reason === null
+          ? patch.reason
+          : plainStatusReason({
+              key: patch.key,
+              state: patch.state,
+              reason: patch.reason,
+              providerId,
+            }),
+    });
     deps.broadcast(IPC_CHANNELS.dataStatus.changed, entry);
   };
 
@@ -315,26 +380,32 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const key = dataStatusKey.provider(provider.id);
     const current = repo.getDataStatus(key);
     const failures = (current?.consecutiveFailures ?? 0) + 1;
-    publishStatus({
-      key,
-      // La credencial rechazada o varios fallos seguidos ya son "no fiable".
-      state: failures >= 3 ? 'no-fiable' : 'desactualizado',
-      consecutiveFailures: failures,
-      reason,
-    });
+    publishStatus(
+      {
+        key,
+        // La credencial rechazada o varios fallos seguidos ya son "no fiable".
+        state: failures >= 3 ? 'no-fiable' : 'desactualizado',
+        consecutiveFailures: failures,
+        reason,
+      },
+      provider.id,
+    );
   };
 
   const markProviderOk = (provider: MarketDataProvider): void => {
     const key = dataStatusKey.provider(provider.id);
     const current = repo.getDataStatus(key);
     if (current?.state === 'fiable' && current.consecutiveFailures === 0) return;
-    publishStatus({
-      key,
-      state: 'fiable',
-      lastOkAt: isoNow(),
-      consecutiveFailures: 0,
-      reason: null,
-    });
+    publishStatus(
+      {
+        key,
+        state: 'fiable',
+        lastOkAt: isoNow(),
+        consecutiveFailures: 0,
+        reason: null,
+      },
+      provider.id,
+    );
   };
 
   const classifyFailure = (
@@ -342,13 +413,23 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   ): {
     retryable: boolean;
     reason: string;
-    tickerState: 'desactualizado' | 'no-fiable';
+    tickerState: 'desactualizado' | 'no-fiable' | 'sin-cobertura';
     /** true si el error es del proveedor entero, no solo del activo. */
     providerError: boolean;
   } => {
     if (isMarketDataError(error)) {
       const e = error;
-      if (e.kind === 'not-found' || e.kind === 'bad-data') {
+      if (e.kind === 'not-found') {
+        // 404: el proveedor no cubre el símbolo. No es un fallo del
+        // proveedor ni un dato malo: queda aislado en 'sin-cobertura'.
+        return {
+          retryable: false,
+          reason: e.message,
+          tickerState: 'sin-cobertura',
+          providerError: false,
+        };
+      }
+      if (e.kind === 'bad-data') {
         return {
           retryable: false,
           reason: e.message,
@@ -386,20 +467,35 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     error: unknown,
     onProviderFailure?: (reason: string) => void,
   ): TickerIngestResult => {
-    const { retryable, reason, tickerState, providerError } = classifyFailure(error);
+    const { retryable, reason: rawReason, tickerState, providerError } = classifyFailure(error);
     const key = dataStatusKey.ticker(ticker);
     const current = repo.getDataStatus(key);
-    publishStatus({
-      key,
-      state: tickerState,
-      consecutiveFailures: (current?.consecutiveFailures ?? 0) + 1,
-      reason,
-    });
+    // El motivo guardado (y devuelto) va ya en llano; el texto técnico
+    // del adaptador queda solo en el log.
+    const reason =
+      plainStatusReason({
+        key,
+        state: tickerState,
+        reason: rawReason,
+        providerId: isMarketDataError(error) ? error.provider : provider.id,
+      }) ?? rawReason;
+    publishStatus(
+      {
+        key,
+        state: tickerState,
+        // 'sin-cobertura' no es un fallo: el contador queda a 0 para que la
+        // regla de los 3 fallos (proveedor caído) nunca lo degrade.
+        consecutiveFailures:
+          tickerState === 'sin-cobertura' ? 0 : (current?.consecutiveFailures ?? 0) + 1,
+        reason,
+      },
+      provider.id,
+    );
     // El fallo del proveedor se cuenta UNA vez por pasada (el primer
     // fallo de la pasada lo escribe justo después del del activo, para
     // que los avisos se agrupen en uno solo).
     if (providerError) onProviderFailure?.(reason);
-    logger.warn?.(`[market] ingesta de ${ticker} falló (${reason})`);
+    logger.warn?.(`[market] ingesta de ${ticker} falló (${rawReason})`);
     return {
       ticker,
       outcome: 'fallido',
@@ -474,10 +570,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestOne = async (
     ticker: string,
     provider: MarketDataProvider,
+    assetClass: AssetClass,
     onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult> => {
     const statusKey = dataStatusKey.ticker(ticker);
-    const lastExpected = nyseCalendar.lastExpectedSession(now());
+    // El calendario es del tipo de activo: NYSE en acciones, 24/5 en divisas.
+    const calendar = sessionsFor(provider, assetClass);
+    const lastExpected = calendar.lastExpectedSession(now());
     const lastStored = repo.lastBarDate(ticker, provider.id);
 
     if (lastExpected === null) {
@@ -491,11 +590,14 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const desde = lastStored ? addDays(lastStored, 1) : yearsBack(lastExpected.date, HISTORY_YEARS);
     const hasta = lastExpected.date;
 
-    publishStatus({
-      key: statusKey,
-      state: 'actualizando',
-      reason: `descargando velas del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
-    });
+    publishStatus(
+      {
+        key: statusKey,
+        state: 'actualizando',
+        reason: `descargando velas del ${sessionDateLabel(desde)} al ${sessionDateLabel(hasta)} en '${provider.id}'`,
+      },
+      provider.id,
+    );
 
     let newBars: Bar[];
     try {
@@ -506,34 +608,47 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
 
     if (newBars.length === 0) {
       if (lastStored === null) {
-        const reason = `el proveedor '${provider.id}' no devolvió datos para ${ticker}`;
-        publishStatus({
+        // Respuesta vacía sin historial previo: el proveedor no cubre el
+        // símbolo ('sin-cobertura'). Es un caso del activo, no del
+        // proveedor: no suma fallos a provider:<id> ni lo marca no fiable,
+        // así el resto de la lista sigue trabajando (régimen, predicciones
+        // y señales solo se pausan para este ticker).
+        const reason = plainStatusReason({
           key: statusKey,
-          state: 'no-fiable',
-          // Respuesta vacía del proveedor: cuenta como fallo de obtención,
-          // no como anomalía de contenido (no dispara la parada).
-          consecutiveFailures: 1,
-          reason,
+          state: 'sin-cobertura',
+          reason: `el proveedor '${provider.id}' no devolvió datos para ${ticker}`,
+          providerId: provider.id,
         });
-        onProviderFailure?.(reason);
+        publishStatus(
+          {
+            key: statusKey,
+            state: 'sin-cobertura',
+            consecutiveFailures: 0,
+            reason,
+          },
+          provider.id,
+        );
         return {
           ticker,
           outcome: 'fallido',
           stored: 0,
           lastDate: null,
           retryable: false,
-          reason: 'sin datos del proveedor',
-          providerError: true,
+          reason: reason ?? undefined,
+          providerError: false,
         };
       }
       // La sesión esperada aún no está publicada: merece reintento, pero no
       // es un fallo del proveedor (no se cuentan fallos seguidos).
       const current = repo.getDataStatus(statusKey);
-      publishStatus({
-        key: statusKey,
-        state: current?.state ?? 'desactualizado',
-        reason: `esperando la vela del ${sessionDateLabel(hasta)} en '${provider.id}'`,
-      });
+      publishStatus(
+        {
+          key: statusKey,
+          state: current?.state ?? 'desactualizado',
+          reason: `esperando la vela del ${sessionDateLabel(hasta)} en '${provider.id}'`,
+        },
+        provider.id,
+      );
       return {
         ticker,
         outcome: 'pendiente',
@@ -571,18 +686,21 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         ticker,
         bars: combined,
         corporateActions: actions,
-        calendar: sessionsFor(provider),
+        calendar,
       },
       { previousBatch: previous ? { version: previous.version, hash: previous.hash } : null },
     );
 
     if (clean.bars.length === 0) {
-      publishStatus({
-        key: statusKey,
-        state: 'no-fiable',
-        consecutiveFailures: 0,
-        reason: `todas las velas del lote de '${provider.id}' fueron rechazadas`,
-      });
+      publishStatus(
+        {
+          key: statusKey,
+          state: 'no-fiable',
+          consecutiveFailures: 0,
+          reason: `todas las velas del lote de '${provider.id}' fueron rechazadas`,
+        },
+        provider.id,
+      );
       return {
         ticker,
         outcome: 'fallido',
@@ -608,13 +726,16 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const flags = toQualityFlags(batch.id, ticker, clean.report);
     if (flags.length > 0) repo.addQualityFlags(flags);
 
-    publishStatus({
-      key: statusKey,
-      state: clean.report.reliable ? 'fiable' : 'no-fiable',
-      lastOkAt: isoNow(),
-      consecutiveFailures: 0,
-      reason: clean.report.reliable ? null : qualityReason(clean.report),
-    });
+    publishStatus(
+      {
+        key: statusKey,
+        state: clean.report.reliable ? 'fiable' : 'no-fiable',
+        lastOkAt: isoNow(),
+        consecutiveFailures: 0,
+        reason: clean.report.reliable ? null : qualityReason(clean.report),
+      },
+      provider.id,
+    );
 
     const lastDate = clean.bars[clean.bars.length - 1]!.date;
     emitUpdated(ticker, provider.id, lastDate);
@@ -634,12 +755,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestGuarded = async (
     ticker: string,
     provider: MarketDataProvider,
+    assetClass: AssetClass,
     onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult | null> => {
     if (ingesting.has(ticker)) return null;
     ingesting.add(ticker);
     try {
-      return await ingestOne(ticker, provider, onProviderFailure);
+      return await ingestOne(ticker, provider, assetClass, onProviderFailure);
     } catch (error: unknown) {
       // Defensa ante fallos de base de datos u otros no tipados.
       return failTicker(ticker, provider, error, onProviderFailure);
@@ -661,8 +783,8 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         providerBumped = true;
         bumpProviderFailure(provider, reason);
       };
-      for (const { ticker } of repo.listWatchlist()) {
-        const result = await ingestGuarded(ticker, provider, bumpOnce);
+      for (const { ticker, assetClass } of repo.listWatchlist()) {
+        const result = await ingestGuarded(ticker, provider, assetClass, bumpOnce);
         if (result === null) {
           results.push({
             ticker,
@@ -756,8 +878,14 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     try {
       // nextUpdateAt devuelve el instante >= ahora: se pide desde now()+1
       // para no rearmar sobre el instante que acaba de ejecutarse.
-      const next = nyseCalendar.nextUpdateAt(now() + 1);
-      armTimer(Date.parse(next.utc) - now());
+      const from = now() + 1;
+      let nextMs = Date.parse(nyseCalendar.nextUpdateAt(from).utc);
+      // Con divisas en la lista, la pasada sale en la hora más próxima de
+      // los dos calendarios (la 01:00 UTC del 24/5 adelanta a la de NYSE).
+      if (repo.listWatchlist().some((item) => item.assetClass === 'fx')) {
+        nextMs = Math.min(nextMs, Date.parse(fxNextUpdateAt(from).utc));
+      }
+      armTimer(nextMs - now());
     } catch (error: unknown) {
       logger.error?.(`[market] no se pudo programar la próxima actualización: ${String(error)}`);
     }
@@ -769,10 +897,10 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   };
 
   /** Actualiza un ticker recién añadido sin esperar a la pasada diaria. */
-  const ingestNewTicker = async (ticker: string): Promise<void> => {
+  const ingestNewTicker = async (item: WatchlistItem): Promise<void> => {
     if (!isOnline()) {
       publishStatus({
-        key: dataStatusKey.ticker(ticker),
+        key: dataStatusKey.ticker(item.ticker),
         state: 'desactualizado',
         reason: 'sin conexión a internet',
       });
@@ -781,13 +909,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const provider = await safeResolveProvider();
     if (provider === null) {
       publishStatus({
-        key: dataStatusKey.ticker(ticker),
+        key: dataStatusKey.ticker(item.ticker),
         state: 'desactualizado',
         reason: 'sin proveedor de datos configurado',
       });
       return;
     }
-    await ingestGuarded(ticker, provider);
+    await ingestGuarded(item.ticker, provider, item.assetClass);
   };
 
   // -- API pública -----------------------------------------------------------
@@ -807,15 +935,154 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     batchId: bar.batchId,
   });
 
+  // -- Alta de ticker con comprobación de cobertura -------------------------
+
+  /**
+   * Alternativas para un símbolo sin cobertura: primero el par de divisas
+   * que lo sigue ('EUR' → 'EURUSD', operable en la cartera simulada) y
+   * después los ETF de la tabla estática ('EUR' → 'FXE').
+   */
+  const uncoveredSuggestions = (ticker: string): string[] => {
+    const pair = fxPairForCurrency(ticker);
+    return pair !== null ? [pair, ...tickerSuggestions(ticker)] : [...tickerSuggestions(ticker)];
+  };
+
+  /**
+   * Alta sin verificación posible: el ticker entra igualmente, con su
+   * estado de dato explicando por qué está pendiente, y la siguiente
+   * ingesta (al volver la conexión o configurar el proveedor) lo resuelve
+   * a cubierto o a 'sin-cobertura'. No se fuerza una ingesta inmediata:
+   * sin conexión o sin proveedor no habría petición, y tras un fallo o
+   * una cuota agotada la espera sería peor que la pasada programada.
+   */
+  const addPendingVerification = async (
+    ticker: string,
+    reason: string,
+    providerId?: string,
+  ): Promise<WatchlistAddResult> => {
+    const entry = repo.addWatchlistTicker(ticker);
+    publishStatus(
+      {
+        key: dataStatusKey.ticker(entry.ticker),
+        state: 'desactualizado',
+        reason,
+      },
+      providerId,
+    );
+    emitWatchlistChanged();
+    return { added: true, reason: 'pendiente-verificar' };
+  };
+
   const service: MarketIngestionService = {
     listWatchlist: () => repo.listWatchlist(),
 
     addTicker: async (ticker) => {
-      const entry = repo.addWatchlistTicker(ticker);
-      await ingestNewTicker(entry.ticker);
+      const key = ticker.trim().toUpperCase();
+      const current = repo.listWatchlist();
+      // Duplicado y límite se deciden en local, sin gastar cuota del proveedor.
+      if (current.some((item) => item.ticker === key)) {
+        return { added: false, reason: 'duplicado' };
+      }
+      if (current.length >= WATCHLIST_MAX_ITEMS) {
+        return { added: false, reason: 'limite' };
+      }
+
+      if (!isOnline()) {
+        return addPendingVerification(
+          key,
+          'sin conexión a internet: pendiente de verificar la cobertura',
+        );
+      }
+      const provider = await safeResolveProvider();
+      if (provider === null) {
+        return addPendingVerification(
+          key,
+          'sin proveedor de datos configurado: pendiente de verificar la cobertura',
+        );
+      }
+
+      let info: TickerInfo;
+      try {
+        info = await provider.getTickerInfo(key);
+      } catch (error: unknown) {
+        if (isMarketDataError(error, 'not-found')) {
+          // El proveedor conoce el universo y este símbolo no está: se
+          // rechaza con las alternativas conocidas, sin tocar la lista.
+          const suggestions = uncoveredSuggestions(key);
+          logger.info?.(
+            `[market] alta de ${key} rechazada: el proveedor '${provider.id}' no lo cubre`,
+          );
+          return {
+            added: false,
+            reason: 'no-cubierto',
+            ...(suggestions.length > 0 ? { suggestions } : {}),
+          };
+        }
+        // No se pudo comprobar (red, cuota, clave, respuesta malformada):
+        // se añade pendiente y la próxima ingesta lo resuelve. El estado
+        // guarda el motivo real del proveedor (ya saneado: «vuelve a
+        // pegarla», cuota, transporte…) para que Ajustes lo cuente.
+        logger.warn?.(
+          `[market] no se pudo verificar ${key} en '${provider.id}', queda pendiente: ${String(
+            isMarketDataError(error) ? error.message : error,
+          )}`,
+        );
+        return addPendingVerification(
+          key,
+          isMarketDataError(error)
+            ? error.message
+            : `pendiente de verificar la cobertura en '${provider.id}'`,
+          isMarketDataError(error) ? error.provider : provider.id,
+        );
+      }
+
+      const entry = repo.addWatchlistTicker(key, info.assetClass);
+      await ingestNewTicker(entry);
       emitWatchlistChanged();
-      return repo.listWatchlist();
+      return {
+        added: true,
+        reason: null,
+        ...(info.name !== undefined ? { name: info.name } : {}),
+      };
     },
+
+    watchlistCoverage: () =>
+      repo.listWatchlist().map((item) => {
+        const key = dataStatusKey.ticker(item.ticker);
+        const status = repo.getDataStatus(key);
+        if (status?.state === 'sin-cobertura') {
+          return {
+            ticker: item.ticker,
+            coverage: 'sin-cobertura' as const,
+            // El motivo sale en llano también para filas escritas por
+            // versiones anteriores («ticker 'EUR' no existe»).
+            reason: plainStatusReason({ key, state: status.state, reason: status.reason }),
+            // La misma alternativa que `uncovered[].suggestion` del resumen
+            // de frescura (la tabla estática), para contar una sola historia.
+            suggestion: tickerSuggestions(item.ticker)[0] ?? null,
+          };
+        }
+        // La prueba de cobertura es el dato servido: con velas guardadas el
+        // proveedor cubre el símbolo; sin ellas el alta quedó pendiente de
+        // verificar (o aún no llegó su primera ingesta).
+        if (repo.lastBarDate(item.ticker) !== null) {
+          return {
+            ticker: item.ticker,
+            coverage: 'cubierto' as const,
+            reason: null,
+            suggestion: null,
+          };
+        }
+        return {
+          ticker: item.ticker,
+          coverage: 'pendiente-verificar' as const,
+          reason:
+            status === null
+              ? null
+              : plainStatusReason({ key, state: status.state, reason: status.reason }),
+          suggestion: null,
+        };
+      }),
 
     removeTicker: (ticker) => {
       repo.removeWatchlistTicker(ticker);
@@ -861,7 +1128,23 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         result.results.find((r) => r.providerError === true)?.reason ??
         result.results.find((r) => r.reason !== undefined)?.reason ??
         null;
-      return { accepted: true, reason: null, ok: result.ok, detail };
+      // Éxito total vs parcial: `ok` solo es true si TODOS los activos
+      // quedaron al día — un fallo no reintentable (activo sin cobertura)
+      // también da ok=false para que la interfaz no diga «Datos
+      // actualizados.» con la lista incompleta.
+      const updated = result.results.filter((r) => r.outcome === 'actualizado').length;
+      const failedTickers = result.results
+        .filter((r) => r.outcome !== 'actualizado')
+        .map((r) => r.ticker);
+      return {
+        accepted: true,
+        reason: null,
+        ok: failedTickers.length === 0,
+        detail,
+        updated,
+        total: result.results.length,
+        failedTickers,
+      };
     },
 
     onWatchlistChanged: (listener) => {
@@ -944,12 +1227,21 @@ export function registerMarket(
   let tiingo: MarketDataProvider | null = null;
   let simulated: ReturnType<typeof createSimulatedProvider> | null = null;
   const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+  // Tickers «sin cobertura» del simulado E2E (EUR por defecto, ver
+  // TRADIA_E2E_UNCOVERED_TICKERS): reproduce el caso real de Tiingo.
+  const uncoveredForE2e = e2eUncoveredTickers(app.isPackaged, process.env);
+  const createE2eProvider = (): ReturnType<typeof createSimulatedProvider> =>
+    createSimulatedProvider({
+      seed: 'tradia-e2e',
+      now: () => clock.now(),
+      unknownTickers: [...uncoveredForE2e],
+    });
   // Gancho E2E: fuerza el proveedor simulado fallando aunque haya clave real.
   let forcedFailure: MarketDataErrorKind | null = null;
 
   const resolveProvider = async (): Promise<MarketDataProvider | null> => {
     if (e2e && forcedFailure !== null) {
-      simulated ??= createSimulatedProvider({ seed: 'tradia-e2e', now: () => clock.now() });
+      simulated ??= createE2eProvider();
       simulated.setFailing(forcedFailure);
       return simulated;
     }
@@ -962,7 +1254,7 @@ export function registerMarket(
       return tiingo;
     }
     if (e2e) {
-      simulated ??= createSimulatedProvider({ seed: 'tradia-e2e', now: () => clock.now() });
+      simulated ??= createE2eProvider();
       return simulated;
     }
     return null;
@@ -1024,6 +1316,7 @@ export function registerMarket(
     }
     return service.removeTicker(ticker);
   });
+  ipcMain.handle(IPC_CHANNELS.watchlist.coverage, () => service.watchlistCoverage());
   ipcMain.handle(IPC_CHANNELS.watchlist.addUniverse, () => service.addUniverse());
   ipcMain.handle(IPC_CHANNELS.market.getBars, (_event, request: unknown) => {
     if (!isGetBarsRequest(request)) {
@@ -1035,14 +1328,21 @@ export function registerMarket(
 
   // Gancho de desarrollo: la app empaquetada no registra el canal.
   if (!app.isPackaged) {
-    ipcMain.handle(IPC_CHANNELS.market.advanceClock, (_event, deltaMs: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.market.advanceClock, async (_event, deltaMs: unknown) => {
       if (typeof deltaMs !== 'number' || !Number.isFinite(deltaMs) || deltaMs <= 0) {
         throw new IpcValidationError(
           IPC_CHANNELS.market.advanceClock,
           'se esperaba un número de ms positivo',
         );
       }
-      return service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
+      const result = service.advanceClock?.(deltaMs) ?? { now: new Date().toISOString() };
+      // Las series macro refrescan con temporizadores de tiempo real: al
+      // adelantar el reloj en desarrollo/E2E hay que ponerlas al día en
+      // esta misma llamada, o sus claves macro:* pasarían a
+      // 'desactualizado' solo por el salto del reloj. `refreshNow`
+      // devuelve el motivo del rechazo, nunca lanza.
+      await ctx.services.macro?.refreshNow();
+      return result;
     });
   }
 

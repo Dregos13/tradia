@@ -26,9 +26,13 @@ a {
 }
 a:focus-visible,
 button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) var(--focus-style) var(--color-focus);
+  outline-offset: var(--focus-offset);
 }
 .app {
   height: 100dvh;
@@ -58,12 +62,10 @@ button:focus-visible,
   position: relative;
   grid-row: 1 / 5;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--color-text);
-  color: var(--color-canvas);
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-4);
+  background: var(--color-sidebar);
+  color: var(--color-sidebarText);
 }
 /* Indicio de que quedan entradas por debajo: un degradado sobre el borde
    inferior que desaparece al llegar al final de la lista. */
@@ -121,10 +123,8 @@ button:focus-visible,
   color: inherit;
   text-decoration: none;
 }
-/* Dentro de la lista con desplazamiento el contorno va hacia dentro para no
-   recortarse en los bordes. */
 .nav a:focus-visible {
-  outline-offset: -3px;
+  outline-color: var(--color-sidebarText);
 }
 .nav a:hover,
 .nav a[aria-current='page'] {
@@ -146,12 +146,13 @@ button:focus-visible,
 }
 .top h1 {
   margin: 0;
-  font-size: var(--type-lg);
-  line-height: var(--type-lg-line);
+  font-size: var(--type-xl);
+  line-height: var(--type-xl-line);
 }
 .mode {
   color: var(--color-textMuted);
   font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
 }
 .main {
   padding: var(--page-block) var(--page-inline);
@@ -222,12 +223,13 @@ p {
   border: 0;
 }
 h3 {
-  font-size: var(--type-sm);
-  line-height: var(--type-sm-line);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
   margin: 0;
 }
 .row p {
   font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
 }
 .state {
   display: inline-flex;
@@ -235,6 +237,7 @@ h3 {
   gap: var(--space-2);
   font-weight: var(--weight-semibold);
   font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
 }
 .symbol {
   width: var(--space-3);
@@ -266,6 +269,7 @@ h3 {
 .numeric {
   font-family: var(--font-numeric);
   font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
   font-variant-numeric: tabular-nums;
 }
 .empty {
@@ -315,33 +319,6 @@ h3 {
 .skip-link:focus {
   transform: none;
 }
-@media (prefers-color-scheme: dark) {
-  .side {
-    background: var(--color-canvas);
-    color: var(--color-text);
-    border-right: 1px solid var(--color-border);
-  }
-}
-@media (max-width: 1199px) {
-  :root {
-    --page-inline: var(--space-page-inline-compact);
-    --page-block: var(--space-page-block-compact);
-  }
-  .statusbar {
-    gap: var(--space-4);
-  }
-  .statusbar-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-  }
-  .statusbar-label-short {
-    display: inline;
-  }
-}
 @media (max-width: 760px) {
   :root {
     --page-inline: var(--space-page-inline-narrow);
@@ -366,7 +343,7 @@ h3 {
   .nav {
     display: flex;
     overflow-x: auto;
-    overflow-y: visible;
+    padding: var(--space-2);
   }
   .nav a {
     flex-shrink: 0;
@@ -395,11 +372,9 @@ select,
 textarea {
   font: inherit;
 }
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+input:focus-visible {
+  outline: var(--focus-width) var(--focus-style) var(--color-focus);
+  outline-offset: var(--focus-offset);
 }
 /* Tamaño mínimo de control (docs/diseno-espaciado.md, regla 9; UXP-10).
    Con especificidad nula: cualquier regla de pantalla que fije su propio
@@ -425,6 +400,7 @@ textarea:focus-visible {
   padding-block: max(0px, calc(var(--space-3) - 0.5em));
 }
 .button {
+  min-width: var(--size-controlMin);
   min-height: var(--size-controlMin);
   padding: var(--space-label-control-gap) var(--space-5);
   border: 1px solid var(--color-borderStrong);
@@ -531,6 +507,7 @@ textarea:focus-visible {
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-4);
   font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
 }
 .risk-accept {
   display: flex;
@@ -681,8 +658,8 @@ textarea:focus-visible {
   right: var(--space-1);
 }
 .setting-switch input:focus-visible + .switch-track {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) var(--focus-style) var(--color-focus);
+  outline-offset: var(--focus-offset);
 }
 .setting-switch input:disabled + .switch-track {
   opacity: 0.5;
@@ -710,8 +687,8 @@ textarea:focus-visible {
   padding: var(--space-2) var(--space-3);
 }
 .settings-test select:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) var(--focus-style) var(--color-focus);
+  outline-offset: var(--focus-offset);
 }
 .settings-controls,
 .settings-test {

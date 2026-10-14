@@ -14,6 +14,7 @@ import {
   createAlpacaBroker,
   type AlpacaCredentials,
 } from './alpaca';
+import { FX_BROKER_REJECTION_MESSAGE } from '../../shared/fxTrading';
 import { BrokerError, isBrokerError, type BrokerOrderRequest } from './types';
 
 const CREDS: AlpacaCredentials = {
@@ -517,5 +518,28 @@ describe('adaptador Alpaca paper', () => {
       expect(isBrokerError(error, 'reject')).toBe(true);
       expect((error as BrokerError).retryable).toBe(false);
     });
+  });
+});
+
+describe('adaptador Alpaca · divisas', () => {
+  it('rechaza una orden de EURUSD sin salir a la red (paper)', async () => {
+    const { fetch, calls } = fetchStub(() => jsonResponse(orderJson()));
+    const broker = make(fetch);
+
+    const attempt = broker.submitOrder({
+      clientOrderId: 'tradia-77-entrada',
+      ticker: 'EURUSD',
+      type: 'market',
+      side: 'buy',
+      quantity: 1000,
+      timeInForce: 'day',
+    });
+
+    await expect(attempt).rejects.toThrow(FX_BROKER_REJECTION_MESSAGE);
+    await attempt.catch((error: unknown) => {
+      expect(isBrokerError(error) && error.kind).toBe('reject');
+      expect(isBrokerError(error) && error.retryable).toBe(false);
+    });
+    expect(calls).toHaveLength(0);
   });
 });

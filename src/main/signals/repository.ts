@@ -11,11 +11,14 @@
  *   ya guardada con `inserted: false` en lugar de lanzar.
  * - Las vetadas también se guardan: «sin señal» solo existe por
  *   contradicción entre estrategias y vive en el diario, no en esta tabla.
+ * - El destino ('cartera-simulada' | 'solo-analisis') se deriva del
+ *   activo al leer (`signalDestinationOf`): no hay columna que migrar.
  * - JSON defensivo: un payload ilegible devuelve el valor vacío y lo deja
  *   en el log, igual que en `strategies/repository.ts`.
  */
 import type Database from 'better-sqlite3';
 
+import { signalDestinationOf } from '../../shared/fxTrading';
 import type { RiskDecision, SignalDirection } from '../../shared/risk';
 import {
   SIGNALS_LIST_MAX_LIMIT,
@@ -85,6 +88,9 @@ function parseJson<T>(raw: string, fallback: T, what: string, ref: string): T {
 
 function toSignal(row: SignalRow): Signal {
   const ref = `señal ${row.id}`;
+  // El destino es regla de dominio del activo (no se guarda): una señal
+  // antigua de un par se lee con el destino vigente.
+  const { destination, reason: destinationReason } = signalDestinationOf(row.ticker);
   return {
     id: row.id,
     ticker: row.ticker,
@@ -102,6 +108,8 @@ function toSignal(row: SignalRow): Signal {
       ref,
     ),
     decision: parseJson<RiskDecision>(row.decision, {} as RiskDecision, 'decision', ref),
+    destination,
+    destinationReason,
     createdAt: row.creado_en,
   };
 }

@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { FX_BROKER_REJECTION_MESSAGE, FX_BROKER_REJECTION_REASON } from '../../shared/fxTrading';
 import type { JournalRecordInput } from '../../shared/journal';
 import type { RiskDecision, SignalDirection } from '../../shared/risk';
 import type { Signal } from '../../shared/signals';
@@ -704,5 +705,92 @@ describe('gestor de órdenes · órdenes limitadas manuales', () => {
       limitPrice: 100,
     });
     expect(order.status).toBe('enviada');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Divisas: nunca llegan al broker
+// ---------------------------------------------------------------------------
+
+describe('gestor de órdenes · divisas', () => {
+  /** Espía de cada método del broker simulado: ninguno debe recibir la orden. */
+  const spyBroker = () => ({
+    submit: vi.spyOn(broker, 'submitOrder'),
+    lookup: vi.spyOn(broker, 'getOrderByClientId'),
+    cancel: vi.spyOn(broker, 'cancelOrder'),
+  });
+
+  it('una señal aprobada de EURUSD no crea orden: se rechaza con el motivo y el broker no recibe nada', async () => {
+    const spies = spyBroker();
+    const signal = seedSignal({ ticker: 'EURUSD', entry: 1.09, stop: 1.0464, target: 1.199 });
+
+    const result = await emit(signal);
+
+    expect(result.outcome).toBe('bloqueada');
+    expect(result.reason).toBe(FX_BROKER_REJECTION_MESSAGE);
+    expect(result.reason).toContain(
+      'el bróker conectado no opera divisas; se opera solo en la cartera simulada',
+    );
+    expect(result.entry).toBeNull();
+    expect(repo.listOrders()).toEqual([]);
+    expect(spies.submit).not.toHaveBeenCalled();
+    expect(spies.lookup).not.toHaveBeenCalled();
+    expect(spies.cancel).not.toHaveBeenCalled();
+  });
+
+  it('el rechazo de divisas manda aunque la ejecución esté activa y el corto también', async () => {
+    const spies = spyBroker();
+    const signal = seedSignal({
+      ticker: 'GBPUSD',
+      direction: 'corto',
+      entry: 1.27,
+      stop: 1.32,
+      target: 1.15,
+    });
+
+    const result = await emit(signal);
+
+    expect(result).toMatchObject({ outcome: 'bloqueada', reason: FX_BROKER_REJECTION_MESSAGE });
+    expect(spies.submit).not.toHaveBeenCalled();
+  });
+
+  it('una orden limitada manual de EURUSD se rechaza con el motivo, sin tocar el broker', async () => {
+    const spies = spyBroker();
+
+    await expect(
+      manager.createLimitOrder({ ticker: 'eurusd', side: 'buy', quantity: 1000, limitPrice: 1.08 }),
+    ).rejects.toThrow(FX_BROKER_REJECTION_MESSAGE);
+
+    expect(repo.listOrders()).toEqual([]);
+    expect(spies.submit).not.toHaveBeenCalled();
+    expect(journal.at(-1)?.reason).toContain(FX_BROKER_REJECTION_REASON);
+  });
+
+  it('última defensa: el OCO de una entrada de divisas heredada queda rechazado sin enviarse', async () => {
+    const spies = spyBroker();
+    const signal = seedSignal({ ticker: 'EURUSD', entry: 1.09, stop: 1.0464, target: 1.199 });
+    // Una entrada «ejecutada» de un par (p. ej. de una versión antigua):
+    // la pasada de sincronización intenta su OCO de protección.
+    repo.insertOrder({
+      clientOrderId: orderClientId(signal.id, 'entrada'),
+      signalId: signal.id,
+      leg: 'entrada',
+      ticker: 'EURUSD',
+      type: 'market',
+      side: 'buy',
+      quantity: 1000,
+      requestedPrice: 1.09,
+      requestedAt: new Date(nowMs).toISOString(),
+      status: 'ejecutada',
+      attempts: 1,
+    });
+
+    await manager.syncWithBroker();
+
+    const exit = repo.getOrderByClientId(orderClientId(signal.id, 'salida'));
+    expect(exit).not.toBeNull();
+    expect(exit!.status).toBe('rechazada');
+    expect(exit!.rejectReason).toBe(FX_BROKER_REJECTION_MESSAGE);
+    expect(spies.submit).not.toHaveBeenCalled();
   });
 });

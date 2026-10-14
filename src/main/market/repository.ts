@@ -10,15 +10,20 @@
  *
  * Convenciones:
  * - Los tickers se normalizan a mayúsculas sin espacios al entrar.
+ * - Cada activo de la lista lleva su tipo (`asset_class`, migración 019):
+ *   'equity' por defecto, 'fx' para los pares de divisas ('EURUSD').
  * - Toda escritura múltiple corre en una transacción.
  * - `upsertBars` conserva los valores ajustados ya calculados cuando la fila
  *   entrante no los trae (un lote crudo no pisa la limpieza anterior).
  */
 import type Database from 'better-sqlite3';
 
+import { inferAssetClass } from '../../shared/fx';
 import {
   dataStatusKey,
+  isAssetClass,
   WATCHLIST_MAX_ITEMS,
+  type AssetClass,
   type DataStatusEntry,
   type DataStatusState,
 } from '../../shared/ipc';
@@ -37,6 +42,8 @@ const REPOSITORY = 'repository';
 
 export interface WatchlistEntry {
   ticker: string;
+  /** Tipo de activo: decide el calendario y la regla de frescura. */
+  assetClass: AssetClass;
   /** Alta en la lista (ISO 8601). */
   addedAt: string;
   /** Orden de visualización, 0..n-1. */
@@ -218,6 +225,7 @@ interface WatchlistRow {
   ticker: string;
   alta: string;
   orden: number;
+  asset_class: string;
 }
 
 interface BarRow {
@@ -305,11 +313,20 @@ interface DataStatusDbRow {
 export interface MarketRepository {
   // Lista de seguimiento
   listWatchlist(): WatchlistEntry[];
-  /** Idempotente: si el ticker ya está devuelve su entrada sin duplicar. */
-  addWatchlistTicker(ticker: string): WatchlistEntry;
+  /**
+   * Idempotente: si el ticker ya está devuelve su entrada sin duplicar (y
+   * sin cambiar su tipo). Sin `assetClass`, los pares admitidos
+   * ('EURUSD') entran como 'fx' y todo lo demás como 'equity'.
+   */
+  addWatchlistTicker(ticker: string, assetClass?: AssetClass): WatchlistEntry;
   /** Añade en orden los tickers que falten, hasta WATCHLIST_MAX_ITEMS. */
   addWatchlistUniverse(tickers: readonly string[]): WatchlistEntry[];
-  /** Quita el ticker y compacta el orden. Devuelve si existía. */
+  /**
+   * Quita el ticker, compacta el orden y borra su fila 'ticker:X' de
+   * `data_status` en la misma transacción: un estado viejo no debe
+   * sobrevivir a la baja y resucitar el aviso tras reiniciar. Devuelve si
+   * existía.
+   */
   removeWatchlistTicker(ticker: string): boolean;
 
   // Velas
@@ -398,19 +415,31 @@ function assertFinite(value: number, field: string): void {
 export function createMarketRepository(db: Database.Database): MarketRepository {
   // -- Lista de seguimiento -------------------------------------------------
 
+  const toWatchlistEntry = (row: WatchlistRow): WatchlistEntry => ({
+    ticker: row.ticker,
+    // El CHECK de la 019 solo admite los dos tipos; cualquier otro valor
+    // se lee como el tipo por defecto.
+    assetClass: isAssetClass(row.asset_class) ? row.asset_class : 'equity',
+    addedAt: row.alta,
+    position: row.orden,
+  });
+
   const watchlistRows = (): WatchlistEntry[] =>
     (
-      db.prepare('SELECT ticker, alta, orden FROM watchlist ORDER BY orden').all() as WatchlistRow[]
-    ).map((row) => ({ ticker: row.ticker, addedAt: row.alta, position: row.orden }));
+      db
+        .prepare('SELECT ticker, alta, orden, asset_class FROM watchlist ORDER BY orden')
+        .all() as WatchlistRow[]
+    ).map(toWatchlistEntry);
 
-  const addWatchlistTicker = (ticker: string): WatchlistEntry => {
+  const addWatchlistTicker = (ticker: string, assetClass?: AssetClass): WatchlistEntry => {
     const key = normalizeTicker(ticker);
-    const existing = db
-      .prepare('SELECT ticker, alta, orden FROM watchlist WHERE ticker = ?')
-      .get(key) as WatchlistRow | undefined;
-    if (existing) {
-      return { ticker: existing.ticker, addedAt: existing.alta, position: existing.orden };
+    if (assetClass !== undefined && !isAssetClass(assetClass)) {
+      throw new MarketRepositoryError('invalid-input', `tipo de activo desconocido para ${key}`);
     }
+    const existing = db
+      .prepare('SELECT ticker, alta, orden, asset_class FROM watchlist WHERE ticker = ?')
+      .get(key) as WatchlistRow | undefined;
+    if (existing) return toWatchlistEntry(existing);
     const count = (db.prepare('SELECT COUNT(*) AS n FROM watchlist').get() as { n: number }).n;
     if (count >= WATCHLIST_MAX_ITEMS) {
       throw new MarketRepositoryError(
@@ -419,12 +448,14 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
       );
     }
     const addedAt = nowIso();
-    db.prepare('INSERT INTO watchlist (ticker, alta, orden) VALUES (?, ?, ?)').run(
+    const kind = assetClass ?? inferAssetClass(key);
+    db.prepare('INSERT INTO watchlist (ticker, alta, orden, asset_class) VALUES (?, ?, ?, ?)').run(
       key,
       addedAt,
       count,
+      kind,
     );
-    return { ticker: key, addedAt, position: count };
+    return { ticker: key, assetClass: kind, addedAt, position: count };
   };
 
   const compactWatchlist = db.transaction(() => {
@@ -537,6 +568,9 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
       const removed = db.transaction(() => {
         const result = db.prepare('DELETE FROM watchlist WHERE ticker = ?').run(key);
         if (result.changes > 0) compactWatchlist();
+        // La baja también limpia su estado de salud (aunque el ticker ya no
+        // estuviera en la lista: la fila huérfana es igual de inservible).
+        db.prepare('DELETE FROM data_status WHERE clave = ?').run(dataStatusKey.ticker(key));
         return result.changes > 0;
       });
       return removed();

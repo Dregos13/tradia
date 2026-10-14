@@ -224,12 +224,30 @@ it('QA 16: el filtro de operaciones abarca paper y dinero real sin llamarlo simu
   expect(option).toHaveValue('operacion');
   expect(screen.queryByRole('option', { name: 'Operación simulada' })).not.toBeInTheDocument();
 });
-
-it('mantiene la leyenda y la tabla dentro de una unidad de resultados separada', async () => {
+it('muestra la operación de divisas como EUR/USD con el P&L en USD de la cartera simulada', async () => {
+  const fx: JournalEntry = {
+    ...entry,
+    id: 5,
+    type: 'operacion',
+    ticker: 'EURUSD',
+    reason: 'Cierre por stop a 1.05420',
+    dataUsed: { divisa: 'EUR', divisaPnl: 'USD' },
+    result: null,
+  };
+  vi.mocked(window.tradia.journal.list).mockResolvedValue({
+    entries: [fx],
+    limit: 20,
+    offset: 0,
+    total: 1,
+  });
+  vi.mocked(window.tradia.journal.get).mockResolvedValue(fx);
+  const user = userEvent.setup();
   render(<JournalPage />);
-  await screen.findByText(entry.reason);
-  const hint = screen.getByText('Desplázate para ver todas las columnas.');
-  const results = hint.closest('[data-layout-block="resultados"]');
-  expect(results).not.toBeNull();
-  expect(results).toContainElement(screen.getByRole('table'));
+  const row = (await screen.findByText(fx.reason)).closest('tr')!;
+  expect(row).toHaveTextContent('EUR/USD');
+  expect(row).not.toHaveTextContent('EURUSD');
+  await user.click(within(row).getByRole('button', { name: /de EUR\/USD · entrada 5/ }));
+  const dialog = screen.getByRole('dialog');
+  expect(await within(dialog).findByText('P&L en USD · cartera simulada')).toBeVisible();
+  expect(within(dialog).getByRole('heading', { level: 2 })).toHaveTextContent('EUR/USD');
 });
