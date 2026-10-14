@@ -268,8 +268,10 @@
 .orders-filters {
   gap: var(--space-form-field-gap);
 }
+/* Wrap filters to a new row before a select truncates its label. */
 .orders-filters > .orders-field,
 .orders-filters > label {
+  flex: 1 1 calc(var(--space-8) * 6);
   min-width: 0;
 }
 .orders-create-fields {
