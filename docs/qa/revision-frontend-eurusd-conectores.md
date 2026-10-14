@@ -27,4 +27,6 @@ Vitest cubre éxito parcial en ambos conectores, fallo de verificación posterio
 
 - `npm install && npm test`: instalación correcta; repetición final de Vitest en verde, 204 archivos y 3076 pruebas.
 - En una ejecución intermedia concurrente hubo cinco fallos por tiempo/foco en Ingesta, App, Onboarding y Estrategias. La repetición completa con menor carga pasó sin cambiar esas pruebas, sus límites ni la configuración.
-- Pendiente de incorporar el resultado final de lint, typecheck, formato y Playwright reconstruido con las últimas correcciones.
+- `npm run lint`, `npm run typecheck` y `npm run format:check`: en verde.
+- `npm run test:e2e`: aplicación reconstruida y 73 pruebas en verde, incluidas las dos nuevas de Conectores (6,4 minutos).
+- Las capturas regeneradas por Playwright se devuelven a su estado anterior a estas dos auditorías; la evidencia de EUR/USD de esta ejecución queda en `test-results/fx-paper-*.png`.
