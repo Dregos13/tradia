@@ -136,7 +136,7 @@ Los guiones y los registros están fuera del repositorio. No se ha creado ningú
 spec en `e2e/`. Las únicas altas del árbol son este informe y las seis capturas
 `perfiles-tiingo-*.png`.
 
-## Correcciones de H2–H6 (frontend)
+## Correcciones de H2–H7 (frontend)
 
 _Cambios en `DataFreshness.tsx`, `UncoveredAssets.tsx`, `Watchlist.tsx`, `ConnectionBlock.tsx` y `ProviderConnectionResult.tsx`. H1 lo corrigió backend._
 
@@ -144,11 +144,11 @@ _Cambios en `DataFreshness.tsx`, `UncoveredAssets.tsx`, `Watchlist.tsx`, `Connec
 | --- | --- |
 | H2 | El aviso por activo sin cobertura solo se pinta en la franja global (`variant="banner"`). La variante en línea de Inicio, Mercado, Macro e IA no renderiza nada (ni su `role=group`) cuando el único problema son activos sin cobertura, y su región de resultado de acción solo existe en la franja. Un único encabezado y un único juego de botones en el orden de Tab. |
 | H3 | «Precios» de «Conexión y fuentes» ignora las filas `sin-cobertura` al evaluar el conector: con SPY y AAPL al día muestra «Disponible». Si todas las filas fueran sin cobertura sigue en «Sin evaluar». |
-| H4 | Rechazo: título «EUR no está disponible en Tiingo»; «fondo cotizado en bolsa que se mueve de forma parecida» y «para seguir el tipo de cambio» en lugar de «ETF», «calendario 24/5» y «exposición parecida»; el enlace dice «Abrir Ajustes › Conectores». «Por qué ocurre»: una frase sobre qué cubre Tiingo (ETF explicado como «fondos cotizados») y, para EUR, «Solo tiene datos de lunes a viernes». |
-| H5 | «Ver detalles» pasa a «Por qué ocurre». La frase de pausa ahora es «Mientras los datos estén atrasados no se calculan régimen, predicciones ni señales nuevas para esos activos. Lo ya calculado se conserva.» y solo se muestra con el estado `stale`. |
-| H6 | En un conector que funciona, «Siguiente paso» contiene solo «Actualizar datos ahora»; «Probar conexión» queda como botón secundario fuera del bloque. Con clave rechazada o ausente, la única acción es «Revisar la clave»/«Añadir clave»; en el resto, «Probar conexión». El foco vuelve al botón de prueba si cambia de bloque. |
+| H4, H5 | Rechazo: título «EUR no está disponible en Tiingo»; «fondo cotizado en bolsa que se mueve de forma parecida» y «para seguir el tipo de cambio» en lugar de «ETF», «calendario 24/5» y «exposición parecida»; el enlace dice «Abrir Ajustes › Conectores». «Por qué ocurre»: una frase sobre qué cubre Tiingo (ETF explicado como «fondos cotizados») y, para EUR, «Solo tiene datos de lunes a viernes». |
+| H6 | «Ver detalles» pasa a «Por qué ocurre». La frase de pausa ahora es «Mientras los datos estén atrasados no se calculan régimen, predicciones ni señales nuevas para esos activos. Lo ya calculado se conserva.» y solo se muestra con el estado `stale`. |
+| H7 | En un conector que funciona, «Siguiente paso» contiene solo «Actualizar datos ahora»; «Probar conexión» queda como botón secundario fuera del bloque. Con clave rechazada o ausente, la única acción es «Revisar la clave»/«Añadir clave»; en el resto, «Probar conexión». El foco vuelve al botón de prueba si cambia de bloque. |
 
-### Comprobación del motor que respalda el texto de H5
+### Comprobación del motor que respalda el texto de H6
 
 - `src/main/signals/engine.ts` (`evaluateTicker`): si la última vela es anterior a `expectedSessionDate(ticker)` devuelve `stale-data` y no evalúa ni emite señal.
 - `src/main/ai/prediction/service.ts`: con la última vela por detrás de la sesión esperada no se llaman a `predictSessions`; las predicciones ya emitidas sí se siguen resolviendo.

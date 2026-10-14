@@ -48,8 +48,11 @@ async function openWithLegacyEur(prefix: string): Promise<PhaseApp> {
   context = app;
   await watchTickers(app.page, ['SPY', 'EUR']);
   await relaunchPhaseApp(app);
+  // El rearranque a veces tarda más de 30 s (traspaso del bloqueo de
+  // instancia única y arranque pesado de servicios); no es un fallo del
+  // producto, así que la espera de arranque es más amplia.
   await expect(app.page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
-    timeout: 30_000,
+    timeout: 60_000,
   });
   await app.page.evaluate((delta) => window.tradia.testing!.advanceMarketClock(delta), DAY_MS);
   await expect
@@ -373,7 +376,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     await relaunchPhaseApp(context!);
     const restarted = context!.page;
     await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
-      timeout: 30_000,
+      timeout: 60_000,
     });
     await expect
       .poll(async () => (await freshness(restarted)).state, { timeout: 60_000 })

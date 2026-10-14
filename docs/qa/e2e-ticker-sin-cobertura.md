@@ -11,7 +11,7 @@ Spec: `e2e/ticker-sin-cobertura.spec.ts` (app Electron real, proveedor simulado 
 | 3. «Actualizar ahora» con fallo parcial → «Actualizados 1 de 2 · sin datos: EUR», nunca «Datos actualizados.»                                                              | Pasa                            |
 | 4. Ajustes › Conectores: Tiingo «Funciona» + EUR sin cobertura; «Clave no válida» + EUR sin cobertura, «Cómo arreglarlo», enlace a la cuenta, foco en el campo; FRED aparte | Pasa                            |
 
-Comandos:
+Comandos (estado en la entrega, antes de las correcciones):
 
 - `npm run build && npx playwright test e2e/ticker-sin-cobertura.spec.ts`: 3 de 4 pasan; el caso 2 falla siempre por H1, así que no se pudo hacer la tirada de 3 repeticiones en verde.
 - `npm run test:e2e` completo: **66 pasan, 1 falla** (el caso 2 de esta spec). Ninguna otra spec falla.
@@ -28,6 +28,19 @@ Limitación del caso 3: el estado «desactualizado» de SPY es real (proveedor c
 - **H3:** descartado, porque es un texto del proveedor simulado que la interfaz no muestra.
 
 El detalle está en [`cierre-tiingo-claridad.md`](cierre-tiingo-claridad.md). Lo que sigue es el informe original.
+
+## Verificación final (auditoría del 2026-10-14)
+
+Revisión a fondo de la entrega provisional sobre el código final de la rama, con las correcciones de H1-H3 ya integradas:
+
+- `npm test`: **203 archivos, 3060 pruebas en verde**.
+- `npm run lint`, `npm run typecheck`, `npm run format:check`: **en verde**.
+- `npm run test:e2e` completo: **71 pruebas pasan, 0 fallan** (9,9 min); los 7 tests de esta spec incluidos.
+- `npx playwright test e2e/ticker-sin-cobertura.spec.ts`: 7/7 en tres pasadas tras el ajuste de abajo.
+
+Corrección aplicada en la auditoría: en una de las pasadas aisladas el rearranque de `openWithLegacyEur` (reuso del mismo `userData`, con el bloqueo de instancia única y el arranque pesado de servicios) superó una vez los 30 s sin llegar a «Estado del sistema». No es un fallo del producto (la instancia no estaba corrupta: repitiendo el caso pasa siempre), pero hacía inestable la spec: las dos esperas de arranque tras `relaunchPhaseApp` pasan de 30 s a 60 s. No se relajó ninguna aserción del producto ni se corrigió código de producción.
+
+Pendiente del usuario: clave real de Tiingo, `npm run qa:providers` con ella y la revisión visual del instalador (`npm run dist:mac`).
 
 ## Hallazgos (por severidad)
 
