@@ -1,0 +1,8 @@
+{
+  "ticker": "fxe",
+  "name": "Invesco CurrencyShares Euro Trust",
+  "exchangeCode": "NYSE ARCA",
+  "startDate": "2005-12-09",
+  "endDate": "2026-10-07",
+  "description": "The Invesco CurrencyShares Euro Trust tracks the price of the euro in U.S. dollars."
+}

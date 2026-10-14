@@ -9,6 +9,10 @@
  * `data_status` y emitidos por `data-status:changed`:
  *
  * - 'fiable': hay vela de la última sesión esperada (u observación al día).
+ *   La sesión esperada de cada activo sale del calendario de su tipo
+ *   (`assetClass`): NYSE para las acciones ('equity') y 24/5 para los
+ *   pares de divisas ('fx', `fxCalendar`), así un par sí espera vela en un
+ *   festivo de NYSE y ninguno de los dos la espera en sábado.
  * - 'actualizando': lo escriben la ingesta y el servicio macro mientras dura
  *   su refresco; la vigilancia lo respeta si es reciente.
  * - 'desactualizado': falta la vela de una sesión esperada pasadas
@@ -20,6 +24,12 @@
  *   proveedor, o un valor anómalo grave (`quality_flags` 'anomalo') en el
  *   último lote guardado. Solo un refresco con éxito lo levanta: la
  *   evaluación nunca degrada 'no-fiable'.
+ * - 'sin-cobertura': lo escribe la ingesta cuando el proveedor no cubre
+ *   el símbolo (respuesta vacía sin historial previo o 404 'not-found').
+ *   No cuenta como estado malo: queda fuera del resumen global (va en la
+ *   lista `uncovered`), no notifica y la caducidad no lo degrada — el
+ *   símbolo no existe para el proveedor, no es un dato atrasado. Solo lo
+ *   levanta una ingesta que traiga velas reales.
  *
  * Notificaciones (`services/notifications`): al empeorar el estado se envía
  * 'alerta' para 'desactualizado' y 'critica' para 'no-fiable'; las
@@ -48,19 +58,23 @@ import {
   IpcValidationError,
   isDataStatusState,
   isE2eEnabled,
+  type AssetClass,
   type DataFreshnessItem,
   type DataFreshnessState,
   type DataFreshnessSummary,
   type DataStatusEntry,
   type DataStatusState,
   type NotificationPayload,
+  type UncoveredAsset,
 } from '../../shared/ipc';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
-import { bondCalendar } from './calendar';
+import { bondCalendar, fxCalendar } from './calendar';
 import type { MarketSession } from './calendar';
+import { tickerSuggestions } from './providers/suggestions';
 import { createMarketRepository, type MarketRepository } from './repository';
+import { plainStatusReason, PROVIDER_LABELS } from './statusReason';
 
 // ---------------------------------------------------------------------------
 // Constantes y tipos
@@ -98,18 +112,17 @@ const BOND_CALENDAR_SERIES = new Set(['DFF', 'DGS2', 'DGS10', 'T10Y2Y']);
  */
 const MONTHLY_PUBLICATION_DAY = 20;
 
-/** Nombres legibles de los proveedores conocidos (franja y resumen de frescura). */
-const PROVIDER_LABELS: Record<string, string> = {
-  tiingo: 'Tiingo',
-  fred: 'FRED',
-  simulated: 'Proveedor simulado',
-  'macro-simulated': 'Proveedor macro simulado',
-};
 const MACRO_PROVIDER_IDS = new Set(['fred', 'macro-simulated']);
 
 export type TimerHandle = ReturnType<typeof setTimeout>;
 
-/** Lo que la vigilancia necesita del calendario de NYSE (inyectable). */
+/** Un activo de la lista tal como lo vigila la salud: su símbolo y su tipo. */
+interface WatchedAsset {
+  ticker: string;
+  assetClass: AssetClass;
+}
+
+/** Lo que la vigilancia necesita de un calendario de sesiones (inyectable). */
 export interface HealthCalendar {
   lastExpectedSession(now: number): MarketSession | null;
   expectedSessionsBetween(desde: string, hasta: string): MarketSession[];
@@ -123,8 +136,10 @@ export interface DataHealthDeps {
   notify?(payload: NotificationPayload): void;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?: () => number;
-  /** Calendario de sesiones; por defecto el real de NYSE. */
+  /** Calendario de sesiones de las acciones; por defecto el real de NYSE. */
   calendar?: HealthCalendar;
+  /** Calendario de los pares de divisas; por defecto el 24/5 (`fxCalendar`). */
+  fxCalendar?: HealthCalendar;
   /** Temporizadores inyectables para las pruebas; por defecto los globales. */
   setTimer?: (callback: () => void, delayMs: number) => TimerHandle;
   clearTimer?: (handle: TimerHandle) => void;
@@ -134,6 +149,12 @@ export interface DataHealthDeps {
   maxFailures?: number;
   /** Silencio que cierra la ventana de puesta al día; por defecto 15 s. */
   catchupQuietMs?: number;
+  /**
+   * Alternativa operable sugerida para un ticker sin cobertura ('EUR' →
+   * 'FXE'); rellena `suggestion` en la lista `uncovered` del resumen.
+   * Sin la dependencia las sugerencias salen a null.
+   */
+  suggestAlternative?(ticker: string): string | null;
   logger?: { warn(message: string): void; info?(message: string): void };
 }
 
@@ -167,6 +188,9 @@ export interface DataHealthService {
 const SEVERITY: Record<DataStatusState, number> = {
   fiable: 0,
   actualizando: 0,
+  // 'sin-cobertura' no es un estado malo: el símbolo no existe para el
+  // proveedor; no notifica ni ensombrece el resumen (va en `uncovered`).
+  'sin-cobertura': 0,
   desactualizado: 1,
   'no-fiable': 2,
 };
@@ -189,6 +213,10 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const repo = deps.repo;
   const now = deps.now ?? (() => Date.now());
   const calendar = deps.calendar ?? nyseCalendar;
+  const currencyCalendar = deps.fxCalendar ?? fxCalendar;
+  /** Calendario de un activo de la lista según su tipo. */
+  const calendarForAsset = (assetClass: AssetClass): HealthCalendar =>
+    assetClass === 'fx' ? currencyCalendar : calendar;
   const setTimer = deps.setTimer ?? ((cb, ms) => setTimeout(cb, ms));
   const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h));
   const evalIntervalMs = deps.evalIntervalMs ?? HEALTH_EVAL_INTERVAL_MS;
@@ -213,8 +241,31 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const catchUpTouched = new Set<string>();
   let catchUpLastActivity = Number.NEGATIVE_INFINITY;
 
+  /**
+   * Motivo en español llano para una clave de estado: la misma traducción
+   * (`statusReason`) que la ingesta al escribir, aplicada al leer para que
+   * las filas antiguas con texto técnico también salgan en llano.
+   */
+  const plainReasonFor = (
+    key: string,
+    state: DataStatusState,
+    reason: string | null,
+  ): string | null =>
+    plainStatusReason({
+      key,
+      state,
+      reason,
+      label: key.startsWith('macro:') ? freshnessLabel(key) : undefined,
+    });
+
   const emit = (patch: Parameters<MarketRepository['setDataStatus']>[0]): DataStatusEntry => {
-    const entry = repo.setDataStatus(patch);
+    const entry = repo.setDataStatus({
+      ...patch,
+      reason:
+        patch.reason === undefined || patch.reason === null
+          ? patch.reason
+          : plainReasonFor(patch.key, patch.state, patch.reason),
+    });
     deps.broadcast(IPC_CHANNELS.dataStatus.changed, entry);
     return entry;
   };
@@ -241,7 +292,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         ? `Tradia — ${label} no fiable`
         : `Tradia — ${label} desactualizado`;
     const body =
-      entry.reason ??
+      plainReasonFor(entry.key, entry.state, entry.reason) ??
       (entry.state === 'no-fiable'
         ? 'Fallos repetidos del proveedor o un valor anómalo grave; el dato no se usará para cálculos.'
         : 'Faltan datos recientes; se muestra el último lote válido.');
@@ -288,9 +339,30 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     return { respected: false, current: current?.state === 'actualizando' ? null : current };
   };
 
-  const computeTicker = (ticker: string): Desired | null => {
+  const computeTicker = ({ ticker, assetClass }: WatchedAsset): Desired | null => {
     const key = dataStatusKey.ticker(ticker);
     const rawCurrent = repo.getDataStatus(key);
+    const assetCalendar = calendarForAsset(assetClass);
+    // 'sin-cobertura' va primero: el contador de fallos no le aplica (no
+    // es un fallo del proveedor ni un dato atrasado). Solo lo levanta una
+    // ingesta que traiga velas ('fiable'); si los datos ya están
+    // guardados y al día (p. ej. llegaron por otra vía), la evaluación
+    // confirma el estado bueno.
+    if (rawCurrent?.state === 'sin-cobertura') {
+      const lastExpectedCovered = assetCalendar.lastExpectedSession(now());
+      const lastStoredCovered = repo.lastBarDate(ticker);
+      if (
+        lastStoredCovered !== null &&
+        lastExpectedCovered !== null &&
+        lastStoredCovered >= lastExpectedCovered.date
+      ) {
+        return lastBatchHasAnomaly(ticker)
+          ? { state: 'no-fiable', reason: 'valor anómalo grave en el último lote', anomaly: true }
+          : { state: 'fiable', reason: null, confirmOk: true };
+      }
+      return null;
+    }
+
     if ((rawCurrent?.consecutiveFailures ?? 0) >= maxFailures) {
       return {
         state: 'no-fiable',
@@ -300,7 +372,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // 'no-fiable' solo lo levanta un refresco con éxito (lo escribe el servicio).
     if (rawCurrent?.state === 'no-fiable') return null;
 
-    const lastExpected = calendar.lastExpectedSession(now());
+    const lastExpected = assetCalendar.lastExpectedSession(now());
     if (lastExpected === null) return null;
 
     const { respected, current } = respectsInFlight(rawCurrent);
@@ -320,7 +392,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // Primera sesión esperada que falta: su hora de actualización marca el
     // plazo (una sesión nueva no reinicia la caducidad de una más antigua).
     const searchFrom = lastStored === null ? shiftDays(lastExpected.date, -31) : lastStored;
-    const missing = calendar
+    const missing = assetCalendar
       .expectedSessionsBetween(shiftDays(searchFrom, 1), lastExpected.date)
       .filter((s) => lastStored === null || s.date > lastStored);
     const firstMissing = missing[0] ?? lastExpected;
@@ -499,6 +571,9 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
 
   const applyDesired = (key: string, desired: Desired, written: DataStatusEntry[]): void => {
     const current = repo.getDataStatus(key);
+    // Las filas antiguas con motivo técnico no se reescriben aquí (salen
+    // en llano al leerse): tocar solo el texto emitiría un cambio y
+    // volvería a notificar el mismo estado malo.
     if (!needsWrite(current, desired)) return;
     written.push(
       emit({
@@ -519,9 +594,9 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const evaluate = (): DataStatusEntry[] => {
     const written: DataStatusEntry[] = [];
     try {
-      for (const { ticker } of repo.listWatchlist()) {
-        const desired = computeTicker(ticker);
-        if (desired) applyDesired(dataStatusKey.ticker(ticker), desired, written);
+      for (const item of repo.listWatchlist()) {
+        const desired = computeTicker(item);
+        if (desired) applyDesired(dataStatusKey.ticker(item.ticker), desired, written);
       }
       for (const series of repo.listMacroSeries()) {
         const desired = computeMacro(series.id, series.frequency);
@@ -554,8 +629,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
       catchUpLastActivity = now();
     }
     // Regla central de los 3 fallos: aunque el escritor dejara otro estado,
-    // el contador manda y la clave pasa a 'no-fiable'.
-    if (entry.state !== 'no-fiable' && (entry.consecutiveFailures ?? 0) >= maxFailures) {
+    // el contador manda y la clave pasa a 'no-fiable'. 'sin-cobertura'
+    // queda al margen: no es un fallo del proveedor ni del dato.
+    if (
+      entry.state !== 'no-fiable' &&
+      entry.state !== 'sin-cobertura' &&
+      (entry.consecutiveFailures ?? 0) >= maxFailures
+    ) {
       entry = emit({
         key: entry.key,
         state: 'no-fiable',
@@ -661,13 +741,15 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   const pendingFetchKeys = (): Set<string> => {
     const pending = new Set<string>();
     const lastExpected = calendar.lastExpectedSession(now());
-    if (lastExpected === null) return pending;
-    for (const { ticker } of repo.listWatchlist()) {
+    for (const { ticker, assetClass } of repo.listWatchlist()) {
+      const expected = calendarForAsset(assetClass).lastExpectedSession(now());
+      if (expected === null) continue;
       const last = repo.lastBarDate(ticker);
-      if (last === null || last < lastExpected.date) {
+      if (last === null || last < expected.date) {
         pending.add(dataStatusKey.ticker(ticker));
       }
     }
+    if (lastExpected === null) return pending;
     for (const series of repo.listMacroSeries()) {
       const lastObs = repo.lastMacroObservationDate(series.id);
       const expectedMin = expectedMacroMinDate(series.id, series.frequency, lastExpected.date);
@@ -718,13 +800,19 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   };
 
   const freshness = (): DataFreshnessSummary => {
+    const watchlist = repo.listWatchlist();
+    // Solo pesan los estados de los activos que siguen en la lista: una
+    // fila 'ticker:X' huérfana (una baja que no la borró, un estado
+    // reescrito por una pasada en vuelo o una versión anterior que no lo
+    // hacía) no puede volver a mostrar el aviso del activo quitado.
+    const watchedTickerKeys = new Set(watchlist.map((item) => dataStatusKey.ticker(item.ticker)));
     const entries = repo
       .listDataStatus()
       .filter(
         (entry) =>
-          entry.key.startsWith('ticker:') ||
           entry.key.startsWith('macro:') ||
-          entry.key.startsWith('provider:'),
+          entry.key.startsWith('provider:') ||
+          (entry.key.startsWith('ticker:') && watchedTickerKeys.has(entry.key)),
       );
     // Los 'actualizando' escritos sin pasar por observe() (p. ej. antes
     // de que la vigilancia envolviera broadcast) también abren ventana.
@@ -745,14 +833,15 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // datos todavía no cuenta: no hay «último dato» que caducar —el
     // estado 'sin datos' lo da el conjunto, no el fallo del proveedor.
     const behind = new Set<string>();
+    for (const { ticker, assetClass } of watchlist) {
+      const expected = calendarForAsset(assetClass).lastExpectedSession(now());
+      const last = repo.lastBarDate(ticker);
+      if (expected !== null && last !== null && last < expected.date) {
+        behind.add(dataStatusKey.ticker(ticker));
+      }
+    }
     const lastExpectedForBehind = calendar.lastExpectedSession(now());
     if (lastExpectedForBehind !== null) {
-      for (const { ticker } of repo.listWatchlist()) {
-        const last = repo.lastBarDate(ticker);
-        if (last !== null && last < lastExpectedForBehind.date) {
-          behind.add(dataStatusKey.ticker(ticker));
-        }
-      }
       for (const series of repo.listMacroSeries()) {
         const lastObs = repo.lastMacroObservationDate(series.id);
         if (
@@ -794,7 +883,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
               .map((child) => lastDataDateFor(child))
               .filter((date): date is string => date !== null)
               .sort()[0] ?? null,
-          reason: entry.reason,
+          reason: plainReasonFor(entry.key, entry.state, entry.reason),
         });
         continue;
       }
@@ -803,7 +892,7 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
         label: freshnessLabel(entry.key),
         state: entry.state,
         lastDataDate: lastDataDateFor(entry.key),
-        reason: entry.reason,
+        reason: plainReasonFor(entry.key, entry.state, entry.reason),
       });
     }
 
@@ -811,17 +900,18 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
     // red o antes de la primera evaluación, un dato viejo no espera a
     // que observe/evaluate lo marque — la frescura lo calcula igual.
     const covered = new Set(items.map((item) => item.key));
-    for (const { ticker } of repo.listWatchlist()) {
+    for (const asset of watchlist) {
+      const { ticker } = asset;
       const key = dataStatusKey.ticker(ticker);
       if (covered.has(key)) continue;
-      const desired = computeTicker(ticker);
+      const desired = computeTicker(asset);
       if (desired !== null && isBad(desired.state)) {
         items.push({
           key,
           label: ticker,
           state: desired.state,
           lastDataDate: repo.lastBarDate(ticker),
-          reason: desired.reason,
+          reason: plainReasonFor(key, desired.state, desired.reason),
         });
       }
     }
@@ -835,13 +925,29 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
           label: series.name,
           state: desired.state,
           lastDataDate: repo.lastMacroObservationDate(series.id),
-          reason: desired.reason,
+          reason: plainReasonFor(key, desired.state, desired.reason),
         });
       }
     }
 
     // Las más antiguas primero: el último dato más viejo marca el «desde».
     items.sort((a, b) => (a.lastDataDate ?? '9999').localeCompare(b.lastDataDate ?? '9999'));
+
+    // Activos sin cobertura en el proveedor: lista aparte del resumen.
+    // No cuentan en `items` ni deciden `state` — un símbolo que el
+    // proveedor no cubre no es un dato malo ni atrasado—, pero la
+    // interfaz los nombra con su motivo y una alternativa si la hay.
+    const uncovered: UncoveredAsset[] = entries
+      .filter((entry) => entry.key.startsWith('ticker:') && entry.state === 'sin-cobertura')
+      .map((entry) => {
+        const ticker = entry.key.slice('ticker:'.length);
+        return {
+          ticker,
+          reason: plainReasonFor(entry.key, entry.state, entry.reason),
+          suggestion: deps.suggestAlternative?.(ticker) ?? null,
+        };
+      })
+      .sort((a, b) => a.ticker.localeCompare(b.ticker));
 
     // 'catching-up' por encima de 'stale': mientras corre la puesta al
     // día el aviso es «Poniéndose al día…», no «desactualizado».
@@ -855,23 +961,43 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
             ? 'current'
             : 'no-data';
 
-    const lastExpected = calendar.lastExpectedSession(now());
-    const expectedSessionDate = lastExpected?.date ?? null;
+    // Sesión esperada del resumen: la de NYSE o, con divisas en la lista,
+    // la vela 24/5 si es más reciente (p. ej. en un festivo de NYSE).
+    const assetClassByKey = new Map(
+      watchlist.map((item) => [dataStatusKey.ticker(item.ticker), item.assetClass] as const),
+    );
+    const usedClasses = new Set<AssetClass>(['equity', ...assetClassByKey.values()]);
+    const expectedSessionDate =
+      [...usedClasses]
+        .map((assetClass) => calendarForAsset(assetClass).lastExpectedSession(now())?.date)
+        .filter((date): date is string => date !== undefined)
+        .sort()
+        .at(-1) ?? null;
     const sinceDate =
       items
         .map((item) => item.lastDataDate)
         .filter((date): date is string => date !== null)
         .sort()[0] ?? null;
-    const missingSessions =
-      sinceDate !== null && expectedSessionDate !== null && sinceDate < expectedSessionDate
-        ? calendar.expectedSessionsBetween(shiftDays(sinceDate, 1), expectedSessionDate).length
-        : 0;
+    // Sesiones que faltan al más atrasado, cada uno con su calendario
+    // (las series y los proveedores, con el de NYSE).
+    const missingSessions = items.reduce((max, item) => {
+      if (item.lastDataDate === null) return max;
+      const itemCalendar = calendarForAsset(assetClassByKey.get(item.key) ?? 'equity');
+      const expected = itemCalendar.lastExpectedSession(now());
+      if (expected === null || item.lastDataDate >= expected.date) return max;
+      const count = itemCalendar.expectedSessionsBetween(
+        shiftDays(item.lastDataDate, 1),
+        expected.date,
+      ).length;
+      return Math.max(max, count);
+    }, 0);
     return {
       state,
       sinceDate,
       expectedSessionDate,
       missingSessions,
       items,
+      uncovered,
       // Solo durante la puesta al día: «Descargando X de Y activos».
       progress: state === 'catching-up' ? catchUpProgress() : null,
       updatedAt: isoNow(),
@@ -891,7 +1017,13 @@ export function createDataHealthService(deps: DataHealthDeps): DataHealthService
   };
 
   const service: DataHealthService = {
-    list: () => repo.listDataStatus(),
+    // Los motivos salen en llano también para las filas escritas por
+    // versiones anteriores («ticker 'EUR' no existe» y similares).
+    list: () =>
+      repo.listDataStatus().map((entry) => ({
+        ...entry,
+        reason: plainReasonFor(entry.key, entry.state, entry.reason),
+      })),
     evaluate,
     observe,
     freshness,
@@ -961,6 +1093,8 @@ export function registerHealth(
     notify: (payload) => ctx.services.notifications?.notify(payload),
     now: options.clock ? () => options.clock!.now() : options.now,
     evalIntervalMs: options.evalIntervalMs,
+    // Alternativas conocidas para activos sin cobertura (EUR → FXE).
+    suggestAlternative: (ticker) => tickerSuggestions(ticker)[0] ?? null,
     logger: console,
   });
 

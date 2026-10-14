@@ -50,7 +50,6 @@ import {
   type SignalIntent,
   type SimulateCalendarEventRequest,
 } from '../../shared/ipc';
-import { normalizeFxPair } from '../../shared/fx';
 import {
   exposureCurrencyOf,
   FX_ANALYSIS_ONLY_REASON,
@@ -93,6 +92,7 @@ export const RISK_SERVICE_ERROR_CODES = [
   'limites-invalidos',
   'limites-fuera-de-margen',
   'posicion-invalida',
+  'parada-activa',
 ] as const;
 export type RiskServiceErrorCode = (typeof RISK_SERVICE_ERROR_CODES)[number];
 
@@ -381,7 +381,7 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
     },
 
     openPaperPosition: (input) => {
-      const ticker = normalizeFxPair(input.ticker) ?? input.ticker.trim().toUpperCase();
+      const ticker = input.ticker.trim().toUpperCase();
       if (!TICKER_PATTERN.test(ticker)) {
         throw invalidPosition(`activo inválido: ${input.ticker}`);
       }
@@ -402,6 +402,14 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
       // aunque llegue una petición (defensa en profundidad del seguidor).
       if (signalDestinationOf(ticker).destination === 'solo-analisis') {
         throw invalidPosition(`${ticker}: ${FX_ANALYSIS_ONLY_REASON}`);
+      }
+      // Con la parada activa no entra ninguna posición nueva (acciones o
+      // divisas), aunque la señal se aprobara antes de activarse.
+      if (deps.killSwitch.getState().active) {
+        throw new RiskServiceError(
+          'parada-activa',
+          `[parada-activa] no se abre la posición simulada de ${ticker}: parada de emergencia activa`,
+        );
       }
       return deps.repo.openPaperPosition({
         ...input,

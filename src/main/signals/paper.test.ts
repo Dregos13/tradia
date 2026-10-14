@@ -127,6 +127,8 @@ const approvedSignal = (patch: Partial<Signal> = {}): Signal => ({
     reasons: [],
     decidedAt: new Date(NOW).toISOString(),
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: new Date(NOW).toISOString(),
   ...patch,
 });
@@ -414,8 +416,8 @@ describe('seguimiento de pares de divisas', () => {
 
     const entry = journal.find((e) => e.type === 'operacion')!;
     expect(entry.reason).toContain('EUR/USD');
-    expect(entry.reason).toContain('1.1050');
-    expect(entry.reason).toContain('1.1000');
+    expect(entry.reason).toContain('1.105');
+    expect(entry.reason).toContain('1.1 ');
     expect(entry.result).toBe('perdida');
   });
 });

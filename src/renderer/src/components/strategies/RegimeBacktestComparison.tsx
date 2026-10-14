@@ -104,6 +104,7 @@ export function RegimeBacktestComparison({
   return (
     <section
       className="strategy-section"
+      data-layout-block="seccion"
       aria-labelledby="regime-comparison"
       aria-busy={result.loading || running}
     >

@@ -30,16 +30,23 @@
  * 4. Se llama a `strategy.onBar` con el contexto truncado; las órdenes que
  *    emita quedan pendientes para la próxima vela de cada activo.
  *
+ * Costes por activo: un par de divisas (EURUSD…) usa los costes de
+ * divisas (`fxCosts`, por defecto `DEFAULT_FX_COSTS`: deslizamiento fijo
+ * de 2 pb, sin comisión ni spread aparte); el resto de activos, `costs`.
+ * Así un universo mixto cobra a cada activo su coste propio.
+ *
  * Antes de `startDate` las sesiones son de calentamiento: la estrategia ve
  * las velas (`context.warmup === true`) pero sus órdenes se descartan y la
  * curva no registra puntos.
  */
 import { REGIME_LABELS, REGIME_MARKET_TICKER, type RegimeLabel } from '../../shared/ai';
+import { isFxSymbol } from '../../shared/fxTrading';
 import { TICKER_PATTERN, type SessionDate } from '../market/providers/types';
 import { createRegimeClassifier } from '../ai/regime/classifier';
 import { resolveStrategyRegime } from '../ai/regime/enablement';
 import {
   DEFAULT_COSTS,
+  DEFAULT_FX_COSTS,
   DEFAULT_INITIAL_CASH,
   DEFAULT_MAX_POSITIONS,
   DEFAULT_RISK_PER_TRADE,
@@ -68,6 +75,8 @@ import {
 interface NormalizedConfig {
   initialCash: number;
   costs: CostConfig;
+  /** Costes de los pares de divisas. */
+  fxCosts: CostConfig;
   riskPerTrade: number;
   maxPositions: number;
   startDate: SessionDate | null;
@@ -82,22 +91,29 @@ function assertFinite(value: number, field: string): void {
   }
 }
 
-function normalizeConfig(input: BacktestInput): NormalizedConfig {
-  const costs = { ...DEFAULT_COSTS, ...input.costs };
-  for (const [field, value] of Object.entries(costs)) {
-    assertFinite(value, `costs.${field}`);
+function normalizeCosts(costs: CostConfig, field: 'costs' | 'fxCosts'): CostConfig {
+  for (const [key, value] of Object.entries(costs)) {
+    assertFinite(value, `${field}.${key}`);
     if (value < 0) {
-      throw new RangeError(`backtest: 'costs.${field}' no puede ser negativo (${value})`);
+      throw new RangeError(`backtest: '${field}.${key}' no puede ser negativo (${value})`);
     }
   }
   if (costs.commissionPct >= 1) {
-    throw new RangeError(`backtest: 'costs.commissionPct' debe ser < 1 (${costs.commissionPct})`);
+    throw new RangeError(
+      `backtest: '${field}.commissionPct' debe ser < 1 (${costs.commissionPct})`,
+    );
   }
   if (costs.slippageBp + costs.spreadBp >= 10_000) {
     throw new RangeError(
       `backtest: slippage + spread debe ser < 10 000 pb (${costs.slippageBp + costs.spreadBp})`,
     );
   }
+  return costs;
+}
+
+function normalizeConfig(input: BacktestInput): NormalizedConfig {
+  const costs = normalizeCosts({ ...DEFAULT_COSTS, ...input.costs }, 'costs');
+  const fxCosts = normalizeCosts({ ...DEFAULT_FX_COSTS, ...input.fxCosts }, 'fxCosts');
 
   const initialCash = input.initialCash ?? DEFAULT_INITIAL_CASH;
   assertFinite(initialCash, 'initialCash');
@@ -134,7 +150,7 @@ function normalizeConfig(input: BacktestInput): NormalizedConfig {
     );
   }
 
-  return { initialCash, costs, riskPerTrade, maxPositions, startDate, endDate };
+  return { initialCash, costs, fxCosts, riskPerTrade, maxPositions, startDate, endDate };
 }
 
 interface ListingWindow {
@@ -547,11 +563,22 @@ export function runBacktest(input: BacktestInput): BacktestResult {
   let cash = config.initialCash;
   let lastEquity = config.initialCash;
 
-  const buyFactor = 1 + (config.costs.slippageBp + config.costs.spreadBp) / 10_000;
-  const sellFactor = 1 - (config.costs.slippageBp + config.costs.spreadBp) / 10_000;
+  /** Costes del activo: los de divisas para un par, los generales para el resto. */
+  const costsOf = (ticker: string): CostConfig =>
+    isFxSymbol(ticker) ? config.fxCosts : config.costs;
+  const buyFactorOf = (ticker: string): number => {
+    const costs = costsOf(ticker);
+    return 1 + (costs.slippageBp + costs.spreadBp) / 10_000;
+  };
+  const sellFactorOf = (ticker: string): number => {
+    const costs = costsOf(ticker);
+    return 1 - (costs.slippageBp + costs.spreadBp) / 10_000;
+  };
 
-  const commission = (notional: number): number =>
-    Math.max(config.costs.commissionMin, notional * config.costs.commissionPct);
+  const commission = (ticker: string, notional: number): number => {
+    const costs = costsOf(ticker);
+    return Math.max(costs.commissionMin, notional * costs.commissionPct);
+  };
 
   /**
    * Nominal comprometido en cortos abiertos (acciones × precio de
@@ -578,14 +605,14 @@ export function runBacktest(input: BacktestInput): BacktestResult {
   const affordCapital = (): number => Math.max(0, Math.min(cash, lastEquity - openShortNotional()));
 
   /** Máximo de acciones que el capital disponible permite, comisión incluida. */
-  const affordableShares = (fill: number): number => {
+  const affordableShares = (ticker: string, fill: number): number => {
     const base = affordCapital();
+    const costs = costsOf(ticker);
     const byPct =
-      config.costs.commissionPct > 0
-        ? base / (fill * (1 + config.costs.commissionPct))
+      costs.commissionPct > 0
+        ? base / (fill * (1 + costs.commissionPct))
         : Number.POSITIVE_INFINITY;
-    const byMin =
-      config.costs.commissionMin > 0 ? (base - config.costs.commissionMin) / fill : base / fill;
+    const byMin = costs.commissionMin > 0 ? (base - costs.commissionMin) / fill : base / fill;
     return Math.max(0, Math.floor(Math.min(byPct, byMin)));
   };
 
@@ -620,9 +647,10 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     const isLong = position.side === 'largo';
     // El coste siempre en contra: el largo vende por debajo del precio y
     // el corto recompra por encima.
-    const exitPrice = basePrice * (isLong ? sellFactor : buyFactor);
+    const exitPrice =
+      basePrice * (isLong ? sellFactorOf(position.ticker) : buyFactorOf(position.ticker));
     const value = position.shares * exitPrice;
-    const exitCommission = commission(value);
+    const exitCommission = commission(position.ticker, value);
     const exitSlippage = Math.abs(exitPrice - basePrice) * position.shares;
     if (isLong) {
       cash += value - exitCommission;
@@ -657,11 +685,11 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     order: Extract<PendingOrder, { kind: 'buy' }>,
   ): void => {
     if (positions.has(asset.ticker) || positions.size >= config.maxPositions) return;
-    const fill = bar.open * buyFactor;
-    const shares = Math.min(desiredShares(fill, order), affordableShares(fill));
+    const fill = bar.open * buyFactorOf(asset.ticker);
+    const shares = Math.min(desiredShares(fill, order), affordableShares(asset.ticker, fill));
     if (shares < 1) return;
     const notional = shares * fill;
-    const entryCommission = commission(notional);
+    const entryCommission = commission(asset.ticker, notional);
     cash -= notional + entryCommission;
     positions.set(asset.ticker, {
       ticker: asset.ticker,
@@ -686,11 +714,11 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     // Abrir un corto es vender: el precio ejecutado queda por debajo de la
     // apertura (slippage + spread en contra) y el cobro entra en caja como
     // garantía retenida —`openShortNotional` lo descuenta de la exposición—.
-    const fill = bar.open * sellFactor;
+    const fill = bar.open * sellFactorOf(asset.ticker);
     const shares = Math.min(desiredShares(fill, order), shortAffordableShares(fill));
     if (shares < 1) return;
     const notional = shares * fill;
-    const entryCommission = commission(notional);
+    const entryCommission = commission(asset.ticker, notional);
     if (notional - entryCommission <= 0) return;
     cash += notional - entryCommission;
     positions.set(asset.ticker, {

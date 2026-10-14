@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StrategiesPage } from './components/strategies/StrategiesPage';
 import { RiskGate } from './components/RiskGate';
 import { RiskDisclaimer } from './components/RiskDisclaimer';
+import { TradiaBrand } from './components/TradiaBrand';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { SettingsPage } from './components/SettingsPage';
 import { MarketDataPage } from './components/MarketDataPage';
@@ -29,6 +30,7 @@ import { ProviderBanner } from './components/ProviderBanner';
 import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
+import { useScrollHint } from './hooks/useScrollHint';
 
 type Page =
   | 'ia'
@@ -105,6 +107,8 @@ function AppShell() {
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
+  const nav = useRef<HTMLElement>(null);
+  const navMoreBelow = useScrollHint(nav);
   const previousPage = useRef(page);
   useEffect(() => {
     if (previousPage.current === page) return;
@@ -116,9 +120,9 @@ function AppShell() {
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
-      <aside className="side">
-        <div className="logo">Tradia</div>
-        <nav className="nav" aria-label="Principal">
+      <aside className="side" data-more-below={navMoreBelow || undefined}>
+        <TradiaBrand />
+        <nav ref={nav} className="nav" aria-label="Principal">
           <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
             Inicio
           </a>
@@ -224,95 +228,106 @@ function AppShell() {
             <ReconcileBannerContent state={reconciliation} />
           )}
         </div>
+        {!discrepancy && <ReconcileBannerContent state={reconciliation} />}
       </div>
-      {!discrepancy && <ReconcileBannerContent state={reconciliation} />}
-      <main id="contenido" className="main" tabIndex={-1}>
+      <main
+        id="contenido"
+        className="main"
+        tabIndex={-1}
+        data-layout-page={legalOpen ? 'legal' : page}
+      >
         <ProviderBanner offline={state.connectivity?.status === 'offline'} />
-        {legalOpen ? (
-          <RiskDisclaimer
-            onClose={() => {
-              setLegalOpen(false);
-              requestAnimationFrame(() => legalButton.current?.focus());
-            }}
-          />
-        ) : page === 'ia' ? (
-          <AiPage
-            onOpenStrategy={(id) => {
-              window.location.hash = `estrategias/${id}`;
-            }}
-            onOpenMarketSources={() => {
-              window.location.hash = 'mercado';
-            }}
-          />
-        ) : page === 'salud-modelos' ? (
-          <ModelHealthPage />
-        ) : page === 'dinero-real' ? (
-          <>
-            <ChecklistPage
-              onOpenValidation={() => {
-                window.location.hash = 'estrategias';
-              }}
-              onOpenPaper={() => {
-                window.location.hash = 'real-vs-backtest';
-              }}
-              onOpenAlerts={() => {
-                window.location.hash = 'ajustes';
-              }}
-              onOpenStrategies={() => {
-                window.location.hash = 'estrategias';
+        <div className="app-page" data-layout-block="pantalla">
+          {legalOpen ? (
+            <RiskDisclaimer
+              onClose={() => {
+                setLegalOpen(false);
+                requestAnimationFrame(() => legalButton.current?.focus());
               }}
             />
-            <SmokeTestPanel />
-            <ScalingStatus
-              onOpenEvidence={() => {
-                window.location.hash = 'real-vs-backtest';
+          ) : page === 'ia' ? (
+            <AiPage
+              onOpenStrategy={(id) => {
+                window.location.hash = `estrategias/${id}`;
+              }}
+              onOpenMarketSources={() => {
+                window.location.hash = 'mercado';
               }}
             />
-          </>
-        ) : page === 'ordenes' ? (
-          <OrdersPage />
-        ) : page === 'real-vs-backtest' ? (
-          <DeviationPage />
-        ) : page === 'diario' ? (
-          <JournalPage />
-        ) : page === 'riesgo' ? (
-          <RiskPage risk={risk} />
-        ) : page === 'estrategias' ? (
-          <StrategiesPage />
-        ) : page === 'inicio' ? (
-          <>
-            <FirstStepsCard />
-            <HomePhaseNotices live={live} />
-            <HomePage state={state} />
-          </>
-        ) : page === 'mercado' || page === 'macro' ? (
-          <MarketDataPage kind={page} offline={state.connectivity?.status === 'offline'} />
-        ) : page === 'noticias' ? (
-          <NewsPage />
-        ) : page === 'calendario' ? (
-          <CalendarPage />
-        ) : page === 'fuentes' ? (
-          <SourcesPage />
-        ) : (
-          <>
-            <SettingsPage state={state} />
-            <section className="settings-section" aria-labelledby="legal-heading">
-              <div>
-                <h2 id="legal-heading">Legal</h2>
-                <p>Información siempre accesible.</p>
-              </div>
-              <div className="legal-panel">
-                <p>
-                  Tradia no es asesoramiento financiero. El modo predeterminado usa señales
-                  informativas y paper trading.
-                </p>
-                <button ref={legalButton} className="legal-link" onClick={() => setLegalOpen(true)}>
-                  Ver aviso de riesgo, versión {RISK_DISCLAIMER_VERSION}
-                </button>
-              </div>
-            </section>
-          </>
-        )}
+          ) : page === 'salud-modelos' ? (
+            <ModelHealthPage />
+          ) : page === 'dinero-real' ? (
+            <>
+              <ChecklistPage
+                onOpenValidation={() => {
+                  window.location.hash = 'estrategias';
+                }}
+                onOpenPaper={() => {
+                  window.location.hash = 'real-vs-backtest';
+                }}
+                onOpenAlerts={() => {
+                  window.location.hash = 'ajustes';
+                }}
+                onOpenStrategies={() => {
+                  window.location.hash = 'estrategias';
+                }}
+              />
+              <SmokeTestPanel />
+              <ScalingStatus
+                onOpenEvidence={() => {
+                  window.location.hash = 'real-vs-backtest';
+                }}
+              />
+            </>
+          ) : page === 'ordenes' ? (
+            <OrdersPage />
+          ) : page === 'real-vs-backtest' ? (
+            <DeviationPage />
+          ) : page === 'diario' ? (
+            <JournalPage />
+          ) : page === 'riesgo' ? (
+            <RiskPage risk={risk} />
+          ) : page === 'estrategias' ? (
+            <StrategiesPage />
+          ) : page === 'inicio' ? (
+            <>
+              <FirstStepsCard />
+              <HomePhaseNotices live={live} />
+              <HomePage state={state} />
+            </>
+          ) : page === 'mercado' || page === 'macro' ? (
+            <MarketDataPage kind={page} offline={state.connectivity?.status === 'offline'} />
+          ) : page === 'noticias' ? (
+            <NewsPage />
+          ) : page === 'calendario' ? (
+            <CalendarPage />
+          ) : page === 'fuentes' ? (
+            <SourcesPage />
+          ) : (
+            <>
+              <SettingsPage state={state} />
+              <section className="settings-section" aria-labelledby="legal-heading">
+                <div>
+                  <h2 id="legal-heading">Legal</h2>
+                  <p>Información siempre accesible.</p>
+                </div>
+                <div className="legal-panel">
+                  <p>
+                    Tradia no es asesoramiento financiero. El modo predeterminado usa señales
+                    informativas y paper trading.
+                  </p>
+                  <button
+                    ref={legalButton}
+                    className="legal-link"
+                    onClick={() => setLegalOpen(true)}
+                  >
+                    Ver aviso de riesgo, versión {RISK_DISCLAIMER_VERSION}
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
       </main>
       <StatusBar state={state} killSwitch={risk.killSwitch} />
     </div>

@@ -32,6 +32,7 @@ import { sessionDateLabel } from '../../../shared/dates';
 import { nextUpdateAt } from '../calendar';
 import { MarketDataError, type MarketDataErrorKind } from '../providers/types';
 import type { MarketRepository } from '../repository';
+import { plainStatusReason } from '../statusReason';
 import type { MacroDataProvider, MacroObservation } from './types';
 import { macroBatchHash } from './version';
 
@@ -408,16 +409,32 @@ export function createMacroService(deps: MacroServiceDeps): MacroService {
 
     getSeries: (query) => {
       if (!repository) return [];
-      return repository.listMacroSeries().map((row) => ({
-        id: row.id,
-        name: row.name,
-        unit: row.unit,
-        frequency: row.frequency,
-        observations: repository
-          .getMacroObservations(row.id, query?.desde)
-          .map((obs) => ({ date: obs.date, value: obs.value })),
-        status: repository.getDataStatus(dataStatusKey.macro(row.id)),
-      }));
+      return repository.listMacroSeries().map((row) => {
+        const status = repository.getDataStatus(dataStatusKey.macro(row.id));
+        return {
+          id: row.id,
+          name: row.name,
+          unit: row.unit,
+          frequency: row.frequency,
+          observations: repository
+            .getMacroObservations(row.id, query?.desde)
+            .map((obs) => ({ date: obs.date, value: obs.value })),
+          // El motivo sale en llano aunque la fila la escribiera una
+          // versión anterior con texto técnico («kind: [fred] …»).
+          status:
+            status === null
+              ? null
+              : {
+                  ...status,
+                  reason: plainStatusReason({
+                    key: status.key,
+                    state: status.state,
+                    reason: status.reason,
+                    label: row.name,
+                  }),
+                },
+        };
+      });
     },
 
     nextRunAt: () => nextRun,

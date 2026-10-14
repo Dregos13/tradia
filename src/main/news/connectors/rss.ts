@@ -34,6 +34,7 @@ import {
   type NewsConnector,
   type RawNewsItem,
 } from './types';
+import { decodeHtmlEntities } from './entities';
 
 export const RSS_CONNECTOR_ID = 'rss';
 /**
@@ -92,22 +93,14 @@ const attrOf = (node: XmlNode, name: string): string | null => {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 };
 
-/** Quita etiquetas y entidades básicas; el parser ya decodificó el XML. */
+/** Quita etiquetas y decodifica entidades una vez; el parser ya deshizo la capa XML. */
 export function stripHtml(html: string): string {
   const noTags = html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]*>/g, ' ');
-  const decoded = noTags
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#(x?[0-9a-f]+);/gi, (_m, code: string) => {
-      const n = code.startsWith('x') ? Number.parseInt(code.slice(1), 16) : Number(code);
-      return Number.isFinite(n) ? String.fromCodePoint(n) : ' ';
-    });
+  // Una sola pasada: «&amp;lt;» queda «&lt;», no «<».
+  const decoded = decodeHtmlEntities(noTags);
   return decoded.replace(/\s+/g, ' ').trim();
 }
 
@@ -172,7 +165,7 @@ function mapRssItem(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
   const summary = textOf(childOf(raw, 'content:encoded')) ?? textOf(childOf(raw, 'description'));
 
   return {
-    title: truncateText(title, MAX_ITEM_TITLE_LENGTH),
+    title: truncateText(decodeHtmlEntities(title).trim(), MAX_ITEM_TITLE_LENGTH),
     url,
     publishedAt,
     summary: summary ? truncateText(stripHtml(summary), MAX_ITEM_SUMMARY_LENGTH) : null,
@@ -208,7 +201,7 @@ function mapAtomEntry(raw: XmlNode, ctx: MapContext): RawNewsItem | null {
   const summary = textOf(childOf(raw, 'summary')) ?? textOf(childOf(raw, 'content'));
 
   return {
-    title: truncateText(title, MAX_ITEM_TITLE_LENGTH),
+    title: truncateText(decodeHtmlEntities(title).trim(), MAX_ITEM_TITLE_LENGTH),
     url,
     publishedAt,
     summary: summary ? truncateText(stripHtml(summary), MAX_ITEM_SUMMARY_LENGTH) : null,

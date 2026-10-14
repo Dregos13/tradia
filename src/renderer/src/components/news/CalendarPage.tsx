@@ -116,15 +116,20 @@ export function CalendarPage() {
     .sort((a, b) => a.dateUtc.localeCompare(b.dateUtc));
   const next = events.find((event) => new Date(event.dateUtc).getTime() > now)?.id;
   return (
-    <section className="calendar-page" aria-label="Calendario económico" aria-busy={data.loading}>
-      <div className="headline">
+    <section
+      data-layout-page="calendario"
+      className="calendar-page"
+      aria-label="Calendario económico"
+      aria-busy={data.loading}
+    >
+      <div className="headline" data-layout-block="cabecera">
         <h2>Calendario económico y de resultados</h2>
         <p>
           Hora local: {Intl.DateTimeFormat().resolvedOptions().timeZone} ·{' '}
           {clock.format(new Date(now))}
         </p>
       </div>
-      <div className="calendar-toolbar">
+      <div className="calendar-toolbar" data-layout-block="controles">
         <nav aria-label="Navegación semanal" data-testid="calendar-week-nav">
           <button className="button" onClick={() => setWeek(addDays(week, -7))}>
             ‹ Semana anterior
@@ -157,7 +162,7 @@ export function CalendarPage() {
         </label>
       </div>
       {key === false && (
-        <p className="calendar-notice" role="note">
+        <p className="calendar-notice" data-layout-block="aviso" role="note">
           Para ver los resultados trimestrales y estimaciones de BPA de tus activos, introduce una
           clave gratuita de Finnhub en <a href="#ajustes">Ajustes</a>.
         </p>
@@ -191,7 +196,7 @@ export function CalendarPage() {
           )}
         </div>
       ) : (
-        <div className="calendar-days">
+        <div className="calendar-days" data-layout-block="dias">
           {Array.from({ length: 7 }, (_, index) => {
             const day = addDays(week, index);
             const tomorrow = addDays(day, 1);
@@ -201,6 +206,7 @@ export function CalendarPage() {
             return rows.length ? (
               <section
                 className="calendar-day"
+                data-layout-block="dia"
                 key={day.toISOString()}
                 aria-label={dayLabel.format(day)}
               >

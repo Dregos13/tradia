@@ -92,9 +92,10 @@ export interface RegimeServiceDeps {
    * régimen — los datos llegan de una puesta al día atrasada y una
    * etiqueta calculada sobre ellos se presentaría como vigente—; el
    * overview la marca como desactualizada. Sin la dependencia no se
-   * aplica la guarda.
+   * aplica la guarda. Con `ticker` devuelve la sesión del calendario de
+   * ese activo (24/5 para un par de divisas); sin él, la del mercado.
    */
-  expectedSessionDate?(nowMs: number): string | null;
+  expectedSessionDate?(nowMs: number, ticker?: string): string | null;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   logger?: Partial<RegimeServiceLogger>;
@@ -232,7 +233,7 @@ export function createRegimeService(deps: RegimeServiceDeps): RegimeService {
     // atrasada y el resultado se mostraría como vigente. Cuando los
     // datos se ponen al día, esta misma pasada cubre las sesiones
     // pendientes, así que no queda hueco en el historial.
-    const expected = deps.expectedSessionDate?.(now()) ?? null;
+    const expected = deps.expectedSessionDate?.(now(), ticker) ?? null;
     const lastCandle = candles[candles.length - 1]!.date;
     if (expected !== null && lastCandle < expected) {
       logger.info?.(

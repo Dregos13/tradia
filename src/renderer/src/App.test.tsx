@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
+import tradiaMark from './assets/brand/tradia-mark.svg';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,6 +28,30 @@ afterEach(() => {
 const statusbar = () => within(screen.getByRole('contentinfo', { name: 'Estado del sistema' }));
 
 describe('Estructura de Tradia', () => {
+  it('muestra la nueva marca con un solo nombre accesible y conserva el salto y la navegación', async () => {
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<App />);
+    });
+    const brand = screen.getByRole('img', { name: 'Tradia' });
+    expect(brand.closest('.side')).toBeInTheDocument();
+    expect(brand).toHaveTextContent('Tradia');
+    const symbol = brand.querySelector('img');
+    expect(symbol).toHaveAttribute('src', tradiaMark);
+    expect(symbol).toHaveAttribute('alt', '');
+    expect(symbol).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getAllByRole('img', { name: 'Tradia' })).toHaveLength(1);
+    expect(screen.getByRole('main')).toHaveAttribute('data-layout-page', 'inicio');
+    const skip = screen.getByRole('link', { name: 'Saltar al contenido' });
+    expect(skip).toHaveAttribute('href', '#contenido');
+    skip.focus();
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveFocus();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link'),
+    ).toHaveLength(15);
+  });
+
   it('navega entre Inicio y Ajustes con teclado y conserva la barra de estado', async () => {
     const user = userEvent.setup();
     await act(async () => {
@@ -174,7 +199,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     );
   }
   await user.click(screen.getByRole('link', { name: 'Configurar claves' }));
-  expect(await screen.findByRole('region', { name: 'Proveedores de datos' })).toBeInTheDocument();
+  expect(await screen.findByRole('region', { name: 'Conectores de datos' })).toBeInTheDocument();
 });
 
 it('prioriza configurar fuentes sin clave aunque fallen las consultas de datos', async () => {

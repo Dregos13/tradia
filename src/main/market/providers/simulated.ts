@@ -20,7 +20,7 @@
  *   defectos de datos (hueco, duplicado, valor anómalo), más fallos
  *   programados del proveedor, para probar limpieza, ingesta y salud del dato.
  */
-import { isFxPair } from '../../../shared/fx';
+import { inferAssetClass, isFxPair } from '../../../shared/fx';
 import {
   fxLastExpectedSession,
   isFxSessionDay,
@@ -92,9 +92,9 @@ export interface SimulatedProviderOptions {
   now?: () => number;
   /** Primera fecha de la serie generada ('YYYY-MM-DD', un lunes). */
   genesis?: SessionDate;
-  /** Volatilidad diaria máxima del paseo (fracción, por defecto 0.02). */
+  /** Volatilidad diaria máxima del paseo de las acciones (por defecto 0.02). */
   dailyVol?: number;
-  /** Deriva diaria del paseo (fracción, por defecto 0.0002). */
+  /** Deriva diaria del paseo de las acciones (por defecto 0.0002). */
   drift?: number;
   /** Inyecciones iniciales por ticker (en mayúsculas). */
   injections?: Record<string, SimulatedInjections>;
@@ -242,7 +242,8 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
 
   /**
    * Paseo aleatorio continuo desde el génesis hasta `lastDay` inclusive
-   * (solo sesiones NYSE). Determinista por (seed, ticker); no depende del rango.
+   * (sesiones NYSE, o días UTC de lunes a viernes para los pares de
+   * divisas). Determinista por (seed, ticker); no depende del rango.
    */
   const buildContinuousSeries = (ticker: string, lastDay: SessionDate): ContinuousDay[] => {
     const rng = mulberry32(hashSeed(`${String(seed)}:${ticker}`));
@@ -388,6 +389,11 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
         for (const patch of inj.anomalies.get(bar.date) ?? []) Object.assign(bar, patch);
       }
       return visible;
+    },
+
+    getTickerInfo: async (ticker) => {
+      const key = validateCall(ticker);
+      return { ticker: key, assetClass: inferAssetClass(key) };
     },
 
     getQuote: async (ticker) => {

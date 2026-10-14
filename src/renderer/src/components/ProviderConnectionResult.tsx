@@ -1,13 +1,14 @@
+import { useEffect, useRef } from 'react';
 import type { ProviderTestResult, ProviderTestStatus } from '../../../shared/ipc';
 import { DataStateIcon } from './DataStateIcon';
 import { sessionDateLabel } from './DataFreshness';
 const labels: Record<ProviderTestStatus, string> = {
-  ok: 'Conectado',
+  ok: 'Funciona',
   'sin-clave': 'Sin clave',
-  'clave-rechazada': 'Clave rechazada',
-  cuota: 'Cuota agotada',
-  'sin-red': 'Sin red',
-  error: 'Error del proveedor',
+  'clave-rechazada': 'Clave no válida',
+  cuota: 'Límite alcanzado',
+  'sin-red': 'Sin conexión',
+  error: 'No responde',
 };
 export function checkedAtLabel(value: string): string {
   const date = new Date(value);
@@ -22,6 +23,11 @@ export function checkedAtLabel(value: string): string {
         : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   return `${day} a las ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 }
+export function focusProviderKey(provider: 'tiingo' | 'fred') {
+  const details = document.getElementById(`${provider}-key-details`);
+  if (details instanceof HTMLDetailsElement) details.open = true;
+  document.getElementById(`${provider}-key`)?.focus();
+}
 export function ProviderConnectionResult({
   provider,
   name,
@@ -29,6 +35,7 @@ export function ProviderConnectionResult({
   result,
   onRetry,
   onRefresh,
+  busy = false,
 }: {
   provider: 'tiingo' | 'fred';
   name: string;
@@ -36,52 +43,128 @@ export function ProviderConnectionResult({
   result: ProviderTestResult | null;
   onRetry: () => void;
   onRefresh: () => void;
+  busy?: boolean;
 }) {
-  const focusKey = () => document.getElementById(`${provider}-key`)?.focus();
   const status = result?.status;
-  const message =
-    status === 'ok' && result
-      ? `Conectado. Último dato disponible: ${sessionDateLabel(result.latestDataDate)}. Comprobado ${checkedAtLabel(result.checkedAt)}${result.latencyMs === null ? '' : ` (${result.latencyMs} ms)`}.`
+  const message = testing
+    ? `Comprobando la conexión con ${name}…`
+    : status === 'ok'
+      ? `${name} responde y sus datos están disponibles.`
       : status === 'sin-clave'
-        ? `Falta la clave de ${name}. Pégala arriba y pulsa «Guardar clave de ${name}».`
+        ? `Falta la clave de ${name}.`
         : status === 'clave-rechazada'
-          ? `${name} ha rechazado la clave. Comprueba que la has copiado entera o genera una nueva en tu cuenta.`
+          ? `La clave de ${name} no es válida. ${name} ha rechazado la clave guardada.`
           : status === 'cuota'
-            ? `Has agotado la cuota de peticiones de ${name}. Se renueva sola; vuelve a probar más tarde.`
+            ? `${name} no admite más consultas por ahora.`
             : status === 'sin-red'
-              ? 'No hay conexión a internet. Tradia volverá a intentarlo al recuperar la red.'
+              ? `Tradia no puede contactar con ${name} sin internet.`
               : status === 'error'
-                ? `${name} no ha respondido como esperábamos: ${(result?.message ?? 'no se pudo comprobar el proveedor').trim().replace(/[.!?…]+$/, '')}. Vuelve a probar; si se repite, revisa el estado del servicio.`
-                : 'Aún no has probado la conexión.';
-  return (
-    <div
-      className={`provider-connection provider-connection--${testing ? 'testing' : (status ?? 'idle')}`}
+                ? `${name} no responde.`
+                : 'Aún no has comprobado la conexión.';
+  const help =
+    status === 'sin-clave'
+      ? `Pega una clave activa y pulsa «Guardar clave de ${name}». Después prueba la conexión.`
+      : status === 'clave-rechazada'
+        ? 'Comprueba que has copiado la clave entera o genera una nueva en tu cuenta. Guárdala y vuelve a probar.'
+        : status === 'cuota'
+          ? 'Espera a que se renueve la cuota y vuelve a probar. El proveedor no ha indicado cuándo se renueva.'
+          : status === 'sin-red'
+            ? 'Revisa tu conexión a internet y vuelve a probar al recuperar la red.'
+            : status === 'error'
+              ? 'Vuelve a probar; si se repite, revisa el estado del servicio.'
+              : `Prueba la conexión para saber si ${name} responde.`;
+  const keyProblem = status === 'sin-clave' || status === 'clave-rechazada';
+  // Una sola acción principal en «Siguiente paso»: arreglar la clave, actualizar los datos
+  // si todo funciona o, en cualquier otro caso, volver a probar la conexión.
+  const testPrimary = !keyProblem && status !== 'ok';
+  const refocusTest = useRef(false);
+  const refreshButton = useRef<HTMLButtonElement>(null);
+  const refocusRefresh = useRef(false);
+  useEffect(() => {
+    if (busy || !refocusRefresh.current) return;
+    refocusRefresh.current = false;
+    refreshButton.current?.focus();
+  }, [busy]);
+  useEffect(() => {
+    // El botón cambia de bloque al pasar a «Funciona»: no perder el foco de quien lo pulsó.
+    if (testing || !refocusTest.current) return;
+    refocusTest.current = false;
+    if (!keyProblem) document.getElementById(`${provider}-test`)?.focus();
+  }, [testing, status, keyProblem, provider]);
+  const testButton = (
+    <button
+      id={`${provider}-test`}
+      type="button"
+      className={`button ${testPrimary || testing ? 'primary' : ''}`}
+      disabled={testing || busy}
+      aria-describedby={`${provider}-test-help`}
+      onClick={() => {
+        refocusTest.current = true;
+        onRetry();
+      }}
     >
-      <p id={`${provider}-test-help`} role="status" aria-live="polite">
-        <strong>
+      {testing ? 'Comprobando…' : 'Probar conexión'}
+    </button>
+  );
+  return (
+    <div className="connector-diagnosis">
+      <div id={`${provider}-test-help`} role="status" aria-live="polite">
+        <strong
+          className={`connector-state connector-state--${testing ? 'testing' : (status ?? 'idle')}`}
+        >
           <DataStateIcon
-            kind={status === 'ok' ? 'ok' : testing || !status ? 'pending' : 'warning'}
+            kind={testing || !status ? 'pending' : status === 'ok' ? 'ok' : 'warning'}
           />
-          {testing ? 'Probando' : status ? labels[status] : 'Sin probar'}
-        </strong>{' '}
-        · {testing ? `Probando la conexión con ${name}…` : message}
-      </p>
-      {!testing && status && (
-        <div className="settings-controls">
-          {status === 'ok' ? (
-            <button type="button" className="button" onClick={onRefresh}>
-              Actualizar datos ahora
-            </button>
-          ) : status === 'sin-clave' || status === 'clave-rechazada' ? (
-            <button type="button" className="button" onClick={focusKey}>
-              {status === 'sin-clave' ? 'Añadir clave' : 'Cambiar clave'}
-            </button>
-          ) : (
-            <button type="button" className="button" onClick={onRetry}>
-              Probar de nuevo
-            </button>
+          {testing ? 'Comprobando…' : status ? labels[status] : 'Sin comprobar'}
+        </strong>
+        <p>{message}</p>
+      </div>
+      <dl className="connector-meta">
+        <dt>Última comprobación</dt>
+        <dd>{result ? checkedAtLabel(result.checkedAt) : 'Todavía no se ha comprobado'}</dd>
+        <dt>Último dato</dt>
+        <dd>
+          {result?.latestDataDate ? sessionDateLabel(result.latestDataDate) : 'No disponible'}
+        </dd>
+      </dl>
+      {!testing && (
+        <div className="connector-next">
+          <h4>{status && status !== 'ok' ? 'Cómo arreglarlo' : 'Siguiente paso'}</h4>
+          {status !== 'ok' && <p>{help}</p>}
+          {!testPrimary && (
+            <div className="settings-controls">
+              {status === 'ok' ? (
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={busy}
+                  ref={refreshButton}
+                  onClick={() => {
+                    refocusRefresh.current = true;
+                    onRefresh();
+                  }}
+                >
+                  Actualizar datos ahora
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => focusProviderKey(provider)}
+                >
+                  {status === 'sin-clave' ? 'Añadir clave' : 'Revisar la clave'}
+                </button>
+              )}
+            </div>
           )}
-          {status === 'clave-rechazada' && (
+          {testPrimary && <div className="settings-controls">{testButton}</div>}
+        </div>
+      )}
+      {/* Con el siguiente paso ya elegido, «Probar conexión» queda como acción secundaria. */}
+      {(testing || !testPrimary) && (
+        <div className="settings-controls">
+          {testButton}
+          {status === 'clave-rechazada' && !testing && (
             <a
               href={
                 provider === 'tiingo'
@@ -96,6 +179,12 @@ export function ProviderConnectionResult({
             </a>
           )}
         </div>
+      )}
+      {status === 'error' && !testing && (
+        <details>
+          <summary>Detalles de la conexión</summary>
+          <p>{result?.message.trim().replace(/[.!?…]+$/, '')}.</p>
+        </details>
       )}
     </div>
   );

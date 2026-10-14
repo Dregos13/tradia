@@ -65,6 +65,33 @@ export function AgentsStatus({
   );
 }
 
+/**
+ * Dato horario de la barra de estado. Por debajo de 1200 px se muestra la
+ * etiqueta corta para que la barra quepa en una línea; la larga sigue en el
+ * árbol accesible y en el title.
+ */
+function StatusTime({
+  label,
+  short,
+  value,
+  text,
+}: {
+  label: string;
+  short: string;
+  value: string | null | undefined;
+  text: string;
+}) {
+  return (
+    <span className="numeric statusbar-time" title={`${label} ${text}`}>
+      <span className="statusbar-label">{label}</span>
+      <span className="statusbar-label-short" aria-hidden="true">
+        {short}
+      </span>{' '}
+      <time dateTime={value ?? undefined}>{text}</time>
+    </span>
+  );
+}
+
 export function StatusBar({
   state,
   killSwitch,
@@ -78,30 +105,32 @@ export function StatusBar({
         <ConnectionStatus state={state} />
         <AgentsStatus state={state} killSwitch={killSwitch} />
       </div>
-      <span className="numeric">
-        Última comprobación{' '}
-        <time dateTime={state.connectivity?.lastCheckedAt ?? undefined}>
-          {state.connectionError
-            ? 'No disponible'
-            : heartbeatTime(state.connectivity?.lastCheckedAt)}
-        </time>
-      </span>
-      <span className="numeric">
-        Próximo reintento{' '}
-        <time dateTime={state.connectivity?.nextRetryAt ?? undefined}>
-          {state.connectionError
+      <StatusTime
+        label="Última comprobación"
+        short="Comprobado"
+        value={state.connectivity?.lastCheckedAt}
+        text={
+          state.connectionError ? 'No disponible' : heartbeatTime(state.connectivity?.lastCheckedAt)
+        }
+      />
+      <StatusTime
+        label="Próximo reintento"
+        short="Reintento"
+        value={state.connectivity?.nextRetryAt}
+        text={
+          state.connectionError
             ? 'No disponible'
             : state.connectivity?.nextRetryAt
               ? heartbeatTime(state.connectivity.nextRetryAt)
-              : '—'}
-        </time>
-      </span>
-      <span className="numeric">
-        Último latido{' '}
-        <time dateTime={state.agents?.lastHeartbeatAt ?? undefined}>
-          {state.agentsError ? 'No disponible' : heartbeatTime(state.agents?.lastHeartbeatAt)}
-        </time>
-      </span>
+              : '—'
+        }
+      />
+      <StatusTime
+        label="Último latido"
+        short="Latido"
+        value={state.agents?.lastHeartbeatAt}
+        text={state.agentsError ? 'No disponible' : heartbeatTime(state.agents?.lastHeartbeatAt)}
+      />
     </footer>
   );
 }

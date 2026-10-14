@@ -435,6 +435,8 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
             strategies: input.strategies,
             dataUsed: input.dataUsed,
             decision: input.decision,
+            destination: 'cartera-simulada',
+            destinationReason: null,
             createdAt: NOW_ISO,
           };
           signals.push(signal);
@@ -525,6 +527,8 @@ describe('auditoría · desconfirmar un titular ya analizado (integración H5)',
             strategies: input.strategies,
             dataUsed: input.dataUsed,
             decision: input.decision,
+            destination: 'cartera-simulada',
+            destinationReason: null,
             createdAt: NOW_ISO,
           };
           signals.push(signal);
@@ -658,6 +662,8 @@ describe('auditoría · la IA no crea señales ni esquiva el riesgo', () => {
           strategies: input.strategies,
           dataUsed: input.dataUsed,
           decision: input.decision,
+          destination: 'cartera-simulada',
+          destinationReason: null,
           createdAt: NOW_ISO,
         };
         signals.push(signal);

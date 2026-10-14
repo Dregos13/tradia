@@ -34,7 +34,7 @@ import {
 } from '../../../shared/ipc';
 import type { JournalRecordInput } from '../../../shared/journal';
 import { openDatabase } from '../../db/database';
-import * as nyseCalendar from '../../market/calendar';
+import { expectedSessionDateFor } from '../../market/assetCalendar';
 import { createMarketRepository, type StoredBar } from '../../market/repository';
 import { resourcePath } from '../../resources';
 import type { ServiceContext } from '../../services';
@@ -165,8 +165,9 @@ export function registerPrediction(
     // Guarda de frescura: una serie por detrás de la última sesión
     // esperada no genera predicciones nuevas (datos viejos de una
     // puesta al día atrasada); la resolución de las pendientes sí corre.
-    expectedSessionDate: () =>
-      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
+    // Cada activo con su calendario: NYSE para acciones, 24/5 para divisas.
+    expectedSessionDate: (_nowMs, ticker) =>
+      expectedSessionDateFor(ticker, options.clock?.now() ?? Date.now()),
   });
 
   // Disparo: cada lote guardado predice lo pendiente del ticker y

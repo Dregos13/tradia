@@ -19,6 +19,7 @@ import {
   type AdjustedCandle,
 } from './chartData';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
+import { FX_CALENDAR_HELP, fxLabel } from '../assetPresentation';
 
 export function PriceChart({
   result,
@@ -102,6 +103,11 @@ export function PriceChart({
         wickUpColor: color('candle-wick') || '#94A3B8',
         wickDownColor: color('candle-wick') || '#94A3B8',
         lastValueVisible: true,
+        priceFormat: {
+          type: 'price',
+          precision: isFxSymbol(result.ticker) ? 5 : 2,
+          minMove: isFxSymbol(result.ticker) ? 0.00001 : 0.01,
+        },
       });
       candles.setData(data.candles);
       averages.current = [20, 50, 200].map((period) =>
@@ -216,9 +222,10 @@ export function PriceChart({
           </div>
           <p className="market-chart-sub">
             {isForex
-              ? `${displayTicker} · Tipo de cambio Forex 24/5 · Operativa en cartera simulada interna`
+              ? `USD por ${result.ticker.slice(0, 3)} · ${fxLabel(result.ticker)}`
               : 'USD · Precios ajustados por splits y dividendos'}
           </p>
+          {isForex && <p className="market-fx-calendar">{FX_CALENDAR_HELP}</p>}
           <p className="market-chart-meta">
             Fuente: {result.source ?? 'Pendiente'} · Última vela:{' '}
             {last?.time ?? 'Sin velas ajustadas'}

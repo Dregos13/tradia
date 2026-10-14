@@ -9,6 +9,12 @@ export interface AssetSearchProps {
   inputRef?: React.RefObject<HTMLInputElement | null>;
   error?: string | null;
   onClearError?: () => void;
+  /** Ids de ayuda que describen el campo, antes del error. */
+  describedBy?: string;
+  /** Texto del botón de envío (p. ej. «Comprobando…» mientras se verifica). */
+  submitLabel?: string;
+  /** Pide reemplazar el texto del campo; cada petición lleva un `nonce` nuevo. */
+  queryRequest?: { value: string; nonce: number };
 }
 
 export function badgeClass(assetClass: AssetSearchClass): string {
@@ -50,6 +56,9 @@ export function AssetSearch({
   inputRef: externalInputRef,
   error,
   onClearError,
+  describedBy,
+  submitLabel = 'Añadir',
+  queryRequest,
 }: AssetSearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +86,13 @@ export function AssetSearch({
       isDirect: true,
     });
   }
+
+  useEffect(() => {
+    if (queryRequest && queryRequest.nonce > 0) {
+      setQuery(queryRequest.value);
+      setIsOpen(false);
+    }
+  }, [queryRequest]);
 
   // Reset stationary hover tracking and selection index whenever matches or query change
   useEffect(() => {
@@ -240,7 +256,7 @@ export function AssetSearch({
         e.preventDefault();
         if (isOpen && focusedIndex >= 0 && options[focusedIndex]) {
           handleSelectOption(options[focusedIndex]);
-        } else if (query.trim()) {
+        } else {
           void handleAdd(query.trim());
         }
       }}
@@ -287,7 +303,10 @@ export function AssetSearch({
               aria-controls={isOpen ? listboxId : undefined}
               aria-activedescendant={focusedOptionId}
               aria-invalid={!!error}
-              aria-describedby={error ? 'market-list-error' : undefined}
+              aria-describedby={
+                [describedBy, error ? 'market-list-error' : undefined].filter(Boolean).join(' ') ||
+                undefined
+              }
             />
             {query.length > 0 && (
               <button
@@ -304,9 +323,9 @@ export function AssetSearch({
           <button
             type="submit"
             className="button primary market-search-add-btn"
-            disabled={disabled || !query.trim()}
+            disabled={disabled}
           >
-            Añadir
+            {submitLabel}
           </button>
         </div>
 

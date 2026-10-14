@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { OrderModeBadge } from './OrderModeBadge';
 import type { BrokerOrder } from '../../../../shared/broker';
 import { BROKER_ORDER_OPEN_STATUSES } from '../../../../shared/broker';
@@ -48,7 +49,7 @@ export function OrderRow({
         <OrderModeBadge order={order} />
       </td>
       <td>
-        <strong>{order.ticker}</strong>
+        <strong>{assetSymbol(order.ticker)}</strong>
       </td>
       <td>
         {grouped && order.type !== 'oco'
@@ -97,7 +98,7 @@ export function OrderRow({
         {cancelable(order) ? (
           <button
             className="button danger"
-            aria-label={`Cancelar orden ${order.id} de ${order.ticker}`}
+            aria-label={`Cancelar orden ${order.id} de ${assetSymbol(order.ticker)}`}
             disabled={offline || canceling}
             title={offline ? 'Necesitas conexión para cancelar' : undefined}
             onClick={(event) => {
@@ -107,7 +108,7 @@ export function OrderRow({
             Cancelar
             <span className="sr-only">
               {' '}
-              orden {order.id} de {order.ticker}
+              orden {order.id} de {assetSymbol(order.ticker)}
             </span>
           </button>
         ) : (

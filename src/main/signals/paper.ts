@@ -20,6 +20,16 @@
  *   capital (`risk_equity_history`) y el tracker registra la operación en
  *   el diario (tipo 'operacion', resultado 'ganancia'|'perdida'|'empate')
  *   con el cumplimiento de reglas.
+ * - Divisas (ver shared/fxTrading): solo abre posición una señal con
+ *   destino 'cartera-simulada' (acciones y pares cotizados en USD); una
+ *   'solo-analisis' (USDJPY, USDCHF) nunca abre, aunque llegue aprobada.
+ *   En un par el tamaño son unidades de la moneda base y el precio va en
+ *   USD, así que el P&L, (salida − entrada) × tamaño, sale en USD; la
+ *   posición expone a su moneda base y cuenta en el sector 'divisas'.
+ *   Stop y objetivo se evalúan con las mismas reglas que una acción.
+ * - Con la parada de emergencia activa no se abre ninguna posición (la
+ *   pasarela ya veta, pero la parada puede activarse entre la decisión y
+ *   la apertura); los cierres por stop u objetivo siguen corriendo.
  * - Tras cada vela se comparan las pérdidas realizadas (día, semana, mes)
  *   y el drawdown con los límites vigentes: cada límite que pasa a estar
  *   alcanzado deja una entrada 'limite' en el diario y un aviso
@@ -28,14 +38,14 @@
  *   anómala y drawdown pueden activarla).
  */
 import { formatFxPair } from '../../shared/fx';
+import type { JournalRecordInput, JournalStrategyRef } from '../../shared/journal';
+import type { MarketUpdatedEvent } from '../../shared/ipc';
 import {
   exposureCurrencyOf,
   FX_SECTOR,
   isFxSymbol,
   signalDestinationOf,
 } from '../../shared/fxTrading';
-import type { JournalRecordInput, JournalStrategyRef } from '../../shared/journal';
-import type { MarketUpdatedEvent } from '../../shared/ipc';
 import { VETO_REASON_MESSAGES, type RiskLimits, type VetoReasonCode } from '../../shared/risk';
 import type { Signal, SignalNewEvent } from '../../shared/signals';
 import { DELIVERY_DISCLAIMER } from '../delivery/format';
@@ -77,6 +87,8 @@ export interface PaperTrackerDeps {
   gateway?: PaperPositionGateway;
   /** La vela guardada en `date` para el ticker (serie ajustada); null si no hay. */
   barAt(ticker: string, date: string, source: string | null): SignalSourceBar | null;
+  /** Parada de emergencia activa: no se abren posiciones nuevas. */
+  isKillSwitchActive?(): boolean;
   /** La señal persistida (motivo y votos para el diario de la operación). */
   getSignal(id: number): Signal | null;
   /** Entrada del diario automático (`services.journal.record`). */
@@ -183,13 +195,15 @@ const PAPER_LIMIT_RULES: readonly PaperLimitRule[] = [
 
 const formatPct = (value: number): string => `${(Math.round(value * 100) / 100).toFixed(2)} %`;
 
-/**
- * Precio legible por activo: en pares de divisas un pip es 0,0001, así
- * que el formato fija 4 decimales (no el plano «máx. 4» de las acciones,
- * que en 1,10485 mostraría 1,1049 y parecería otra cotización).
- */
-export const formatPriceOf = (symbol: string, value: number): string =>
-  isFxSymbol(symbol) ? value.toFixed(4) : String(Math.round(value * 10_000) / 10_000);
+const formatPrice = (value: number): string => String(Math.round(value * 10_000) / 10_000);
+
+/** Precio de un par a 5 decimales (pipetas); el resto, a 4. */
+const formatPriceOf = (ticker: string, value: number): string =>
+  isFxSymbol(ticker) ? String(Math.round(value * 100_000) / 100_000) : formatPrice(value);
+
+/** Tamaño legible: «10000 EUR» en un par, «12 uds» en una acción. */
+const formatSize = (ticker: string, size: number): string =>
+  isFxSymbol(ticker) ? `${size} ${exposureCurrencyOf(ticker)}` : `${size} uds`;
 
 // ---------------------------------------------------------------------------
 // Tracker
@@ -216,9 +230,29 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
     const gateway = deps.gateway;
     const { decision } = signal;
     if (decision.status === 'vetada' || !(decision.size > 0)) return;
-    // Solo análisis: la decisión de riesgo ya la vetó, pero por si llega
-    // una señal antigua o de otra vía, el par no cotizado en USD no abre.
-    if (signalDestinationOf(signal.ticker).destination === 'solo-analisis') return;
+    // Un par no cotizado en USD es solo análisis: nunca abre posición.
+    const { destination, reason } = signalDestinationOf(signal.ticker);
+    if (destination !== 'cartera-simulada') {
+      logger.info?.(`[paper] señal ${signal.id} de ${signal.ticker}: ${reason ?? destination}`);
+      return;
+    }
+    if (deps.isKillSwitchActive?.() === true) {
+      logger.warn?.(
+        `[paper] señal ${signal.id} de ${signal.ticker}: parada de emergencia activa; ` +
+          'no se abre posición',
+      );
+      recordJournal({
+        type: 'veto',
+        ticker: signal.ticker,
+        reason:
+          `No se abre la posición simulada de la señal ${signal.id}: ` +
+          VETO_REASON_MESSAGES.KILL_SWITCH_ACTIVE.toLowerCase(),
+        dataUsed: { signalId: signal.id },
+        result: 'vetada',
+        signalId: signal.id,
+      });
+      return;
+    }
     if (gateway === undefined) {
       logger.warn?.(
         `[paper] señal ${signal.id} aprobada sin cartera simulada disponible; no se abre posición`,
@@ -233,8 +267,8 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
         stop: signal.stop,
         target: signal.target,
         size: decision.size,
-        // En divisas el sector es 'divisas' y la exposición va a la
-        // moneda base (EUR en EURUSD), como en `resolveInstrument`.
+        // Un par expone a su moneda base y cuenta en el sector 'divisas';
+        // una acción toma su sector del universo (lo resuelve el riesgo).
         sector: isFxSymbol(signal.ticker) ? FX_SECTOR : null,
         currency: exposureCurrencyOf(signal.ticker),
         signalId: signal.id,
@@ -243,7 +277,8 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
       });
       logger.info?.(
         `[paper] señal ${signal.id}: abierta posición simulada ${signal.direction} ` +
-          `${decision.size} uds de ${signal.ticker} @ ${formatPriceOf(signal.ticker, signal.entry)}`,
+          `${formatSize(signal.ticker, decision.size)} de ${signal.ticker} @ ` +
+          formatPriceOf(signal.ticker, signal.entry),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -301,10 +336,6 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
         : 0;
     const outcome = pnl > 0 ? 'ganancia' : pnl < 0 ? 'perdida' : 'empate';
     const motivoCierre = decision.reason === 'stop' ? 'stop de protección' : 'objetivo';
-    // En un par de divisas el ticker guardado ('EURUSD') se muestra con
-    // barra ('EUR/USD') y los precios con decimales de pip.
-    const label = isFxSymbol(position.ticker) ? formatFxPair(position.ticker) : position.ticker;
-    const formatOf = (value: number): string => formatPriceOf(position.ticker, value);
 
     let strategies: JournalStrategyRef[] = [];
     let signalReason: string | null = null;
@@ -326,10 +357,11 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
       ticker: position.ticker,
       strategies,
       reason:
-        `Cierre simulado por ${motivoCierre} de ${label}: ` +
-        `${position.size} uds ${position.direction} ` +
-        `entrada ${formatOf(position.entry)} → salida ${formatOf(decision.exit)} ` +
-        `(P&L ${pnl > 0 ? '+' : ''}${pnl})`,
+        `Cierre simulado por ${motivoCierre} de ${isFxSymbol(position.ticker) ? formatFxPair(position.ticker) : position.ticker}: ` +
+        `${formatSize(position.ticker, position.size)} ${position.direction} ` +
+        `entrada ${formatPriceOf(position.ticker, position.entry)} → ` +
+        `salida ${formatPriceOf(position.ticker, decision.exit)} ` +
+        `(P&L ${pnl > 0 ? '+' : ''}${pnl}${isFxSymbol(position.ticker) ? ' USD' : ''})`,
       dataUsed: {
         posicionId: position.id,
         direccion: position.direction,
@@ -342,6 +374,10 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
         tamano: position.size,
         pnl,
         pnlPct,
+        // El P&L va siempre en la divisa de la cuenta (USD), también en
+        // un par cotizado en USD; `divisa` es la moneda a la que expone.
+        divisaPnl: 'USD',
+        divisa: position.currency,
         velaApertura: position.openedOnBar,
         velaCierre: bar.date,
         abiertaEn: position.openedAt,
@@ -358,14 +394,14 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
               ? 'Stop de protección ejecutado'
               : 'Objetivo de beneficio ejecutado',
           cumplida: true,
-          observed: `salida ${formatOf(decision.exit)}`,
-          limit: `nivel ${formatOf(decision.level)}`,
+          observed: `salida ${formatPriceOf(position.ticker, decision.exit)}`,
+          limit: `nivel ${formatPriceOf(position.ticker, decision.level)}`,
         },
         {
           code: 'TAMANO_ASIGNADO',
           label: 'Tamaño asignado por la pasarela de riesgo respetado',
           cumplida: true,
-          observed: `${position.size} uds`,
+          observed: formatSize(position.ticker, position.size),
           limit: null,
         },
       ],
@@ -373,7 +409,7 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
     });
     logger.info?.(
       `[paper] ${position.ticker}: cierre por ${motivoCierre} en ${bar.date} ` +
-        `a ${formatOf(decision.exit)} (P&L ${pnl > 0 ? '+' : ''}${pnl})`,
+        `a ${formatPriceOf(position.ticker, decision.exit)} (P&L ${pnl > 0 ? '+' : ''}${pnl})`,
     );
   };
 

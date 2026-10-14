@@ -154,3 +154,24 @@ it('guarda la antelación mediante alerts y conserva el valor si falla', async (
   expect(input).toHaveValue('45');
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar la antelación');
 });
+it('apila las claves live, el corto, los límites y la confirmación como tarjetas de la misma sección', async () => {
+  await mount();
+  const section = screen.getByRole('region', { name: 'Cuenta de broker · Dinero real' });
+  const stack = section.querySelector('.settings-stack')!;
+  expect(stack.firstElementChild).toHaveClass('settings-panel');
+  const cards = within(section);
+  const titles = await cards.findAllByRole('heading', { level: 3 });
+  expect(titles.map((title) => title.textContent)).toEqual([
+    'Preparación del corto con dinero real',
+    'Límites de capital real',
+    'Confirmación de los límites',
+  ]);
+  for (const title of titles) expect(title.closest('.live-sheet')).not.toBeNull();
+  const confirmation = cards.getByRole('region', { name: 'Confirmación de los límites' });
+  expect(
+    within(confirmation).getByRole('button', { name: 'Confirmar límites y activar dinero real' }),
+  ).toBeDisabled();
+  expect(confirmation).toHaveTextContent(
+    'Confirmar esta frase activa dinero real con estos límites. Completa antes la lista de comprobación.',
+  );
+});

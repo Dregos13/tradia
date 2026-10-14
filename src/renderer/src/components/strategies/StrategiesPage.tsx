@@ -26,7 +26,13 @@ export function StrategiesPage() {
   const reportMatch = /^#estrategias\/(\d+)\/backtest\/(\d+)$/.exec(route);
   const match = /^#estrategias\/(\d+)(?:\/(v[1-9]\d*|editar))?$/.exec(route);
   return (
-    <div className="strategies-page" data-tour="estrategias-lista" ref={heading} tabIndex={-1}>
+    <div
+      className="strategies-page"
+      data-layout-page="estrategias"
+      data-tour="estrategias-lista"
+      ref={heading}
+      tabIndex={-1}
+    >
       <style>{strategyTokenStylesheet()}</style>
       {savedRoute === route && <p role="status">Régimen de la estrategia guardado.</p>}
       {reportMatch ? (

@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import aaplMeta from './__fixtures__/aapl-meta.json';
 import aaplPrices from './__fixtures__/aapl-prices.json';
 import { createSimulatedProvider } from './simulated';
 import { createTiingoProvider } from './tiingo';
@@ -17,9 +18,9 @@ import {
   type MarketDataProvider,
 } from './types';
 
-/** fetch que siempre responde la grabación de precios de AAPL. */
-const fixtureFetch: typeof fetch = async () =>
-  new Response(JSON.stringify(aaplPrices), {
+/** fetch grabado: precios en /prices, la ficha del ticker en la ruta diaria. */
+const fixtureFetch: typeof fetch = async (input) =>
+  new Response(JSON.stringify(String(input).includes('/prices') ? aaplPrices : aaplMeta), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
@@ -76,6 +77,13 @@ describe.each(adapters)('contrato MarketDataProvider — $name', ({ make }) => {
     for (const date of dates) {
       expect(date >= RANGE[0] && date <= RANGE[1]).toBe(true);
     }
+  });
+
+  it('getTickerInfo resuelve la ficha del ticker', async () => {
+    const provider = make();
+    const info = await provider.getTickerInfo('AAPL');
+    expect(info.ticker).toBe('AAPL');
+    expect(info.assetClass).toBe('equity');
   });
 
   it('getQuote devuelve la última cotización del ticker', async () => {

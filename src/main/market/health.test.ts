@@ -315,6 +315,146 @@ describe('vigilancia de tickers', () => {
   });
 });
 
+describe('frescura por tipo de activo (acciones y divisas)', () => {
+  const stateOf = (ticker: string): DataStatusState | undefined =>
+    status(dataStatusKey.ticker(ticker))?.state;
+
+  beforeEach(() => {
+    repo.addWatchlistTicker('SPY');
+    repo.addWatchlistTicker('EURUSD');
+  });
+
+  it('el par se guarda como divisa y la acción como equity', () => {
+    expect(repo.listWatchlist().map((item) => [item.ticker, item.assetClass])).toEqual([
+      ['SPY', 'equity'],
+      ['EURUSD', 'fx'],
+    ]);
+  });
+
+  it('el 4 de julio SPY sigue al día (NYSE cerrada) y EURUSD espera la vela de ese día', () => {
+    // Viernes 05-07-2024 a las 14:00 UTC (10:00 ET): NYSE cerró el jueves 4
+    // y la sesión del viernes aún no ha terminado; la vela de divisas del 4
+    // cerró a las 00:00 UTC del 5 y su plazo (01:00 + 12 h) ya venció.
+    nowMs = Date.parse('2024-07-05T14:00:00.000Z');
+    seedBars('SPY', '2024-07-03', ['2024-07-02', '2024-07-03']);
+    seedBars('EURUSD', '2024-07-03', ['2024-07-02', '2024-07-03']);
+
+    // El resumen lo calcula por calendario aun antes de evaluar.
+    const before = service.freshness();
+    expect(before.items.map((item) => item.key)).toEqual(['ticker:EURUSD']);
+    expect(before.expectedSessionDate).toBe('2024-07-04');
+    expect(before.missingSessions).toBe(1);
+
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('fiable');
+    expect(stateOf('EURUSD')).toBe('desactualizado');
+    expect(status('ticker:EURUSD')?.reason).toBe(
+      `falta la vela del ${sessionDateLabel('2024-07-04')}; último dato: ${sessionDateLabel('2024-07-03')}`,
+    );
+
+    // Con la vela del 4 de julio, el par queda al día.
+    seedBars('EURUSD', '2024-07-04', ['2024-07-04']);
+    service.evaluate();
+    expect(stateOf('EURUSD')).toBe('fiable');
+    expect(stateOf('SPY')).toBe('fiable');
+    const after = service.freshness();
+    expect(after.state).toBe('current');
+    expect(after.items).toEqual([]);
+    expect(after.missingSessions).toBe(0);
+  });
+
+  it('el sábado ninguno de los dos espera vela; el lunes, los dos', () => {
+    // Velas hasta el viernes 09-10-2026 para ambos.
+    seedBars('SPY', '2026-10-09', ['2026-10-08', '2026-10-09']);
+    seedBars('EURUSD', '2026-10-09', ['2026-10-08', '2026-10-09']);
+
+    // Sábado 10-10 por la tarde: nada nuevo que esperar.
+    nowMs = Date.parse('2026-10-10T18:00:00.000Z');
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('fiable');
+    expect(stateOf('EURUSD')).toBe('fiable');
+    expect(service.freshness()).toMatchObject({
+      state: 'current',
+      items: [],
+      expectedSessionDate: '2026-10-09',
+    });
+
+    // Domingo por la noche, con el mercado de divisas ya abierto: tampoco.
+    nowMs = Date.parse('2026-10-11T23:00:00.000Z');
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('fiable');
+    expect(stateOf('EURUSD')).toBe('fiable');
+
+    // Martes 13-10 a las 14:00 UTC: los dos esperan la vela del lunes 12
+    // (Columbus Day: la bolsa abre) y su plazo ya venció.
+    nowMs = Date.parse('2026-10-13T14:00:00.000Z');
+    service.evaluate();
+    const missingMonday = `falta la vela del ${sessionDateLabel('2026-10-12')}; último dato: ${sessionDateLabel('2026-10-09')}`;
+    expect(stateOf('SPY')).toBe('desactualizado');
+    expect(status('ticker:SPY')?.reason).toBe(missingMonday);
+    expect(stateOf('EURUSD')).toBe('desactualizado');
+    expect(status('ticker:EURUSD')?.reason).toBe(missingMonday);
+
+    seedBars('SPY', '2026-10-12', ['2026-10-12']);
+    seedBars('EURUSD', '2026-10-12', ['2026-10-12']);
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('fiable');
+    expect(stateOf('EURUSD')).toBe('fiable');
+  });
+
+  it('cada activo cuenta su plazo con su propio calendario', () => {
+    seedBars('SPY', '2026-10-09', ['2026-10-08', '2026-10-09']);
+    seedBars('EURUSD', '2026-10-09', ['2026-10-08', '2026-10-09']);
+    // Martes 13-10 a las 12:00 UTC: el plazo de SPY (lunes 21:15 UTC + 12 h
+    // = martes 09:15 UTC) venció; el de EURUSD (martes 01:00 + 12 h = 13:00
+    // UTC) todavía no.
+    nowMs = Date.parse('2026-10-13T12:00:00.000Z');
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('desactualizado');
+    expect(stateOf('EURUSD')).toBe('fiable');
+    expect(service.freshness().items.map((item) => item.key)).toEqual(['ticker:SPY']);
+  });
+
+  it('el 25 de diciembre es un hueco tolerado para el par', () => {
+    seedBars('SPY', '2025-12-24', ['2025-12-23', '2025-12-24']);
+    seedBars('EURUSD', '2025-12-24', ['2025-12-23', '2025-12-24']);
+    // Viernes 26-12 por la tarde: sin vela del 25 ninguno queda atrasado.
+    nowMs = Date.parse('2025-12-26T20:00:00.000Z');
+    service.evaluate();
+    expect(stateOf('SPY')).toBe('fiable');
+    expect(stateOf('EURUSD')).toBe('fiable');
+
+    // Sábado 27-12 a las 14:00 UTC: la vela del viernes 26 sí se espera.
+    nowMs = Date.parse('2025-12-27T14:00:00.000Z');
+    service.evaluate();
+    expect(stateOf('EURUSD')).toBe('desactualizado');
+    expect(status('ticker:EURUSD')?.reason).toBe(
+      `falta la vela del ${sessionDateLabel('2025-12-26')}; último dato: ${sessionDateLabel('2025-12-24')}`,
+    );
+  });
+
+  it('un par sin cobertura sigue fuera del resumen y se levanta con su calendario', () => {
+    nowMs = Date.parse('2024-07-05T14:00:00.000Z');
+    seedBars('SPY', '2024-07-03', ['2024-07-02', '2024-07-03']);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EURUSD'),
+      state: 'sin-cobertura',
+      reason: "el proveedor 'tiingo' no devolvió datos para EURUSD",
+    });
+    service.evaluate();
+    expect(stateOf('EURUSD')).toBe('sin-cobertura');
+    expect(service.freshness().uncovered.map((item) => item.ticker)).toEqual(['EURUSD']);
+
+    // Velas hasta el 3 no bastan (se espera la del 4); con la del 4, sí.
+    seedBars('EURUSD', '2024-07-03', ['2024-07-02', '2024-07-03']);
+    service.evaluate();
+    expect(stateOf('EURUSD')).toBe('sin-cobertura');
+    seedBars('EURUSD', '2024-07-04', ['2024-07-04']);
+    service.evaluate();
+    expect(stateOf('EURUSD')).toBe('fiable');
+  });
+});
+
 describe('frescura por proveedor', () => {
   const iso = (): string => new Date(nowMs).toISOString();
 
@@ -647,6 +787,7 @@ describe('resumen de frescura', () => {
     expect(service.freshness().state).toBe('no-data');
 
     repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('MSFT');
     seedBars('AAPL', PREV_SESSION);
     repo.setDataStatus({
       key: dataStatusKey.ticker('MSFT'),
@@ -658,6 +799,241 @@ describe('resumen de frescura', () => {
     await flush();
 
     expect(service.freshness().state).toBe('unreliable');
+  });
+
+  it('un activo sin cobertura no pesa en el estado global y viaja en uncovered', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    const health = setup({ suggestAlternative: (t) => (t === 'EUR' ? 'FXE' : null) });
+    service = health;
+    health.evaluate();
+    await flush();
+
+    const summary = health.freshness();
+    // El global no se ensombrece: sigue 'current' y sin entradas malas.
+    expect(summary.state).toBe('current');
+    expect(summary.items).toEqual([]);
+    // El activo va en su lista aparte, con motivo llano y alternativa.
+    expect(summary.uncovered).toEqual([
+      {
+        ticker: 'EUR',
+        reason: 'Tiingo no tiene datos de EUR.',
+        suggestion: 'FXE',
+      },
+    ]);
+  });
+
+  it('una fila antigua con motivo técnico sale en llano en uncovered', async () => {
+    repo.addWatchlistTicker('EUR');
+    // Así lo guardaban las versiones anteriores: «ticker 'EUR' no existe»,
+    // frase técnica y falsa (EUR existe; Tiingo no lo cubre).
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "ticker 'EUR' no existe",
+    });
+
+    const uncovered = service.freshness().uncovered;
+    expect(uncovered).toHaveLength(1);
+    const reason = uncovered[0]!.reason ?? '';
+    expect(reason).toBe('Tiingo no tiene datos de EUR.');
+    expect(reason).not.toContain("'");
+    expect(reason).not.toContain('no existe');
+    expect(reason).not.toContain('tiingo');
+    expect(reason).toContain('Tiingo');
+    expect(reason).toContain('EUR');
+  });
+
+  it('un motivo técnico heredado en un activo desactualizado sale en llano', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    // La frase que vio el usuario («Por qué ocurre») en la versión anterior.
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'desactualizado',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    const item = service.freshness().items.find((entry) => entry.key === 'ticker:EUR');
+    expect(item).toBeDefined();
+    const reason = item!.reason ?? '';
+    expect(reason).not.toContain("'");
+    expect(reason).not.toContain('no devolvió datos');
+    expect(reason).toContain('Tiingo');
+    expect(reason).toContain('EUR');
+    // El mismo motivo llano sale por data-status:get.
+    expect(service.list().find((entry) => entry.key === 'ticker:EUR')?.reason).toBe(reason);
+  });
+
+  it('los motivos de clave, cuota y red guardados en técnico mantienen su significado', () => {
+    const cases: [string, string][] = [
+      ['credencial rechazada (HTTP 401)', 'Tiingo rechazó la clave guardada.'],
+      [
+        'cuota excedida (HTTP 429): demasiadas peticiones',
+        'La cuota de Tiingo está agotada por hoy.',
+      ],
+      ['fallo de transporte: fetch failed', 'No se pudo conectar con Tiingo.'],
+      ['error del servidor (HTTP 503): caída', 'El servicio de Tiingo devolvió un error.'],
+    ];
+    const providerKey = dataStatusKey.provider('tiingo');
+    for (const [stored, expected] of cases) {
+      repo.setDataStatus({
+        key: providerKey,
+        state: 'desactualizado',
+        consecutiveFailures: 1,
+        reason: stored,
+      });
+      expect(service.list().find((entry) => entry.key === providerKey)?.reason).toBe(expected);
+    }
+  });
+
+  it('la evaluación no degrada un sin-cobertura aunque falte la vela esperada', async () => {
+    repo.addWatchlistTicker('EUR');
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('un sin-cobertura con el dato ya guardado y al día vuelve a fiable', async () => {
+    repo.addWatchlistTicker('EUR');
+    seedBars('EUR', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 0,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+
+    service.evaluate();
+    await flush();
+
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({ state: 'fiable' });
+  });
+
+  it('un sin-cobertura con contador alto no escala a no-fiable ni notifica', async () => {
+    repo.addWatchlistTicker('EUR');
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      consecutiveFailures: 5,
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    service.observe(
+      entry({
+        key: dataStatusKey.ticker('EUR'),
+        state: 'sin-cobertura',
+        consecutiveFailures: 5,
+        reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+      }),
+    );
+    await flush();
+
+    expect(notifications).toEqual([]);
+    // La regla de los 3 fallos no aplica: no es un fallo del proveedor.
+    expect(status(dataStatusKey.ticker('EUR'))).toMatchObject({ state: 'sin-cobertura' });
+    const entries = service.freshness().uncovered;
+    expect(entries.map((a) => a.ticker)).toEqual(['EUR']);
+  });
+
+  it('una fila ticker:X huérfana no entra en uncovered ni decide el estado de frescura', () => {
+    repo.addWatchlistTicker('AAPL');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    // Filas heredadas de activos ya quitados: una baja que no las borró o
+    // una versión anterior que no lo hacía. Ninguna puede resucitar el
+    // aviso de un activo que ya no está en la lista.
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('VIEJO'),
+      state: 'desactualizado',
+      reason: 'falta la vela esperada',
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('ROTO'),
+      state: 'no-fiable',
+      consecutiveFailures: HEALTH_MAX_CONSECUTIVE_FAILURES,
+      reason: '3 fallos seguidos del proveedor',
+    });
+
+    const summary = service.freshness();
+    expect(summary.uncovered).toEqual([]);
+    expect(summary.items).toEqual([]);
+    expect(summary.state).toBe('current');
+  });
+
+  it('al quitar el activo su sin-cobertura sale del resumen y su fila muere con la baja', async () => {
+    repo.addWatchlistTicker('AAPL');
+    repo.addWatchlistTicker('EUR');
+    seedBars('AAPL', LAST_SESSION);
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('AAPL'),
+      state: 'fiable',
+      lastOkAt: new Date(nowMs).toISOString(),
+      consecutiveFailures: 0,
+    });
+    repo.setDataStatus({
+      key: dataStatusKey.ticker('EUR'),
+      state: 'sin-cobertura',
+      reason: "el proveedor 'tiingo' no devolvió datos para EUR",
+    });
+    service.evaluate();
+    await flush();
+    expect(service.freshness().uncovered.map((a) => a.ticker)).toEqual(['EUR']);
+
+    expect(repo.removeWatchlistTicker('EUR')).toBe(true);
+
+    const summary = service.freshness();
+    expect(summary.uncovered).toEqual([]);
+    expect(summary.items).toEqual([]);
+    expect(summary.state).toBe('current');
+    // La fila murió con la baja: ni una lectura directa la recupera.
+    expect(status(dataStatusKey.ticker('EUR'))).toBeNull();
+    // Y una pasada posterior tampoco la resucita: el ticker ya no se evalúa.
+    service.evaluate();
+    await flush();
+    expect(status(dataStatusKey.ticker('EUR'))).toBeNull();
+    expect(service.freshness().uncovered).toEqual([]);
   });
 
   it('registra el handler data-status:freshness', () => {
@@ -1015,7 +1391,13 @@ describe('registro en la app', () => {
 
 describe('constantes del contrato', () => {
   it('los estados del dominio son los esperados', () => {
-    const states: DataStatusState[] = ['fiable', 'actualizando', 'desactualizado', 'no-fiable'];
-    expect(states).toHaveLength(4);
+    const states: DataStatusState[] = [
+      'fiable',
+      'actualizando',
+      'desactualizado',
+      'no-fiable',
+      'sin-cobertura',
+    ];
+    expect(states).toHaveLength(5);
   });
 });

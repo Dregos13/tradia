@@ -1,14 +1,19 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { DataStateIcon } from '../DataStateIcon';
+import { normalizeFxPair } from '../../../../shared/fx';
+import { assetSymbol, fxLabel } from '../assetPresentation';
+import { isFxSymbol } from '../../../../shared/fxTrading';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
-import { formatAssetSymbol, inferAssetClass, isFxPair } from '../../../../shared/fx';
+import { AssetSearch } from './AssetSearch';
 import {
   isTicker,
-  normalizeAssetSymbol,
   WATCHLIST_MAX_ITEMS,
   type DataStatusEntry,
+  type WatchlistCoverageEntry,
   type WatchlistItem,
 } from '../../../../shared/ipc';
-import { AssetSearch } from './AssetSearch';
+
+const EMPTY_STATUSES: DataStatusEntry[] = [];
 
 interface Props {
   items: WatchlistItem[];
@@ -18,77 +23,150 @@ interface Props {
   onSelect(ticker: string | null): void;
   onChanged(): Promise<void>;
 }
-
 export function Watchlist({
   items,
   selected,
   onSelect,
   onChanged,
-  statuses = [],
+  statuses = EMPTY_STATUSES,
   simulated = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [rejectedTicker, setRejectedTicker] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<WatchlistCoverageEntry[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [queryRequest, setQueryRequest] = useState({ value: '', nonce: 0 });
+  const focusAfter = useRef(false);
+  const [focusRequest, setFocusRequest] = useState(0);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingTicker, setPendingTicker] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const removeRef = useRef<HTMLButtonElement>(null);
-
-  const mutate = async (
-    action: () => Promise<WatchlistItem[]>,
-    success: string,
-    choose?: string,
-  ): Promise<boolean> => {
-    setBusy(true);
-    setPendingTicker(choose ?? null);
+  useEffect(() => {
+    let active = true;
+    void window.tradia.watchlist.coverage().then(
+      (entries) => {
+        if (active) setCoverage(entries);
+      },
+      () => {
+        if (active) setCoverage([]);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [items, statuses]);
+  useEffect(() => {
+    if (!busy && focusAfter.current) {
+      focusAfter.current = false;
+      inputRef.current?.focus();
+    }
+  }, [busy, error, message, focusRequest]);
+  const resetFeedback = () => {
     setError(null);
+    setSuggestions([]);
+    setRejectedTicker(null);
     setMessage('');
+  };
+  const reject = (text: string) => {
+    focusAfter.current = true;
+    setFocusRequest((previous) => previous + 1);
+    setError(text);
+  };
+  const mutate = async (action: () => Promise<WatchlistItem[]>, success: string) => {
+    if (busy) return;
+    setBusy(true);
+    resetFeedback();
     try {
       const updated = await action();
       await onChanged();
       onSelect(
-        choose ??
-          (updated.some((item) => item.ticker === selected)
-            ? selected
-            : (updated[0]?.ticker ?? null)),
+        updated.some((item) => item.ticker === selected) ? selected : (updated[0]?.ticker ?? null),
       );
       setConfirm(null);
       setMessage(success);
+    } catch {
+      reject('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const add = async (value: string): Promise<boolean> => {
+    if (busy) return false;
+    const ticker = normalizeFxPair(value) ?? value.trim().toUpperCase();
+    resetFeedback();
+    if (!isTicker(ticker)) {
+      reject('Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.');
+      return false;
+    }
+    if (items.some((item) => item.ticker === ticker)) {
+      reject(`${assetSymbol(ticker)} ya está en tu lista.`);
+      return false;
+    }
+    if (items.length >= WATCHLIST_MAX_ITEMS) {
+      reject('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
+      return false;
+    }
+    setBusy(true);
+    setPendingTicker(ticker);
+    try {
+      const result = await window.tradia.watchlist.add(ticker);
+      if (!result.added) {
+        if (result.reason === 'no-cubierto') {
+          const alternatives = [...new Set(result.suggestions ?? [])]
+            .filter(isTicker)
+            .sort((a, b) => Number(isFxSymbol(b)) - Number(isFxSymbol(a)));
+          const pair = alternatives.find(isFxSymbol);
+          const etf = alternatives.find((symbol) => !isFxSymbol(symbol));
+          setSuggestions(alternatives);
+          setRejectedTicker(ticker);
+          setQueryRequest((previous) => ({ value: ticker, nonce: previous.nonce + 1 }));
+          reject(
+            pair
+              ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${assetSymbol(pair)} para seguir el tipo de cambio${etf ? `, o cambiar por ${etf}, un fondo cotizado en bolsa que se mueve de forma parecida` : ''}.`
+              : etf
+                ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${etf}, un fondo cotizado en bolsa que se mueve de forma parecida.`
+                : alternatives.length
+                  ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${alternatives.join(' o ')}.`
+                  : `Tiingo no ofrece datos para ${ticker}. Prueba con el ticker de una acción o de un fondo cotizado de EE. UU.`,
+          );
+        } else if (result.reason === 'duplicado') {
+          reject(`${assetSymbol(ticker)} ya está en tu lista.`);
+        } else if (result.reason === 'limite') {
+          reject('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
+        } else {
+          reject('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+        }
+        return false;
+      }
+      const name = result.name;
+      if (name) setNames((previous) => ({ ...previous, [ticker]: name }));
+      await onChanged();
+      onSelect(ticker);
+      setQueryRequest((previous) => ({ value: '', nonce: previous.nonce + 1 }));
+      const shown = assetSymbol(ticker);
+      setMessage(
+        result.reason === 'pendiente-verificar'
+          ? `${shown} se ha añadido, pero aún no pudimos comprobarlo. Lo verificaremos cuando vuelva la conexión.`
+          : result.name
+            ? `${shown} se ha añadido a tu lista como ${result.name}.`
+            : isFxSymbol(ticker)
+              ? `${shown} se ha añadido a tu lista: ${fxLabel(ticker).toLowerCase()}.`
+              : `${shown} se ha añadido a tu lista.`,
+      );
+      focusAfter.current = true;
       return true;
     } catch {
-      setError('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+      reject('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
       return false;
     } finally {
       setBusy(false);
       setPendingTicker(null);
     }
   };
-
-  const add = async (rawTicker: string): Promise<boolean> => {
-    // 'EUR/USD' o 'eur-usd' se guardan en su forma canónica ('EURUSD').
-    const ticker = normalizeAssetSymbol(rawTicker) ?? rawTicker.trim().toUpperCase();
-    if (!isTicker(ticker)) {
-      setError(
-        'Símbolo no reconocido. Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.',
-      );
-      return false;
-    }
-    if (items.some((item) => item.ticker === ticker)) {
-      setError(`${ticker} ya está en tu lista.`);
-      return false;
-    }
-    if (items.length >= WATCHLIST_MAX_ITEMS) {
-      setError('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
-      return false;
-    }
-    return mutate(
-      () => window.tradia.watchlist.add(ticker),
-      `${formatAssetSymbol(ticker, inferAssetClass(ticker))} se ha añadido a tu lista.`,
-      ticker,
-    );
-  };
-
   return (
     <>
       <div className="market-toolbar">
@@ -98,8 +176,50 @@ export function Watchlist({
           onAdd={add}
           inputRef={inputRef}
           error={error}
-          onClearError={() => setError(null)}
+          onClearError={resetFeedback}
+          describedBy="market-ticker-help"
+          submitLabel={pendingTicker ? 'Comprobando…' : 'Añadir'}
+          queryRequest={queryRequest}
         />
+        <p id="market-ticker-help" className="market-ticker-help">
+          Acciones y ETF: AAPL, SPY o FXE. Divisas: EUR/USD o EURUSD.
+        </p>
+        {error && (
+          <div
+            id="market-list-error"
+            className={`market-add-feedback${rejectedTicker ? ' market-add-uncovered' : ''}`}
+            role="alert"
+            aria-live="assertive"
+          >
+            {rejectedTicker && (
+              <strong>
+                <DataStateIcon kind="uncovered" />
+                {assetSymbol(rejectedTicker)} no está disponible en Tiingo
+              </strong>
+            )}
+            <p>{error}</p>
+            {suggestions.length > 0 && (
+              <div className="market-add-alternatives">
+                {suggestions.map((ticker) => (
+                  <button
+                    key={ticker}
+                    type="button"
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void add(ticker)}
+                  >
+                    {isFxSymbol(ticker)
+                      ? `Añadir ${assetSymbol(ticker)} (divisa)`
+                      : `Cambiar por ${ticker}`}
+                  </button>
+                ))}
+                <a className="button" href="#ajustes?provider=tiingo">
+                  Abrir Ajustes › Conectores
+                </a>
+              </div>
+            )}
+          </div>
+        )}
         <button
           className="button"
           disabled={busy || items.length >= WATCHLIST_MAX_ITEMS}
@@ -109,13 +229,12 @@ export function Watchlist({
         >
           Añadir universo inicial · 25
         </button>
-        {error && (
-          <p id="market-list-error" className="market-error" role="alert">
-            {error}
-          </p>
-        )}
-        <p className="market-announcement" role="status">
-          {busy ? 'Actualizando lista…' : message}
+        <p className="market-announcement" role="status" aria-live="polite">
+          {pendingTicker
+            ? `Comprobando si ${assetSymbol(pendingTicker)} está disponible en Tiingo…`
+            : busy
+              ? 'Actualizando la lista…'
+              : message}
         </p>
       </div>
       {pendingTicker && (
@@ -133,44 +252,59 @@ export function Watchlist({
         {items.length ? (
           <>
             <ul>
-              {items.map((item) => {
-                const isForex = item.assetClass === 'fx' || isFxPair(item.ticker);
-                const display = formatAssetSymbol(
-                  item.ticker,
-                  item.assetClass ?? inferAssetClass(item.ticker),
-                );
-                return (
-                  <li key={item.ticker}>
-                    <button
-                      className="market-asset"
-                      aria-label={display}
-                      aria-pressed={selected === item.ticker}
-                      onClick={() => {
-                        onSelect(item.ticker);
-                        setConfirm(null);
-                      }}
+              {items.map((item) => (
+                <li key={item.ticker}>
+                  <button
+                    className="market-asset"
+                    aria-label={assetSymbol(item.ticker)}
+                    aria-describedby={`market-coverage-${item.ticker}`}
+                    aria-pressed={selected === item.ticker}
+                    onClick={() => {
+                      onSelect(item.ticker);
+                      setConfirm(null);
+                    }}
+                  >
+                    <span
+                      className={
+                        statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
+                        'no-fiable'
+                          ? 'data-dimmed'
+                          : undefined
+                      }
                     >
-                      <span
-                        className={
-                          statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
-                          'no-fiable'
-                            ? 'data-dimmed'
-                            : undefined
-                        }
-                      >
-                        {display}
+                      {assetSymbol(item.ticker)}
+                    </span>
+                    {names[item.ticker] && (
+                      <span className="market-asset-name">{names[item.ticker]}</span>
+                    )}
+                  </button>
+                  <div id={`market-coverage-${item.ticker}`} className="market-asset-coverage">
+                    {item.assetClass === 'fx' && (
+                      <span className="market-asset-class">{fxLabel(item.ticker)}</span>
+                    )}
+                    {statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
+                      'sin-cobertura' ||
+                    coverage.find((entry) => entry.ticker === item.ticker)?.coverage ===
+                      'sin-cobertura' ? (
+                      <span className="market-badge market-coverage-uncovered">
+                        <DataStateIcon kind="uncovered" />
+                        Sin datos en Tiingo
                       </span>
-                      {isForex && (
-                        <span className="asset-badge forex market-asset-badge">Divisa</span>
-                      )}
-                    </button>
-                    <MarketStatus
-                      status={statuses.find((entry) => entry.key === `ticker:${item.ticker}`)}
-                      simulated={simulated}
-                    />
-                  </li>
-                );
-              })}
+                    ) : coverage.find((entry) => entry.ticker === item.ticker)?.coverage !==
+                      'cubierto' ? (
+                      <span className="market-badge market-coverage-pending">
+                        <DataStateIcon kind="pending" />
+                        Pendiente de verificar
+                      </span>
+                    ) : (
+                      <MarketStatus
+                        status={statuses.find((entry) => entry.key === `ticker:${item.ticker}`)}
+                        simulated={simulated}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
             </ul>
             {selected && (
               <button
@@ -179,19 +313,16 @@ export function Watchlist({
                 disabled={busy}
                 onClick={() => setConfirm(selected)}
               >
-                Quitar {formatAssetSymbol(selected, inferAssetClass(selected))}
+                Quitar {assetSymbol(selected)}
               </button>
             )}
             {confirm && (
               <div
                 className="market-confirm"
                 role="group"
-                aria-label={`Confirmar quitar ${formatAssetSymbol(confirm, inferAssetClass(confirm))}`}
+                aria-label={`Confirmar quitar ${assetSymbol(confirm)}`}
               >
-                <p>
-                  ¿Quitar {formatAssetSymbol(confirm, inferAssetClass(confirm))} de tu lista? Puedes
-                  volver a añadirlo.
-                </p>
+                <p>¿Quitar {assetSymbol(confirm)} de tu lista? Puedes volver a añadirlo.</p>
                 <button
                   autoFocus
                   className="button"
@@ -209,12 +340,12 @@ export function Watchlist({
                   onClick={async () => {
                     await mutate(
                       () => window.tradia.watchlist.remove(confirm),
-                      `${formatAssetSymbol(confirm, inferAssetClass(confirm))} se ha quitado de tu lista.`,
+                      `${assetSymbol(confirm)} se ha quitado de tu lista.`,
                     );
                     inputRef.current?.focus();
                   }}
                 >
-                  Confirmar quitar {formatAssetSymbol(confirm, inferAssetClass(confirm))}
+                  Confirmar quitar {assetSymbol(confirm)}
                 </button>
               </div>
             )}

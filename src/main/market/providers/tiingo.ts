@@ -43,6 +43,8 @@ export const TIINGO_RATE_LIMITS: RateLimits = { perHour: 50, perDay: 1000 };
 export const TIINGO_TIMEOUT_MS = 20_000;
 /** Ventana que mira `getQuote` hacia atrás para encontrar la última vela. */
 const QUOTE_LOOKBACK_DAYS = 31;
+/** Ventana del sondeo de existencia de un par de divisas en `getTickerInfo`. */
+const FX_INFO_LOOKBACK_DAYS = 14;
 
 export interface TiingoProviderDeps {
   /** fetch inyectable (en producción, la global del proceso principal). */
@@ -77,6 +79,12 @@ interface TiingoFxRow {
   high?: unknown;
   low?: unknown;
   close?: unknown;
+}
+
+/** Ficha del endpoint `/tiingo/daily/{ticker}` (solo acciones y ETF). */
+interface TiingoMetaRow {
+  ticker?: unknown;
+  name?: unknown;
 }
 
 /** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
@@ -334,6 +342,33 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     rateLimits: TIINGO_RATE_LIMITS,
 
     getBars,
+
+    getTickerInfo: async (ticker) => {
+      assertValidTicker(ticker, TIINGO_PROVIDER_ID);
+      if (isFxPair(ticker)) {
+        // El endpoint FX no tiene ficha: la cobertura se comprueba con una
+        // ventana corta de velas — lista vacía o 404 significan «no existe».
+        const hasta = new Date(now()).toISOString().slice(0, 10);
+        const desde = new Date(now() - FX_INFO_LOOKBACK_DAYS * 86_400_000)
+          .toISOString()
+          .slice(0, 10);
+        const bars = await getBars(ticker, desde, hasta);
+        if (bars.length === 0) {
+          throw fail('not-found', `sin datos para el par '${ticker}'`, ticker);
+        }
+        return { ticker, assetClass: 'fx' };
+      }
+      const payload = await request(`/tiingo/daily/${encodeURIComponent(ticker)}`, ticker);
+      if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+        throw fail('bad-data', 'respuesta sin ficha del ticker', ticker);
+      }
+      const name = (payload as TiingoMetaRow).name;
+      return {
+        ticker,
+        assetClass: 'equity',
+        ...(typeof name === 'string' && name !== '' ? { name } : {}),
+      };
+    },
 
     getQuote: async (ticker) => {
       assertValidTicker(ticker, TIINGO_PROVIDER_ID);

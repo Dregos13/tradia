@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { isLiveConnectRequest } from '../../../../shared/ipc';
 import {
   LIVE_REQUIREMENTS,
@@ -13,7 +13,14 @@ import { useLiveSafety } from './useLiveSafety';
 import './checklist.css';
 import './live.css';
 
-export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () => void } = {}) {
+export function LiveBrokerSettings({
+  onOpenChecklist,
+  children,
+}: {
+  onOpenChecklist?: () => void;
+  /** Tarjetas de límites y corto que se apilan bajo las claves (UXP-09). */
+  children?: ReactNode;
+} = {}) {
   const live = useLiveState();
   const safety = useLiveSafety();
   const id = useId();
@@ -141,6 +148,7 @@ export function LiveBrokerSettings({ onOpenChecklist }: { onOpenChecklist?: () =
     <SettingsSection
       title="Cuenta de broker · Dinero real"
       description="Claves de Alpaca Live en una ranura cifrada separada. Solo disponible con la lista de comprobación cumplida."
+      after={children}
     >
       <div className="live-surface live-broker" aria-busy={checking || live.loading || busy}>
         <style>{liveTokens()}</style>

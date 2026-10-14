@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { providerSettingsLink } from './DataFreshness';
+import { DataFreshness, providerSettingsLink } from './DataFreshness';
 import { MacroPanel } from './macro/MacroPanel';
 import { useMarketData } from '../hooks/useMarketData';
 import { MarketWorkspace } from './market/MarketWorkspace';
@@ -7,7 +7,7 @@ import { MarketWorkspace } from './market/MarketWorkspace';
 /** Shell for the watchlist/chart and macro panel implemented in the next tasks. */
 export function MarketDataPage({
   kind,
-  offline: _offline = false,
+  offline = false,
 }: {
   kind: 'mercado' | 'macro';
   offline?: boolean;
@@ -34,8 +34,12 @@ export function MarketDataPage({
   const simulated =
     kind === 'macro' && data.statuses.some((entry) => entry.key === 'provider:simulated');
   return (
-    <section aria-label={kind === 'mercado' ? 'Datos de mercado' : 'Datos macro'}>
-      <div className="headline">
+    <section
+      className="market-data-page"
+      data-layout-page={kind}
+      aria-label={kind === 'mercado' ? 'Datos de mercado' : 'Datos macro'}
+    >
+      <div className="headline" data-layout-block="cabecera">
         <h2>
           {kind === 'mercado' ? 'Tu mercado, con perspectiva.' : 'El contexto detrás del precio.'}
         </h2>
@@ -45,7 +49,9 @@ export function MarketDataPage({
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
-
+      <div data-layout-block="frescura">
+        <DataFreshness offline={offline} />
+      </div>
       {data.statusError && (
         <p className="market-error" role="alert">
           {data.statusError}

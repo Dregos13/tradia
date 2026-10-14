@@ -11,13 +11,17 @@ export function MacroPanel({
   simulated?: boolean;
 }) {
   return (
-    <>
+    <div className="macro-panel" data-layout-block="macro-indicadores">
       {simulated && (
-        <p className="macro-simulation">
+        <p className="macro-simulation" data-layout-block="simulacion">
           Datos simulados · Entorno de pruebas. Los valores no representan cotizaciones reales.
         </p>
       )}
-      <section className="macro-grid" aria-label="Indicadores macroeconómicos">
+      <section
+        data-layout-block="indicadores"
+        className="macro-grid"
+        aria-label="Indicadores macroeconómicos"
+      >
         {indicators.map((indicator) => (
           <MacroCard
             key={indicator.id}
@@ -27,6 +31,6 @@ export function MacroPanel({
           />
         ))}
       </section>
-    </>
+    </div>
   );
 }

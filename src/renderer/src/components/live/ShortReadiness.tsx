@@ -48,6 +48,7 @@ export function ShortReadiness({
   )?.evidence;
   return (
     <section
+      data-layout-block="corto"
       className="live-sheet live-short-readiness"
       aria-labelledby={`${id}-title`}
       aria-busy={loading}

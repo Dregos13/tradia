@@ -7,6 +7,7 @@ const statuses = {
   actualizando: { label: 'Actualizando', symbol: '◌', token: 'updating' },
   desactualizado: { label: 'Desactualizado', symbol: '◷', token: 'stale' },
   'no-fiable': { label: 'No fiable', symbol: '!', token: 'unreliable' },
+  'sin-cobertura': { label: 'Sin cobertura', symbol: '∅', token: 'stale' },
 };
 export function MacroCard({
   indicator,

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { posix } from 'node:path';
 
 /**
  * Inicio automático con el sistema operativo.
@@ -28,12 +28,12 @@ export interface LinuxAutostartPaths {
 }
 
 export function linuxAutostartDir(paths: LinuxAutostartPaths): string {
-  const configHome = paths.configHome || join(paths.home, '.config');
-  return join(configHome, 'autostart');
+  const configHome = paths.configHome || posix.join(paths.home, '.config');
+  return posix.join(configHome, 'autostart');
 }
 
 export function linuxAutostartFile(paths: LinuxAutostartPaths): string {
-  return join(linuxAutostartDir(paths), LINUX_DESKTOP_FILENAME);
+  return posix.join(linuxAutostartDir(paths), LINUX_DESKTOP_FILENAME);
 }
 
 /**

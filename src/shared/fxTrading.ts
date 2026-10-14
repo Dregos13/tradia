@@ -17,7 +17,7 @@
  * - Para los límites de exposición, un par expone la cartera a su moneda
  *   base (EUR en EURUSD) y cuenta en el sector `FX_SECTOR`.
  */
-import { fxPairCurrencies, normalizeFxPair, type FxPair } from './fx';
+import { fxPairCurrencies, isFxPair } from './fx';
 
 /** Divisa de la cuenta de la cartera simulada (y del P&L). */
 export const PAPER_ACCOUNT_CURRENCY = 'USD';
@@ -60,22 +60,17 @@ export const FX_BACKTEST_COSTS = Object.freeze({
 export const SIGNAL_DESTINATIONS = ['cartera-simulada', 'solo-analisis'] as const;
 export type SignalDestination = (typeof SIGNAL_DESTINATIONS)[number];
 
-/**
- * Par admitido que identifica `symbol`, en su forma guardada ('EURUSD'):
- * acepta la forma guardada y las que escribe el usuario ('EUR/USD',
- * 'eurusd', 'EUR-USD'). null para cualquier otro símbolo.
- */
-const pairOf = (symbol: string): FxPair | null => normalizeFxPair(symbol);
+const normalize = (symbol: string): string => symbol.trim().toUpperCase();
 
-/** true si el símbolo (en cualquier forma escrita) es un par admitido. */
+/** true si el símbolo (en cualquier capitalización) es un par admitido. */
 export function isFxSymbol(symbol: string): boolean {
-  return pairOf(symbol) !== null;
+  return isFxPair(normalize(symbol));
 }
 
 /** true si es un par admitido cotizado en USD (EURUSD, GBPUSD). */
 export function isUsdQuotedFxPair(symbol: string): boolean {
-  const pair = pairOf(symbol);
-  return pair !== null && fxPairCurrencies(pair).quote === PAPER_ACCOUNT_CURRENCY;
+  const pair = normalize(symbol);
+  return isFxPair(pair) && fxPairCurrencies(pair).quote === PAPER_ACCOUNT_CURRENCY;
 }
 
 /**
@@ -83,8 +78,8 @@ export function isUsdQuotedFxPair(symbol: string): boolean {
  * ('EUR' en EURUSD) o la divisa de la cuenta para todo lo demás.
  */
 export function exposureCurrencyOf(symbol: string): string {
-  const pair = pairOf(symbol);
-  return pair !== null ? fxPairCurrencies(pair).base : PAPER_ACCOUNT_CURRENCY;
+  const pair = normalize(symbol);
+  return isFxPair(pair) ? fxPairCurrencies(pair).base : PAPER_ACCOUNT_CURRENCY;
 }
 
 /**

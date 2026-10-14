@@ -23,6 +23,9 @@
  * - Reloj inyectable (`RoutineClock`, mismo patrón que market/news) y
  *   temporizadores inyectables para las pruebas; el gancho E2E
  *   `routine:advance-clock` adelanta el reloj y reevalúa al instante.
+ * - Divisas: la rutina sigue el calendario de NYSE; las señales, cierres
+ *   y operaciones de los pares 24/5 se concilian en el siguiente día de
+ *   NYSE (ventana [sesión anterior, día), ver routine/reconcile.ts).
  * - Gancho postmercado (`onPostMarket`): tras la tarea 'conciliacion'
  *   del día se invocan los oyentes registrados (fase 5: el servicio del
  *   broker engancha ahí su conciliación con la cuenta paper, con el
@@ -446,10 +449,18 @@ export function createRoutineService(deps: RoutineDeps): RoutineService {
       };
     }
     // conciliacion
-    const signals = deps.listSignals?.({ desde: dia, hasta: dia, limit: 200 }) ?? [];
+    // Las divisas se concilian en el siguiente día de NYSE: su vela del
+    // día llega después de las 17:30 y también hay velas en festivos de
+    // NYSE (ver routine/reconcile.ts). Por eso se piden también las
+    // señales desde la sesión anterior; reconcileDay se queda con las de
+    // su ventana.
+    const fxWindowStart = prevTradingDay(dia);
+    const signals =
+      deps.listSignals?.({ desde: fxWindowStart ?? dia, hasta: dia, limit: 200 }) ?? [];
     const operations = deps.listJournal?.({ type: 'operacion', limit: 1000 }).entries ?? [];
     const result = reconcileDay({
       dia,
+      fxWindowStart,
       signals,
       positions: deps.reads.listPaperPositions(),
       operations,

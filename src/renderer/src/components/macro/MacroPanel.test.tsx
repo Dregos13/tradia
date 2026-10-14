@@ -147,3 +147,13 @@ it('muestra el error de consulta y permite reintentar', async () => {
   act(() => screen.getByRole('button', { name: 'Reintentar' }).click());
   expect(await screen.findByRole('region', { name: 'Indicadores macroeconómicos' })).toBeTruthy();
 });
+
+it('agrupa el aviso simulado y la rejilla como bloques hermanos de la misma pila', () => {
+  render(<MacroPanel series={[]} simulated />);
+  const grid = screen.getByRole('region', { name: 'Indicadores macroeconómicos' });
+  const notice = screen.getByText(/Datos simulados · Entorno de pruebas/);
+  expect(grid.parentElement).toBe(notice.parentElement);
+  expect(grid.parentElement).toHaveClass('macro-panel');
+  expect(grid).toHaveAttribute('data-layout-block', 'indicadores');
+  expect(notice).toHaveAttribute('data-layout-block', 'simulacion');
+});

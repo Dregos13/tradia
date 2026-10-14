@@ -40,8 +40,10 @@ it('muestra un único aviso «desactualizado desde …» y lo retira al recupera
 
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos desactualizados desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
-  expect(within(banner).getByText(/en pausa hasta ponerse al día/)).toBeTruthy();
+  expect(within(banner).getByText(/Falta la vela del 8 oct 2026/, { selector: 'p' })).toBeTruthy();
+  expect(
+    within(banner).getByText(/no se calculan régimen, predicciones ni señales nuevas/),
+  ).toBeTruthy();
 
   act(() =>
     simulation.emitDataStatus({
@@ -85,7 +87,7 @@ it('un estado no fiable muestra «Datos no fiables desde …»', async () => {
   );
   const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
   expect(within(banner).getByText(/Datos no fiables desde el/)).toBeTruthy();
-  expect(within(banner).getByText(/valor anómalo grave/, { selector: 'p' })).toBeTruthy();
+  expect(within(banner).getByText(/Valor anómalo grave/, { selector: 'p' })).toBeTruthy();
 });
 
 it('las tarjetas de Datos siguen marcando su propio estado', async () => {
@@ -123,6 +125,63 @@ it('limpia la suscripción al desmontar', async () => {
   await waitFor(() => expect(simulation.listenerCount()).toBe(1));
   unmount();
   expect(simulation.listenerCount()).toBe(0);
+});
+
+it('la franja nombra solo el activo sin cobertura y desaparece al recibir el resumen nuevo', async () => {
+  const summary = {
+    state: 'current' as const,
+    sinceDate: null,
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 0,
+    items: [],
+    uncovered: [{ ticker: 'EUR', reason: 'Sin cobertura', suggestion: 'FXE' }],
+    updatedAt: staleTicker.updatedAt,
+  };
+  const freshness = vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(summary);
+  const remove = vi.spyOn(simulation.api.watchlist, 'remove').mockResolvedValue([]);
+  render(<ProviderBanner />);
+  const banner = await screen.findByRole('region', { name: 'Estado de los datos' });
+  expect(
+    within(banner).getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
+  ).toBeVisible();
+  expect(within(banner).getByRole('button', { name: 'Cambiar por FXE para EUR' })).toBeEnabled();
+  expect(banner).not.toHaveTextContent('Régimen, predicciones y señales en pausa');
+  await userEvent.click(within(banner).getByRole('button', { name: 'Quitar EUR de la lista' }));
+  expect(remove).toHaveBeenCalledExactlyOnceWith('EUR');
+  expect(screen.getByRole('region', { name: 'Estado de los datos' })).toBeVisible();
+  freshness.mockResolvedValue({ ...summary, uncovered: [] });
+  act(() => simulation.emitDataStatus({ ...staleTicker, state: 'fiable' }));
+  await waitFor(() =>
+    expect(screen.queryByRole('region', { name: 'Estado de los datos' })).not.toBeInTheDocument(),
+  );
+});
+
+it('al recuperarse el resto mantiene EUR visible sin anunciar éxito completo', async () => {
+  const summary = {
+    state: 'stale' as const,
+    sinceDate: '2026-10-06',
+    expectedSessionDate: '2026-10-09',
+    missingSessions: 3,
+    items: [
+      {
+        key: 'ticker:AAPL',
+        label: 'AAPL',
+        state: 'desactualizado' as const,
+        lastDataDate: '2026-10-06',
+        reason: 'Faltan cierres.',
+      },
+    ],
+    uncovered: [{ ticker: 'EUR', reason: 'Sin cobertura', suggestion: 'FXE' }],
+    updatedAt: staleTicker.updatedAt,
+  };
+  const freshness = vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue(summary);
+  render(<ProviderBanner />);
+  await screen.findByText(/no se calculan régimen, predicciones ni señales nuevas/);
+  freshness.mockResolvedValue({ ...summary, state: 'current', items: [], sinceDate: null });
+  act(() => simulation.emitDataStatus({ ...staleTicker, state: 'fiable' }));
+  expect(await screen.findByText(/Solo EUR queda en pausa/)).toBeVisible();
+  expect(screen.queryByText('Datos al día.')).not.toBeInTheDocument();
+  expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
 });
 
 it('formatea la fecha de sesión en corto español', () => {

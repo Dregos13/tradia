@@ -1,6 +1,7 @@
 .orders-page {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-section-gap);
+  min-width: 0;
 }
 .orders-top,
 .orders-title,
@@ -11,8 +12,17 @@
   gap: var(--space-3);
 }
 .orders-top {
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--space-6);
+}
+.orders-top header {
+  display: grid;
+  gap: var(--space-title-content-gap);
+}
+.orders-top header > * {
+  margin: 0;
 }
 .orders-title h2 {
   margin: 0;
@@ -32,14 +42,17 @@
   color: var(--order-paper);
   background: var(--order-paper-surface);
 }
+/* La conciliación es una tarjeta más, al ancho de la pila (UXP-12). */
 .orders-reconcile {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  border-top: var(--space-1) solid var(--state-success);
 }
 .orders-reconcile p {
   margin: var(--space-2) 0;
@@ -47,7 +60,7 @@
 .orders-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-form-field-gap);
   align-items: flex-end;
 }
 .orders-filters label,
@@ -212,8 +225,7 @@
   .orders-filters label {
     flex-basis: 40%;
   }
-  .orders-top > *,
-  .orders-reconcile {
+  .orders-top > * {
     width: 100%;
   }
 }
@@ -247,4 +259,41 @@
 .orders-mode-unknown {
   color: var(--live-requirement-review);
   background: var(--live-requirement-review-surface);
+}
+
+.orders-page > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.orders-top header > p {
+  margin: var(--space-title-content-gap) 0 0;
+}
+.orders-results {
+  display: grid;
+  gap: var(--space-label-control-gap);
+  min-width: 0;
+}
+.orders-results > p {
+  margin: 0;
+}
+.orders-filters {
+  gap: var(--space-form-field-gap);
+}
+/* Wrap filters to a new row before a select truncates its label. */
+.orders-filters > .orders-field,
+.orders-filters > label {
+  flex: 1 1 calc(var(--space-8) * 7);
+  min-width: 0;
+}
+.orders-create-fields {
+  gap: var(--space-form-field-gap);
+}
+.orders-create > .orders-actions,
+.orders-confirm > .orders-actions {
+  margin-top: var(--space-card-padding);
+}
+
+.orders-page > p[role='status']:empty {
+  position: absolute;
+  padding: 0;
 }
