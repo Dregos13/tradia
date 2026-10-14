@@ -38,7 +38,10 @@
  */
 import {
   IPC_CHANNELS,
+  isNewsCliEngine,
   isNewsProvider,
+  NEWS_CLI_ENGINES,
+  NEWS_ENGINES,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_DAILY_CAP_DEFAULT,
   NEWS_LLM_SECRET_PROVIDER,
@@ -46,6 +49,9 @@ import {
   type NewsAnalysis,
   type NewsAnalysisQuery,
   type NewsAnalyzer,
+  type NewsCliEngine,
+  type NewsEngine,
+  type NewsEngineStatus,
   type NewsLlmSettings,
   type NewsLlmSettingsInput,
   type NewsLlmTestResult,
@@ -54,6 +60,7 @@ import {
   type NotificationPayload,
 } from '../../../shared/ipc';
 import type { SecretsService } from '../../services/secrets';
+import { CLI_ENGINE_SPECS, type CliEngineResolution } from './cliEngines';
 import { detectAssets, stripInstructionSpans } from './local';
 import type { NewsAnalysisRepository } from './repository';
 import { isNewsLlmError, type KeyValueStore, type NewsHeadlineAnalyzer } from './types';
@@ -66,21 +73,33 @@ import { isNewsLlmError, type KeyValueStore, type NewsHeadlineAnalyzer } from '.
 export const NEWS_LLM_SETTINGS_KEYS = {
   enabled: 'newsLlm.enabled',
   provider: 'newsLlm.provider',
+  /** Ruta heredada: la que Ajustes guardaba para Claude Code. */
   cliPath: 'newsLlm.cliPath',
+  /** Motor CLI elegido ('suscripcion-claude'…); falta = Claude Code. */
+  engine: 'newsLlm.engine',
   dailyCap: 'newsLlm.dailyCap',
 } as const;
+
+/** Clave por motor de la ruta personalizada ('newsLlm.cliPath.suscripcion-codex'…). */
+export const engineCliPathKey = (engine: NewsCliEngine): string =>
+  `${NEWS_LLM_SETTINGS_KEYS.cliPath}.${engine}`;
 
 interface StoredLlmSettings {
   enabled: boolean;
   provider: NewsAnalyzer;
-  cliPath: string | null;
+  /** Motor CLI elegido ('suscripcion-*'); solo relevante con 'suscripcion'. */
+  engine: NewsCliEngine;
   dailyCap: number;
 }
 
 const clampInt = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, Math.trunc(value)));
 
-const readSettings = (store: KeyValueStore, detectedProvider: NewsAnalyzer): StoredLlmSettings => {
+const readSettings = (
+  store: KeyValueStore,
+  detectedProvider: NewsAnalyzer,
+  defaultEngine: NewsCliEngine,
+): StoredLlmSettings => {
   const enabled = store.getValue(NEWS_LLM_SETTINGS_KEYS.enabled) === 'true';
   const storedProvider = store.getValue(NEWS_LLM_SETTINGS_KEYS.provider);
   // Un proveedor guardado elegible manda. Sin él se sugiere el detectado
@@ -92,13 +111,16 @@ const readSettings = (store: KeyValueStore, detectedProvider: NewsAnalyzer): Sto
     : storedProvider === 'llm' && !enabled
       ? 'local'
       : detectedProvider;
-  const cliPath = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath) || null;
+  // Motor guardado si es válido; si no, el primero detectado. Un ajuste
+  // heredado sin motor equivale a Claude Code (es lo que era antes).
+  const storedEngine = store.getValue(NEWS_LLM_SETTINGS_KEYS.engine);
+  const engine: NewsCliEngine = isNewsCliEngine(storedEngine) ? storedEngine : defaultEngine;
   const rawCap = Number(store.getValue(NEWS_LLM_SETTINGS_KEYS.dailyCap));
   const dailyCap =
     Number.isFinite(rawCap) && rawCap > 0
       ? clampInt(rawCap, NEWS_LLM_DAILY_CAP_BOUNDS.min, NEWS_LLM_DAILY_CAP_BOUNDS.max)
       : NEWS_LLM_DAILY_CAP_DEFAULT;
-  return { enabled, provider, cliPath, dailyCap };
+  return { enabled, provider, engine, dailyCap };
 };
 
 // ---------------------------------------------------------------------------
@@ -111,14 +133,31 @@ export interface NewsAiLogger {
   error?(message: string): void;
 }
 
+/** Manillar de un motor CLI: su analizador y la resolución de su ejecutable. */
+export interface NewsCliEngineHandle {
+  /** Analizador headless del motor; null si no está montado. */
+  analyzer: (NewsHeadlineAnalyzer & { ping?(): Promise<number> }) | null;
+  /** true si hay un ejecutable localizable (configurado, PATH o conocido). */
+  available(): boolean;
+  /** Resolución vigente (ruta y origen) para la autodetección de Ajustes. */
+  resolve?(): CliEngineResolution;
+}
+
 export interface NewsAiServiceDeps {
   repo: NewsAnalysisRepository;
   /** Clasificador léxico local: siempre disponible y sin coste. */
   localAnalyzer: NewsHeadlineAnalyzer;
   /**
+   * Manillares por motor del desplegable (`cliEngines.ts`): cada uno
+   * ejecuta su CLI en headless seguro. `subscriptionAnalyzer` queda como
+   * alias heredado de 'suscripcion-claude'.
+   */
+  cliEngines?: Partial<Record<NewsCliEngine, NewsCliEngineHandle>>;
+  /**
    * Analizador por suscripción (CLI de Claude Code); null si no está
    * montado. `available()` dice si hay un `claude` localizable y `ping()`
    * lo comprueba de verdad («CLI no encontrada» / «sesión no iniciada»).
+   * @deprecated Preferir `cliEngines['suscripcion-claude']`.
    */
   subscriptionAnalyzer?:
     (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean }) | null;
@@ -176,26 +215,33 @@ const memoryStore = (): KeyValueStore => {
  * técnico va al registro (`warnFallback`), nunca a la interfaz ni a la
  * notificación.
  */
-const STATUS_MESSAGES: Record<Exclude<NewsSubscriptionState, 'ok'>, string> = {
-  'cli-no-encontrada':
-    'Instala Claude Code y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.',
-  'sin-sesion':
-    'Abre un terminal, ejecuta claude y después /login. Vuelve aquí y prueba de nuevo. Mientras tanto, se usa el analizador local.',
-  'tope-diario':
+const STATUS_MESSAGES: Record<
+  Exclude<NewsSubscriptionState, 'ok'>,
+  (engine: NewsCliEngine) => string
+> = {
+  'cli-no-encontrada': (engine) =>
+    `Instala ${CLI_ENGINE_SPECS[engine].label} y vuelve a abrir Tradia. Si ya está instalado, indica su ruta en este ajuste. Mientras tanto, se usa el analizador local.`,
+  'sin-sesion': (engine) =>
+    `Abre un terminal, ${CLI_ENGINE_SPECS[engine].loginHint}. Vuelve aquí y prueba de nuevo. Mientras tanto, se usa el analizador local.`,
+  'tope-diario': () =>
     'Espera al próximo día o aumenta el máximo diario de titulares. Hasta entonces se usa el analizador local.',
-  error: 'Comprueba la conexión y vuelve a probar. Mientras tanto, se usa el analizador local.',
+  error: () =>
+    'Comprueba la conexión y vuelve a probar. Mientras tanto, se usa el analizador local.',
 };
 
 /** Cuerpo de la notificación del sistema por motivo (textos del diseño). */
-const NOTIFY_BODY: Record<Exclude<NewsSubscriptionState, 'ok'>, string> = {
-  'cli-no-encontrada':
-    'No se encontró Claude Code. Abre Ajustes › Análisis de noticias para resolverlo.',
-  'sin-sesion':
-    'La sesión de Claude Code no está iniciada. Abre Ajustes › Análisis de noticias para resolverlo.',
-  'tope-diario':
+const NOTIFY_BODY: Record<
+  Exclude<NewsSubscriptionState, 'ok'>,
+  (engine: NewsCliEngine) => string
+> = {
+  'cli-no-encontrada': (engine) =>
+    `No se encontró ${CLI_ENGINE_SPECS[engine].label}. Abre Ajustes › Análisis de noticias para resolverlo.`,
+  'sin-sesion': (engine) =>
+    `La sesión de ${CLI_ENGINE_SPECS[engine].label} no está iniciada. Abre Ajustes › Análisis de noticias para resolverlo.`,
+  'tope-diario': () =>
     'Se alcanzó el máximo diario de titulares. Tradia usa el analizador local hasta el próximo día.',
-  error:
-    'Claude Code devolvió un error. Tradia usa el analizador local; abre Ajustes para volver a probar.',
+  error: (engine) =>
+    `${CLI_ENGINE_SPECS[engine].label} devolvió un error. Tradia usa el analizador local; abre Ajustes para volver a probar.`,
 };
 
 export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
@@ -209,13 +255,92 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   const isoNow = (): string => new Date(now()).toISOString();
   const secrets = deps.secrets ?? null;
 
-  /** ¿Hay un `claude` localizable para el proveedor por suscripción? */
-  const cliAvailable = (): boolean => deps.subscriptionAnalyzer?.available?.() ?? false;
+  // -- Motores CLI del desplegable ---------------------------------------------
+  //
+  // `cliEngines` lleva un manillar por motor (claude/codex/agy/copilot);
+  // el dep heredado `subscriptionAnalyzer` equivale a 'suscripcion-claude'.
+
+  const legacyHandle: NewsCliEngineHandle | null = deps.subscriptionAnalyzer
+    ? {
+        analyzer: deps.subscriptionAnalyzer,
+        available: () => deps.subscriptionAnalyzer?.available?.() ?? false,
+      }
+    : null;
+
+  const engineHandle = (engine: NewsCliEngine): NewsCliEngineHandle | null =>
+    deps.cliEngines?.[engine] ?? (engine === 'suscripcion-claude' ? legacyHandle : null);
+
+  const engineAvailable = (engine: NewsCliEngine): boolean =>
+    engineHandle(engine)?.available() ?? false;
+
+  /** ¿Hay alguna CLI localizable para el proveedor por suscripción? */
+  const cliAvailable = (): boolean => NEWS_CLI_ENGINES.some((engine) => engineAvailable(engine));
+
+  /** Motor por defecto sin nada guardado: el primero con CLI localizable. */
+  const detectedEngine = (): NewsCliEngine =>
+    NEWS_CLI_ENGINES.find((engine) => engineAvailable(engine)) ?? 'suscripcion-claude';
 
   /** Proveedor por defecto sin nada guardado: 'suscripcion' con CLI, 'local' sin ella. */
   const detectedProvider = (): NewsAnalyzer => (cliAvailable() ? 'suscripcion' : 'local');
 
-  const readStored = (): StoredLlmSettings => readSettings(store, detectedProvider());
+  /**
+   * Motor por defecto: con un proveedor ya guardado es Claude Code (un
+   * ajuste heredado de «suscripción» siempre significó Claude); sin
+   * proveedor guardado —instalación nueva—, el primer motor con CLI
+   * localizable.
+   */
+  const defaultEngine = (): NewsCliEngine =>
+    isNewsProvider(store.getValue(NEWS_LLM_SETTINGS_KEYS.provider)) ||
+    store.getValue(NEWS_LLM_SETTINGS_KEYS.provider) === 'llm'
+      ? 'suscripcion-claude'
+      : detectedEngine();
+
+  const readStored = (): StoredLlmSettings =>
+    readSettings(store, detectedProvider(), defaultEngine());
+
+  /** Ruta personalizada de un motor: su clave propia y, para Claude Code, la heredada. */
+  const engineConfiguredPath = (engine: NewsCliEngine): string | null => {
+    const own = store.getValue(engineCliPathKey(engine));
+    const legacy =
+      engine === 'suscripcion-claude' ? store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath) : null;
+    const raw = own ?? legacy;
+    return raw && raw.trim().length > 0 ? raw : null;
+  };
+
+  /** Motor que vería el desplegable: el guardado o el primero detectado. */
+  const activeEngine = (): NewsCliEngine => readStored().engine;
+
+  const engineStatus = (engine: NewsEngine): NewsEngineStatus => {
+    if (engine === 'local') {
+      return {
+        id: 'local',
+        label: 'Analizador local',
+        cliName: null,
+        available: true,
+        resolvedPath: null,
+        source: 'local',
+        configuredPath: null,
+        configuredInvalid: false,
+      };
+    }
+    const spec = CLI_ENGINE_SPECS[engine];
+    const handle = engineHandle(engine);
+    const resolution: CliEngineResolution = handle?.resolve?.() ?? {
+      path: null,
+      source: null,
+      configuredInvalid: engineConfiguredPath(engine) !== null,
+    };
+    return {
+      id: engine,
+      label: spec.label,
+      cliName: spec.cliName,
+      available: handle?.available() ?? false,
+      resolvedPath: resolution.path,
+      source: resolution.source,
+      configuredPath: engineConfiguredPath(engine),
+      configuredInvalid: resolution.configuredInvalid,
+    };
+  };
 
   // -- Migración del proveedor 'llm' retirado ---------------------------------
   //
@@ -243,6 +368,18 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
         store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, String(next !== 'local'));
         logger.info?.(`[news-ai] proveedor 'llm' migrado a '${next}' (la API de pago se retiró)`);
       }
+      // Migración suave de la ruta heredada: `newsLlm.cliPath` (que solo
+      // existía para Claude Code) se copia a la clave por motor; la
+      // lectura sigue admitiendo la antigua como respaldo.
+      const legacyPath = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath);
+      if (
+        legacyPath &&
+        legacyPath.trim().length > 0 &&
+        !store.getValue(engineCliPathKey('suscripcion-claude'))
+      ) {
+        store.setValue(engineCliPathKey('suscripcion-claude'), legacyPath);
+        logger.info?.('[news-ai] ruta de la CLI heredada asignada al motor Claude Code');
+      }
     })());
 
   // -- Estado del proveedor (ai:news-status) -----------------------------------
@@ -260,15 +397,21 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
 
   const baselineStatus = (): NewsStatus => {
     const settings = readStored();
-    if (settings.provider === 'suscripcion' && settings.enabled && !cliAvailable()) {
+    const engine: NewsEngine = settings.provider === 'suscripcion' ? settings.engine : 'local';
+    if (
+      settings.provider === 'suscripcion' &&
+      settings.enabled &&
+      !engineAvailable(settings.engine)
+    ) {
       return {
         provider: 'suscripcion',
+        engine,
         state: 'cli-no-encontrada',
         since: isoNow(),
-        message: STATUS_MESSAGES['cli-no-encontrada'],
+        message: STATUS_MESSAGES['cli-no-encontrada'](settings.engine),
       };
     }
-    return { provider: settings.provider, state: 'ok', since: isoNow(), message: null };
+    return { provider: settings.provider, engine, state: 'ok', since: isoNow(), message: null };
   };
 
   const notify = (payload: NotificationPayload): void => {
@@ -279,11 +422,14 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     }
   };
 
-  const notifyFailure = (state: Exclude<NewsSubscriptionState, 'ok'>): void =>
+  const notifyFailure = (
+    state: Exclude<NewsSubscriptionState, 'ok'>,
+    engine: NewsCliEngine,
+  ): void =>
     notify({
       level: 'alerta',
       title: 'Tradia usa el analizador local',
-      body: NOTIFY_BODY[state],
+      body: NOTIFY_BODY[state](engine),
       navigateTo: 'ajustes',
     });
 
@@ -300,23 +446,25 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     message: string | null,
     options: { silent?: boolean } = {},
   ): void => {
+    const engine: NewsEngine = provider === 'suscripcion' ? activeEngine() : 'local';
     const prev = status ?? baselineStatus();
-    if (prev.state === state && prev.provider === provider) {
+    if (prev.state === state && prev.provider === provider && prev.engine === engine) {
       if (prev.message === message) return;
       status = { ...prev, message };
       deps.broadcast?.(IPC_CHANNELS.ai.newsStatusChanged, status);
       return;
     }
-    status = { provider, state, since: isoNow(), message };
+    status = { provider, engine, state, since: isoNow(), message };
     deps.broadcast?.(IPC_CHANNELS.ai.newsStatusChanged, status);
     if (options.silent) return;
     if (prev.state === 'ok' && state !== 'ok') {
-      notifyFailure(state);
+      notifyFailure(state, activeEngine());
     } else if (prev.state !== 'ok' && state === 'ok') {
+      const recovered = provider === 'suscripcion' ? CLI_ENGINE_SPECS[activeEngine()] : null;
       notify({
         level: 'info',
-        title: 'Suscripción de Claude recuperada',
-        body: 'Tradia vuelve a analizar los nuevos titulares con Claude Code.',
+        title: `Suscripción de ${recovered?.shortName ?? 'IA'} recuperada`,
+        body: `Tradia vuelve a analizar los nuevos titulares con ${recovered?.label ?? 'el analizador local'}.`,
         navigateTo: 'ajustes',
       });
     }
@@ -325,21 +473,25 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
   const markOk = (provider: NewsAnalyzer): void => setStatus(provider, 'ok', null);
 
   /** Clasifica el fallo del analizador en un estado con su texto seguro. */
-  const stateFromError = (error: unknown): { state: NewsSubscriptionState; message: string } => {
+  const stateFromError = (
+    error: unknown,
+    engine: NewsCliEngine,
+  ): { state: NewsSubscriptionState; message: string } => {
     const state: NewsSubscriptionState = !isNewsLlmError(error)
       ? 'error'
       : error.kind === 'auth'
         ? 'sin-sesion'
         : error.kind === 'quota'
           ? 'tope-diario'
-          : error.kind === 'network' && !cliAvailable()
+          : error.kind === 'network' && !engineAvailable(engine)
             ? 'cli-no-encontrada'
             : 'error';
-    return { state, message: STATUS_MESSAGES[state] };
+    return { state, message: STATUS_MESSAGES[state](engine) };
   };
 
   const markFailure = (provider: NewsAnalyzer, error: unknown): void => {
-    const { state, message } = stateFromError(error);
+    const engine = activeEngine();
+    const { state, message } = stateFromError(error, engine);
     setStatus(provider, state, message);
   };
 
@@ -358,11 +510,16 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     }
     const settings = readStored();
     if (settings.provider === 'suscripcion' && settings.enabled) {
-      if (deps.subscriptionAnalyzer && cliAvailable()) return deps.subscriptionAnalyzer;
-      setStatus('suscripcion', 'cli-no-encontrada', STATUS_MESSAGES['cli-no-encontrada']);
+      const handle = engineHandle(settings.engine);
+      if (handle?.analyzer && handle.available()) return handle.analyzer;
+      setStatus(
+        'suscripcion',
+        'cli-no-encontrada',
+        STATUS_MESSAGES['cli-no-encontrada'](settings.engine),
+      );
       warnOnce(
-        'sin-cli',
-        'el proveedor «Suscripción (Claude Code)» no encuentra la CLI en este equipo',
+        `sin-cli-${settings.engine}`,
+        `el proveedor «Suscripción (${CLI_ENGINE_SPECS[settings.engine].label})» no encuentra la CLI en este equipo`,
       );
     } else {
       // 'local' (o suscripción desactivada): nada que vigilar.
@@ -395,11 +552,12 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
 
     const input = { title: item.title, summary: item.summary, candidateTickers: candidates };
     const chosen = await pickAnalyzer();
+    const cliChosen = chosen !== deps.localAnalyzer && chosen !== deps.simulatedAnalyzer;
     let used = chosen;
     let result;
     try {
       result = await chosen.analyze(input);
-      if (chosen === deps.subscriptionAnalyzer) markOk('suscripcion');
+      if (cliChosen) markOk('suscripcion');
     } catch (error) {
       if (chosen === deps.localAnalyzer) {
         markFailure(readStored().provider, error);
@@ -475,11 +633,16 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     const counters = usage.load();
     const today = isoNow().slice(0, 10);
     const month = today.slice(0, 7);
+    const engine: NewsEngine = settings.provider === 'suscripcion' ? settings.engine : 'local';
     return {
       enabled: settings.provider !== 'local' && settings.enabled,
       provider: settings.provider,
-      cliPath: settings.cliPath,
-      // Detección real de la CLI de Claude Code en este equipo.
+      engine,
+      // Autodetección por motor: el desplegable de Ajustes la muestra.
+      engines: NEWS_ENGINES.map((id) => engineStatus(id)),
+      cliPath: engine === 'local' ? null : engineConfiguredPath(engine),
+      // Semántica heredada: «hay alguna CLI localizable en este equipo».
+      // La disponibilidad por motor va en `engines`.
       cliAvailable: cliAvailable(),
       dailyCap: settings.dailyCap,
       // Campos de la API de pago retirada: se conservan en el contrato
@@ -506,6 +669,23 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
         );
       }
     }
+    // El motor del desplegable: un 'suscripcion-*' guarda el motor y
+    // activa la suscripción; 'local' equivale a desactivar el LLM (se
+    // conserva el motor guardado para volver a él sin reelegir).
+    if (input.engine !== undefined) {
+      if (input.engine === 'local') {
+        store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'local');
+        if (input.enabled === undefined) {
+          store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'false');
+        }
+      } else {
+        store.setValue(NEWS_LLM_SETTINGS_KEYS.engine, input.engine);
+        store.setValue(NEWS_LLM_SETTINGS_KEYS.provider, 'suscripcion');
+        if (input.enabled === undefined) {
+          store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, 'true');
+        }
+      }
+    }
     if (input.enabled !== undefined) {
       store.setValue(NEWS_LLM_SETTINGS_KEYS.enabled, input.enabled ? 'true' : 'false');
       // Activar a mano sin proveedor guardado elige el detectado: la
@@ -523,7 +703,15 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       }
     }
     if (input.cliPath !== undefined) {
-      store.setValue(NEWS_LLM_SETTINGS_KEYS.cliPath, input.cliPath ?? '');
+      // La ruta se guarda por motor: el de esta misma llamada (si es una
+      // CLI) o el activo. Para Claude Code se replica en la clave
+      // heredada `newsLlm.cliPath`, que las versiones anteriores leen.
+      const target: NewsCliEngine =
+        input.engine !== undefined && input.engine !== 'local' ? input.engine : activeEngine();
+      store.setValue(engineCliPathKey(target), input.cliPath ?? '');
+      if (target === 'suscripcion-claude') {
+        store.setValue(NEWS_LLM_SETTINGS_KEYS.cliPath, input.cliPath ?? '');
+      }
     }
     if (input.dailyCap !== undefined) {
       store.setValue(
@@ -538,10 +726,15 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
     // El cambio de proveedor reevalúa el estado sin notificar: fue el
     // propio usuario quien lo cambió en Ajustes.
     const saved = readStored();
-    if (saved.provider === 'suscripcion' && saved.enabled && !cliAvailable()) {
-      setStatus('suscripcion', 'cli-no-encontrada', STATUS_MESSAGES['cli-no-encontrada'], {
-        silent: true,
-      });
+    if (saved.provider === 'suscripcion' && saved.enabled && !engineAvailable(saved.engine)) {
+      setStatus(
+        'suscripcion',
+        'cli-no-encontrada',
+        STATUS_MESSAGES['cli-no-encontrada'](saved.engine),
+        {
+          silent: true,
+        },
+      );
     } else {
       setStatus(saved.provider, 'ok', null, { silent: true });
     }
@@ -550,18 +743,23 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
 
   const testLlm = async (): Promise<NewsLlmTestResult> => {
     await ensureMigrated();
-    const { provider } = readStored();
-    if (provider !== 'suscripcion') {
-      markOk(provider);
+    const settings = readStored();
+    if (settings.provider !== 'suscripcion') {
+      markOk(settings.provider);
       return { ok: true, error: null, latencyMs: null };
     }
-    const cli = deps.subscriptionAnalyzer;
-    if (!cli?.ping || !cliAvailable()) {
-      setStatus('suscripcion', 'cli-no-encontrada', STATUS_MESSAGES['cli-no-encontrada']);
+    const spec = CLI_ENGINE_SPECS[settings.engine];
+    const handle = engineHandle(settings.engine);
+    if (!handle?.analyzer?.ping || !handle.available()) {
+      setStatus(
+        'suscripcion',
+        'cli-no-encontrada',
+        STATUS_MESSAGES['cli-no-encontrada'](settings.engine),
+      );
       return { ok: false, error: 'CLI no encontrada.', latencyMs: null };
     }
     try {
-      const latencyMs = await cli.ping();
+      const latencyMs = await handle.analyzer.ping();
       markOk('suscripcion');
       return { ok: true, error: null, latencyMs };
     } catch (error) {
@@ -570,7 +768,9 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       markFailure('suscripcion', error);
       return {
         ok: false,
-        error: isNewsLlmError(error) ? error.message : 'No se pudo ejecutar la CLI de Claude.',
+        error: isNewsLlmError(error)
+          ? error.message
+          : `No se pudo ejecutar la CLI de ${spec.shortName}.`,
         latencyMs: null,
       };
     }
@@ -592,8 +792,8 @@ export function createNewsAiService(deps: NewsAiServiceDeps): NewsAiService {
       // En E2E se usa siempre el simulado: no hay CLI que vigilar.
       if (status.state === 'ok' || deps.useSimulated) return;
       deps.broadcast?.(IPC_CHANNELS.ai.newsStatusChanged, status);
-      notifyFailure(status.state);
-      logger.warn('[news-ai] arranque: la suscripción de Claude Code no encuentra la CLI');
+      notifyFailure(status.state, status.engine === 'local' ? 'suscripcion-claude' : status.engine);
+      logger.warn('[news-ai] arranque: la suscripción no encuentra la CLI del motor elegido');
     })());
 
   return {

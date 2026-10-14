@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
-import { AiSettings } from './AiSettings';
+import { AiSettings, ENGINE_SPECS } from './AiSettings';
 
 beforeEach(async () => {
   window.tradia = createSimulatedAdapter().api;
@@ -11,20 +11,23 @@ beforeEach(async () => {
   vi.spyOn(window.tradia.ai, 'getLlmSettings').mockResolvedValue({
     ...settings,
     provider: 'suscripcion',
+    engine: 'suscripcion-claude',
     enabled: true,
   });
 });
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
 async function mount() {
   await act(async () => {
     render(<AiSettings />);
   });
 }
 
-it('muestra el uso diario y no ofrece la API de pago', async () => {
+it('muestra el selector desplegable con los 5 motores, uso diario y sin API de pago', async () => {
   const settings = await window.tradia.ai.getLlmSettings();
   vi.spyOn(window.tradia.ai, 'getLlmSettings').mockResolvedValue({
     ...settings,
@@ -32,12 +35,92 @@ it('muestra el uso diario y no ofrece la API de pago', async () => {
   });
   await mount();
   expect(screen.getByText('Hoy: 34 de 200 titulares')).toBeInTheDocument();
-  expect(screen.getByRole('radio', { name: /Suscripción/ })).toBeChecked();
-  expect(screen.getByRole('radio', { name: /Suscripción \(Claude Code\)/ })).toBeInTheDocument();
-  expect(screen.getByRole('radio', { name: /Analizador local/ })).toBeInTheDocument();
-  expect(screen.queryByRole('radio', { name: /API/ })).not.toBeInTheDocument();
+
+  const select = screen.getByRole('combobox', {
+    name: 'Motor de análisis de noticias',
+  }) as HTMLSelectElement;
+  expect(select).toBeInTheDocument();
+  expect(select.value).toBe('suscripcion-claude');
+
+  expect(
+    screen.getByRole('option', { name: /Claude Code \(Suscripción en este equipo\)/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('option', { name: /OpenAI Codex \(Suscripción de OpenAI\)/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('option', { name: /Google Antigravity \(Suscripción de Google\)/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('option', { name: /GitHub Copilot \(Suscripción de GitHub\)/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('option', { name: /Analizador local \(Sin suscripción/ }),
+  ).toBeInTheDocument();
+
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Clave de API/)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Tope mensual/)).not.toBeInTheDocument();
+});
+
+it('permite cambiar entre cada uno de los motores del desplegable y actualiza descripciones y rutas', async () => {
+  await mount();
+  const select = screen.getByRole('combobox', { name: 'Motor de análisis de noticias' });
+
+  // 1. OpenAI Codex
+  fireEvent.change(select, { target: { value: 'suscripcion-codex' } });
+  expect(screen.getByText(ENGINE_SPECS['suscripcion-codex'].description)).toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta de OpenAI Codex (opcional)')).toBeInTheDocument();
+
+  // 2. Google Antigravity
+  fireEvent.change(select, { target: { value: 'suscripcion-antigravity' } });
+  expect(screen.getByText(ENGINE_SPECS['suscripcion-antigravity'].description)).toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta de Google Antigravity (opcional)')).toBeInTheDocument();
+
+  // 3. GitHub Copilot
+  fireEvent.change(select, { target: { value: 'suscripcion-copilot' } });
+  expect(screen.getByText(ENGINE_SPECS['suscripcion-copilot'].description)).toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta de GitHub Copilot (opcional)')).toBeInTheDocument();
+
+  // 4. Analizador local
+  fireEvent.change(select, { target: { value: 'local' } });
+  expect(screen.getByText(ENGINE_SPECS['local'].description)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Ruta de/)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Máximo diario')).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/Analizador local preparado · Sin suscripción externa/),
+  ).toBeInTheDocument();
+
+  // 5. Claude Code
+  fireEvent.change(select, { target: { value: 'suscripcion-claude' } });
+  expect(screen.getByText(ENGINE_SPECS['suscripcion-claude'].description)).toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta de Claude Code (opcional)')).toBeInTheDocument();
+  expect(screen.getByLabelText('Máximo diario')).toBeInTheDocument();
+});
+
+it('muestra el indicador de autodetección de CLI cuando está disponible o no encontrada', async () => {
+  const settings = await window.tradia.ai.getLlmSettings();
+  vi.spyOn(window.tradia.ai, 'getLlmSettings').mockResolvedValue({
+    ...settings,
+    cliAvailable: false,
+    engines: [
+      {
+        id: 'suscripcion-claude',
+        label: 'Claude Code',
+        cliName: 'claude',
+        available: false,
+        resolvedPath: null,
+        source: null,
+        configuredPath: null,
+        configuredInvalid: false,
+      },
+    ],
+  });
+  await mount();
+  expect(
+    screen.getByText(/No se encontró el comando claude en las rutas estándar/),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Probar de nuevo' })).toBeEnabled();
 });
 
 it('valida el máximo diario y avisa al enviar un valor fuera de margen', async () => {
@@ -72,6 +155,7 @@ it('guarda los ajustes de suscripción con ruta y devuelve el foco al guardar', 
   expect(save).toHaveBeenCalledWith({
     enabled: true,
     provider: 'suscripcion',
+    engine: 'suscripcion-claude',
     cliPath: '/opt/bin/claude',
     dailyCap: 25,
   });
@@ -83,7 +167,8 @@ it('guarda los ajustes de suscripción con ruta y devuelve el foco al guardar', 
 it('el analizador local guarda el LLM desactivado y no pide CLI ni clave', async () => {
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   await mount();
-  await userEvent.click(screen.getByRole('radio', { name: /Analizador local/ }));
+  const select = screen.getByRole('combobox', { name: 'Motor de análisis de noticias' });
+  fireEvent.change(select, { target: { value: 'local' } });
   expect(screen.queryByLabelText('Ruta de Claude Code (opcional)')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Máximo diario')).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Clave de API/)).not.toBeInTheDocument();
@@ -92,6 +177,7 @@ it('el analizador local guarda el LLM desactivado y no pide CLI ni clave', async
   expect(save).toHaveBeenCalledWith({
     enabled: false,
     provider: 'local',
+    engine: 'local',
     cliPath: null,
     dailyCap: 200,
   });
@@ -111,7 +197,7 @@ it('cubre carga, error de lectura, reintento y prueba fallida', async () => {
   expect(screen.getByText('Cargando ajustes de análisis…')).toBeInTheDocument();
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar ajustes' }));
-  await screen.findByRole('radio', { name: /Suscripción/ });
+  await screen.findByRole('combobox', { name: 'Motor de análisis de noticias' });
   fireEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
   await screen.findByText('Sesión no iniciada. Ejecuta claude y /login.');
 });
@@ -141,32 +227,21 @@ it('actualiza uso al recibir noticias, bloquea prueba offline y libera suscripci
   expect(simulation.listenerCount()).toBe(0);
 });
 
-it('propone el analizador local sin CLI y explica el inicio de sesión', async () => {
-  const initial = await window.tradia.ai.getLlmSettings();
-  vi.mocked(window.tradia.ai.getLlmSettings).mockResolvedValue({
-    ...initial,
-    provider: 'suscripcion',
-    cliAvailable: false,
-  });
-  await mount();
-  expect(screen.getByRole('radio', { name: /Suscripción/ })).toBeChecked();
-  expect(screen.getByText(/Usa la sesión iniciada/)).toHaveTextContent('analizador local');
-  expect(screen.getByRole('button', { name: 'Probar de nuevo' })).toBeEnabled();
-});
-
-it('prueba el proveedor guardado tras guardar los ajustes', async () => {
+it('prueba el motor seleccionado tras guardar los ajustes', async () => {
   const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
   const test = vi.spyOn(window.tradia.ai, 'testLlm');
   await mount();
-  await userEvent.click(screen.getByRole('radio', { name: /Suscripción/ }));
+  const select = screen.getByRole('combobox', { name: 'Motor de análisis de noticias' });
+  fireEvent.change(select, { target: { value: 'suscripcion-codex' } });
   fireEvent.change(screen.getByLabelText('Máximo diario'), {
     target: { value: '25' },
   });
   await userEvent.click(screen.getByRole('button', { name: 'Probar de nuevo' }));
-  await screen.findByText(/Suscripción disponible · Claude/);
+  await screen.findByText(/Suscripción disponible · OpenAI Codex/);
   expect(save).toHaveBeenCalledWith({
     enabled: true,
     provider: 'suscripcion',
+    engine: 'suscripcion-codex',
     cliPath: null,
     dailyCap: 25,
   });
@@ -177,7 +252,6 @@ it('prueba el proveedor guardado tras guardar los ajustes', async () => {
 it('muestra el motivo de CLI no encontrada y de sesión no iniciada', async () => {
   const test = vi.spyOn(window.tradia.ai, 'testLlm');
   await mount();
-  await userEvent.click(screen.getByRole('radio', { name: /Suscripción/ }));
   for (const error of [
     'CLI no encontrada. Configura la ruta.',
     'Sesión no iniciada. Ejecuta claude y /login.',
@@ -195,6 +269,7 @@ it('prueba el analizador local sin conexión y sin clave de pago', async () => {
   vi.spyOn(simulation.api.ai, 'getLlmSettings').mockResolvedValue({
     ...initial,
     provider: 'local',
+    engine: 'local',
     cliAvailable: false,
   });
   const connectivity = await simulation.api.connectivity.getState();

@@ -4,6 +4,7 @@ import { normalizeFxPair } from '../../../../shared/fx';
 import { assetSymbol, fxLabel } from '../assetPresentation';
 import { isFxSymbol } from '../../../../shared/fxTrading';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
+import { AssetSearch } from './AssetSearch';
 import {
   isTicker,
   WATCHLIST_MAX_ITEMS,
@@ -30,12 +31,12 @@ export function Watchlist({
   statuses = EMPTY_STATUSES,
   simulated = false,
 }: Props) {
-  const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [rejectedTicker, setRejectedTicker] = useState<string | null>(null);
   const [coverage, setCoverage] = useState<WatchlistCoverageEntry[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [queryRequest, setQueryRequest] = useState({ value: '', nonce: 0 });
   const focusAfter = useRef(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [message, setMessage] = useState('');
@@ -93,21 +94,21 @@ export function Watchlist({
       setBusy(false);
     }
   };
-  const add = async (value = input) => {
-    if (busy) return;
+  const add = async (value: string): Promise<boolean> => {
+    if (busy) return false;
     const ticker = normalizeFxPair(value) ?? value.trim().toUpperCase();
     resetFeedback();
     if (!isTicker(ticker)) {
       reject('Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.');
-      return;
+      return false;
     }
     if (items.some((item) => item.ticker === ticker)) {
       reject(`${assetSymbol(ticker)} ya está en tu lista.`);
-      return;
+      return false;
     }
     if (items.length >= WATCHLIST_MAX_ITEMS) {
       reject('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
-      return;
+      return false;
     }
     setBusy(true);
     setPendingTicker(ticker);
@@ -122,8 +123,7 @@ export function Watchlist({
           const etf = alternatives.find((symbol) => !isFxSymbol(symbol));
           setSuggestions(alternatives);
           setRejectedTicker(ticker);
-          // Preserve the symbol actually rejected, including a failed alternative.
-          setInput(ticker);
+          setQueryRequest((previous) => ({ value: ticker, nonce: previous.nonce + 1 }));
           reject(
             pair
               ? `Tiingo no ofrece datos para ${ticker}. Puedes añadir ${assetSymbol(pair)} para seguir el tipo de cambio${etf ? `, o cambiar por ${etf}, un fondo cotizado en bolsa que se mueve de forma parecida` : ''}.`
@@ -140,13 +140,13 @@ export function Watchlist({
         } else {
           reject('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
         }
-        return;
+        return false;
       }
       const name = result.name;
       if (name) setNames((previous) => ({ ...previous, [ticker]: name }));
       await onChanged();
       onSelect(ticker);
-      setInput('');
+      setQueryRequest((previous) => ({ value: '', nonce: previous.nonce + 1 }));
       const shown = assetSymbol(ticker);
       setMessage(
         result.reason === 'pendiente-verificar'
@@ -158,8 +158,10 @@ export function Watchlist({
               : `${shown} se ha añadido a tu lista.`,
       );
       focusAfter.current = true;
+      return true;
     } catch {
       reject('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+      return false;
     } finally {
       setBusy(false);
       setPendingTicker(null);
@@ -168,75 +170,56 @@ export function Watchlist({
   return (
     <>
       <div className="market-toolbar">
-        <form
-          className="market-add"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void add();
-          }}
-        >
-          <label htmlFor="market-ticker">Ticker</label>
-          <div className="market-add-controls">
-            <input
-              id="market-ticker"
-              ref={inputRef}
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                resetFeedback();
-              }}
-              placeholder="p. ej. AAPL o EUR/USD"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={!!error}
-              aria-describedby={`market-ticker-help${error ? ' market-list-error' : ''}`}
-              disabled={busy}
-            />
-            <button className="button primary" disabled={busy}>
-              {pendingTicker ? 'Comprobando…' : 'Añadir'}
-            </button>
+        <AssetSearch
+          items={items}
+          disabled={busy}
+          onAdd={add}
+          inputRef={inputRef}
+          error={error}
+          onClearError={resetFeedback}
+          describedBy="market-ticker-help"
+          submitLabel={pendingTicker ? 'Comprobando…' : 'Añadir'}
+          queryRequest={queryRequest}
+        />
+        <p id="market-ticker-help" className="market-ticker-help">
+          Acciones y ETF: AAPL, SPY o FXE. Divisas: EUR/USD o EURUSD.
+        </p>
+        {error && (
+          <div
+            id="market-list-error"
+            className={`market-add-feedback${rejectedTicker ? ' market-add-uncovered' : ''}`}
+            role="alert"
+            aria-live="assertive"
+          >
+            {rejectedTicker && (
+              <strong>
+                <DataStateIcon kind="uncovered" />
+                {assetSymbol(rejectedTicker)} no está disponible en Tiingo
+              </strong>
+            )}
+            <p>{error}</p>
+            {suggestions.length > 0 && (
+              <div className="market-add-alternatives">
+                {suggestions.map((ticker) => (
+                  <button
+                    key={ticker}
+                    type="button"
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => void add(ticker)}
+                  >
+                    {isFxSymbol(ticker)
+                      ? `Añadir ${assetSymbol(ticker)} (divisa)`
+                      : `Cambiar por ${ticker}`}
+                  </button>
+                ))}
+                <a className="button" href="#ajustes?provider=tiingo">
+                  Abrir Ajustes › Conectores
+                </a>
+              </div>
+            )}
           </div>
-          <p id="market-ticker-help" className="market-ticker-help">
-            Acciones y ETF: AAPL, SPY o FXE. Divisas: EUR/USD o EURUSD.
-          </p>
-          {error && (
-            <div
-              id="market-list-error"
-              className={`market-add-feedback${rejectedTicker ? ' market-add-uncovered' : ''}`}
-              role="alert"
-              aria-live="assertive"
-            >
-              {rejectedTicker && (
-                <strong>
-                  <DataStateIcon kind="uncovered" />
-                  {assetSymbol(rejectedTicker)} no está disponible en Tiingo
-                </strong>
-              )}
-              <p>{error}</p>
-              {suggestions.length > 0 && (
-                <div className="market-add-alternatives">
-                  {suggestions.map((ticker) => (
-                    <button
-                      key={ticker}
-                      type="button"
-                      className="button primary"
-                      disabled={busy}
-                      onClick={() => void add(ticker)}
-                    >
-                      {isFxSymbol(ticker)
-                        ? `Añadir ${assetSymbol(ticker)} (divisa)`
-                        : `Cambiar por ${ticker}`}
-                    </button>
-                  ))}
-                  <a className="button" href="#ajustes?provider=tiingo">
-                    Abrir Ajustes › Conectores
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-        </form>
+        )}
         <button
           className="button"
           disabled={busy || items.length >= WATCHLIST_MAX_ITEMS}

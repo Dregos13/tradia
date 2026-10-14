@@ -34,18 +34,25 @@ import {
   isNewsLlmSettingsInput,
   NEWS_LLM_DAILY_CAP_DEFAULT,
 } from '../../../shared/ipc';
+import { NEWS_CLI_ENGINES, type NewsCliEngine } from '../../../shared/ipc';
 import { openDatabase } from '../../db/database';
 import type { ServiceContext } from '../../services';
-import { createClaudeCliAnalyzer } from './claudeCli';
+import { createCliEngineHandle, type CliEngineHandle } from './cliEngines';
 import { createLocalNewsAnalyzer } from './local';
 import { createNewsAnalysisRepository } from './repository';
-import { createNewsAiService, NEWS_LLM_SETTINGS_KEYS, type NewsAiService } from './service';
+import {
+  createNewsAiService,
+  engineCliPathKey,
+  NEWS_LLM_SETTINGS_KEYS,
+  type NewsAiService,
+} from './service';
 import { createSimulatedNewsAnalyzer } from './simulated';
 import type { KeyValueStore, NewsLlmUsageStore } from './types';
 
 export * from './types';
 export * from './local';
 export * from './prompt';
+export * from './cliEngines';
 export * from './claudeCli';
 export * from './simulated';
 export * from './repository';
@@ -108,20 +115,34 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
   const usage = createSettingsUsageStore(store);
   const e2e = isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
 
-  const subscriptionAnalyzer = createClaudeCliAnalyzer({
-    // La ruta puede cambiar en Ajustes: se relee en cada resolución.
-    cliPath: () => {
-      const raw = store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath);
-      return raw && raw.trim().length > 0 ? raw : null;
-    },
-    usage,
-    dailyCap: () => readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
-  });
+  /**
+   * Un manillar por motor del desplegable (Claude Code, Codex,
+   * Antigravity, Copilot). La ruta personalizada de cada uno se relee en
+   * cada resolución: su clave `newsLlm.cliPath.<motor>` y, para Claude
+   * Code, la heredada `newsLlm.cliPath` como respaldo.
+   */
+  const cliEngines = Object.fromEntries(
+    NEWS_CLI_ENGINES.map((engine: NewsCliEngine) => [
+      engine,
+      createCliEngineHandle(engine, {
+        cliPath: () => {
+          const own = store.getValue(engineCliPathKey(engine));
+          const legacy =
+            engine === 'suscripcion-claude' ? store.getValue(NEWS_LLM_SETTINGS_KEYS.cliPath) : null;
+          const raw = own ?? legacy;
+          return raw && raw.trim().length > 0 ? raw : null;
+        },
+        usage,
+        dailyCap: () =>
+          readNumber(store, NEWS_LLM_SETTINGS_KEYS.dailyCap, NEWS_LLM_DAILY_CAP_DEFAULT),
+      }),
+    ]),
+  ) as Record<NewsCliEngine, CliEngineHandle>;
 
   const service = createNewsAiService({
     repo,
     localAnalyzer: createLocalNewsAnalyzer(),
-    subscriptionAnalyzer,
+    cliEngines,
     // E2E: el simulado con etiqueta 'llm' reproduce el método del diseño.
     simulatedAnalyzer: createSimulatedNewsAnalyzer({ analyzer: 'llm' }),
     useSimulated: e2e,

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { NEWS_SUBSCRIPTION_COPY } from '../../../../shared/newsSubscription';
-import type { NewsStatus } from '../../../../shared/ai';
+import { ENGINE_DISPLAY_NAMES, getNewsSubscriptionCopy } from '../../../../shared/newsSubscription';
+import type { NewsEngine, NewsStatus } from '../../../../shared/ai';
 import { useNewsStatus } from '../../hooks/useNewsStatus';
 import './subscription.css';
 
@@ -11,6 +11,7 @@ type Props = {
   onRetry: () => void;
   context: 'noticias' | 'ajustes';
   canRetry?: boolean;
+  engine?: NewsEngine;
 };
 
 export function SubscriptionNotice({
@@ -20,26 +21,30 @@ export function SubscriptionNotice({
   onRetry,
   context,
   canRetry = true,
+  engine,
 }: Props) {
   const retried = useRef(false);
   const failed = status?.provider === 'suscripcion' && status.state !== 'ok';
   if (!failed && !error && !busy && !retried.current) return null;
+  const activeEngine =
+    engine && engine !== 'local'
+      ? engine
+      : status?.engine && status.engine !== 'local'
+        ? status.engine
+        : 'suscripcion-claude';
+  const engineName = ENGINE_DISPLAY_NAMES[activeEngine] ?? 'Claude Code';
   const copy = failed
-    ? NEWS_SUBSCRIPTION_COPY[status.state as Exclude<NewsStatus['state'], 'ok'>]
+    ? getNewsSubscriptionCopy(status.state as Exclude<NewsStatus['state'], 'ok'>, activeEngine, {
+        context,
+      })
     : null;
-  const step =
-    context === 'noticias'
-      ? copy?.step
-          .replace('en este ajuste', 'en Ajustes')
-          .replace(
-            /Mientras tanto, se usa el analizador local\.|Hasta entonces se usa el analizador local\./,
-            'Mientras tanto, las noticias se analizan con el analizador local.',
-          )
-      : copy?.step;
+  const step = copy?.step ?? status?.message;
+
   return (
     <div
       role="status"
       aria-label="Estado de la suscripción"
+      aria-live="polite"
       aria-busy={busy}
       className={`subscription-notice ${busy || status?.state === 'tope-diario' ? 'subscription-paused' : failed || error ? 'subscription-failed' : 'subscription-recovered'}`}
     >
@@ -50,7 +55,7 @@ export function SubscriptionNotice({
             : error ||
               copy?.title ||
               (status?.provider === 'suscripcion'
-                ? 'Suscripción recuperada · los nuevos titulares volverán a analizarse con Claude Code.'
+                ? `Suscripción recuperada · los nuevos titulares volverán a analizarse con ${engineName}.`
                 : 'Analizador local seleccionado')}
         </strong>
         {busy ? (

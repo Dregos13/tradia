@@ -46,56 +46,33 @@ export function JournalPage() {
           <button onClick={() => void journal.reload()}>Reintentar</button>
         </p>
       )}
-      <p id="journal-scroll-hint">Desplázate para ver todas las columnas.</p>
-      <div
-        className="journal-table-scroll"
-        role="region"
-        aria-label="Entradas del diario"
-        aria-describedby="journal-scroll-hint"
-        tabIndex={0}
-        aria-busy={journal.loading}
-      >
-        <table>
-          <caption className="sr-only">Diario ordenado por fecha descendente</caption>
-          <thead>
-            <tr>
-              {[
-                'Fecha',
-                'Tipo',
-                'Activo',
-                'Estrategia',
-                'Decisión / resultado',
-                'Motivo',
-                'Detalle',
-              ].map((label) => (
-                <th scope="col" key={label}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {journal.entries.map((entry) => (
-              <tr key={entry.id} aria-selected={selected === entry.id}>
-                <td>
-                  <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
-                </td>
-                <td>{entryLabel(entry)}</td>
-                <td>{entry.ticker ? assetSymbol(entry.ticker) : 'No aplica'}</td>
-                <td>
-                  {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
-                    'No aplica'}
-                </td>
-                <td>{entry.result ? resultLabel[entry.result] : 'No aplica'}</td>
-                <td>{entry.reason}</td>
-                <td>
-                  <button
-                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ? assetSymbol(entry.ticker) : 'General'} · entrada ${entry.id}`}
-                    onClick={() => setSelected(entry.id)}
-                  >
-                    Ver detalle
-                  </button>
-                </td>
+      <div className="journal-results" data-layout-block="resultados">
+        <p id="journal-scroll-hint">Desplázate para ver todas las columnas.</p>
+        <div
+          className="journal-table-scroll"
+          role="region"
+          aria-label="Entradas del diario"
+          aria-describedby="journal-scroll-hint"
+          tabIndex={0}
+          aria-busy={journal.loading}
+        >
+          <table>
+            <caption className="sr-only">Diario ordenado por fecha descendente</caption>
+            <thead>
+              <tr>
+                {[
+                  'Fecha',
+                  'Tipo',
+                  'Activo',
+                  'Estrategia',
+                  'Decisión / resultado',
+                  'Motivo',
+                  'Detalle',
+                ].map((label) => (
+                  <th scope="col" key={label}>
+                    {label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -105,7 +82,7 @@ export function JournalPage() {
                     <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
                   </td>
                   <td>{entryLabel(entry)}</td>
-                  <td>{entry.ticker ?? 'No aplica'}</td>
+                  <td>{entry.ticker ? assetSymbol(entry.ticker) : 'No aplica'}</td>
                   <td>
                     {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
                       'No aplica'}
@@ -114,7 +91,7 @@ export function JournalPage() {
                   <td>{entry.reason}</td>
                   <td>
                     <button
-                      aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
+                      aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ? assetSymbol(entry.ticker) : 'General'} · entrada ${entry.id}`}
                       onClick={() => setSelected(entry.id)}
                     >
                       Ver detalle

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { normalizeFxPair } from '../../../../shared/fx';
-import { FX_BROKER_REJECTION_REASON } from '../../../../shared/fxTrading';
 import { assetSymbol } from '../assetPresentation';
 import type {
   BrokerOrder,
@@ -23,7 +22,16 @@ import {
 } from './orderPresentation';
 import { OrderRow } from './OrderRow';
 import { liveTokens } from '../live/presentation';
+import {
+  isFxSymbol,
+  FX_BROKER_REJECTION_CODE,
+  FX_BROKER_REJECTION_REASON,
+} from '../../../../shared/fxTrading';
+import { fxPairForCurrency } from '../../../../shared/fx';
 import './orders.css';
+
+export const FX_MANUAL_ORDER_ERROR =
+  'Las divisas no admiten órdenes manuales en el bróker y solo operan mediante señales automáticas en la cartera simulada.';
 const cancelable = (order: BrokerOrder) =>
   order.mode === 'paper' && BROKER_ORDER_OPEN_STATUSES.some((status) => status === order.status);
 export function OrdersPage() {
@@ -113,10 +121,20 @@ export function OrdersPage() {
       setFormQty('');
       setFormPrice('');
       closeCreate();
-    } catch {
-      setCreateError(
-        'No se pudo enviar la orden limitada. Comprueba la cuenta paper e inténtalo de nuevo.',
-      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        isFxSymbol(symbol) ||
+        fxPairForCurrency(symbol) !== null ||
+        message.includes(FX_BROKER_REJECTION_CODE) ||
+        message.includes(FX_BROKER_REJECTION_REASON)
+      ) {
+        setCreateError(FX_MANUAL_ORDER_ERROR);
+      } else {
+        setCreateError(
+          'No se pudo enviar la orden limitada. Comprueba la cuenta paper e inténtalo de nuevo.',
+        );
+      }
     } finally {
       createBusy.current = false;
       setSending(false);

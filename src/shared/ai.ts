@@ -308,11 +308,63 @@ export type NewsAnalyzer = (typeof NEWS_ANALYZERS)[number];
 
 /**
  * Proveedores que el usuario puede elegir en Ajustes para los análisis
- * nuevos: la suscripción de Claude Code o el analizador local. La API de
+ * nuevos: la suscripción a un CLI de IA o el analizador local. La API de
  * pago ('llm') se retiró y el IPC la rechaza.
  */
 export const NEWS_PROVIDERS = ['suscripcion', 'local'] as const;
 export type NewsProvider = (typeof NEWS_PROVIDERS)[number];
+
+/**
+ * Motores CLI de IA que respaldan el proveedor 'suscripcion' (misión
+ * «Mejoras en Tradia»: el usuario pide elegir su suscripción desde un
+ * desplegable). Cada uno es la CLI de un agente instalada y con sesión
+ * iniciada en el equipo, usada en modo headless y sin herramientas:
+ * - 'suscripcion-claude': Claude Code (`claude`).
+ * - 'suscripcion-codex': OpenAI Codex (`codex`).
+ * - 'suscripcion-antigravity': Google Antigravity (`agy`).
+ * - 'suscripcion-copilot': GitHub Copilot CLI (`copilot`).
+ * Todos persisten `analizador = 'suscripcion'` en `news_analysis` (el
+ * CHECK de la tabla solo admite llm/local/suscripcion) y anotan el motor
+ * exacto en `modelo` ('claude-code-cli', 'codex-cli'…).
+ */
+export const NEWS_CLI_ENGINES = [
+  'suscripcion-claude',
+  'suscripcion-codex',
+  'suscripcion-antigravity',
+  'suscripcion-copilot',
+] as const;
+export type NewsCliEngine = (typeof NEWS_CLI_ENGINES)[number];
+
+/**
+ * Opciones del desplegable «motor de IA» de Ajustes: las CLI por
+ * suscripción más 'local' (el analizador léxico, sin sesión externa).
+ */
+export const NEWS_ENGINES = [...NEWS_CLI_ENGINES, 'local'] as const;
+export type NewsEngine = (typeof NEWS_ENGINES)[number];
+
+/**
+ * Estado de detección de un motor para el desplegable de Ajustes
+ * (`engines` en `NewsLlmSettings`): si el ejecutable se localizó, dónde
+ * y con qué origen ('config' = ruta de Ajustes, 'path' = PATH,
+ * 'known' = ubicación habitual, 'local' = analizador local).
+ */
+export interface NewsEngineStatus {
+  id: NewsEngine;
+  /** Nombre visible del motor ('Claude Code', 'OpenAI Codex'…). */
+  label: string;
+  /** Nombre del ejecutable ('claude', 'codex'…); null en 'local'. */
+  cliName: string | null;
+  /** El ejecutable se localizó y es ejecutable ('local': siempre true). */
+  available: boolean;
+  /** Ruta resuelta del ejecutable; null si no se encontró o es 'local'. */
+  resolvedPath: string | null;
+  /** Origen de la resolución; null cuando no hay ejecutable. */
+  source: 'config' | 'path' | 'known' | 'local' | null;
+  /** Ruta personalizada guardada en Ajustes para ese motor; null si no hay. */
+  configuredPath: string | null;
+  /** true si hay ruta configurada pero no existe o no es ejecutable. */
+  configuredInvalid: boolean;
+}
 
 /**
  * Análisis de una noticia confirmada para un activo (`news_analysis`, una
@@ -395,11 +447,23 @@ export interface NewsLlmSettings {
   /** Proveedor elegido para los análisis nuevos ('local' = sin LLM). */
   provider: NewsAnalyzer;
   /**
-   * Ruta de la CLI de Claude Code configurada en Ajustes; null usa el
-   * `claude` del PATH. Solo relevante con provider 'suscripcion'.
+   * Motor elegido en el desplegable de Ajustes: un 'suscripcion-*' cuando
+   * el proveedor es 'suscripcion' y 'local' con el analizador local.
+   */
+  engine: NewsEngine;
+  /**
+   * Detección por motor para el desplegable: una entrada por cada opción
+   * de `NEWS_ENGINES`, con la ruta resuelta y su origen.
+   */
+  engines: NewsEngineStatus[];
+  /**
+   * Ruta personalizada del motor activo configurada en Ajustes; null usa
+   * la autodetección (PATH y ubicaciones habituales). Solo relevante con
+   * provider 'suscripcion'. Se guarda por motor (`newsLlm.cliPath.*`);
+   * la clave heredada `newsLlm.cliPath` sigue alimentando a Claude Code.
    */
   cliPath: string | null;
-  /** La CLI configurada (o la del PATH) está instalada y localizable. */
+  /** El motor activo está instalado y localizable ('local': siempre true). */
   cliAvailable: boolean;
   /** Máximo de titulares analizados por día con la suscripción. */
   dailyCap: number;
@@ -422,7 +486,16 @@ export interface NewsLlmSettingsInput {
    * validador del IPC ya no lo acepta (la API de pago se retiró).
    */
   provider?: NewsAnalyzer;
-  /** Ruta de la CLI de Claude Code; null vuelve a la autodetección (PATH). */
+  /**
+   * Motor del desplegable: un 'suscripcion-*' activa la suscripción con
+   * esa CLI y 'local' equivale a provider 'local'. Si falta, se conserva
+   * el motor guardado (o el primero detectado).
+   */
+  engine?: NewsEngine;
+  /**
+   * Ruta personalizada del motor elegido en la misma llamada (o del
+   * motor activo si no se manda `engine`); null vuelve a autodetección.
+   */
   cliPath?: string | null;
   /** Tope diario en titulares analizados. */
   dailyCap?: number;
@@ -465,6 +538,11 @@ export type NewsSubscriptionState = (typeof NEWS_SUBSCRIPTION_STATES)[number];
 export interface NewsStatus {
   /** Proveedor configurado en Ajustes ('suscripcion' o 'local'). */
   provider: NewsAnalyzer;
+  /**
+   * Motor CLI activo cuando el proveedor es 'suscripcion' ('local' con
+   * el analizador local): el estado describe a ESE motor.
+   */
+  engine: NewsEngine;
   state: NewsSubscriptionState;
   /** Desde cuándo está en este estado (ISO 8601). */
   since: string;

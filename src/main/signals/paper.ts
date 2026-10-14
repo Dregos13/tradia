@@ -37,6 +37,7 @@
  *   reportan a los observadores de la parada de emergencia (pérdida
  *   anómala y drawdown pueden activarla).
  */
+import { formatFxPair } from '../../shared/fx';
 import type { JournalRecordInput, JournalStrategyRef } from '../../shared/journal';
 import type { MarketUpdatedEvent } from '../../shared/ipc';
 import {
@@ -356,7 +357,7 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
       ticker: position.ticker,
       strategies,
       reason:
-        `Cierre simulado por ${motivoCierre} de ${position.ticker}: ` +
+        `Cierre simulado por ${motivoCierre} de ${isFxSymbol(position.ticker) ? formatFxPair(position.ticker) : position.ticker}: ` +
         `${formatSize(position.ticker, position.size)} ${position.direction} ` +
         `entrada ${formatPriceOf(position.ticker, position.entry)} → ` +
         `salida ${formatPriceOf(position.ticker, decision.exit)} ` +

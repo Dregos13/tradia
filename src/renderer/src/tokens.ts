@@ -7,6 +7,7 @@ const tokens = {
   ...base,
   // Preserve the existing page widths; readability does not change the app layout.
   size: { ...base.size, ...market.size, controlMin: base.size.controlMin },
+  spacing: { ...base.spacing, ...market.spacing },
 };
 
 /** Translate the approved source tokens; no duplicated palette in renderer styles. */

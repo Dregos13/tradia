@@ -155,6 +155,32 @@ it('avisa si el envío de la orden limitada falla y conserva el formulario', asy
   expect(screen.getByLabelText('Activo')).toHaveValue('MSFT');
 });
 
+it('muestra mensaje explicativo indicando que las divisas no admiten órdenes manuales en el bróker (EURUSD y EUR/USD)', async () => {
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'EURUSD');
+  await user.type(screen.getByLabelText('Cantidad'), '1000');
+  await user.type(screen.getByLabelText('Precio límite'), '1.05');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('EUR/USD es una divisa y no se envía al bróker');
+  expect(screen.getByLabelText('Activo')).toHaveValue('EURUSD');
+
+  // Comprueba también con formato con barra (EUR/USD)
+  await user.clear(screen.getByLabelText('Activo'));
+  await user.type(screen.getByLabelText('Activo'), 'EUR/USD');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'EUR/USD es una divisa y no se envía al bróker',
+  );
+  expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');
+});
+
 it('recibe cambios en vivo, conserva foco y se desuscribe', async () => {
   let listener: ((order: BrokerOrder) => void) | undefined;
   const off = vi.fn();

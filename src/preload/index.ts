@@ -175,6 +175,7 @@ const api: TradiaApi = {
   market: {
     getBars: (request: GetBarsRequest) => ipcRenderer.invoke(IPC_CHANNELS.market.getBars, request),
     refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.market.refreshNow),
+    search: (query: string) => ipcRenderer.invoke(IPC_CHANNELS.market.search, query),
     onUpdated: (listener) => subscribe<MarketUpdatedEvent>(IPC_CHANNELS.market.updated, listener),
   },
   macro: {

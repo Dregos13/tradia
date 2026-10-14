@@ -318,13 +318,9 @@ export function DataProvidersSettings() {
     };
   }, []);
   return (
-    <section
-      className="settings-section connector-section"
-      data-tour="ajustes-proveedores"
-      aria-label="Conectores de datos"
-    >
+    <section className="settings-section connector-section" aria-label="Conectores de datos">
       <style>{dataStateTokenStylesheet()}</style>
-      <div>
+      <div data-tour="ajustes-proveedores">
         <h2>Conectores de datos</h2>
         <p>
           Comprueba cada conexión por separado. Las claves se cifran en el sistema y nunca vuelven a

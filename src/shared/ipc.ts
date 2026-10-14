@@ -166,6 +166,8 @@ import {
   DRIFT_CHECK_KINDS,
   NEWS_ANALYSIS_MAX_LIMIT,
   NEWS_ANALYZERS,
+  NEWS_CLI_ENGINES,
+  NEWS_ENGINES,
   NEWS_PROVIDERS,
   NEWS_LLM_DAILY_CAP_BOUNDS,
   NEWS_LLM_MONTHLY_BUDGET_BOUNDS,
@@ -184,6 +186,8 @@ import type {
   NewsAnalysis,
   NewsAnalysisQuery,
   NewsAnalyzer,
+  NewsCliEngine,
+  NewsEngine,
   NewsStatus,
   NewsLlmSettings,
   NewsLlmSettingsInput,
@@ -205,6 +209,7 @@ import type {
   SimulateRegimeRequest,
 } from './ai';
 import { LIVE_ALL_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
+import { normalizeFxPair } from './fx';
 import type {
   LiveActivateRequest,
   LiveActivateResult,
@@ -238,6 +243,8 @@ export * from './journal';
 export * from './broker';
 export * from './ai';
 export * from './live';
+export * from './fx';
+export * from './fxTrading';
 
 export const IPC_CHANNELS = {
   connectivity: {
@@ -296,6 +303,8 @@ export const IPC_CHANNELS = {
     getBars: 'market:get-bars',
     /** Fuerza una actualización incremental fuera del horario programado. */
     refreshNow: 'market:refresh-now',
+    /** Catálogo de activos: filtra por símbolo o nombre (acciones, ETF y divisas). */
+    search: 'market:search',
     /** Evento main → renderer: llegaron velas nuevas de un ticker. */
     updated: 'market:updated',
     /**
@@ -999,6 +1008,39 @@ export interface MarketRefreshResult {
   failedTickers?: string[];
 }
 
+/**
+ * Clase de activo en los resultados de `market:search`: 'accion' y 'etf'
+ * son `AssetClass` 'equity' (calendario NYSE) y 'divisa' es 'fx' (24/5).
+ */
+export const ASSET_SEARCH_CLASSES = ['accion', 'etf', 'divisa'] as const;
+export type AssetSearchClass = (typeof ASSET_SEARCH_CLASSES)[number];
+
+/**
+ * Una coincidencia del catálogo de activos. `ticker` es la forma guardada
+ * ('AAPL', 'EURUSD') —la que se pasa a `watchlist:add`— y `display` la
+ * forma de pantalla ('AAPL', 'EUR/USD').
+ */
+export interface AssetSearchMatch {
+  ticker: string;
+  display: string;
+  /** Nombre descriptivo del activo ('Apple Inc.', 'Euro / Dólar estadounidense'). */
+  name: string;
+  assetClass: AssetSearchClass;
+}
+
+/**
+ * Resultado de `market:search`. Cuando la consulta es un símbolo válido
+ * que no está en el catálogo, `directTicker` lo devuelve en su forma
+ * guardada para que se pueda añadir igualmente (null si no aplica o si
+ * ya aparece en `matches`).
+ */
+export interface AssetSearchResult {
+  /** La consulta tal como llegó, sin espacios sobrantes. */
+  query: string;
+  matches: AssetSearchMatch[];
+  directTicker: string | null;
+}
+
 /** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
 export const MACRO_REFRESH_REJECTIONS = ['sin-proveedor', 'sin-conexion', 'en-curso'] as const;
 export type MacroRefreshRejection = (typeof MACRO_REFRESH_REJECTIONS)[number];
@@ -1656,6 +1698,8 @@ export interface TradiaApi {
   market: {
     getBars(request: GetBarsRequest): Promise<MarketBarsResult>;
     refreshNow(): Promise<MarketRefreshResult>;
+    /** Catálogo de activos: coincidencias por símbolo o nombre + `directTicker`. */
+    search(query: string): Promise<AssetSearchResult>;
     onUpdated(listener: (event: MarketUpdatedEvent) => void): () => void;
   };
   macro: {
@@ -2139,7 +2183,24 @@ export function isSettingsPatch(value: unknown): value is SettingsPatch {
 }
 
 export function isTicker(value: unknown): value is string {
-  return typeof value === 'string' && TICKER_PATTERN.test(value.trim());
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  // Además del patrón de acciones/ETF, un par de divisas admitido en
+  // cualquiera de sus formas escritas ('EURUSD', 'EUR/USD', 'eur-usd').
+  return TICKER_PATTERN.test(trimmed) || normalizeFxPair(trimmed) !== null;
+}
+
+/**
+ * Forma guardada de un símbolo que pasó `isTicker`: 'eur/usd' o 'EUR-USD'
+ * quedan 'EURUSD'; los demás, en mayúsculas sin espacios (' aapl ' →
+ * 'AAPL'). Devuelve null si la entrada no es un símbolo válido.
+ */
+export function normalizeAssetSymbol(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  const pair = normalizeFxPair(trimmed);
+  if (pair !== null) return pair;
+  return TICKER_PATTERN.test(trimmed) ? trimmed.toUpperCase() : null;
 }
 
 /**
@@ -3595,17 +3656,29 @@ export function isNewsProvider(value: unknown): value is NewsAnalyzer {
   return typeof value === 'string' && (NEWS_PROVIDERS as readonly string[]).includes(value);
 }
 
+/** Motor CLI por suscripción ('suscripcion-claude' | … | 'suscripcion-copilot'). */
+export function isNewsCliEngine(value: unknown): value is NewsCliEngine {
+  return typeof value === 'string' && (NEWS_CLI_ENGINES as readonly string[]).includes(value);
+}
+
+/** Opción del desplegable de motor en Ajustes (CLI por suscripción o 'local'). */
+export function isNewsEngine(value: unknown): value is NewsEngine {
+  return typeof value === 'string' && (NEWS_ENGINES as readonly string[]).includes(value);
+}
+
 /** Entrada de `ai:set-llm-settings`; al menos un campo y dentro de márgenes. */
 export function isNewsLlmSettingsInput(value: unknown): value is NewsLlmSettingsInput {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   const keys = Object.keys(v);
   if (keys.length === 0) return false;
-  const allowed = ['enabled', 'provider', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
+  const allowed = ['enabled', 'provider', 'engine', 'cliPath', 'dailyCap', 'monthlyBudgetEur'];
   if (keys.some((k) => !allowed.includes(k))) return false;
   if ('enabled' in v && typeof v.enabled !== 'boolean') return false;
   // El proveedor solo admite los elegibles: 'llm' (API de pago) se retiró.
   if ('provider' in v && !isNewsProvider(v.provider)) return false;
+  // El motor del desplegable: una CLI por suscripción o 'local'.
+  if ('engine' in v && !isNewsEngine(v.engine)) return false;
   if (
     'cliPath' in v &&
     v.cliPath !== null &&

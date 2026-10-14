@@ -5,7 +5,11 @@ import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
 import market from './design/market.tokens.json';
 import risk from './design/risk.tokens.json';
-const tokens = base;
+const tokens = {
+  ...base,
+  size: { ...base.size, ...market.size, controlMin: base.size.controlMin },
+  spacing: { ...base.spacing, ...market.spacing },
+};
 import { tokenStylesheet } from './tokens';
 
 describe('Tokens aprobados', () => {

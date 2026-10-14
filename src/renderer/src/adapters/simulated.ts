@@ -1,7 +1,8 @@
+import { searchAssets } from '../../../main/market/search';
 import { parseStrategyRules } from '../../../shared/strategyRules';
 import { createCustomStrategy } from '../../../main/backtest/strategies/custom';
 import { evaluateShortAccount, shortAccountBlockReason } from '../../../main/live/checklist';
-import { fxPairForCurrency, inferAssetClass } from '../../../shared/fx';
+import { fxPairForCurrency, inferAssetClass, isFxPair } from '../../../shared/fx';
 import { tickerSuggestions } from '../../../shared/suggestions';
 import { NEWS_SUBSCRIPTION_COPY } from '../../../shared/newsSubscription';
 import {
@@ -60,6 +61,7 @@ import {
   isTicker,
   isUpdateSourceRequest,
   isUpdateStrategyRequest,
+  normalizeAssetSymbol,
   liveConfirmationPhrase,
   LIVE_DECLARATION_TEXTS,
   LIVE_FIXED_CAPS,
@@ -218,22 +220,33 @@ const isWeekday = (ms: number): boolean => {
   return day >= 1 && day <= 5;
 };
 
-/** Velas diarias deterministas por ticker: paseo aleatorio con semilla, solo laborables. */
+/**
+ * Velas diarias deterministas por ticker: paseo aleatorio con semilla,
+ * solo laborables. En un par de divisas el paseo revierte a un anclaje
+ * realista (~1,10 en EUR/USD, ~150 en USD/JPY) con 5 decimales y sin
+ * volumen, como hace el proveedor simulado del proceso principal.
+ */
 function generateBars(ticker: string): MarketBar[] {
   const rng = mulberry32(hashSeed(`sim:${ticker}`));
-  let close = round(20 + rng() * 480, 2);
+  const fx = isFxPair(ticker);
+  const fxAnchors: Record<string, number> = { EURUSD: 1.1, GBPUSD: 1.27, USDCHF: 0.9, USDJPY: 150 };
+  const decimals = fx ? 5 : 2;
+  const anchor = fx ? (fxAnchors[ticker] ?? 1.1) : 0;
+  let close = fx ? anchor : round(20 + rng() * 480, decimals);
   const baseVolume = Math.round(1_000_000 + rng() * 50_000_000);
   const bars: MarketBar[] = [];
   const end = Date.now() - DAY_MS;
   for (let ms = Date.parse(`${GENESIS}T00:00:00.000Z`); ms <= end; ms += DAY_MS) {
     if (!isWeekday(ms)) continue;
-    const noise = ((rng() + rng() + rng()) / 1.5 - 1) * 0.02;
+    const unit = (rng() + rng() + rng()) / 1.5 - 1;
     const prev = close;
-    close = round(Math.max(1, prev * (1 + noise + 0.0002)), 2);
-    const open = round(prev * (1 + (rng() + rng() - 1) * 0.005), 2);
-    const high = round(Math.max(open, close) * (1 + rng() * 0.01), 2);
-    const low = round(Math.min(open, close) * (1 - rng() * 0.01), 2);
-    const volume = Math.round(baseVolume * (0.5 + rng() * 1.5));
+    close = fx
+      ? round(anchor + (prev - anchor) * 0.96 + anchor * unit * 0.005, decimals)
+      : round(Math.max(1, prev * (1 + unit * 0.02 + 0.0002)), decimals);
+    const open = round(prev * (1 + (rng() + rng() - 1) * 0.005), decimals);
+    const high = round(Math.max(open, close) * (1 + rng() * 0.01), decimals);
+    const low = round(Math.min(open, close) * (1 - rng() * 0.01), decimals);
+    const volume = fx ? 0 : Math.round(baseVolume * (0.5 + rng() * 1.5));
     bars.push({
       date: toDate(ms),
       open,
@@ -1388,6 +1401,12 @@ export function createSimulatedAdapter() {
   const newsStatusNow = (): NewsStatus =>
     forcedNewsStatus ?? {
       provider: llmSettings.provider,
+      engine:
+        llmSettings.provider === 'suscripcion' && llmSettings.engine !== 'local'
+          ? llmSettings.engine
+          : llmSettings.provider === 'suscripcion'
+            ? 'suscripcion-claude'
+            : 'local',
       state:
         llmSettings.provider === 'suscripcion' && !llmSettings.cliAvailable
           ? 'cli-no-encontrada'
@@ -1567,9 +1586,26 @@ export function createSimulatedAdapter() {
   let llmSettings: NewsLlmSettings = {
     enabled: false,
     provider: 'local',
+    engine: 'local',
+    // La simulación presume todas las CLI instaladas, para que el
+    // desplegable de motores se pueda ejercer en la interfaz.
+    engines: (
+      [
+        { id: 'suscripcion-claude', label: 'Claude Code', cliName: 'claude' },
+        { id: 'suscripcion-codex', label: 'OpenAI Codex', cliName: 'codex' },
+        { id: 'suscripcion-antigravity', label: 'Google Antigravity', cliName: 'agy' },
+        { id: 'suscripcion-copilot', label: 'GitHub Copilot', cliName: 'copilot' },
+        { id: 'local', label: 'Analizador local', cliName: null },
+      ] as const
+    ).map((e) => ({
+      ...e,
+      available: true,
+      resolvedPath: e.cliName ? `/usr/local/bin/${e.cliName}` : null,
+      source: e.cliName ? ('path' as const) : ('local' as const),
+      configuredPath: null,
+      configuredInvalid: false,
+    })),
     cliPath: null,
-    // La simulación presume la CLI de Claude Code instalada, para que la
-    // opción «Suscripción (Claude Code)» se pueda ejercer en la interfaz.
     cliAvailable: true,
     dailyCap: NEWS_LLM_DAILY_CAP_DEFAULT,
     monthlyBudgetEur: 0,
@@ -1978,7 +2014,10 @@ export function createSimulatedAdapter() {
     watchlist: {
       list: async () => [...watchlist],
       add: async (ticker): Promise<WatchlistAddResult> => {
-        const key = typeof ticker === 'string' ? ticker.trim().toUpperCase() : '';
+        const key =
+          typeof ticker === 'string'
+            ? (normalizeAssetSymbol(ticker) ?? ticker.trim().toUpperCase())
+            : '';
         if (!isTicker(key)) {
           throw new Error('Introduce un símbolo bursátil válido (ej. AAPL, SPY, NVDA).');
         }
@@ -2033,7 +2072,7 @@ export function createSimulatedAdapter() {
           };
         }),
       remove: async (ticker) => {
-        const key = ticker.trim().toUpperCase();
+        const key = normalizeAssetSymbol(ticker) ?? ticker.trim().toUpperCase();
         watchlist = watchlist
           .filter((item) => item.ticker !== key)
           .map((item, index) => ({ ...item, position: index }));
@@ -2047,7 +2086,7 @@ export function createSimulatedAdapter() {
             ...watchlist,
             {
               ticker,
-              assetClass: 'equity',
+              assetClass: inferAssetClass(ticker),
               addedAt: new Date().toISOString(),
               position: watchlist.length,
             },
@@ -2062,13 +2101,14 @@ export function createSimulatedAdapter() {
         if (!isGetBarsRequest(request)) {
           throw new Error('Petición de velas inválida (ticker o rango de fechas).');
         }
-        const key = request.ticker.trim().toUpperCase();
+        const key = normalizeAssetSymbol(request.ticker) ?? request.ticker.trim().toUpperCase();
         let bars = generateBars(key);
         if (request.desde) bars = bars.filter((bar) => bar.date >= request.desde!);
         if (request.hasta) bars = bars.filter((bar) => bar.date <= request.hasta!);
         return { ticker: key, source: SIMULATED_SOURCE, bars };
       },
       refreshNow: async () => ({ accepted: true, reason: null }),
+      search: async (query) => searchAssets(query),
       onUpdated: (listener) => subscribe(marketUpdatedListeners, listener),
     },
     macro: {
@@ -3037,17 +3077,30 @@ export function createSimulatedAdapter() {
           throw new Error('Ajustes del LLM inválidos (revisa los márgenes).');
         }
         const provider =
-          input.provider ??
-          (input.enabled === undefined
-            ? llmSettings.provider
-            : input.enabled
-              ? llmSettings.provider === 'local'
-                ? ('suscripcion' as const)
-                : llmSettings.provider
-              : ('local' as const));
+          input.engine === 'local'
+            ? ('local' as const)
+            : input.engine !== undefined
+              ? ('suscripcion' as const)
+              : (input.provider ??
+                (input.enabled === undefined
+                  ? llmSettings.provider
+                  : input.enabled
+                    ? llmSettings.provider === 'local'
+                      ? ('suscripcion' as const)
+                      : llmSettings.provider
+                    : ('local' as const)));
+        const engine =
+          provider === 'local'
+            ? ('local' as const)
+            : input.engine !== undefined && input.engine !== 'local'
+              ? input.engine
+              : llmSettings.engine !== 'local'
+                ? llmSettings.engine
+                : ('suscripcion-claude' as const);
         llmSettings = {
           ...llmSettings,
           provider,
+          engine,
           enabled: input.enabled ?? provider !== 'local',
           ...(input.cliPath !== undefined ? { cliPath: input.cliPath } : {}),
           ...(input.dailyCap !== undefined ? { dailyCap: input.dailyCap } : {}),
@@ -3336,6 +3389,7 @@ export function createSimulatedAdapter() {
     forceNewsStatus(state: NewsStatus['state']) {
       forcedNewsStatus = {
         provider: 'suscripcion',
+        engine: 'suscripcion-claude',
         state,
         since: nowIso(),
         message: state === 'ok' ? null : NEWS_SUBSCRIPTION_COPY[state].step,

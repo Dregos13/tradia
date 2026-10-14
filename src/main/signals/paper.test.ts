@@ -358,3 +358,66 @@ describe('seguimiento de posiciones simuladas', () => {
     expect(observedLosses.at(-1)).toBeCloseTo(0.05, 1);
   });
 });
+
+describe('seguimiento de pares de divisas', () => {
+  it('una señal aprobada de EUR/USD abre la posición con sector divisas y moneda EUR', () => {
+    emitSignal(
+      approvedSignal({
+        ticker: 'EURUSD',
+        entry: 1.105,
+        stop: 1.1,
+        target: 1.115,
+        decision: { ...approvedSignal().decision, size: 10_000 },
+      }),
+    );
+
+    const position = openPositions()[0];
+    expect(position).toMatchObject({
+      ticker: 'EURUSD',
+      direction: 'largo',
+      size: 10_000,
+      sector: 'divisas',
+      currency: 'EUR',
+    });
+  });
+
+  it('un par no cotizado en USD nunca abre posición: la señal es solo análisis', () => {
+    emitSignal(
+      approvedSignal({
+        ticker: 'USDJPY',
+        entry: 150,
+        stop: 148,
+        target: 155,
+        decision: { ...approvedSignal().decision, size: 1_000 },
+      }),
+    );
+
+    expect(openPositions()).toEqual([]);
+  });
+
+  it('cierra por stop con precios de pip y la etiqueta EUR/USD en el diario', () => {
+    emitSignal(
+      approvedSignal({
+        ticker: 'EURUSD',
+        entry: 1.105,
+        stop: 1.1,
+        target: 1.115,
+        decision: { ...approvedSignal().decision, size: 10_000 },
+      }),
+    );
+    // La vela siguiente toca el stop (mínimo 1,099 < 1,10).
+    fireBar('EURUSD', { date: '2026-10-09', open: 1.102, high: 1.104, low: 1.099, close: 1.1 });
+
+    const position = [...positions.values()][0]!;
+    expect(position.closedAt).not.toBeNull();
+    // Salida en min(open, stop) = 1,10; P&L = (1,10 − 1,105) × 10 000 = −50.
+    expect(position.exit).toBeCloseTo(1.1, 4);
+    expect(equity()).toBeCloseTo(100_000 - 50, 2);
+
+    const entry = journal.find((e) => e.type === 'operacion')!;
+    expect(entry.reason).toContain('EUR/USD');
+    expect(entry.reason).toContain('1.105');
+    expect(entry.reason).toContain('1.1 ');
+    expect(entry.result).toBe('perdida');
+  });
+});
