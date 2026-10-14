@@ -25,7 +25,7 @@ it.each(['cli-no-encontrada', 'sin-sesion', 'tope-diario', 'error'] as const)(
         <AiSettings />
       </>,
     );
-    await screen.findByRole('radio', { name: /Suscripción/ });
+    await screen.findByRole('combobox', { name: 'Motor de análisis de noticias' });
     const previous = screen.getByRole('button', { name: 'Control previo' });
     previous.focus();
     act(() => simulation.forceNewsStatus(state));

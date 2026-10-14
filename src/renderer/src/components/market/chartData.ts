@@ -41,4 +41,18 @@ export function rangeStart(lastDate: string, years: number): string {
   if (date.getUTCMonth() !== month) date.setUTCDate(0);
   return date.toISOString().slice(0, 10);
 }
-export const priceFormat = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
+export const priceFormat = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export const fxPriceFormat = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+});
+
+export function formatPrice(value: number, isForex: boolean): string {
+  return (isForex ? fxPriceFormat : priceFormat).format(value);
+}
+
+export const volumeFormat = new Intl.NumberFormat('es-ES');

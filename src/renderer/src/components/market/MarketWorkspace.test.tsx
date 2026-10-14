@@ -205,6 +205,59 @@ describe('Lista y gráfico con adaptador simulado', () => {
     expect(screen.getByLabelText<HTMLInputElement>('Ticker').value).toBe('MSFT');
     expect(screen.queryByText(/private API/)).toBeNull();
   });
+  it('permite alternar la visibilidad de los paneles secundarios de RSI y ATR', async () => {
+    await simulation.api.watchlist.add('AAPL');
+    const user = userEvent.setup();
+    render(<MarketWorkspace />);
+    await screen.findByRole('img', { name: /Velas diarias ajustadas de AAPL/ });
+    const rsiBtn = screen.getByRole('button', { name: /Panel RSI 14/ });
+    const atrBtn = screen.getByRole('button', { name: /Panel ATR 14/ });
+    expect(rsiBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(atrBtn.getAttribute('aria-pressed')).toBe('true');
+    await waitFor(() => {
+      const chart = charts.instances.at(-1);
+      expect(chart).toBeDefined();
+      expect(chart!.series).toHaveLength(6);
+    });
+
+    await user.click(rsiBtn);
+    expect(rsiBtn.getAttribute('aria-pressed')).toBe('false');
+    await waitFor(() => {
+      const chart = charts.instances.at(-1);
+      expect(chart!.series).toHaveLength(5);
+    });
+
+    await user.click(atrBtn);
+    expect(atrBtn.getAttribute('aria-pressed')).toBe('false');
+    await waitFor(() => {
+      const chart = charts.instances.at(-1);
+      expect(chart!.series).toHaveLength(4);
+    });
+
+    await user.click(rsiBtn);
+    expect(rsiBtn.getAttribute('aria-pressed')).toBe('true');
+    await waitFor(() => {
+      const chart = charts.instances.at(-1);
+      expect(chart!.series).toHaveLength(5);
+    });
+  });
+  it('formatea cotizaciones a 4 decimales y adapta subtítulo y métricas para EUR/USD', async () => {
+    render(<MarketWorkspace />);
+    await screen.findByText('Tu lista está vacía.');
+    await add('EUR/USD');
+    await screen.findByRole('img', { name: /Velas diarias ajustadas de EUR\/USD/ });
+    expect(screen.getByText('Divisa Forex 24/5')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'EUR/USD · Tipo de cambio Forex 24/5 · Operativa en cartera simulada interna',
+      ),
+    ).toBeTruthy();
+    const closeEl = screen.getByText(/\d+,\d{4} EUR\/USD/);
+    expect(closeEl).toBeTruthy();
+    expect(screen.getByText(/Apertura:/).textContent).toMatch(/Apertura:\s*\d+,\d{4}/);
+    expect(screen.getByText(/Cierre:/).textContent).toMatch(/Cierre:\s*\d+,\d{4}/);
+    expect(screen.queryByText(/Volumen:/)).toBeNull();
+  });
 });
 it('no sustituye velas sin ajustar y prepara los indicadores sin look-ahead', async () => {
   const { bars } = await simulation.api.market.getBars({ ticker: 'AAPL' });

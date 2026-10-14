@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   NEWS_LLM_DAILY_CAP_BOUNDS,
+  type NewsEngine,
   type NewsLlmSettings,
+  type NewsLlmSettingsInput,
   type NewsProvider,
 } from '../../../../shared/ai';
 import { isNewsLlmSettingsInput } from '../../../../shared/ipc';
@@ -11,12 +13,70 @@ import { useSystemState } from '../../hooks/useSystemState';
 import { SettingsFeedback, SettingsSection } from './SettingsSection';
 import './settings.css';
 
+export interface EngineSpec {
+  id: NewsEngine;
+  name: string;
+  label: string;
+  cliCmd: string;
+  description: string;
+  defaultPlaceholder: string;
+}
+
+export const ENGINE_SPECS: Record<NewsEngine, EngineSpec> = {
+  'suscripcion-claude': {
+    id: 'suscripcion-claude',
+    name: 'Claude Code',
+    label: 'Claude Code (Suscripción en este equipo)',
+    cliCmd: 'claude',
+    description:
+      'Utiliza la sesión iniciada en este equipo mediante Claude CLI. Tradia analiza noticias sin costes de API.',
+    defaultPlaceholder: '/usr/local/bin/claude',
+  },
+  'suscripcion-codex': {
+    id: 'suscripcion-codex',
+    name: 'OpenAI Codex',
+    label: 'OpenAI Codex (Suscripción de OpenAI)',
+    cliCmd: 'codex',
+    description:
+      'Utiliza la sesión iniciada en OpenAI Codex CLI. El analizador procesa titulares con tu cuenta.',
+    defaultPlaceholder: '/usr/local/bin/codex',
+  },
+  'suscripcion-antigravity': {
+    id: 'suscripcion-antigravity',
+    name: 'Google Antigravity',
+    label: 'Google Antigravity (Suscripción de Google)',
+    cliCmd: 'agy',
+    description:
+      'Utiliza el entorno configurado de Google Antigravity CLI para el análisis de noticias.',
+    defaultPlaceholder: '/usr/local/bin/agy',
+  },
+  'suscripcion-copilot': {
+    id: 'suscripcion-copilot',
+    name: 'GitHub Copilot',
+    label: 'GitHub Copilot (Suscripción de GitHub)',
+    cliCmd: 'copilot',
+    description:
+      'Utiliza la CLI de GitHub Copilot para evaluar el impacto de los titulares de mercado.',
+    defaultPlaceholder: '/usr/local/bin/copilot',
+  },
+  local: {
+    id: 'local',
+    name: 'Analizador local',
+    label: 'Analizador local (Sin suscripción · En este equipo)',
+    cliCmd: '',
+    description:
+      'Analizador léxico básico integrado. No requiere conexión externa, suscripciones ni comandos CLI.',
+    defaultPlaceholder: '',
+  },
+};
+
 export function AiSettings() {
   const [settings, setSettings] = useState<NewsLlmSettings | null>(null);
-  const [provider, setProvider] = useState<NewsProvider>('local');
+  const [engine, setEngine] = useState<NewsEngine>('local');
   const [cliPath, setCliPath] = useState('');
   const testAfterSave = useRef(false);
-  const enabled = provider !== 'local';
+  const enabled = engine !== 'local';
+  const provider: NewsProvider = engine === 'local' ? 'local' : 'suscripcion';
   const [cap, setCap] = useState('200');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -29,20 +89,44 @@ export function AiSettings() {
     newsStatus.status?.provider === 'suscripcion' && newsStatus.status.state !== 'ok';
   const { connectivity } = useSystemState();
   const offline = connectivity?.status === 'offline';
-  const input = {
+
+  const input: NewsLlmSettingsInput = {
     enabled,
     provider,
+    engine,
     cliPath: cliPath.trim() || null,
     dailyCap: Number(cap),
   };
   const valid = cap.trim() !== '' && isNewsLlmSettingsInput(input);
+
   function apply(value: NewsLlmSettings) {
     setSettings(value);
-    // Un 'llm' heredado ya no es elegible: la API de pago se retiró.
-    setProvider(value.provider === 'llm' ? 'local' : value.provider);
+    const resolvedEngine: NewsEngine =
+      value.provider === 'llm' || value.provider === 'local'
+        ? 'local'
+        : value.engine && value.engine !== 'local'
+          ? value.engine
+          : 'suscripcion-claude';
+    setEngine(resolvedEngine);
     setCliPath(value.cliPath ?? '');
     setCap(String(value.dailyCap));
   }
+
+  function handleEngineChange(nextEngine: NewsEngine) {
+    setEngine(nextEngine);
+    setError('');
+    setMessage('');
+    setNoticeRetryActive(false);
+    const engineEntry = settings?.engines?.find((e) => e.id === nextEngine);
+    if (engineEntry?.configuredPath !== undefined && engineEntry.configuredPath !== null) {
+      setCliPath(engineEntry.configuredPath);
+    } else if (nextEngine === settings?.engine) {
+      setCliPath(settings?.cliPath ?? '');
+    } else {
+      setCliPath('');
+    }
+  }
+
   useEffect(() => {
     let active = true;
     void window.tradia.ai
@@ -73,6 +157,7 @@ export function AiSettings() {
       off();
     };
   }, []);
+
   async function reload() {
     setLoading(true);
     setError('');
@@ -84,6 +169,7 @@ export function AiSettings() {
       setLoading(false);
     }
   }
+
   async function save() {
     if (!valid || busy) return;
     setBusy(true);
@@ -102,19 +188,23 @@ export function AiSettings() {
       if (!probed) saveButton.current?.focus();
     }
   }
+
   async function test() {
     setBusy(true);
     setError('');
     setMessage('');
     try {
       const result = await window.tradia.ai.testLlm();
-      if (result.ok)
+      if (result.ok) {
+        const msText = result.latencyMs != null ? ` (latencia ${result.latencyMs} ms)` : '';
         setMessage(
-          provider === 'local'
+          engine === 'local'
             ? 'Análisis local disponible · sin coste.'
-            : 'Suscripción disponible · Claude Code responde y la sesión está iniciada. El analizador local queda como respaldo.',
+            : `Suscripción disponible · ${ENGINE_SPECS[engine].name} responde y la sesión está iniciada${msText}. El analizador local queda como respaldo.`,
         );
-      else setError(result.error ?? 'No se pudo usar la suscripción. Reintenta.');
+      } else {
+        setError(result.error ?? 'No se pudo usar la suscripción. Reintenta.');
+      }
       await newsStatus.refresh();
     } catch {
       setError('No se pudo usar la suscripción. Reintenta.');
@@ -122,15 +212,25 @@ export function AiSettings() {
       setBusy(false);
     }
   }
+
   function requestSave(probe = false) {
     if (!valid || busy) return;
     testAfterSave.current = probe;
     void save();
   }
+
+  const engineStatus = settings?.engines?.find((e) => e.id === engine);
+  const isDetected =
+    engineStatus?.available ?? (engine === settings?.engine ? settings?.cliAvailable : false);
+  const resolvedPath =
+    engineStatus?.resolvedPath ??
+    (isDetected && cliPath ? cliPath : (engineStatus?.configuredPath ?? null));
+  const cmd = ENGINE_SPECS[engine].cliCmd;
+
   return (
     <SettingsSection
       title="Análisis de noticias"
-      description="Elige la suscripción de Claude Code o el analizador local. Las noticias no crean señales por sí solas."
+      description="Configura la suscripción de IA que Tradia usará para evaluar titulares de mercado o mantén el analizador local."
     >
       <div aria-busy={loading || busy}>
         {loading ? (
@@ -150,61 +250,81 @@ export function AiSettings() {
               }}
             >
               <fieldset className="channel-fields">
-                <fieldset className="analyzer-choices" disabled={busy}>
-                  <legend>Proveedor de análisis</legend>
-                  {(['suscripcion', 'local'] as const).map((choice) => (
-                    <label key={choice} className="analyzer-choice">
-                      <input
-                        type="radio"
-                        name="news-provider"
-                        value={choice}
-                        checked={provider === choice}
-                        onChange={() => {
-                          setProvider(choice);
-                          setError('');
-                          setMessage('');
-                        }}
-                      />
-                      <span>
-                        <strong>
-                          {choice === 'suscripcion'
-                            ? 'Suscripción (Claude Code)'
-                            : 'Analizador local'}
-                        </strong>
-                        <span>
-                          {choice === 'suscripcion'
-                            ? 'Usa la sesión iniciada en este equipo. Si falla, Tradia continúa con el analizador local.'
-                            : 'Funciona sin sesión. Es más limitado, pero mantiene el análisis básico en el equipo.'}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </fieldset>
-                {provider === 'suscripcion' && (
+                <div className="channel-field">
+                  <label htmlFor="news-provider-select">Motor de análisis de noticias</label>
+                  <select
+                    id="news-provider-select"
+                    disabled={busy}
+                    value={engine}
+                    aria-describedby="provider-desc"
+                    onChange={(event) => handleEngineChange(event.target.value as NewsEngine)}
+                  >
+                    <option value="suscripcion-claude">
+                      Claude Code (Suscripción en este equipo)
+                    </option>
+                    <option value="suscripcion-codex">OpenAI Codex (Suscripción de OpenAI)</option>
+                    <option value="suscripcion-antigravity">
+                      Google Antigravity (Suscripción de Google)
+                    </option>
+                    <option value="suscripcion-copilot">
+                      GitHub Copilot (Suscripción de GitHub)
+                    </option>
+                    <option value="local">
+                      Analizador local (Sin suscripción · En este equipo)
+                    </option>
+                  </select>
+                  <p id="provider-desc" className="help-text">
+                    {ENGINE_SPECS[engine].description}
+                  </p>
+                </div>
+
+                {engine !== 'local' && (
                   <div className="channel-field">
-                    <label htmlFor="llm-cli-path">Ruta de Claude Code (opcional)</label>
+                    <label htmlFor="llm-cli-path">{`Ruta de ${ENGINE_SPECS[engine].name} (opcional)`}</label>
+                    <div
+                      className={`cli-detect-badge ${isDetected ? 'found' : 'not-found'}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span aria-hidden="true">{isDetected ? '✓' : '!'}</span>
+                      <span>
+                        {isDetected
+                          ? resolvedPath
+                            ? `Ejecutable detectado automáticamente: ${resolvedPath}`
+                            : `Ejecutable de ${cmd} disponible en el sistema.`
+                          : `No se encontró el comando ${cmd} en las rutas estándar. Indica la ruta completa abajo.`}
+                      </span>
+                    </div>
                     <input
                       disabled={busy}
                       id="llm-cli-path"
                       type="text"
                       value={cliPath}
                       maxLength={1024}
+                      placeholder={
+                        ENGINE_SPECS[engine].defaultPlaceholder ||
+                        'Ruta personalizada o vacía para búsqueda automática'
+                      }
                       aria-describedby="llm-cli-help"
                       onChange={(event) => setCliPath(event.target.value)}
                     />
-                    <p id="llm-cli-help">Déjala vacía para buscar claude automáticamente.</p>
-                  </div>
-                )}
-                {provider === 'local' && (
-                  <div>
-                    <strong>Analizador local seleccionado</strong>
-                    <p>
-                      No necesita sesión y seguirá funcionando aunque Claude Code no esté
-                      disponible.
+                    <p id="llm-cli-help">
+                      {`Déjala vacía para buscar ${cmd} automáticamente en el sistema.`}
                     </p>
                   </div>
                 )}
-                {provider === 'suscripcion' && (
+
+                {engine === 'local' && (
+                  <div className="channel-field">
+                    <strong>Analizador local preparado · Sin suscripción externa</strong>
+                    <p>
+                      El análisis léxico se realiza directamente en este ordenador sin necesidad de
+                      cuentas ni herramientas de terceros.
+                    </p>
+                  </div>
+                )}
+
+                {engine !== 'local' && (
                   <div className="channel-field">
                     <label htmlFor="llm-cap">Máximo diario</label>
                     <input
@@ -222,36 +342,43 @@ export function AiSettings() {
                     <p id="llm-cap-help">Titulares por día. Introduce un entero entre 1 y 2000.</p>
                   </div>
                 )}
-                {provider === 'suscripcion' && (
+
+                {engine !== 'local' && (
                   <p className="operational-data">
                     Hoy: {settings.usedToday} de {settings.dailyCap} titulares
                   </p>
                 )}
-                {provider === 'suscripcion' && settings.usedToday >= settings.dailyCap && (
+
+                {engine !== 'local' && settings.usedToday >= settings.dailyCap && (
                   <p role="status">Tope diario alcanzado · se mantiene el analizador local.</p>
                 )}
-                {offline && provider !== 'local' && (
+
+                {offline && engine !== 'local' && (
                   <p role="status">Sin conexión · la prueba está pausada.</p>
                 )}
+
                 <SubscriptionNotice
                   status={newsStatus.status}
                   error={newsStatus.error}
                   busy={busy && testAfterSave.current && noticeRetryActive}
                   context="ajustes"
-                  canRetry={valid && !(provider !== 'local' && offline)}
+                  canRetry={valid && !(engine !== 'local' && offline)}
+                  engine={engine}
                   onRetry={() => {
                     setNoticeRetryActive(true);
                     requestSave(true);
                   }}
                 />
+
                 <p>Probar guarda estos ajustes y comprueba el proveedor elegido.</p>
+
                 <div className="settings-actions">
                   {!failedSubscription && !newsStatus.error && !noticeRetryActive && (
                     <button
                       className="button"
                       type="button"
                       aria-disabled={busy}
-                      disabled={!valid || (provider !== 'local' && offline)}
+                      disabled={!valid || (engine !== 'local' && offline)}
                       onClick={() => requestSave(true)}
                     >
                       {busy && testAfterSave.current ? 'Probando…' : 'Probar de nuevo'}
@@ -270,7 +397,11 @@ export function AiSettings() {
             </form>
           )
         )}
-        {busy && <p role="status">Comprobando o guardando el análisis…</p>}
+        {busy && (
+          <p role="status" aria-live="polite">
+            Comprobando o guardando el análisis…
+          </p>
+        )}
         <SettingsFeedback error={error} message={message} />
         {!loading && !settings && (
           <button className="button" onClick={() => void reload()}>
