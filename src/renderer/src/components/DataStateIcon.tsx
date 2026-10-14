@@ -1,4 +1,4 @@
-export function DataStateIcon({ kind }: { kind: 'ok' | 'pending' | 'warning' }) {
+export function DataStateIcon({ kind }: { kind: 'ok' | 'pending' | 'warning' | 'uncovered' }) {
   return (
     <svg
       className="data-state-icon"
@@ -13,6 +13,8 @@ export function DataStateIcon({ kind }: { kind: 'ok' | 'pending' | 'warning' }) 
       <circle cx="12" cy="12" r="9" />
       {kind === 'ok' ? (
         <path d="m7 12 3 3 7-7" />
+      ) : kind === 'uncovered' ? (
+        <path d="m6 18 12-12" />
       ) : kind === 'pending' ? (
         <path d="M12 6v6l4 2" />
       ) : (

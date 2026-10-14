@@ -3,7 +3,11 @@ import risk from './design/risk.tokens.json';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
 import market from './design/market.tokens.json';
-const tokens = { ...market, color: { ...market.color, state: base.color.state } };
+const tokens = {
+  ...base,
+  // Preserve the existing page widths; readability does not change the app layout.
+  size: { ...base.size, ...market.size, controlMin: base.size.controlMin },
+};
 
 /** Translate the approved source tokens; no duplicated palette in renderer styles. */
 export function tokenStylesheet(): string {
@@ -82,6 +86,7 @@ export function tokenStylesheet(): string {
       { dialogMax: broker.size.dialogMax, floating: broker.shadow.floating.value },
       'broker',
     ) +
+    declarations(tokens.focus, 'focus') +
     declarations(tokens.spacing, 'space') +
     declarations(tokens.radius, 'radius') +
     declarations(tokens.size, 'size') +

@@ -12,6 +12,7 @@
  * 'network' (reintentables), 'not-found' (ticker inexistente) y 'bad-data'
  * (entrada rechazada o respuesta malformada).
  */
+import type { AssetClass } from '../../../shared/ipc';
 
 /** Fecha de sesión del mercado, 'YYYY-MM-DD' (sin hora ni zona). */
 export type SessionDate = string;
@@ -49,6 +50,16 @@ export interface Quote {
   volume: number | null;
 }
 
+/** Ficha mínima de un símbolo en el proveedor, para validar altas. */
+export interface TickerInfo {
+  /** Símbolo en su forma guardada ('AAPL', 'EURUSD'). */
+  ticker: string;
+  /** Tipo de activo según el símbolo: 'fx' solo para los pares admitidos. */
+  assetClass: AssetClass;
+  /** Nombre descriptivo cuando el proveedor lo publica. */
+  name?: string;
+}
+
 export type CorporateActionKind = 'split' | 'dividend';
 
 export interface CorporateAction {
@@ -76,6 +87,12 @@ export interface MarketDataProvider {
    * sesiones con datos; lanza 'not-found' si el ticker no existe.
    */
   getBars(ticker: string, desde: SessionDate, hasta: SessionDate): Promise<Bar[]>;
+  /**
+   * Ficha del símbolo para validar altas: resuelve si el proveedor lo
+   * cubre; lanza 'not-found' si no existe (o 'bad-data' si la entrada no
+   * es válida). Una petición por llamada como máximo.
+   */
+  getTickerInfo(ticker: string): Promise<TickerInfo>;
   /** Última cotización disponible del activo. */
   getQuote(ticker: string): Promise<Quote>;
   /** Splits y dividendos del rango, ordenados por fecha. */

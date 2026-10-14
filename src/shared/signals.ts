@@ -14,6 +14,7 @@
  */
 
 import type { SignalAiContext } from './ai';
+import type { SignalDestination } from './fxTrading';
 import type { RiskDecision, RiskDecisionStatus, SignalDirection } from './risk';
 import type { StrategyStatus } from './strategy';
 
@@ -105,6 +106,16 @@ export interface Signal {
   dataUsed: SignalDataUsed;
   /** Decisión completa del motor de riesgo. */
   decision: RiskDecision;
+  /**
+   * Dónde se opera la señal (`signalDestinationOf` de shared/fxTrading):
+   * 'cartera-simulada' para acciones y pares cotizados en USD (una
+   * aprobada abre posición simulada); 'solo-analisis' para los pares
+   * cotizados en otra moneda, que nunca abren posición. Las divisas no
+   * van nunca al bróker.
+   */
+  destination: SignalDestination;
+  /** Motivo legible cuando el destino es 'solo-analisis'; null si se opera. */
+  destinationReason: string | null;
   /** ISO 8601. */
   createdAt: string;
 }

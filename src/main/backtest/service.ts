@@ -97,6 +97,8 @@ import { TICKER_PATTERN } from '../market/providers/types';
 import { REGIME_LABEL_TEXT } from '../ai/regime/enablement';
 import { createStrategiesRepository, type StrategiesRepository } from '../strategies/repository';
 import { runBacktest } from './engine';
+import { warmupCalendarFor } from '../market/assetCalendar';
+import { annualizationForMarkets } from './annualization';
 import { computeMetrics, type BacktestMetrics } from './metrics';
 import {
   BacktestError,
@@ -531,7 +533,13 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     source: StressDataSource,
     emit: (stage: BacktestStage, pct: number, detail?: string | null) => void,
   ): Promise<{ bars: Record<string, EngineBar[]>; missing: string[] }> => {
-    const warmupDesde = warmupStartDate(cfg.desde, cfg.warmupSessions);
+    // Calentamiento en sesiones del calendario del universo (24/5 si
+    // todo son pares de divisas; NYSE en cuanto hay alguna acción).
+    const warmupDesde = warmupStartDate(
+      cfg.desde,
+      cfg.warmupSessions,
+      warmupCalendarFor(cfg.markets).isSessionDay,
+    );
     const bars: Record<string, EngineBar[]> = {};
     const missing: string[] = [];
     for (const [index, ticker] of cfg.markets.entries()) {
@@ -613,7 +621,14 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     range: { startDate: SessionDate; endDate: SessionDate },
   ) => {
     const result = runBacktest(engineInput(cfg, bars, params, range.startDate, range.endDate));
-    return { result, metrics: computeMetrics(result.equityCurve, result.trades) };
+    return {
+      result,
+      metrics: computeMetrics(
+        result.equityCurve,
+        result.trades,
+        annualizationForMarkets(cfg.markets),
+      ),
+    };
   };
 
   /** Valida cada candidato sin ejecutar velas ni ocultar errores del motor. */

@@ -231,3 +231,175 @@ describe('proveedor simulado', () => {
     });
   });
 });
+
+describe('proveedor simulado — pares de divisas 24/5', () => {
+  const FX_NOW = Date.parse('2024-07-08T12:00:00.000Z');
+  const makeFx = () => createSimulatedProvider({ seed: 'fx', now: () => FX_NOW });
+
+  it('genera velas de lunes a viernes, festivos de NYSE incluidos', async () => {
+    const provider = makeFx();
+    const bars = await provider.getBars('EURUSD', '2024-07-01', '2024-07-07');
+
+    // El rango incluye el fin de semana 06-07/07-07, que no tiene vela, y
+    // el jueves 04-07 (Independence Day, NYSE cerrada), que en divisas sí.
+    expect(bars.map((b) => b.date)).toEqual([
+      '2024-07-01',
+      '2024-07-02',
+      '2024-07-03',
+      '2024-07-04',
+      '2024-07-05',
+    ]);
+    for (const bar of bars) {
+      const day = new Date(`${bar.date}T00:00:00.000Z`).getUTCDay();
+      expect(day).toBeGreaterThanOrEqual(1);
+      expect(day).toBeLessThanOrEqual(5);
+      expect(bar.high).toBeGreaterThanOrEqual(Math.max(bar.open, bar.close));
+      expect(bar.low).toBeLessThanOrEqual(Math.min(bar.open, bar.close));
+      // Sin volumen ni acciones corporativas en divisas.
+      expect(bar.volume).toBe(0);
+      expect(bar.splitFactor).toBe(1);
+      expect(bar.dividend).toBe(0);
+      expect(bar.adjClose).toBe(bar.close);
+    }
+    // La misma semana en una acción no tiene el 4 de julio.
+    const aapl = await provider.getBars('AAPL', '2024-07-01', '2024-07-07');
+    expect(aapl.map((b) => b.date)).toEqual([
+      '2024-07-01',
+      '2024-07-02',
+      '2024-07-03',
+      '2024-07-05',
+    ]);
+  });
+
+  it('los demás pares admitidos también generan velas 24/5 y deterministas', async () => {
+    const expected = ['2024-07-01', '2024-07-02', '2024-07-03', '2024-07-04', '2024-07-05'];
+    for (const pair of ['GBPUSD', 'USDJPY', 'USDCHF'] as const) {
+      const bars = await makeFx().getBars(pair, '2024-07-01', '2024-07-07');
+      expect(bars.map((b) => b.date)).toEqual(expected);
+    }
+    // Determinista: dos proveedores con la misma semilla coinciden.
+    const a = await makeFx().getBars('EURUSD', '2024-07-01', '2024-07-07');
+    const b = await makeFx().getBars('EURUSD', '2024-07-01', '2024-07-07');
+    expect(a).toEqual(b);
+  });
+
+  it('un ticker de seis letras que no es par admitido sigue el calendario NYSE', async () => {
+    const provider = makeFx();
+    const bars = await provider.getBars('ABCDEF', '2024-07-01', '2024-07-07');
+    expect(bars.map((b) => b.date)).not.toContain('2024-07-04');
+  });
+
+  it('no genera vela el 25-12 ni el 01-01 aunque sean laborables', async () => {
+    const provider = createSimulatedProvider({
+      seed: 'fx',
+      now: () => Date.parse('2024-01-05T12:00:00.000Z'),
+    });
+    const bars = await provider.getBars('EURUSD', '2023-12-25', '2024-01-02');
+    expect(bars.map((b) => b.date)).toEqual([
+      '2023-12-26',
+      '2023-12-27',
+      '2023-12-28',
+      '2023-12-29',
+      '2024-01-02',
+    ]);
+  });
+
+  it('la vela de divisas existe en cuanto cierra su día UTC (00:00)', async () => {
+    // Viernes 14-06 a las 23:59 UTC: su vela aún no ha cerrado.
+    const beforeClose = createSimulatedProvider({
+      seed: 's',
+      now: () => Date.parse('2024-06-14T23:59:00.000Z'),
+    });
+    const before = await beforeClose.getBars('EURUSD', '2024-06-10', '2024-06-15');
+    expect(before[before.length - 1]!.date).toBe('2024-06-13');
+
+    // Sábado 15-06 a las 00:01 UTC: la vela del viernes ya está publicada.
+    const afterClose = createSimulatedProvider({
+      seed: 's',
+      now: () => Date.parse('2024-06-15T00:01:00.000Z'),
+    });
+    const after = await afterClose.getBars('EURUSD', '2024-06-10', '2024-06-15');
+    expect(after[after.length - 1]!.date).toBe('2024-06-14');
+  });
+
+  it('getQuote del par usa el último día UTC cerrado, sin volumen', async () => {
+    const provider = makeFx(); // lunes 08-07 12:00 UTC → última vela: viernes 05
+    await expect(provider.getQuote('EURUSD')).resolves.toMatchObject({
+      ticker: 'EURUSD',
+      date: '2024-07-05',
+      volume: null,
+    });
+  });
+
+  it('getTickerInfo etiqueta el par como fx y la acción como equity', async () => {
+    const provider = make();
+    await expect(provider.getTickerInfo('eurusd')).resolves.toEqual({
+      ticker: 'EURUSD',
+      assetClass: 'fx',
+    });
+    await expect(provider.getTickerInfo('aapl')).resolves.toEqual({
+      ticker: 'AAPL',
+      assetClass: 'equity',
+    });
+    provider.markUnknown('EURUSD');
+    await expect(provider.getTickerInfo('EURUSD')).rejects.toMatchObject({
+      kind: 'not-found',
+    });
+  });
+
+  it('EUR/USD cotiza en la banda realista (0,9–1,4) en cualquier fecha del reloj', async () => {
+    // El paseo revierte al anclaje del par: ni a los pocos meses ni a las
+    // décadas del génesis el precio se va a niveles de acción (~12,8).
+    for (const instant of [
+      '2001-04-11T12:00:00.000Z',
+      '2008-09-17T12:00:00.000Z',
+      '2015-11-20T12:00:00.000Z',
+      '2024-07-08T12:00:00.000Z',
+      '2026-10-13T12:00:00.000Z',
+      '2031-06-25T12:00:00.000Z',
+    ]) {
+      const provider = createSimulatedProvider({
+        seed: 'tradia-e2e',
+        now: () => Date.parse(instant),
+      });
+      const quote = await provider.getQuote('EURUSD');
+      expect(quote.last).toBeGreaterThanOrEqual(0.9);
+      expect(quote.last).toBeLessThanOrEqual(1.4);
+    }
+    // Y sigue siendo determinista para el mismo (seed, ticker).
+    const a = createSimulatedProvider({ seed: 'tradia-e2e', now: () => FX_NOW });
+    const b = createSimulatedProvider({ seed: 'tradia-e2e', now: () => FX_NOW });
+    expect(await a.getQuote('EURUSD')).toEqual(await b.getQuote('EURUSD'));
+  });
+
+  it('cada par se mueve en torno a su nivel realista con variación diaria ≈0,5 %', async () => {
+    const provider = makeFx();
+    const quote = async (ticker: string) => (await provider.getQuote(ticker)).last;
+    // Nivel de cada par en su propia escala (USD por EUR/GBP; JPY y CHF
+    // por USD), nunca el precio de una acción.
+    expect(await quote('EURUSD')).toBeGreaterThan(0.9);
+    expect(await quote('EURUSD')).toBeLessThan(1.4);
+    expect(await quote('GBPUSD')).toBeGreaterThan(1.0);
+    expect(await quote('GBPUSD')).toBeLessThan(1.6);
+    expect(await quote('USDCHF')).toBeGreaterThan(0.7);
+    expect(await quote('USDCHF')).toBeLessThan(1.1);
+    expect(await quote('USDJPY')).toBeGreaterThan(120);
+    expect(await quote('USDJPY')).toBeLessThan(180);
+
+    const bars = await provider.getBars('EURUSD', '2024-01-02', '2024-07-05');
+    let maxMove = 0;
+    let moves = 0;
+    for (let i = 1; i < bars.length; i += 1) {
+      const move = Math.abs(bars[i]!.close / bars[i - 1]!.close - 1);
+      expect(bars[i]!.close).toBeGreaterThanOrEqual(0.9);
+      expect(bars[i]!.close).toBeLessThanOrEqual(1.4);
+      maxMove = Math.max(maxMove, move);
+      if (move > 0) moves += 1;
+    }
+    // El par varía cada día pero con pasos de divisa (techo ≈1 %), no de
+    // acción (2 % diarios en el paseo libre).
+    expect(moves).toBeGreaterThan(0);
+    expect(maxMove).toBeGreaterThan(0.001);
+    expect(maxMove).toBeLessThan(0.02);
+  });
+});

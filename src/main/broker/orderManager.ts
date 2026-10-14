@@ -35,6 +35,13 @@
  * - Bloqueos: no se envía nada con la parada de emergencia activa, sin
  *   conexión o con el interruptor de ejecución apagado; el bloqueo deja
  *   una entrada 'error' en el diario.
+ * - Divisas: el bróker conectado no opera divisas. Una señal de un par
+ *   (EURUSD…) no crea orden (resultado 'bloqueada' con el motivo
+ *   `FX_BROKER_REJECTION_MESSAGE`; se opera solo en la cartera
+ *   simulada), una orden manual de un par se rechaza con ese motivo y,
+ *   como última defensa, ningún envío de un par llega al adaptador: la
+ *   orden queda 'rechazada' sin tocar la red. Vale para paper y para
+ *   dinero real (los dos gestores son este mismo).
  */
 import {
   BROKER_ORDER_OPEN_STATUSES,
@@ -44,6 +51,7 @@ import {
   type BrokerOrderSide,
   type CreateOrderRequest,
 } from '../../shared/broker';
+import { FX_BROKER_REJECTION_MESSAGE, isFxSymbol } from '../../shared/fxTrading';
 import type { JournalRecordInput } from '../../shared/journal';
 import type { Signal, SignalNewEvent } from '../../shared/signals';
 import type { BrokerOrderPatch, BrokerRepository } from './repository';
@@ -100,6 +108,8 @@ export interface OrderHandleResult {
   entry: BrokerOrder | null;
   /** OCO de salida creado o ya existente; null si no procede todavía. */
   exit: BrokerOrder | null;
+  /** Motivo legible cuando la señal no llega al bróker por regla de dominio (divisas). */
+  reason?: string;
 }
 
 /** Conteos de una pasada de `syncWithBroker`. */
@@ -405,6 +415,11 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     order: BrokerOrder,
     request: BrokerOrderRequest,
   ): Promise<BrokerOrder> => {
+    // Última defensa: una orden de divisas jamás llega al adaptador (ni
+    // paper ni real). Queda 'rechazada' en local con el motivo.
+    if (isFxSymbol(request.ticker)) {
+      return markRejected(order, FX_BROKER_REJECTION_MESSAGE);
+    }
     let current = order;
     let attempts = current.attempts;
     for (;;) {
@@ -566,6 +581,13 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     const { decision } = signal;
     if (decision.status === 'vetada' || !(decision.size > 0)) {
       return { outcome: 'ignorada', entry: null, exit: null };
+    }
+    // Divisas: se operan solo en la cartera simulada; ni se crea orden.
+    if (isFxSymbol(signal.ticker)) {
+      logger.info?.(
+        `[ordenes] señal ${signal.id} de ${signal.ticker}: ${FX_BROKER_REJECTION_MESSAGE}`,
+      );
+      return { outcome: 'bloqueada', entry: null, exit: null, reason: FX_BROKER_REJECTION_MESSAGE };
     }
 
     const clientOrderId = orderClientId(signal.id, 'entrada');
@@ -828,8 +850,9 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
       // Una orden manual es una acción explícita del usuario: la paran la
       // parada de emergencia y la falta de conexión, no el interruptor de
       // ejecución automática de señales.
-      const blocked =
-        deps.isKillSwitchActive?.() === true
+      const blocked = isFxSymbol(ticker)
+        ? FX_BROKER_REJECTION_MESSAGE
+        : deps.isKillSwitchActive?.() === true
           ? 'la parada de emergencia está activa'
           : deps.isOnline?.() === false
             ? 'sin conexión'

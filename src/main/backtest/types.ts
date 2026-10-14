@@ -24,6 +24,7 @@
  *   el activo deja de cotizar (sesgo de supervivencia mitigado).
  */
 import type { RegimeLabel } from '../../shared/ai';
+import { FX_BACKTEST_COSTS } from '../../shared/fxTrading';
 import type { SessionDate } from '../market/providers/types';
 
 /** Vela diaria mínima que consume el motor. `Bar`/`AdjustedBar` del dominio de mercado son asignables. */
@@ -56,6 +57,19 @@ export const DEFAULT_COSTS: CostConfig = {
   slippageBp: 5,
   spreadBp: 2,
 };
+
+/**
+ * Costes de los pares de divisas (shared/fxTrading `FX_BACKTEST_COSTS`):
+ * deslizamiento fijo de 2 pb por ejecución, siempre en contra, sin
+ * comisión ni spread aparte. Se aplican por activo: en un universo mixto
+ * las acciones siguen con `costs`.
+ */
+export const DEFAULT_FX_COSTS: CostConfig = Object.freeze({
+  commissionPct: FX_BACKTEST_COSTS.commissionPct / 100,
+  commissionMin: FX_BACKTEST_COSTS.commissionMin,
+  slippageBp: FX_BACKTEST_COSTS.slippageBps,
+  spreadBp: FX_BACKTEST_COSTS.spreadBps,
+});
 
 /** Capital inicial por defecto: 10 000 USD. */
 export const DEFAULT_INITIAL_CASH = 10_000;
@@ -337,6 +351,11 @@ export interface BacktestInput {
   initialCash?: number;
   /** Costes de ejecución (se fusionan con `DEFAULT_COSTS`). */
   costs?: Partial<CostConfig>;
+  /**
+   * Costes de los pares de divisas (se fusionan con `DEFAULT_FX_COSTS`);
+   * solo se aplican a los tickers que son pares admitidos.
+   */
+  fxCosts?: Partial<CostConfig>;
   /**
    * Fracción del capital arriesgada por operación, entre 0,005 y 0,01
    * (def. 0,01). Solo aplica a órdenes con stop válido; sin stop la

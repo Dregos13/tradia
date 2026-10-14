@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../adapters/simulated';
 import { useMarketData } from './useMarketData';
+import { notifyWatchlistChanged } from './watchlistEvents';
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 beforeEach(() => {
   simulation = createSimulatedAdapter();
@@ -68,6 +69,20 @@ it('expone errores y permite reintentar sin mostrar errores IPC sin filtrar', as
   });
   expect(result.current.error).toBeNull();
   expect(list).toHaveBeenCalledTimes(2);
+});
+
+it('una retirada desde el aviso actualiza la lista y deja de escuchar al desmontar', async () => {
+  await simulation.api.watchlist.add('EUR');
+  const list = vi.spyOn(simulation.api.watchlist, 'list');
+  const { result, unmount } = renderHook(() => useMarketData());
+  await waitFor(() => expect(result.current.watchlist.map((item) => item.ticker)).toEqual(['EUR']));
+  await simulation.api.watchlist.remove('EUR');
+  act(() => notifyWatchlistChanged());
+  await waitFor(() => expect(result.current.watchlist).toEqual([]));
+  unmount();
+  const calls = list.mock.calls.length;
+  act(() => notifyWatchlistChanged());
+  expect(list).toHaveBeenCalledTimes(calls);
 });
 
 it('conserva las velas si falla el estado del dato, sin afirmar que son fiables', async () => {

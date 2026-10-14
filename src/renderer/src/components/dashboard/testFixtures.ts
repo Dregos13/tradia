@@ -41,6 +41,8 @@ export const signal: Signal = {
     reasons: [],
     decidedAt: '2026-10-09T13:42:00Z',
   },
+  destination: 'cartera-simulada',
+  destinationReason: null,
   createdAt: '2026-10-09T13:42:00Z',
 };
 export const portfolio: PaperPortfolioOverview = {

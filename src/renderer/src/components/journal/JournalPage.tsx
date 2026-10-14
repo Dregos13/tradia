@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useState } from 'react';
 import tokens from '../../design/dashboard.tokens.json';
 import { JOURNAL_PAGE_SIZE, useJournal } from '../../hooks/useJournal';
@@ -78,7 +79,7 @@ export function JournalPage() {
                   <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
                 </td>
                 <td>{entryLabel(entry)}</td>
-                <td>{entry.ticker ?? 'No aplica'}</td>
+                <td>{entry.ticker ? assetSymbol(entry.ticker) : 'No aplica'}</td>
                 <td>
                   {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
                     'No aplica'}
@@ -87,7 +88,7 @@ export function JournalPage() {
                 <td>{entry.reason}</td>
                 <td>
                   <button
-                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
+                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ? assetSymbol(entry.ticker) : 'General'} · entrada ${entry.id}`}
                     onClick={() => setSelected(entry.id)}
                   >
                     Ver detalle

@@ -12,10 +12,14 @@
  *   filas malformadas → 'bad-data'.
  * - Splits y dividendos viajan en cada fila (`splitFactor`, `divCash`);
  *   `getCorporateActions` los deriva de `getBars`.
+ * - Los pares admitidos (`isFxPair`, p. ej. 'EURUSD') se piden al endpoint
+ *   FX `/tiingo/fx/{par}/prices` con `resampleFreq=1day` —velas por día UTC,
+ *   sin volumen ni acciones corporativas— y el resto al endpoint diario.
  * - Cada petición pasa por el `RateLimiter` (cuota declarada en
  *   `TIINGO_RATE_LIMITS`, sobre el nivel gratuito). Sin reintentos internos:
  *   quien llama decide con el error tipado.
  */
+import { isFxPair } from '../../../shared/fx';
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
 import {
   InvalidStoredKeyError,
@@ -39,6 +43,8 @@ export const TIINGO_RATE_LIMITS: RateLimits = { perHour: 50, perDay: 1000 };
 export const TIINGO_TIMEOUT_MS = 20_000;
 /** Ventana que mira `getQuote` hacia atrás para encontrar la última vela. */
 const QUOTE_LOOKBACK_DAYS = 31;
+/** Ventana del sondeo de existencia de un par de divisas en `getTickerInfo`. */
+const FX_INFO_LOOKBACK_DAYS = 14;
 
 export interface TiingoProviderDeps {
   /** fetch inyectable (en producción, la global del proceso principal). */
@@ -64,6 +70,21 @@ interface TiingoPriceRow {
   adjClose?: unknown;
   divCash?: unknown;
   splitFactor?: unknown;
+}
+
+/** Fila del endpoint FX (`/tiingo/fx/{par}/prices`): solo fecha y OHLC. */
+interface TiingoFxRow {
+  date?: unknown;
+  open?: unknown;
+  high?: unknown;
+  low?: unknown;
+  close?: unknown;
+}
+
+/** Ficha del endpoint `/tiingo/daily/{ticker}` (solo acciones y ETF). */
+interface TiingoMetaRow {
+  ticker?: unknown;
+  name?: unknown;
 }
 
 /** true si el carácter es control (C0/C1) o espacio: no cabe en una clave. */
@@ -130,6 +151,30 @@ function toFiniteNumber(
     );
   }
   return n;
+}
+
+/** Vela FX normalizada: el par no tiene volumen ni acciones corporativas. */
+function parseFxRow(raw: unknown, ticker: string): Bar {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new MarketDataError('bad-data', `fila FX de Tiingo no es un objeto para '${ticker}'`, {
+      provider: TIINGO_PROVIDER_ID,
+      ticker,
+    });
+  }
+  const row = raw as TiingoFxRow;
+  const close = toFiniteNumber(row.close, 'close', TIINGO_PROVIDER_ID, ticker);
+  return {
+    date: toSessionDate(row.date, TIINGO_PROVIDER_ID, ticker),
+    open: toFiniteNumber(row.open, 'open', TIINGO_PROVIDER_ID, ticker),
+    high: toFiniteNumber(row.high, 'high', TIINGO_PROVIDER_ID, ticker),
+    low: toFiniteNumber(row.low, 'low', TIINGO_PROVIDER_ID, ticker),
+    close,
+    volume: 0,
+    // Las divisas no se ajustan: el cierre ajustado es el cierre.
+    adjClose: close,
+    dividend: 0,
+    splitFactor: 1,
+  };
 }
 
 function parsePriceRow(raw: unknown, ticker: string): Bar {
@@ -253,12 +298,14 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     }
   };
 
-  const getBars: MarketDataProvider['getBars'] = async (ticker, desde, hasta) => {
-    assertValidTicker(ticker, TIINGO_PROVIDER_ID);
-    assertValidDateRange(desde, hasta, TIINGO_PROVIDER_ID);
-    const path = `/tiingo/daily/${encodeURIComponent(ticker)}/prices?startDate=${desde}&endDate=${hasta}&resampleFreq=daily`;
-    const payload = await request(path, ticker);
-
+  /** Lista de filas → velas del contrato, recortadas al rango y ordenadas. */
+  const toBars = async (
+    payload: unknown,
+    ticker: string,
+    desde: SessionDate,
+    hasta: SessionDate,
+    parse: (row: unknown) => Bar,
+  ): Promise<Bar[]> => {
     if (!Array.isArray(payload)) {
       // Tiingo a veces responde 200 con {"detail":"…"} en vez de lista, y
       // ese detalle puede repetir la clave: se redacta con la clave real.
@@ -268,11 +315,26 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
           : '';
       throw fail('bad-data', `respuesta sin lista de precios: ${truncate(detail)}`, ticker);
     }
-
     return payload
-      .map((row) => parsePriceRow(row, ticker))
+      .map(parse)
       .filter((bar) => bar.date >= desde && bar.date <= hasta)
       .sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  const getBars: MarketDataProvider['getBars'] = async (ticker, desde, hasta) => {
+    assertValidTicker(ticker, TIINGO_PROVIDER_ID);
+    assertValidDateRange(desde, hasta, TIINGO_PROVIDER_ID);
+    if (isFxPair(ticker)) {
+      // Endpoint FX: el par va en minúsculas; las velas son por día UTC.
+      const path = `/tiingo/fx/${ticker.toLowerCase()}/prices?startDate=${desde}&endDate=${hasta}&resampleFreq=1day`;
+      return toBars(await request(path, ticker), ticker, desde, hasta, (row) =>
+        parseFxRow(row, ticker),
+      );
+    }
+    const path = `/tiingo/daily/${encodeURIComponent(ticker)}/prices?startDate=${desde}&endDate=${hasta}&resampleFreq=daily`;
+    return toBars(await request(path, ticker), ticker, desde, hasta, (row) =>
+      parsePriceRow(row, ticker),
+    );
   };
 
   const provider: MarketDataProvider = {
@@ -280,6 +342,33 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     rateLimits: TIINGO_RATE_LIMITS,
 
     getBars,
+
+    getTickerInfo: async (ticker) => {
+      assertValidTicker(ticker, TIINGO_PROVIDER_ID);
+      if (isFxPair(ticker)) {
+        // El endpoint FX no tiene ficha: la cobertura se comprueba con una
+        // ventana corta de velas — lista vacía o 404 significan «no existe».
+        const hasta = new Date(now()).toISOString().slice(0, 10);
+        const desde = new Date(now() - FX_INFO_LOOKBACK_DAYS * 86_400_000)
+          .toISOString()
+          .slice(0, 10);
+        const bars = await getBars(ticker, desde, hasta);
+        if (bars.length === 0) {
+          throw fail('not-found', `sin datos para el par '${ticker}'`, ticker);
+        }
+        return { ticker, assetClass: 'fx' };
+      }
+      const payload = await request(`/tiingo/daily/${encodeURIComponent(ticker)}`, ticker);
+      if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+        throw fail('bad-data', 'respuesta sin ficha del ticker', ticker);
+      }
+      const name = (payload as TiingoMetaRow).name;
+      return {
+        ticker,
+        assetClass: 'equity',
+        ...(typeof name === 'string' && name !== '' ? { name } : {}),
+      };
+    },
 
     getQuote: async (ticker) => {
       assertValidTicker(ticker, TIINGO_PROVIDER_ID);
@@ -290,10 +379,18 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
       if (!bar) {
         throw fail('not-found', `sin cotización reciente para '${ticker}'`, ticker);
       }
-      return { ticker, date: bar.date, last: bar.close, volume: bar.volume };
+      // Un par de divisas no tiene volumen: null, no un 0 inventado.
+      return {
+        ticker,
+        date: bar.date,
+        last: bar.close,
+        volume: isFxPair(ticker) ? null : bar.volume,
+      };
     },
 
     getCorporateActions: async (ticker, desde, hasta) => {
+      // Un par de divisas no tiene acciones corporativas: no se pide nada.
+      if (isFxPair(ticker)) return [];
       const bars = await getBars(ticker, desde, hasta);
       const actions: CorporateAction[] = [];
       for (const bar of bars) {

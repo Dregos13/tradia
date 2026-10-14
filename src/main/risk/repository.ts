@@ -18,6 +18,7 @@
 
 import type Database from 'better-sqlite3';
 
+import { exposureCurrencyOf } from '../../shared/fxTrading';
 import {
   LIQUIDITY_AVG_VOLUME_DAYS,
   RISK_DEFAULTS,
@@ -436,7 +437,7 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
         // la propia posición); aquí solo aporta el dato de mercado.
         instruments[ticker] = {
           sector: null,
-          currency: 'USD',
+          currency: exposureCurrencyOf(ticker),
           avgDailyVolume20d: avgVolume20d(ticker),
         };
         returns[ticker] = dailyReturns(ticker);
@@ -479,7 +480,8 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
             position.target ?? null,
             position.size,
             position.sector ?? null,
-            position.currency ?? 'USD',
+            // Un par expone a su moneda base (EUR en EURUSD).
+            position.currency ?? exposureCurrencyOf(position.ticker),
             position.openedAt ?? nowIso,
             position.closedAt ?? null,
           );

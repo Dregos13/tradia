@@ -82,9 +82,10 @@ export interface PredictionServiceDeps {
    * genera predicciones nuevas — llega de una puesta al día atrasada y
    * una predicción sobre ella se presentaría como vigente—; sí se
    * resuelven las pendientes con las velas que sí llegaron. Sin la
-   * dependencia no se aplica la guarda.
+   * dependencia no se aplica la guarda. La sesión es la del calendario
+   * del activo (`ticker`): 24/5 para un par de divisas, NYSE el resto.
    */
-  expectedSessionDate?(nowMs: number): string | null;
+  expectedSessionDate?(nowMs: number, ticker: string): string | null;
   /** Reloj inyectable (ms epoch); por defecto Date.now. */
   now?(): number;
   logger?: Partial<PredictionServiceLogger>;
@@ -329,7 +330,7 @@ export function createPredictionService(deps: PredictionServiceDeps): Prediction
       // al día atrasada y se presentarían como vigentes). Al ponerse al
       // día, la pasada cubre todas las sesiones pendientes. Las
       // predicciones ya emitidas sí se resuelven con las velas llegadas.
-      const expected = deps.expectedSessionDate?.(now()) ?? null;
+      const expected = deps.expectedSessionDate?.(now(), ticker) ?? null;
       const lastCandle = candles[candles.length - 1]!.date;
       if (expected !== null && lastCandle < expected) {
         logger.info?.(

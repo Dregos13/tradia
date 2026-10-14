@@ -287,6 +287,8 @@ export const IPC_CHANNELS = {
     list: 'watchlist:list',
     add: 'watchlist:add',
     remove: 'watchlist:remove',
+    /** Cobertura del proveedor por activo de la lista ('cubierto' | 'pendiente-verificar' | 'sin-cobertura'). */
+    coverage: 'watchlist:coverage',
     /** Añade de golpe el universo inicial de `INITIAL_UNIVERSE_TICKERS`. */
     addUniverse: 'watchlist:add-universe',
   },
@@ -835,12 +837,96 @@ export const TICKER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9.-]{0,11}$/;
 /** Fecha de sesión 'YYYY-MM-DD' real (no '2026-02-30'). */
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Tipo de activo de la lista de seguimiento, que decide su calendario y su
+ * regla de frescura:
+ *
+ * - 'equity': acción o ETF de EE. UU., con el calendario de NYSE (sesiones
+ *   de lunes a viernes sin festivos de la bolsa). Es el tipo por defecto.
+ * - 'fx': par de divisas ('EURUSD', ver `shared/fx`), con el calendario
+ *   24/5 (`fxCalendar`): una vela diaria por día UTC de lunes a viernes,
+ *   también en los festivos de NYSE.
+ */
+export const ASSET_CLASSES = ['equity', 'fx'] as const;
+export type AssetClass = (typeof ASSET_CLASSES)[number];
+/** Tipo de los activos sin tipo explícito (todos los anteriores a las divisas). */
+export const DEFAULT_ASSET_CLASS: AssetClass = 'equity';
+
+export function isAssetClass(value: unknown): value is AssetClass {
+  return typeof value === 'string' && (ASSET_CLASSES as readonly string[]).includes(value);
+}
+
 export interface WatchlistItem {
+  /** Símbolo guardado: el ticker ('AAPL') o el par sin barra ('EURUSD'). */
   ticker: string;
+  /** Tipo de activo; 'equity' en todo lo anterior a las divisas. */
+  assetClass: AssetClass;
   /** Alta en la lista (ISO 8601). */
   addedAt: string;
   /** Orden de visualización, 0..n-1. */
   position: number;
+}
+
+/**
+ * Motivos del resultado de `watchlist:add` cuando el alta no queda
+ * confirmada con cobertura:
+ *
+ * - 'no-cubierto': el proveedor respondió que no cubre el símbolo; el
+ *   ticker NO se añade y `suggestions` propone alternativas.
+ * - 'pendiente-verificar': no se pudo comprobar la cobertura (sin
+ *   conexión, sin clave, proveedor caído o cuota agotada); el ticker SÍ
+ *   se añade y la siguiente ingesta lo resuelve a cubierto o a
+ *   'sin-cobertura'.
+ * - 'duplicado': el ticker ya estaba en la lista.
+ * - 'limite': la lista llegó a `WATCHLIST_MAX_ITEMS`.
+ */
+export const WATCHLIST_ADD_REASONS = [
+  'no-cubierto',
+  'pendiente-verificar',
+  'duplicado',
+  'limite',
+] as const;
+export type WatchlistAddReason = (typeof WATCHLIST_ADD_REASONS)[number];
+
+/**
+ * Resultado tipado de `watchlist:add`. El alta solo se confirma
+ * (`added: true, reason: null`) cuando el proveedor verificó que cubre
+ * el símbolo; sin verificación posible el ticker entra pendiente.
+ */
+export interface WatchlistAddResult {
+  /** true si el ticker quedó en la lista (confirmado o pendiente). */
+  added: boolean;
+  /** null con el alta confirmada; el motivo del rechazo o del alta pendiente. */
+  reason: WatchlistAddReason | null;
+  /** Nombre del activo cuando el proveedor lo publica ('Apple Inc'). */
+  name?: string;
+  /** Alternativas operables con 'no-cubierto', mejor opción primero. */
+  suggestions?: string[];
+}
+
+/** Cobertura de un activo de la lista según el proveedor (`watchlist:coverage`). */
+export const WATCHLIST_COVERAGE_STATES = [
+  /** El proveedor ya sirvió velas del símbolo. */
+  'cubierto',
+  /** Todavía sin dato del proveedor: no se pudo verificar al añadir. */
+  'pendiente-verificar',
+  /** El proveedor no cubre el símbolo (404 o respuesta vacía). */
+  'sin-cobertura',
+] as const;
+export type WatchlistCoverageState = (typeof WATCHLIST_COVERAGE_STATES)[number];
+
+/**
+ * Cobertura de cada activo de la lista, para Ajustes › Conectores
+ * («Tiingo dice qué activos de la lista no cubre») y la fila
+ * «Pendiente de verificar» del alta sin verificación.
+ */
+export interface WatchlistCoverageEntry {
+  ticker: string;
+  coverage: WatchlistCoverageState;
+  /** Motivo legible del estado cuando no está 'cubierto', o null. */
+  reason: string | null;
+  /** Alternativa operable sugerida con 'sin-cobertura' ('FXE' para 'EUR'), o null. */
+  suggestion: string | null;
 }
 
 /** Una vela diaria guardada: cruda del proveedor y, si ya se limpió, ajustada. */
@@ -890,12 +976,27 @@ export interface MarketRefreshResult {
   reason: MarketRefreshRejection | null;
   /**
    * false cuando la pasada aceptada terminó con activos pendientes o
-   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar).
-   * Ausente/true si todos quedaron al día.
+   * fallidos (proveedor caído, cuota, vela esperada aún sin publicar o
+   * activo sin cobertura). Ausente/true si todos quedaron al día. Con
+   * `ok: false` la interfaz nunca debe decir «Datos actualizados.».
    */
   ok?: boolean;
   /** Motivo legible del primer fallo de la pasada; null si ok. */
   detail?: string | null;
+  /**
+   * Activos que quedaron al día en la pasada aceptada. Solo presente
+   * cuando `accepted` es true; junto a `total` permite contar el
+   * éxito parcial («Actualizados N de M»).
+   */
+  updated?: number;
+  /** Total de activos de la pasada aceptada (watchlist al ejecutarla). */
+  total?: number;
+  /**
+   * Tickers que no quedaron al día en la pasada aceptada: fallo (proveedor
+   * sin cobertura del símbolo, dato rechazado) o pendiente de la vela
+   * esperada. Vacío cuando `ok` es true.
+   */
+  failedTickers?: string[];
 }
 
 /** Motivos por los que `macro:refresh-now` puede rechazar la petición. */
@@ -941,12 +1042,26 @@ export interface MarketClockAdvanceResult {
   now: string;
 }
 
-/** Estados de salud del dato, compartidos por main (data_status) y renderer. */
+/**
+ * Estados de salud del dato, compartidos por main (data_status) y renderer.
+ *
+ * - 'fiable': el último dato esperado está guardado y pasó la limpieza.
+ * - 'actualizando': una pasada está en curso (lo escribe la ingesta).
+ * - 'desactualizado': falta el dato esperado y venció el plazo de gracia.
+ * - 'no-fiable': fallos seguidos del proveedor o contenido anómalo grave.
+ * - 'sin-cobertura': el proveedor no cubre el símbolo (respuesta vacía sin
+ *   historial previo o 404 'not-found'). No es un fallo del proveedor ni un
+ *   dato atrasado: no pesa en el resumen global de frescura ni en las
+ *   notificaciones; solo pausa el régimen, las predicciones y las señales
+ *   de ese activo. La lista `uncovered` del resumen los expone aparte.
+ *   Solo se levanta con una ingesta que traiga velas reales ('fiable').
+ */
 export const DATA_STATUS_STATES = [
   'fiable',
   'actualizando',
   'desactualizado',
   'no-fiable',
+  'sin-cobertura',
 ] as const;
 export type DataStatusState = (typeof DATA_STATUS_STATES)[number];
 
@@ -1017,6 +1132,28 @@ export interface DataFreshnessProgress {
 }
 
 /**
+ * Un activo de la lista de seguimiento sin cobertura en el proveedor
+ * ('sin-cobertura'): el proveedor respondió vacío sin historial previo o
+ * con 404 'not-found'. Va aparte de `items`: no es un dato malo ni
+ * atrasado, el símbolo simplemente no existe para ese proveedor.
+ */
+export interface UncoveredAsset {
+  /** Ticker sin cobertura ('EUR' en una fila 'ticker:EUR'). */
+  ticker: string;
+  /**
+   * Motivo en español llano («Tiingo no tiene datos de EUR.»): la capa de
+   * datos lo traduce al guardar y al leer, así que nunca lleva comillas,
+   * ids internos de proveedor ni texto técnico.
+   */
+  reason: string | null;
+  /**
+   * Alternativa operable sugerida (p. ej. 'FXE' para 'EUR'), o null si
+   * no hay sugerencia conocida.
+   */
+  suggestion: string | null;
+}
+
+/**
  * Resumen único «Datos desactualizados desde …» (`data-status:freshness`).
  * Agrega los estados «ticker:*», «macro:*» y «provider:*» con la fecha
  * real del último dato de cada uno, para que el renderer pinte un solo
@@ -1029,15 +1166,27 @@ export interface DataFreshnessSummary {
    * entradas malas ('YYYY-MM-DD'); null si ninguna tiene dato.
    */
   sinceDate: string | null;
-  /** Última sesión esperada según el calendario de mercado ('YYYY-MM-DD'). */
+  /**
+   * Última sesión esperada ('YYYY-MM-DD'): la de NYSE o, si la lista
+   * tiene divisas y su vela diaria esperada es más reciente (un festivo
+   * de NYSE), la del calendario 24/5.
+   */
   expectedSessionDate: string | null;
   /**
-   * Sesiones de mercado que faltan entre `sinceDate` y
-   * `expectedSessionDate` (aproximación con el calendario de NYSE).
+   * Sesiones que faltan al activo más atrasado: cada entrada mala se
+   * cuenta con el calendario de su tipo de activo (NYSE para acciones y
+   * proveedores, 24/5 para divisas) y se toma el máximo.
    */
   missingSessions: number;
   /** Entradas en estado 'desactualizado' o 'no-fiable', más antiguas primero. */
   items: DataFreshnessItem[];
+  /**
+   * Activos de la lista sin cobertura en el proveedor ('sin-cobertura'),
+   * orden alfabético. No cuentan en `items` ni en `state`: un activo sin
+   * cobertura solo se pausa a sí mismo y nunca ensombrece el resumen
+   * global ni arrastra al proveedor.
+   */
+  uncovered: UncoveredAsset[];
   /**
    * Progreso de la puesta al día: solo se rellena en 'catching-up'; en
    * el resto de estados vale null. Con él el renderer enseña
@@ -1492,9 +1641,15 @@ export interface TradiaApi {
   };
   watchlist: {
     list(): Promise<WatchlistItem[]>;
-    /** Añade un ticker y devuelve la lista completa ya ordenada. */
-    add(ticker: string): Promise<WatchlistItem[]>;
+    /**
+     * Comprueba la cobertura del ticker en el proveedor y lo añade si
+     * existe (o si no se pudo comprobar, como 'pendiente-verificar').
+     * El resultado tipado dice si quedó en la lista y por qué no.
+     */
+    add(ticker: string): Promise<WatchlistAddResult>;
     remove(ticker: string): Promise<WatchlistItem[]>;
+    /** Cobertura del proveedor por activo (para Ajustes › Conectores). */
+    coverage(): Promise<WatchlistCoverageEntry[]>;
     /** Añade `INITIAL_UNIVERSE_TICKERS` y devuelve la lista completa. */
     addUniverse(): Promise<WatchlistItem[]>;
   };

@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useState } from 'react';
 import type { PaperPortfolioOverview } from '../../../../shared/signals';
 import { number, timestamp } from './model';
@@ -55,11 +56,17 @@ export function ExposureBlock({ portfolio }: { portfolio: PaperPortfolioOverview
         {rows.map((row) => (
           <li key={row.key}>
             <div className="dashboard-row">
-              <strong>{row.key === 'desconocido' ? 'Sector desconocido' : row.key}</strong>
+              <strong>
+                {row.key === 'desconocido'
+                  ? 'Sector desconocido'
+                  : view === 'asset'
+                    ? assetSymbol(row.key)
+                    : row.key}
+              </strong>
               <span>{number(row.pct)} %</span>
             </div>
             <progress
-              aria-label={`Exposición de ${row.key}`}
+              aria-label={`Exposición de ${view === 'asset' ? assetSymbol(row.key) : row.key}`}
               value={row.pct}
               max={Math.max(100, row.pct)}
               aria-valuetext={`${number(row.pct)} %; ${row.limitPct === null ? 'sin límite aplicable' : `límite ${number(row.limitPct)} %`}`}

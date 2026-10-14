@@ -198,6 +198,8 @@ export const VETO_REASON_CODES = [
   'CAUTION_MODE',
   // La señal no es válida (p. ej. confianza fuera de 0–1).
   'SIGNAL_INVALID',
+  // Par de divisas no cotizado en USD: solo análisis, nunca abre posición.
+  'ANALYSIS_ONLY',
 ] as const;
 export type VetoReasonCode = (typeof VETO_REASON_CODES)[number];
 
@@ -221,6 +223,7 @@ export const VETO_REASON_MESSAGES: Record<VetoReasonCode, string> = {
   LIQUIDITY: 'La posición supera el límite de liquidez',
   CAUTION_MODE: 'Modo cautela',
   SIGNAL_INVALID: 'Señal inválida',
+  ANALYSIS_ONLY: 'Par no cotizado en USD: solo análisis por ahora',
 };
 
 // ---------------------------------------------------------------------------

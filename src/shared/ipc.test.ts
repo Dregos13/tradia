@@ -172,6 +172,7 @@ describe('contrato IPC', () => {
       list: 'watchlist:list',
       add: 'watchlist:add',
       remove: 'watchlist:remove',
+      coverage: 'watchlist:coverage',
       addUniverse: 'watchlist:add-universe',
     });
     expect(IPC_CHANNELS.market).toEqual({

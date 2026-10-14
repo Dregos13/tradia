@@ -179,3 +179,166 @@
   flex-shrink: 0;
   accent-color: var(--color-accent);
 }
+
+.settings-section.connector-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--data-clarity-sectionGap);
+}
+.connector-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--data-clarity-cardPadding);
+  align-items: start;
+}
+.connector-cards .provider-form {
+  min-width: 0;
+  padding: var(--data-clarity-cardPadding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  display: grid;
+  gap: var(--data-clarity-contentGap);
+}
+.connector-cards .provider-form p {
+  margin: var(--space-2) 0;
+  font-size: var(--data-clarity-type-body);
+  line-height: var(--data-clarity-leading-body);
+}
+.connector-heading {
+  padding-bottom: var(--data-clarity-contentGap);
+  border-bottom: 1px solid var(--color-border);
+}
+.connector-state {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-textMuted);
+  background: var(--color-surfaceSubtle);
+}
+.connector-state--ok {
+  color: var(--data-clarity-covered);
+  background: var(--data-clarity-covered-surface);
+}
+.connector-state--testing {
+  color: var(--data-clarity-info);
+  background: var(--data-clarity-info-surface);
+}
+.connector-state--clave-rechazada,
+.connector-state--error {
+  color: var(--data-clarity-critical);
+  background: var(--data-clarity-critical-surface);
+}
+.connector-state--sin-clave,
+.connector-state--cuota {
+  color: var(--data-clarity-uncovered);
+  background: var(--data-clarity-uncovered-surface);
+}
+.connector-state--sin-red {
+  color: var(--data-clarity-offline);
+  background: var(--data-clarity-offline-surface);
+}
+.connector-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: var(--data-clarity-contentGap) 0;
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--color-border);
+  font-size: var(--data-clarity-type-caption);
+  line-height: var(--data-clarity-leading-caption);
+  font-variant-numeric: tabular-nums;
+}
+.connector-meta dt {
+  color: var(--color-textMuted);
+}
+.connector-meta dd {
+  margin: 0;
+}
+.connector-next h4,
+.connector-coverage h4 {
+  margin: 0;
+}
+.connector-diagnosis .settings-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--data-clarity-controlGap);
+  margin-top: var(--data-clarity-contentGap);
+  align-items: center;
+}
+.connector-coverage {
+  padding: var(--data-clarity-contentGap);
+  background: var(--color-surfaceSubtle);
+  border-radius: var(--radius-sm);
+}
+.connector-coverage--uncovered {
+  color: var(--data-clarity-text);
+  background: var(--data-clarity-uncovered-surface);
+}
+.connector-coverage ul {
+  list-style: none;
+  padding: 0;
+}
+.connector-coverage li + li {
+  margin-top: var(--data-clarity-contentGap);
+}
+.connector-coverage .data-state-icon {
+  color: var(--data-clarity-uncovered);
+}
+.connector-fx-coverage {
+  margin-top: var(--data-clarity-contentGap);
+}
+.connector-fx-coverage h5 {
+  margin: 0;
+  font-size: var(--type-md);
+}
+.connector-fx-coverage .data-state-icon {
+  width: var(--type-md);
+  height: var(--type-md);
+  margin-right: var(--space-2);
+  vertical-align: -0.15em;
+  color: currentColor;
+}
+.connector-fx-coverage p {
+  max-width: 70ch;
+}
+.connector-key {
+  border-top: 1px solid var(--color-border);
+}
+.connector-key summary,
+.connector-diagnosis summary {
+  cursor: pointer;
+  min-height: var(--size-controlMin);
+  padding-block: var(--space-3);
+}
+.connector-key label {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+.connector-key .settings-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--data-clarity-controlGap);
+}
+.connector-key input {
+  flex: 1 1 var(--data-clarity-connectorCardMinWidth);
+  min-width: 0;
+}
+.connector-cards :is(a, summary, input, button):focus-visible {
+  outline: var(--data-clarity-focus-width) solid var(--data-clarity-focus);
+  outline-offset: var(--data-clarity-focus-offset);
+}
+@media (max-width: 979px) {
+  .connector-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .connector-cards .settings-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .connector-meta {
+    grid-template-columns: 1fr;
+  }
+}

@@ -403,6 +403,7 @@ it('H2: una instantánea caducada pausa IA aunque el resumen de frescura aún di
     sinceDate: null,
     expectedSessionDate: '2026-10-12',
     missingSessions: 0,
+    uncovered: [],
     items: [],
     updatedAt: '2026-10-12T22:00:00Z',
   });
@@ -466,6 +467,7 @@ it.each(['2026-09-25', null])(
       sinceDate,
       expectedSessionDate: '2026-10-09',
       missingSessions: 10,
+      uncovered: [],
       items: [],
       updatedAt: '2026-10-12T22:00:00Z',
     });
