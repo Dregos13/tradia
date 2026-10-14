@@ -16,7 +16,12 @@ export function RegimePanel({
   const market = overview?.market;
   if (pauseReason)
     return (
-      <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
+      <section
+        className="ai-section"
+        data-layout-block="seccion"
+        data-tour="ia-regimen"
+        aria-labelledby="ai-regime-title"
+      >
         <h3 id="ai-regime-title">Régimen del mercado</h3>
         <p role="status">
           {freshnessTitle(
@@ -40,7 +45,12 @@ export function RegimePanel({
       </section>
     );
   return (
-    <section className="ai-section" data-tour="ia-regimen" aria-labelledby="ai-regime-title">
+    <section
+      className="ai-section"
+      data-layout-block="seccion"
+      data-tour="ia-regimen"
+      aria-labelledby="ai-regime-title"
+    >
       <h3 id="ai-regime-title">Régimen del mercado</h3>
       {market ? (
         <>

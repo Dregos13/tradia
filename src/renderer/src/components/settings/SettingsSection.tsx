@@ -10,7 +10,7 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="settings-section" aria-label={title}>
+    <section data-layout-block={title} className="settings-section" aria-label={title}>
       <div>
         <h2>{title}</h2>
         <p>{description}</p>

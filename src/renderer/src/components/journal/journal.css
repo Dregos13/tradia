@@ -40,16 +40,16 @@
 .journal-filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-form-field-gap);
+  padding: var(--space-card-padding);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
 }
 .journal-filters label {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-label-control-gap);
   font-size: var(--type-sm);
 }
 .journal-filters input,
@@ -94,7 +94,7 @@
 }
 .journal-pagination {
   justify-content: end;
-  margin-top: var(--space-4);
+  margin-top: 0;
   flex-wrap: wrap;
 }
 .journal-veil {
@@ -165,4 +165,35 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+.journal {
+  display: grid;
+  gap: var(--space-section-gap);
+}
+.journal > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.journal > p[role='status']:empty {
+  position: absolute;
+  padding: 0;
+}
+.journal-heading {
+  flex-wrap: wrap;
+  gap: var(--space-form-field-gap);
+}
+.journal-heading h2 {
+  margin: 0 0 var(--space-title-content-gap);
+}
+.journal-heading p {
+  margin: 0;
+}
+.journal-results {
+  display: grid;
+  gap: var(--space-label-control-gap);
+  min-width: 0;
+}
+.journal-results > p {
+  margin: 0;
 }

@@ -397,3 +397,12 @@ it('muestra en español el motivo del rechazo de una entrada en corto real', asy
   expect(reason.closest('tr')).toHaveTextContent('Dinero real');
   expect(reason.closest('tr')).toHaveTextContent('Rechazada');
 });
+
+it('mantiene la leyenda y la tabla dentro de una unidad de resultados separada', async () => {
+  render(<OrdersPage />);
+  await screen.findByRole('table');
+  const hint = screen.getByText('Desplázate horizontalmente para ver todas las columnas.');
+  const results = hint.closest('[data-layout-block="resultados"]');
+  expect(results).not.toBeNull();
+  expect(results).toContainElement(screen.getByRole('table'));
+});

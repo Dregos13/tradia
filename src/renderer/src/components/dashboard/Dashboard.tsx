@@ -25,9 +25,9 @@ export function Dashboard({
     error: state.sources.error || state.statuses.error,
   };
   return (
-    <div className={`dashboard${offline ? ' dashboard-offline' : ''}`}>
+    <div data-layout-page="situacion" className={`dashboard${offline ? ' dashboard-offline' : ''}`}>
       <style>{dashboardTokenStylesheet()}</style>
-      <div className="headline">
+      <div className="headline" data-layout-block="cabecera">
         <h2>Situación del mercado</h2>
         <p>Seguridad, señales y cartera simulada de un vistazo.</p>
         <p role="status">
@@ -35,7 +35,7 @@ export function Dashboard({
           {updatedAt ? `Actualizado ${time(updatedAt)}` : 'Esperando datos'}
         </p>
       </div>
-      <div className="dashboard-grid" data-tour="inicio-situacion">
+      <div data-layout-block="tablero" className="dashboard-grid" data-tour="inicio-situacion">
         <DashboardBlock
           id="connection"
           title="Conexión y fuentes"
@@ -105,7 +105,9 @@ export function Dashboard({
           <StrategiesBlock strategies={state.strategies.data ?? []} stopped={stopped} />
         </DashboardBlock>
       </div>
-      <p className="dashboard-disclaimer">Tradia informa y simula; no ejecuta órdenes reales.</p>
+      <p data-layout-block="descargo" className="dashboard-disclaimer">
+        Tradia informa y simula; no ejecuta órdenes reales.
+      </p>
     </div>
   );
 }

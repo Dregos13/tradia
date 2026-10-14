@@ -21,7 +21,11 @@ export function StrategyHealth({ strategy }: { strategy: Strategy }) {
   const row = health.items[0];
   if (strategy.status !== 'degradada' && row?.state !== 'degradada' && !health.error) return null;
   return (
-    <section className="strategy-section" aria-labelledby="strategy-health">
+    <section
+      className="strategy-section"
+      data-layout-block="seccion"
+      aria-labelledby="strategy-health"
+    >
       <h3 id="strategy-health">Salud de la estrategia · estado actual</h3>
       {health.loading && (
         <p role="status" aria-busy="true">

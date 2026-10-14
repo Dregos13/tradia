@@ -27,6 +27,7 @@ export function ModelCard({
   return (
     <section
       className="ai-section"
+      data-layout-block="seccion"
       id="ai-model-card"
       tabIndex={-1}
       aria-labelledby="ai-model-title"

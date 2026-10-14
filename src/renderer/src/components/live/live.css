@@ -86,9 +86,9 @@
   margin-bottom: var(--space-4);
 }
 .live-broker {
-  padding: var(--space-5);
+  padding: var(--space-card-padding);
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-form-field-gap);
 }
 .live-broker p {
   margin: 0;
@@ -208,4 +208,19 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+.live-broker form {
+  display: grid;
+  gap: var(--space-card-padding);
+}
+.live-banner-heading,
+.live-smoke-step {
+  min-width: 0;
+}
+.live-smoke-step {
+  overflow-wrap: anywhere;
+}
+.live-banner {
+  padding-inline: var(--page-inline);
 }

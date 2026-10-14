@@ -1,4 +1,6 @@
 .strategies-page {
+  display: grid;
+  gap: var(--space-section-gap);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -7,13 +9,13 @@
   justify-content: space-between;
   align-items: start;
   gap: var(--space-6);
-  margin-bottom: var(--space-8);
+  margin-bottom: 0;
 }
 .strategy-heading h2 {
   font-family: var(--font-editorial);
   font-size: var(--type-2xl);
   line-height: var(--type-2xl-line);
-  margin: var(--space-3) 0;
+  margin: 0 0 var(--space-title-content-gap);
 }
 .strategy-heading p,
 .strategy-section > p {
@@ -24,7 +26,7 @@
   align-items: end;
   gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: var(--space-6);
+  margin-bottom: 0;
 }
 .strategies-page label {
   display: grid;
@@ -70,7 +72,7 @@
 }
 .strategy-table :is(th, td) {
   text-align: left;
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-table-row-block) var(--space-3);
   border-bottom: 1px solid var(--color-border);
 }
 .strategy-table td {
@@ -131,8 +133,9 @@
 .strategy-section {
   border-top: 3px solid var(--color-text);
   background: var(--color-surface);
-  padding: var(--space-6);
-  margin-top: var(--space-6);
+  padding: var(--space-card-padding);
+  margin-top: 0;
+  min-width: 0;
 }
 .strategy-section h3 {
   margin-top: 0;
@@ -172,15 +175,16 @@
 .strategy-form-fields {
   min-width: 0;
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-section-gap);
 }
 .strategy-form fieldset {
   min-width: 0;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  padding: var(--space-6);
+  padding: var(--space-card-padding);
+  margin: 0;
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-form-field-gap);
 }
 .strategy-form legend {
   font-weight: var(--weight-semibold);
@@ -266,7 +270,7 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-border);
-  margin-bottom: var(--space-6);
+  margin-bottom: 0;
 }
 .stress-result {
   min-width: 0;
@@ -375,11 +379,11 @@
 .strategy-rule-fields,
 .strategy-rule-field {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-label-control-gap);
   min-width: 0;
 }
 .strategy-rule-fields {
-  gap: var(--space-8);
+  gap: var(--space-form-field-gap);
 }
 .strategy-rule-field > p {
   margin: 0;
@@ -480,4 +484,66 @@
   color: var(--state-info);
   background: var(--state-info-surface);
   font-size: var(--type-sm);
+}
+
+.strategies-page > :not(style) {
+  margin-block: 0;
+}
+.strategy-results,
+.strategy-table-scroll {
+  min-width: 0;
+  max-width: 100%;
+}
+.strategy-table-scroll {
+  overflow-x: auto;
+}
+.strategy-table-scroll:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.strategy-section {
+  display: grid;
+  gap: var(--space-title-content-gap);
+}
+.strategy-section > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.strategy-section > :is(button, a) {
+  justify-self: start;
+}
+.strategy-grid {
+  gap: var(--space-form-field-gap);
+}
+.strategy-grid > *,
+.strategy-form label,
+.strategy-actions > * {
+  min-width: 0;
+}
+.strategy-form-fields {
+  align-content: start;
+}
+.strategy-form-fields > .strategy-execution {
+  margin: 0;
+}
+.strategy-heading > div > p {
+  margin: 0;
+}
+@media (max-width: 1199px) {
+  .strategy-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .strategy-form nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .strategies-page,
+  .strategy-form-fields {
+    gap: var(--space-section-gap-compact);
+  }
+  .strategy-section,
+  .strategy-form fieldset {
+    padding: var(--space-card-padding-compact);
+  }
 }

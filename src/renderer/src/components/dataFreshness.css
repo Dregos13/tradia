@@ -1,5 +1,5 @@
 .data-freshness-inline {
-  padding: var(--space-3);
+  padding: var(--space-card-padding-compact);
   font-size: var(--type-sm);
   flex-wrap: wrap;
 }
@@ -87,4 +87,17 @@
 .provider-banner.data-freshness-banner,
 .provider-banner.data-freshness-inline {
   color: var(--color-text);
+}
+
+.data-freshness-inline {
+  gap: var(--space-4);
+  margin: 0;
+  min-width: 0;
+}
+.data-freshness-inline p {
+  margin: var(--space-label-control-gap) 0 0;
+  max-width: var(--size-readingMax);
+}
+.data-freshness-inline > div {
+  min-width: 0;
 }

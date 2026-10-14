@@ -22,9 +22,9 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
   const hasData = !!state.overview || state.predictions.length > 0 || !!state.model;
   const modelUnavailable = state.errors.some((error) => error.includes('ficha del modelo'));
   return (
-    <div className="ai-page" aria-busy={state.loading}>
+    <div data-layout-page="ia" className="ai-page" aria-busy={state.loading}>
       <style>{aiTokens()}</style>
-      <header className="ai-top">
+      <header className="ai-top" data-layout-block="cabecera">
         <div>
           <h2>IA</h2>
           <p>Régimen, probabilidades calibradas y decisiones de estrategia al cierre diario.</p>
@@ -45,11 +45,13 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
           </button>
         </div>
       </header>
-      <DataFreshness
-        offline={state.offline}
-        snapshotSessionDate={state.overview?.market?.sessionDate}
-      />
-      <p className="ai-notice">
+      <div data-layout-block="frescura">
+        <DataFreshness
+          offline={state.offline}
+          snapshotSessionDate={state.overview?.market?.sessionDate}
+        />
+      </div>
+      <p className="ai-notice" data-layout-block="aviso">
         Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el
         motor de riesgo.
       </p>
@@ -111,7 +113,11 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
             pauseReason={paused ? pauseReason : undefined}
           />
           {paused ? (
-            <section className="ai-section" aria-label="Estrategias por régimen">
+            <section
+              className="ai-section"
+              data-layout-block="seccion"
+              aria-label="Estrategias por régimen"
+            >
               <h3>Estrategias por régimen</h3>
               <p>En pausa: un régimen caducado no habilita ni desactiva estrategias.</p>
             </section>

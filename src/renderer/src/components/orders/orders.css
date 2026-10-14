@@ -1,6 +1,7 @@
 .orders-page {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-section-gap);
+  min-width: 0;
 }
 .orders-top,
 .orders-title,
@@ -37,7 +38,7 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-card-padding);
   background: var(--color-surface);
   border-top: var(--space-1) solid var(--state-success);
 }
@@ -47,7 +48,7 @@
 .orders-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-form-field-gap);
   align-items: flex-end;
 }
 .orders-filters label,
@@ -247,4 +248,39 @@
 .orders-mode-unknown {
   color: var(--live-requirement-review);
   background: var(--live-requirement-review-surface);
+}
+
+.orders-page > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.orders-top header > p {
+  margin: var(--space-title-content-gap) 0 0;
+}
+.orders-results {
+  display: grid;
+  gap: var(--space-label-control-gap);
+  min-width: 0;
+}
+.orders-results > p {
+  margin: 0;
+}
+.orders-filters {
+  gap: var(--space-form-field-gap);
+}
+.orders-filters > .orders-field,
+.orders-filters > label {
+  min-width: 0;
+}
+.orders-create-fields {
+  gap: var(--space-form-field-gap);
+}
+.orders-create > .orders-actions,
+.orders-confirm > .orders-actions {
+  margin-top: var(--space-card-padding);
+}
+
+.orders-page > p[role='status']:empty {
+  position: absolute;
+  padding: 0;
 }

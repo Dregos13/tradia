@@ -1,5 +1,6 @@
 .home-phase-notices {
-  margin-bottom: var(--space-6);
+  margin: 0;
+  gap: var(--space-4);
 }
 .home-phase-notices h2 {
   font-size: var(--type-lg);
@@ -12,4 +13,11 @@
 .home-phase-notices .ai-warning a,
 .home-phase-notices .live-warning a {
   color: inherit;
+}
+
+.home-phase-notices > :not(style) {
+  margin-block: 0;
+}
+.home-phase-notices p {
+  max-width: var(--size-readingMax);
 }

@@ -5,6 +5,7 @@ export function ReconcileStatus({ state }: { state: ReconciliationState }) {
   const { lastRun, openDiscrepancies, running, loading, error } = state;
   return (
     <section
+      data-layout-block="conciliacion"
       className="orders-reconcile"
       aria-label="Conciliación con el broker"
       aria-busy={running || loading}

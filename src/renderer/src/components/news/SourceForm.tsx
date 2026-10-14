@@ -92,7 +92,12 @@ export function SourceForm({
     }
   }
   return (
-    <section className="source-form-panel" aria-labelledby="source-form-title" id="source-form">
+    <section
+      className="source-form-panel"
+      data-layout-block="formulario"
+      aria-labelledby="source-form-title"
+      id="source-form"
+    >
       <h2 id="source-form-title">Añadir nueva fuente de noticias</h2>
       <p>Verifica la respuesta antes de guardarla.</p>
       <form

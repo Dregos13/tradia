@@ -1,6 +1,6 @@
 .ai-page {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--page-section-gap);
   min-width: 0;
   color: var(--color-text);
 }
@@ -33,7 +33,7 @@
 .ai-notice,
 .ai-warning,
 .ai-error {
-  padding: var(--space-4);
+  padding: var(--space-card-padding);
   border-radius: var(--radius-sm);
   margin: 0;
 }
@@ -52,7 +52,7 @@
 .ai-section {
   min-width: 0;
   border-top: 1px solid var(--color-border);
-  padding-top: var(--space-6);
+  padding-top: var(--space-card-padding);
 }
 .ai-regime-summary {
   display: flex;
@@ -280,4 +280,36 @@
 .ai-modelFitness-unrated {
   color: var(--ai-modelFitness-unrated);
   background: var(--ai-modelFitness-unrated-surface);
+}
+
+.ai-page > :not(style):not(.health-visually-hidden) {
+  margin-block: 0;
+}
+.ai-top p {
+  margin: var(--space-title-content-gap) 0 0;
+  max-width: var(--size-readingMax);
+}
+.ai-top button {
+  margin-top: var(--space-4);
+}
+.ai-section > p,
+.ai-notice,
+.ai-warning p,
+.ai-error p {
+  max-width: var(--size-readingMax);
+}
+.ai-warning p,
+.ai-error p {
+  margin: 0 0 var(--space-title-content-gap);
+}
+.ai-warning button,
+.ai-error button {
+  margin-top: var(--space-4);
+}
+@media (max-width: 760px) {
+  .ai-notice,
+  .ai-warning,
+  .ai-error {
+    padding: var(--space-card-padding-compact);
+  }
 }

@@ -140,7 +140,11 @@ export function PredictionsTable({
   );
   if (pauseReason)
     return (
-      <section className="ai-section" aria-labelledby="ai-predictions-title">
+      <section
+        className="ai-section"
+        data-layout-block="seccion"
+        aria-labelledby="ai-predictions-title"
+      >
         <h3 id="ai-predictions-title">Predicción por activo</h3>
         <p role="status">
           {freshnessTitle(
@@ -164,7 +168,11 @@ export function PredictionsTable({
       </section>
     );
   return (
-    <section className="ai-section" aria-labelledby="ai-predictions-title">
+    <section
+      className="ai-section"
+      data-layout-block="seccion"
+      aria-labelledby="ai-predictions-title"
+    >
       <h3 id="ai-predictions-title">Predicción por activo</h3>
       <p>No crea señales por sí solo · Riesgo conserva el veto.</p>
       {stale && (

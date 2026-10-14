@@ -91,9 +91,13 @@ export function ChecklistPage({
     dialog,
   ]);
   return (
-    <div className="live-checklist-page" aria-busy={state.loading || state.busy}>
+    <div
+      data-layout-page="dinero-real"
+      className="live-checklist-page"
+      aria-busy={state.loading || state.busy}
+    >
       <style>{liveTokens()}</style>
-      <header className="live-page-head">
+      <header data-layout-block="cabecera" className="live-page-head">
         <div>
           <h2>Dinero real</h2>
           <p>Lista de comprobación antes de usar capital real.</p>
@@ -106,7 +110,7 @@ export function ChecklistPage({
           Reintentar verificación
         </button>
       </header>
-      <p className="live-warning">
+      <p data-layout-block="aviso" className="live-warning">
         <LiveIcon />
         Capital real en riesgo. La mayoría de los traders minoristas pierden dinero. Completa cada
         requisito y confirma límites bajos antes de activar.
@@ -114,6 +118,7 @@ export function ChecklistPage({
       <p
         ref={status}
         tabIndex={-1}
+        data-layout-block="estado"
         className={`live-mode-status${ready ? ' live-mode-ready' : ''}`}
         role={active || suspended ? 'alert' : 'status'}
       >
@@ -137,22 +142,22 @@ export function ChecklistPage({
       )}
       {state.notice && <p role="status">{state.notice}</p>}
       {state.snapshot?.state.suspension && (
-        <p className="live-warning" role="alert">
+        <p data-layout-block="aviso" className="live-warning" role="alert">
           {state.snapshot.state.suspension.detail}
         </p>
       )}
       {error && (
-        <p className="live-warning" role="alert">
+        <p data-layout-block="aviso" className="live-warning" role="alert">
           {error}
         </p>
       )}
       {state.saveError && (
-        <p className="live-warning" role="alert">
+        <p data-layout-block="aviso" className="live-warning" role="alert">
           {state.saveError}
         </p>
       )}
       {state.offline && (
-        <div className="live-warning" role="alert">
+        <div data-layout-block="aviso" className="live-warning" role="alert">
           <p>
             Sin conexión · no se puede activar dinero real.
             {checklist?.evaluatedAt && (
@@ -179,7 +184,7 @@ export function ChecklistPage({
         </div>
       )}
       {checklist && !checklist.items.length && (
-        <section className="live-sheet">
+        <section data-layout-block="requisitos" className="live-sheet">
           <h3>No hay estrategias seleccionadas para dinero real</h3>
           <p>Elige primero qué estrategias podrían operar y vuelve a validar sus fichas.</p>
           {onOpenStrategies && (
@@ -191,6 +196,7 @@ export function ChecklistPage({
       )}
       {checklist && checklist.items.length > 0 && (
         <section
+          data-layout-block="requisitos"
           className="live-sheet"
           data-tour="dinero-real-lista"
           aria-labelledby={`${id}-checklist`}
@@ -235,8 +241,8 @@ export function ChecklistPage({
         onDeclare={state.declare}
         onReload={() => void state.reload()}
       />
-      <div className="live-bottom-grid">
-        <div>
+      <div data-layout-block="limites-activacion" className="live-bottom-grid">
+        <div data-layout-block="limites-confirmacion">
           <LimitsForm
             key={state.limits ? liveConfirmationPhrase(state.limits) : 'unsaved'}
             saved={state.limits}
@@ -253,6 +259,7 @@ export function ChecklistPage({
           )}
         </div>
         <section
+          data-layout-block="activacion"
           className="live-sheet live-activation"
           aria-labelledby={`${id}-reasons`}
           aria-live="polite"

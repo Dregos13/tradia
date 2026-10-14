@@ -224,3 +224,12 @@ it('QA 16: el filtro de operaciones abarca paper y dinero real sin llamarlo simu
   expect(option).toHaveValue('operacion');
   expect(screen.queryByRole('option', { name: 'Operación simulada' })).not.toBeInTheDocument();
 });
+
+it('mantiene la leyenda y la tabla dentro de una unidad de resultados separada', async () => {
+  render(<JournalPage />);
+  await screen.findByText(entry.reason);
+  const hint = screen.getByText('Desplázate para ver todas las columnas.');
+  const results = hint.closest('[data-layout-block="resultados"]');
+  expect(results).not.toBeNull();
+  expect(results).toContainElement(screen.getByRole('table'));
+});

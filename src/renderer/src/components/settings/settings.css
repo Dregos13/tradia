@@ -179,3 +179,82 @@
   flex-shrink: 0;
   accent-color: var(--color-accent);
 }
+
+/* A single 32 px content gap; the divider bisects it, 16 px on each side. */
+section[aria-label='Preferencias'] {
+  display: grid;
+  gap: var(--space-section-gap);
+  min-width: 0;
+}
+section[aria-label='Preferencias'] > * {
+  margin-block: 0;
+  min-width: 0;
+}
+section[aria-label='Preferencias'] .settings-section {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  border-top: 0;
+  gap: var(--space-section-gap);
+  min-width: 0;
+}
+section[aria-label='Preferencias'] .settings-section::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-form-field-gap));
+  inset-inline: 0;
+  border-top: 1px solid var(--color-border);
+}
+.settings-section > * {
+  min-width: 0;
+}
+.settings-section > div:first-child > p {
+  margin: var(--space-title-content-gap) 0 0;
+}
+.settings-section
+  :is(.settings-form, .settings-test, .setting-row, .legal-panel, .operational-form) {
+  padding: var(--space-card-padding);
+}
+.settings-section .settings-form {
+  gap: var(--space-form-field-gap);
+}
+.settings-form > label:has(+ input),
+.settings-form > label:has(+ select),
+.settings-form > label:has(+ .settings-controls) {
+  margin-bottom: calc(var(--space-label-control-gap) - var(--space-form-field-gap));
+}
+.settings-panel > p:not(.settings-message) {
+  margin: var(--space-card-padding);
+}
+.settings-section .settings-message {
+  margin-inline: var(--space-card-padding);
+}
+.settings-panel .setting-row {
+  flex-wrap: wrap;
+}
+.setting-row > div {
+  min-width: 0;
+  flex: 1;
+}
+.setting-row .setting-switch {
+  flex-shrink: 0;
+}
+.settings-panel .settings-actions {
+  margin-top: var(--space-label-control-gap);
+}
+.settings-section[aria-labelledby='tour-help-title'] .settings-panel {
+  padding: var(--space-card-padding);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-form-field-gap);
+}
+.settings-section[aria-labelledby='tour-help-title'] .settings-panel > p {
+  margin: 0;
+}
+@media (max-width: 1199px) {
+  section[aria-label='Preferencias'] .settings-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-card-padding);
+  }
+}

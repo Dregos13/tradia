@@ -1,7 +1,8 @@
 .backtest-fields {
   min-width: 0;
-  border: 1px solid var(--color-border);
-  padding: var(--space-4);
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 .backtest-fields input {
   width: 100%;
@@ -11,7 +12,10 @@
   margin-top: var(--space-6);
 }
 .backtest-final {
-  margin-top: var(--space-8);
+  margin-top: 0;
+  padding: var(--space-card-padding);
+  display: grid;
+  gap: var(--space-form-field-gap);
   border-top: 1px solid var(--color-border);
 }
 .backtest-notice {
@@ -117,4 +121,19 @@
     content: attr(data-label);
     color: var(--color-textMuted);
   }
+}
+
+.backtest-fields legend {
+  padding: 0;
+  margin-bottom: var(--space-form-field-gap);
+  font-weight: var(--weight-semibold);
+}
+.backtest-fields + button {
+  margin-top: var(--space-card-padding);
+}
+.backtest-final > * {
+  margin-block: 0;
+}
+.backtest-final > :is(button, a) {
+  justify-self: start;
 }

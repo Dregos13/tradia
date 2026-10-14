@@ -3,7 +3,7 @@ import { number, date } from '../strategies/model';
 export function BacktestHistory({ strategyId, version }: { strategyId: number; version: number }) {
   const state = useBacktestHistory(strategyId, version);
   return (
-    <section className="strategy-section">
+    <section className="strategy-section" data-layout-block="seccion">
       <h3>Historial de backtests · v{version}</h3>
       {state.loading ? (
         <p role="status">Cargando historial…</p>
