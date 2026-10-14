@@ -82,6 +82,7 @@ export function tokenStylesheet(): string {
       { dialogMax: broker.size.dialogMax, floating: broker.shadow.floating.value },
       'broker',
     ) +
+    // La escala y sus alias semánticos comparten el prefijo --space-*.
     declarations(tokens.spacing, 'space') +
     declarations(tokens.radius, 'radius') +
     declarations(tokens.size, 'size') +
