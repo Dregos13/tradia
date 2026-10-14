@@ -129,7 +129,9 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
     await expect(card).toContainText('Fiable');
     const freshness = await page.evaluate(() => window.tradia.dataStatus.freshness());
     expect(freshness.uncovered).toEqual([]);
-    expect(freshness.items.filter((item) => /EUR|SPY/.test(item.key))).toEqual([]);
+    // Sin filtrar por activo: también las claves macro deben estar al día
+    // (regresión del macro simulado que se quedaba atrás al avanzar el reloj).
+    expect(freshness.items).toEqual([]);
     await shot('2-eurusd-al-dia');
   });
 
@@ -158,7 +160,8 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
     await expect(card).toBeVisible();
     await expect(signals).toContainText(/Se opera en la cartera simulada\.|Riesgo la vetó/);
     await expect(signals).toContainText('No va al bróker ni usa dinero real');
-    await expect(signals).toContainText(BROKER_REASON.slice(1));
+    // En la interfaz va en mayúscula inicial («El bróker conectado…»).
+    await expect(signals).toContainText(new RegExp(BROKER_REASON, 'i'));
     await expect(
       signals.getByRole('button', { name: /bróker|broker|dinero real|enviar/i }),
     ).toHaveCount(0);
@@ -252,7 +255,7 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
     await expect(eur).toHaveAccessibleDescription(/Fiable/);
     const freshness = await page.evaluate(() => window.tradia.dataStatus.freshness());
     expect(freshness.uncovered).toEqual([]);
-    expect(freshness.items.filter((item) => /SPY|EUR/.test(item.key))).toEqual([]);
+    expect(freshness.items).toEqual([]);
     // Con todo al día el aviso no se pinta (solo queda un status sr-only);
     // si llegara a existir, no puede hablar de datos ausentes ni de falta
     // de cobertura.
