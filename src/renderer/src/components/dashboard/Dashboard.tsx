@@ -27,7 +27,7 @@ export function Dashboard({
   return (
     <div data-layout-page="situacion" className={`dashboard${offline ? ' dashboard-offline' : ''}`}>
       <style>{dashboardTokenStylesheet()}</style>
-      <div className="headline" data-layout-block="cabecera">
+      <div className="headline" data-layout-block="cabecera" data-tour="inicio-situacion">
         <h2>Situación del mercado</h2>
         <p>Seguridad, señales y cartera simulada de un vistazo.</p>
         <p role="status">
@@ -35,7 +35,7 @@ export function Dashboard({
           {updatedAt ? `Actualizado ${time(updatedAt)}` : 'Esperando datos'}
         </p>
       </div>
-      <div data-layout-block="tablero" className="dashboard-grid" data-tour="inicio-situacion">
+      <div data-layout-block="tablero" className="dashboard-grid">
         <DashboardBlock
           id="connection"
           title="Conexión y fuentes"

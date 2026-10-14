@@ -171,11 +171,10 @@ export function DataProvidersSettings() {
   return (
     <section
       className="settings-section"
-      data-tour="ajustes-proveedores"
       aria-label="Proveedores de datos"
     >
       <style>{dataStateTokenStylesheet()}</style>
-      <div>
+      <div data-tour="ajustes-proveedores">
         <h2>Proveedores de datos</h2>
         <p>Las claves se cifran en el sistema y nunca vuelven a mostrarse.</p>
       </div>

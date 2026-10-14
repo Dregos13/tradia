@@ -220,12 +220,11 @@ export function SourcesPage() {
       <section
         className="sources-page"
         data-layout-page="fuentes"
-        data-tour="fuentes-lista"
         aria-label="Fuentes de noticias"
         aria-busy={data.loading}
         inert={removing ? true : undefined}
       >
-        <div className="source-heading" data-layout-block="cabecera">
+        <div className="source-heading" data-layout-block="cabecera" data-tour="fuentes-lista">
           <div>
             <h2>Canales de información bajo tu control.</h2>
             <p>
