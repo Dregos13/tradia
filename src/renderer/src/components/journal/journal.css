@@ -37,6 +37,12 @@
   background: var(--color-accent);
   color: var(--color-surface);
 }
+/* Sin entradas, el botón se lee como cualquier acción deshabilitada (UXP-11). */
+.journal-heading > button:disabled {
+  background: var(--color-surfaceStrong);
+  border-color: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
+}
 .journal-filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -181,7 +187,8 @@
 }
 .journal-heading {
   flex-wrap: wrap;
-  gap: var(--space-form-field-gap);
+  align-items: end;
+  gap: var(--space-6) var(--space-form-field-gap);
 }
 .journal-heading h2 {
   margin: 0 0 var(--space-title-content-gap);

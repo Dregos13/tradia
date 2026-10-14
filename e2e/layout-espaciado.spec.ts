@@ -24,7 +24,11 @@ import {
  * `data-tour` de cada paso, no sobre el respaldo. Además (UXE-01…04): en los
  * pasos 8 y 9 el globo no tapa el ancla y el foco del 9 no pasa de 400 px,
  * la barra de estado ocupa una línea de 48 px con «Último latido» a la vista
- * y el selector «Prioridad» de Noticias muestra su texto entero.
+ * y el selector «Prioridad» de Noticias muestra su texto entero. Y (UXP-01 y
+ * UXP-10): a 1280 × 800 caben las 15 entradas del menú lateral; a 1024 × 700
+ * la lista desplaza dentro de la barra con un indicio inferior mientras queda
+ * algo oculto, y «Ajustes» se alcanza con rueda y con Tab. Casillas (con su
+ * etiqueta), selectores y enlaces en línea alcanzan el área mínima.
  */
 
 const GAP_MIN = 24;
@@ -532,4 +536,222 @@ test('el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y
   expect(failures, failures.join('\n')).toEqual([]);
   await dialog.getByRole('button', { name: 'Terminar', exact: true }).click();
   await expect(dialog).toHaveCount(0, { timeout: 5_000 });
+});
+
+interface NavReading {
+  overflow: number;
+  hint: boolean;
+  hintOpacity: number;
+  hidden: string[];
+}
+
+/** Entradas del menú lateral que no se ven enteras dentro de la lista, e indicio. */
+function readNav(page: Page): Promise<NavReading> {
+  return page.evaluate(() => {
+    const nav = document.querySelector<HTMLElement>('nav[aria-label="Principal"]')!;
+    const side = nav.closest<HTMLElement>('aside.side')!;
+    const box = nav.getBoundingClientRect();
+    const hidden = Array.from(nav.querySelectorAll('a'))
+      .filter((link) => {
+        const item = link.getBoundingClientRect();
+        return item.top < box.top - 1 || item.bottom > box.bottom + 1;
+      })
+      .map((link) => link.textContent ?? '');
+    return {
+      overflow: nav.scrollHeight - nav.clientHeight,
+      hint: side.hasAttribute('data-more-below'),
+      hintOpacity: Number(getComputedStyle(side, '::after').opacity),
+      hidden,
+    };
+  });
+}
+
+test('el menú lateral: 15 entradas a la vista a 1280×800 y, a 1024×700, desplazamiento con indicio, rueda y Tab', async () => {
+  context = await launchPhaseApp('tradia-nav-e2e');
+  const { page } = context;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    timeout: 30_000,
+  });
+  const nav = page.getByRole('navigation', { name: 'Principal' });
+  await expect(nav.getByRole('link')).toHaveCount(ROUTES.length);
+
+  // 1280 × 800: todas a la vista, sin desplazar y sin indicio.
+  await expect.poll(() => readNav(page)).toMatchObject({ overflow: 0, hint: false, hidden: [] });
+  for (const { link } of ROUTES) {
+    await expect(nav.getByRole('link', { name: link, exact: true })).toBeInViewport({ ratio: 1 });
+  }
+  mkdirSync(evidenceDir, { recursive: true });
+  await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1280.png') });
+
+  // 1024 × 700: la lista desplaza dentro de la barra y avisa de que hay más.
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await expect.poll(async () => (await readNav(page)).hint).toBe(true);
+  const narrow = await readNav(page);
+  expect(narrow.overflow).toBeGreaterThan(0);
+  expect(narrow.hidden).toContain('Ajustes');
+  await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(1);
+  // La marca no se desplaza con la lista.
+  await expect(page.locator('aside.side').getByRole('img', { name: 'Tradia' })).toBeInViewport({
+    ratio: 1,
+  });
+  await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-indicio.png') });
+
+  // Con rueda: al llegar al final, «Ajustes» se ve y el indicio desaparece.
+  await nav.hover();
+  await page.mouse.wheel(0, 600);
+  await expect.poll(async () => (await readNav(page)).hint).toBe(false);
+  expect((await readNav(page)).hidden).not.toContain('Ajustes');
+  await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(0);
+  await expect(nav.getByRole('link', { name: 'Ajustes', exact: true })).toBeInViewport({
+    ratio: 1,
+  });
+  await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-final.png') });
+
+  // Con Tab: desde «Inicio», arriba del todo, hasta «Ajustes».
+  await nav.evaluate((element) => element.scrollTo({ top: 0 }));
+  await expect.poll(async () => (await readNav(page)).hint).toBe(true);
+  await nav.getByRole('link', { name: 'Inicio', exact: true }).focus();
+  for (let index = 1; index < ROUTES.length; index++) {
+    await page.keyboard.press('Tab');
+    const { link } = ROUTES[index]!;
+    const focused = nav.getByRole('link', { name: link, exact: true });
+    await expect(focused).toBeFocused();
+    // Cada entrada enfocada queda entera dentro de la lista visible.
+    await expect.poll(async () => (await readNav(page)).hidden).not.toContain(link);
+  }
+  await expect.poll(async () => (await readNav(page)).hint).toBe(false);
+});
+
+interface TargetReading {
+  name: string;
+  width: number;
+  height: number;
+  /** El punto a 1 px de cada borde vertical cae dentro del propio control. */
+  hitEdges: boolean;
+  /** Casilla visible, si el objetivo es una etiqueta con casilla. */
+  box: { width: number; height: number } | null;
+}
+
+/** Mide el área clicable de los controles que casan con `selector` en `main`. */
+async function readTargets(page: Page, selector: string): Promise<TargetReading[]> {
+  const targets = page.locator(`main#contenido ${selector}`);
+  const count = await targets.count();
+  const readings: TargetReading[] = [];
+  for (let index = 0; index < count; index++) {
+    const target = targets.nth(index);
+    if (!(await target.isVisible())) continue;
+    await target.scrollIntoViewIfNeeded();
+    readings.push(
+      await target.evaluate((element) => {
+        // Un enlace en línea puede partirse en varias líneas: se mide el primer fragmento.
+        const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
+        const x = rect.left + Math.min(rect.width / 2, 8);
+        const hits = [rect.top + 1, rect.bottom - 1].map((y) => {
+          const hit = document.elementFromPoint(x, y);
+          return Boolean(hit && (hit === element || element.contains(hit)));
+        });
+        const input = element.querySelector('input[type="checkbox"], input[type="radio"]');
+        const inputRect = input?.getBoundingClientRect();
+        return {
+          name: `${element.tagName.toLowerCase()} «${(element.textContent ?? element.getAttribute('aria-label') ?? '').trim().slice(0, 40)}»`,
+          width: rect.width,
+          height: rect.height,
+          hitEdges: hits.every(Boolean),
+          box:
+            inputRect && getComputedStyle(input!).opacity !== '0'
+              ? { width: inputRect.width, height: inputRect.height }
+              : null,
+        };
+      }),
+    );
+  }
+  return readings;
+}
+
+function auditTargets(
+  where: string,
+  readings: TargetReading[],
+  minHeight: number,
+  minWidth = 24,
+): string[] {
+  const problems: string[] = [];
+  for (const reading of readings) {
+    const size = `${Math.round(reading.width)}×${Math.round(reading.height)} px`;
+    if (reading.height < minHeight - TOLERANCE || reading.width < minWidth - TOLERANCE) {
+      problems.push(`${where}: ${reading.name} mide ${size}, mínimo ${minWidth}×${minHeight}`);
+    }
+    if (!reading.hitEdges) {
+      problems.push(`${where}: ${reading.name} no recibe el clic en todo su alto (${size})`);
+    }
+    if (
+      reading.box &&
+      (reading.box.width < 20 - TOLERANCE || reading.box.height < 20 - TOLERANCE)
+    ) {
+      problems.push(
+        `${where}: la casilla de ${reading.name} mide ${reading.box.width}×${reading.box.height} px`,
+      );
+    }
+  }
+  return problems;
+}
+
+test('casillas, selectores y enlaces en línea alcanzan el área mínima de control', async () => {
+  test.setTimeout(120_000);
+  context = await launchPhaseApp('tradia-controls-e2e');
+  const { page } = context;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    timeout: 30_000,
+  });
+  const failures: string[] = [];
+  const CONTROL_MIN = 44;
+  const INLINE_MIN = 24;
+  const checkbox = 'label:has(> input[type="checkbox"])';
+  const inlineLink = 'a:not([class])';
+
+  await openPage(page, 'Fuentes');
+  await waitForSettled(page, 'fuentes');
+  const sources = await readTargets(page, `.source-active`);
+  expect(sources.length, 'Fuentes: sin casillas «Activa»').toBeGreaterThan(0);
+  failures.push(...auditTargets('Fuentes', sources, CONTROL_MIN));
+
+  await openPage(page, 'Dinero real');
+  await waitForSettled(page, 'dinero-real');
+  const declarations = await readTargets(page, checkbox);
+  expect(declarations.length, 'Dinero real: sin casillas de declaración').toBeGreaterThan(0);
+  failures.push(...auditTargets('Dinero real', declarations, CONTROL_MIN));
+  await page.screenshot({ path: resolve(evidenceDir, 'controles-dinero-real.png') });
+
+  await openPage(page, 'Ajustes');
+  await waitForSettled(page, 'ajustes');
+  const selects = await readTargets(page, 'select');
+  expect(selects.length, 'Ajustes: sin selectores').toBeGreaterThan(0);
+  failures.push(...auditTargets('Ajustes', selects, CONTROL_MIN));
+  await expect(page.locator('#news-alert-lead')).toBeVisible();
+  failures.push(...auditTargets('Ajustes', await readTargets(page, checkbox), CONTROL_MIN));
+
+  const links: TargetReading[] = [];
+  for (const [link, heading, route] of [
+    ['Ajustes', 'Ajustes', 'ajustes'],
+    ['Calendario', 'Calendario', 'calendario'],
+    ['Órdenes', 'Órdenes', 'ordenes'],
+  ] as const) {
+    if (route !== 'ajustes') {
+      await openPage(page, link, heading);
+      await waitForSettled(page, route);
+    }
+    const found = await readTargets(page, inlineLink);
+    failures.push(...auditTargets(heading, found, INLINE_MIN));
+    links.push(...found);
+  }
+  for (const name of ['Ajustes', 'Revisar cuenta paper', 'lista de comprobación']) {
+    expect(
+      links.some((link) => link.name.includes(`«${name}`)),
+      `no se midió el enlace en línea «${name}»`,
+    ).toBe(true);
+  }
+  expect(failures, failures.join('\n')).toEqual([]);
 });

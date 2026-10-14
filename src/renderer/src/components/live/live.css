@@ -93,6 +93,10 @@
 .live-broker p {
   margin: 0;
 }
+/* La lista de requisitos pendientes no suma su margen al hueco de la tarjeta. */
+.live-broker [role='region'] ul {
+  margin: var(--space-3) 0 0;
+}
 .live-broker fieldset {
   margin: 0;
   padding: 0;

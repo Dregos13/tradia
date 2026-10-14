@@ -87,6 +87,12 @@ it('recorre las diez rutas solo con teclado, anuncia cada paso y guarda la final
         document.querySelector(`[data-tour="${TOUR_STEPS[step - 1]!.anchor}"]`),
       ).toBeInTheDocument(),
     );
+    if ([2, 4, 9, 10].includes(step)) {
+      // UXP-03: el ancla es la cabecera del bloque, no el bloque entero.
+      const anchor = document.querySelector(`[data-tour="${TOUR_STEPS[step - 1]!.anchor}"]`)!;
+      expect(anchor.querySelector('h2, h3')).not.toBeNull();
+      expect(anchor.querySelector('table, ul, form, section, fieldset')).toBeNull();
+    }
     await waitFor(() => expect(document.querySelector('.tour-spotlight')).toBeInTheDocument());
     expect(readTourStep()).toBe(step);
   }

@@ -110,29 +110,30 @@ export function ChecklistPage({
           Reintentar verificación
         </button>
       </header>
-      <p data-layout-block="aviso" className="live-warning">
-        <LiveIcon />
-        Capital real en riesgo. La mayoría de los traders minoristas pierden dinero. Completa cada
-        requisito y confirma límites bajos antes de activar.
-      </p>
-      <p
-        ref={status}
-        tabIndex={-1}
-        data-layout-block="estado"
-        className={`live-mode-status${ready ? ' live-mode-ready' : ''}`}
-        role={active || suspended ? 'alert' : 'status'}
-      >
-        <LiveIcon />
-        {active
-          ? 'Dinero real activo'
-          : suspended
-            ? 'Dinero real suspendido · no se enviarán órdenes nuevas.'
-            : ready
-              ? 'Listo para confirmar · revisa los límites una última vez'
-              : checklist && checklist.completedCount === checklist.total
-                ? 'Lista completa · revisa los motivos antes de activar dinero real'
-                : `Dinero real bloqueado${checklist ? ` · faltan ${checklist.total - checklist.completedCount} de ${checklist.total} requisitos` : ''}`}
-      </p>
+      {/* Un solo aviso: el estado decide y el riesgo general lo acompaña (UXP-13). */}
+      <div data-layout-block="aviso" className="live-alert">
+        <p
+          ref={status}
+          tabIndex={-1}
+          className={`live-mode-status${ready ? ' live-mode-ready' : ''}`}
+          role={active || suspended ? 'alert' : 'status'}
+        >
+          <LiveIcon />
+          {active
+            ? 'Dinero real activo'
+            : suspended
+              ? 'Dinero real suspendido · no se enviarán órdenes nuevas.'
+              : ready
+                ? 'Listo para confirmar · revisa los límites una última vez'
+                : checklist && checklist.completedCount === checklist.total
+                  ? 'Lista completa · revisa los motivos antes de activar dinero real'
+                  : `Dinero real bloqueado${checklist ? ` · faltan ${checklist.total - checklist.completedCount} de ${checklist.total} requisitos` : ''}`}
+        </p>
+        <p className="live-warning">
+          Capital real en riesgo. La mayoría de los traders minoristas pierden dinero. Completa cada
+          requisito y confirma límites bajos antes de activar.
+        </p>
+      </div>
       {(active || suspended) && (
         <LiveDeactivationButton
           label="Volver a paper (desactivar dinero real)"

@@ -30,6 +30,7 @@ import { ProviderBanner } from './components/ProviderBanner';
 import { OfflineBanner } from './components/OfflineBanner';
 import { StatusBar } from './components/SystemStatus';
 import { useSystemState } from './hooks/useSystemState';
+import { useScrollHint } from './hooks/useScrollHint';
 
 type Page =
   | 'ia'
@@ -106,6 +107,8 @@ function AppShell() {
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
+  const nav = useRef<HTMLElement>(null);
+  const navMoreBelow = useScrollHint(nav);
   const previousPage = useRef(page);
   useEffect(() => {
     if (previousPage.current === page) return;
@@ -117,9 +120,9 @@ function AppShell() {
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
-      <aside className="side">
+      <aside className="side" data-more-below={navMoreBelow || undefined}>
         <TradiaBrand />
-        <nav className="nav" aria-label="Principal">
+        <nav ref={nav} className="nav" aria-label="Principal">
           <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
             Inicio
           </a>

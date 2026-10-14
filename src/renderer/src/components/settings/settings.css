@@ -190,7 +190,9 @@ section[aria-label='Preferencias'] > * {
   margin-block: 0;
   min-width: 0;
 }
-section[aria-label='Preferencias'] .settings-section {
+/* «Legal» sigue a Preferencias con el mismo ritmo: 32 px y filete (UXP-08). */
+section[aria-label='Preferencias'] .settings-section,
+section[aria-label='Preferencias'] + .settings-section {
   position: relative;
   padding: 0;
   margin: 0;
@@ -198,7 +200,8 @@ section[aria-label='Preferencias'] .settings-section {
   gap: var(--space-section-gap);
   min-width: 0;
 }
-section[aria-label='Preferencias'] .settings-section::before {
+section[aria-label='Preferencias'] .settings-section::before,
+section[aria-label='Preferencias'] + .settings-section::before {
   content: '';
   position: absolute;
   top: calc(-1 * var(--space-form-field-gap));
@@ -207,6 +210,15 @@ section[aria-label='Preferencias'] .settings-section::before {
 }
 .settings-section > * {
   min-width: 0;
+}
+/* Panel y tarjetas propias de una sección, apilados a 24 px (UXP-09). */
+.settings-stack {
+  display: grid;
+  align-content: start;
+  gap: var(--space-card-padding);
+}
+.settings-stack > .live-limits-settings > .live-sheet {
+  border-radius: var(--radius-lg);
 }
 .settings-section > div:first-child > p {
   margin: var(--space-title-content-gap) 0 0;
@@ -253,7 +265,8 @@ section[aria-label='Preferencias'] .settings-section::before {
   margin: 0;
 }
 @media (max-width: 1199px) {
-  section[aria-label='Preferencias'] .settings-section {
+  section[aria-label='Preferencias'] .settings-section,
+  section[aria-label='Preferencias'] + .settings-section {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-card-padding);
   }

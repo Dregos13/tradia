@@ -40,7 +40,7 @@ La fuente aprobada es `src/renderer/src/design/market.tokens.json`; `tokenStyles
 6. **Tablas y listas densas.** Las filas usan 12 px arriba y abajo; las celdas pueden conservar 12 px horizontales. Cabecera, leyenda de desplazamiento y tabla forman una unidad con 8 px internos. Esa unidad queda a 24 px del bloque anterior y del siguiente.
 7. **Lectura.** Párrafos, explicaciones, errores y estados no superan 72 ch. Tablas, cuadrículas, gráficos y barras de herramientas pueden ocupar todo el ancho disponible.
 8. **Estados.** Vacío, carga, error, éxito y sin permisos sustituyen el cuerpo del bloque sin cambiar su caja: mismo relleno de tarjeta, máximo de 72 ch y 24 px respecto a bloques hermanos. Acciones dentro del estado quedan a 16 px del mensaje. Un esqueleto conserva la altura aproximada del contenido para evitar saltos.
-9. **Tema y accesibilidad.** El espaciado es idéntico en claro y oscuro. Foco visible y controles de al menos 44 × 44 px se conservan; al replegar controles, el orden visual debe seguir el DOM. El scroll horizontal solo se permite en el contenedor de una tabla, nunca en `.main`.
+9. **Tema y accesibilidad.** El espaciado es idéntico en claro y oscuro. Foco visible y controles de al menos 44 × 44 px se conservan (casillas de 20 px visibles con su etiqueta como área de 44 px de alto, selectores de 44 px; los enlaces dentro de una frase, al menos 24 px de alto clicables según WCAG 2.5.8, sin cambiar la altura de línea); al replegar controles, el orden visual debe seguir el DOM. El scroll horizontal solo se permite en el contenedor de una tabla, nunca en `.main`.
 
 ## Contrato que medirá el E2E
 

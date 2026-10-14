@@ -52,19 +52,50 @@ button:focus-visible,
   display: none;
 }
 .side {
+  /* La marca queda fija y la lista desplaza dentro de la barra (UXP-01):
+     16 + 32 + 16 de marca, 15 × 44 + 14 × 4 de lista y 16 abajo = 796 px,
+     así que a 1280 × 800 caben las 15 entradas sin desplazar. */
+  position: relative;
   grid-row: 1 / 5;
   min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-8) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
   background: var(--color-text);
   color: var(--color-canvas);
+}
+/* Indicio de que quedan entradas por debajo: un degradado sobre el borde
+   inferior que desaparece al llegar al final de la lista. */
+.side::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: var(--space-12);
+  background: linear-gradient(to bottom, transparent, var(--color-text) 75%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--motion-easeOut);
+}
+.side[data-more-below]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .side::after {
+    transition: none;
+  }
 }
 .logo {
   display: flex;
   align-items: center;
   gap: var(--space-title-content-gap);
-  padding: 0 var(--space-3) var(--space-8);
+  padding: 0 var(--space-3);
   font: var(--weight-semibold) var(--type-2xl)/var(--type-2xl-line) var(--font-editorial);
+}
+.side .logo {
+  flex-shrink: 0;
+  line-height: var(--space-8);
 }
 .brand-mark {
   width: var(--space-8);
@@ -72,17 +103,28 @@ button:focus-visible,
   flex-shrink: 0;
 }
 .nav {
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
-  gap: var(--space-2);
+  align-content: start;
+  gap: var(--space-1);
+  /* La entrada enfocada con teclado no queda bajo el degradado. */
+  scroll-padding-block-end: var(--space-12);
+  overscroll-behavior: contain;
 }
 .nav a {
   display: flex;
   align-items: center;
   min-height: var(--size-controlMin);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   color: inherit;
   text-decoration: none;
+}
+/* Dentro de la lista con desplazamiento el contorno va hacia dentro para no
+   recortarse en los bordes. */
+.nav a:focus-visible {
+  outline-offset: -3px;
 }
 .nav a:hover,
 .nav a[aria-current='page'] {
@@ -316,14 +358,15 @@ h3 {
   .side {
     grid-row: auto;
     min-width: 0;
-    padding: var(--space-4);
+    gap: var(--space-3);
   }
-  .logo {
-    padding-bottom: var(--space-3);
+  .side::after {
+    display: none;
   }
   .nav {
     display: flex;
     overflow-x: auto;
+    overflow-y: visible;
   }
   .nav a {
     flex-shrink: 0;
@@ -357,6 +400,29 @@ select:focus-visible,
 textarea:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
+}
+/* Tamaño mínimo de control (docs/diseno-espaciado.md, regla 9; UXP-10).
+   Con especificidad nula: cualquier regla de pantalla que fije su propio
+   tamaño prevalece. Casillas de 20 px visibles y una etiqueta clicable de
+   44 px de alto; selectores de 44 px; enlaces en línea con un área de al
+   menos 24 px de alto (WCAG 2.5.8) sin cambiar la altura de la línea. */
+:where(input[type='checkbox'], input[type='radio']) {
+  width: var(--space-5);
+  height: var(--space-5);
+  flex-shrink: 0;
+}
+:where(label:has(> input[type='checkbox'], > input[type='radio'])) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-controlMin);
+  cursor: pointer;
+}
+:where(select) {
+  min-height: var(--size-controlMin);
+}
+:where(a:not([class])) {
+  padding-block: max(0px, calc(var(--space-3) - 0.5em));
 }
 .button {
   min-height: var(--size-controlMin);
@@ -631,6 +697,7 @@ textarea:focus-visible {
   font-weight: var(--weight-bold);
 }
 .settings-form input,
+.settings-form select,
 .settings-test select {
   min-width: 0;
   width: 100%;

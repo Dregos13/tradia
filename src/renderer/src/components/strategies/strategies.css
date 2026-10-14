@@ -3,6 +3,8 @@
   gap: var(--space-section-gap);
   min-width: 0;
   overflow-wrap: anywhere;
+  /* Al enfocar la página tras navegar, conserva el margen superior (UXP-07). */
+  scroll-margin-top: var(--page-block);
 }
 .strategy-heading {
   display: flex;
@@ -10,6 +12,10 @@
   align-items: start;
   gap: var(--space-6);
   margin-bottom: 0;
+}
+.strategy-heading > div > a:first-child {
+  display: inline-block;
+  margin-bottom: var(--space-title-content-gap);
 }
 .strategy-heading h2 {
   font-family: var(--font-editorial);

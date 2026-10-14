@@ -58,6 +58,8 @@
   border-color: var(--dataStatus-unreliable);
 }
 .market-error {
+  /* Siempre en su propia fila: el error no compite con el campo (UXP-06). */
+  flex-basis: 100%;
   color: var(--dataStatus-unreliable);
   grid-column: 1 / -1;
   margin: 0;

@@ -38,6 +38,31 @@
   color: var(--live-liveMode-ready);
   background: var(--live-liveMode-ready-surface);
 }
+/* Estado y riesgo general en una sola caja: el estado, primero y con más
+   peso; el aviso, alineado con su texto (UXP-13). */
+.live-alert {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  color: var(--live-live-text);
+  background: var(--live-live-surface);
+}
+.live-alert > .live-mode-status {
+  padding: 0;
+  background: none;
+  font-size: var(--type-lg);
+  font-weight: var(--weight-semibold);
+}
+.live-alert > .live-mode-ready {
+  justify-self: start;
+  padding: var(--space-2) var(--space-3);
+  background: var(--live-liveMode-ready-surface);
+}
+.live-alert > .live-warning {
+  padding: 0 0 0 calc(var(--space-5) + var(--space-2));
+  background: none;
+}
 .live-warning .live-icon,
 .live-mode-status .live-icon,
 .live-short-status .live-icon {
@@ -374,6 +399,24 @@
 }
 .live-limits-settings {
   gap: var(--space-card-padding);
+}
+/* Confirmación final en su propia tarjeta: título a contenido 12 px y sin
+   huecos dobles cuando el aviso de estado está vacío (UXP-09). */
+.live-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-title-content-gap);
+}
+.live-sheet.live-confirmation > * {
+  max-width: 100%;
+  margin: 0;
+}
+.live-sheet.live-confirmation > .live-meta:empty {
+  margin-bottom: calc(-1 * var(--space-title-content-gap));
+}
+.live-confirmation > ul {
+  padding-left: var(--space-6);
 }
 .live-limits-grid {
   gap: var(--space-form-field-gap);

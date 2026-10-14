@@ -85,48 +85,51 @@ export function LiveLimitsSettings() {
       {state.offline && (
         <p role="status">Sin conexión · no se pueden guardar ni confirmar límites.</p>
       )}
-      <p ref={notice} tabIndex={-1} className="live-meta" role="status" aria-live="polite">
-        {state.loading ? 'Comprobando los requisitos del corto…' : state.notice}
-      </p>
-      {state.limits && !dirty && (
-        <p className="live-phrase">{liveConfirmationPhrase(state.limits)}</p>
-      )}
-      {!active && (
-        <>
-          <p id={`${id}-confirmation-help`}>
-            Confirmar esta frase activa dinero real con estos límites. Completa antes la{' '}
-            <a href="#dinero-real">lista de comprobación</a>.
-          </p>
-          {reasons.length > 0 && (
-            <ul>
-              {reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          )}
-          <button
-            ref={trigger}
-            className="button"
-            disabled={!ready}
-            aria-describedby={`${id}-confirmation-help`}
-            onClick={async () => {
-              if (await state.prepare()) {
-                trigger.current?.focus();
-                setDialog(state.limits);
-              }
-            }}
-          >
-            Confirmar límites y activar dinero real
-          </button>
-          {state.rejection.length > 0 && (
-            <ul role="alert">
-              {state.rejection.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
+      <section className="live-sheet live-confirmation" aria-labelledby={`${id}-confirmation`}>
+        <h3 id={`${id}-confirmation`}>Confirmación de los límites</h3>
+        <p ref={notice} tabIndex={-1} className="live-meta" role="status" aria-live="polite">
+          {state.loading ? 'Comprobando los requisitos del corto…' : state.notice}
+        </p>
+        {state.limits && !dirty && (
+          <p className="live-phrase">{liveConfirmationPhrase(state.limits)}</p>
+        )}
+        {!active && (
+          <>
+            <p id={`${id}-confirmation-help`}>
+              Confirmar esta frase activa dinero real con estos límites. Completa antes la{' '}
+              <a href="#dinero-real">lista de comprobación</a>.
+            </p>
+            {reasons.length > 0 && (
+              <ul>
+                {reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            )}
+            <button
+              ref={trigger}
+              className="button"
+              disabled={!ready}
+              aria-describedby={`${id}-confirmation-help`}
+              onClick={async () => {
+                if (await state.prepare()) {
+                  trigger.current?.focus();
+                  setDialog(state.limits);
+                }
+              }}
+            >
+              Confirmar límites y activar dinero real
+            </button>
+            {state.rejection.length > 0 && (
+              <ul role="alert">
+                {state.rejection.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
       {dialog && state.snapshot?.state.accountMasked && (
         <LiveActivationDialog
           limits={dialog}

@@ -86,6 +86,19 @@ it('lista evidencia, fecha y cada motivo pendiente, con activación bloqueada', 
   expect(activate).not.toHaveBeenCalled();
 });
 
+it('une el estado y el aviso de capital en un solo bloque, con el estado primero', async () => {
+  await mount();
+  const alerts = document.querySelectorAll('.live-alert');
+  expect(alerts).toHaveLength(1);
+  const [status, warning] = Array.from(alerts[0]!.children);
+  expect(status).toHaveClass('live-mode-status');
+  expect(status).toHaveTextContent(/^Dinero real bloqueado · faltan \d+ de 7 requisitos$/);
+  expect(warning).toHaveTextContent(
+    'Capital real en riesgo. La mayoría de los traders minoristas pierden dinero. Completa cada requisito y confirma límites bajos antes de activar.',
+  );
+  expect(screen.getAllByText(/Capital real en riesgo/)).toHaveLength(1);
+});
+
 it('obtiene evidencia de parada y alerta por sus canales reales, sin declaraciones automáticas', async () => {
   const stop = vi.spyOn(adapter.api.live, 'testKillSwitch');
   const alert = vi.spyOn(adapter.api.delivery, 'test');
