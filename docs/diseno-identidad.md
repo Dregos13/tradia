@@ -84,3 +84,11 @@ Las diferencias de forma mantienen los cuatro estados distinguibles en monocromo
 - `resources/tray/tray-{online,offline,paused,stopped}.svg`: bandeja en color.
 - `resources/tray/tray-{online,offline,paused,stopped}-Template.svg`: bandeja monocroma de macOS.
 - `.orquesta/design/27a49c61/`: tres propuestas, tokens, guía y banco de comprobación de escalas.
+
+## Regeneración reproducible
+
+Ejecutar `npm run icons` desde el proyecto. Usa el Chromium de la versión instalada de Playwright; si no está descargado, ejecutar antes `npx playwright install chromium`. No requiere dependencias adicionales ni herramientas de conversión del sistema.
+
+`scripts/generar-iconos.mjs` rasteriza directamente los SVG a cada escala con fondo transparente y codifica PNG RGBA con `node:zlib`, filtro fijo y sin fechas. Empaqueta esos PNG en ICO (16, 24, 32, 48, 64, 128 y 256 px) e ICNS (16, 32, 64, 128, 256, 512 y 1024 px, más representaciones Retina). Escribir dos veces con la misma versión de Chromium/Node y las mismas fuentes produce los mismos bytes. Una actualización de Chromium puede cambiar el antialiasing: en ese caso se regeneran los recursos y se revisa su aspecto.
+
+Los PNG incluyen el SHA-256 del SVG fuente para detectar recursos obsoletos. `scripts/iconos.test.ts`, incluido en `npm test`, comprueba las dimensiones, los contenedores, las esquinas transparentes, los cuatro estados diferentes y que los Template solo tengan negro sobre transparencia. La bandeja conserva todos sus nombres y rutas: 16 px en `*.png` y 32 px en `*@2x.png`.
