@@ -89,7 +89,7 @@ it('el evento push prevalece sobre una lectura inicial atrasada', async () => {
   act(() => simulation.forceNewsStatus('sin-sesion'));
   await screen.findByText(NEWS_SUBSCRIPTION_COPY['sin-sesion'].title);
   await act(async () => resolve(initial));
-  expect(screen.getByRole('status')).toHaveTextContent('sesión no iniciada');
+  expect(screen.getByRole('status')).toHaveTextContent('No hay una sesión iniciada');
 });
 
 it('permite reintentar si falla la lectura del estado', async () => {
@@ -122,3 +122,48 @@ it('reintenta desde Ajustes guardando antes, mantiene una sola acción y conserv
   expect(screen.getAllByRole('button', { name: 'Probar de nuevo' })).toHaveLength(1);
   await waitFor(() => expect(retry).toHaveFocus());
 });
+
+it.each([
+  {
+    engine: 'suscripcion-codex' as const,
+    name: 'OpenAI Codex',
+    cmd: 'codex',
+  },
+  {
+    engine: 'suscripcion-antigravity' as const,
+    name: 'Google Antigravity',
+    cmd: 'agy',
+  },
+  {
+    engine: 'suscripcion-copilot' as const,
+    name: 'GitHub Copilot',
+    cmd: 'copilot',
+  },
+])(
+  'muestra nombre de $name e instrucción de $cmd en Ajustes para cli-no-encontrada y sin-sesion',
+  async ({ engine, name, cmd }) => {
+    const simulation = createSimulatedAdapter();
+    window.tradia = simulation.api;
+    await simulation.api.ai.setLlmSettings({
+      provider: 'suscripcion',
+      enabled: true,
+      engine,
+    });
+    simulation.forceNewsStatus('cli-no-encontrada');
+    const { unmount } = render(<AiSettings />);
+    await screen.findByRole('combobox', { name: 'Motor de análisis de noticias' });
+
+    // cli-no-encontrada
+    const noticeCli = await screen.findByRole('status', { name: 'Estado de la suscripción' });
+    expect(noticeCli).toHaveTextContent(`No encontramos el comando de ${name}`);
+    expect(noticeCli).toHaveTextContent(`Instala ${name} en tu ordenador`);
+
+    // sin-sesion
+    act(() => simulation.forceNewsStatus('sin-sesion'));
+    const noticeAuth = await screen.findByRole('status', { name: 'Estado de la suscripción' });
+    expect(noticeAuth).toHaveTextContent(`No hay una sesión iniciada en ${name}`);
+    expect(noticeAuth).toHaveTextContent(`ejecuta ${cmd} para iniciar sesión`);
+
+    unmount();
+  },
+);

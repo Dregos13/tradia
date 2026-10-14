@@ -306,4 +306,43 @@ describe('AssetSearch', () => {
     const addBtn = screen.getByRole<HTMLButtonElement>('button', { name: 'Añadir' });
     expect(addBtn.disabled).toBe(true);
   });
+
+  it('la primera pulsación de ArrowDown resalta la primera sugerencia incluso si el ratón estaba estático sobre ella', async () => {
+    const onAdd = vi.fn().mockResolvedValue(true);
+    const user = userEvent.setup();
+    render(<AssetSearch items={[]} onAdd={onAdd} />);
+
+    // Simular que el ratón del usuario quedó posicionado en (100, 150) tras un clic previo
+    fireEvent.mouseDown(window, { clientX: 100, clientY: 150 });
+
+    const input = screen.getByLabelText('Buscar activo o divisa');
+    await user.type(input, 'Apple');
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeDefined();
+    });
+
+    const firstOption = screen.getByRole('option', { name: /AAPL/i });
+    // Al montarse bajo el cursor estático, se dispara mouseEnter con la misma coordenada
+    fireEvent.mouseEnter(firstOption, { clientX: 100, clientY: 150 });
+    fireEvent.mouseMove(firstOption, { clientX: 100, clientY: 150 });
+
+    // La posición estática no debe haber resaltado la opción
+    expect(firstOption.getAttribute('aria-selected')).toBe('false');
+    expect(input.getAttribute('aria-activedescendant')).toBeNull();
+
+    // La primera pulsación de ArrowDown resalta limpiamente la primera opción
+    await user.keyboard('{ArrowDown}');
+    expect(firstOption.getAttribute('aria-selected')).toBe('true');
+    expect(input.getAttribute('aria-activedescendant')).toBe('search-item-AAPL');
+
+    // Una segunda pulsación avanza a la siguiente sugerencia
+    await user.keyboard('{ArrowDown}');
+    expect(firstOption.getAttribute('aria-selected')).toBe('false');
+
+    // Al mover físicamente el ratón con nuevas coordenadas, el cursor vuelve a tomar el control
+    fireEvent.mouseMove(firstOption, { clientX: 100, clientY: 200 });
+    expect(firstOption.getAttribute('aria-selected')).toBe('true');
+    expect(input.getAttribute('aria-activedescendant')).toBe('search-item-AAPL');
+  });
 });

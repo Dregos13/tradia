@@ -63,6 +63,9 @@ export function AssetSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
+  const optionsMountedPosRef = useRef<{ x: number; y: number } | null>(null);
+  const mouseMovedAfterMountRef = useRef(false);
+
   // Combine matches and directTicker into a single list of options
   const options: SearchOption[] = [...matches];
   if (directTicker && !matches.some((m) => m.ticker === directTicker)) {
@@ -74,6 +77,13 @@ export function AssetSearch({
       isDirect: true,
     });
   }
+
+  // Reset stationary hover tracking and selection index whenever matches or query change
+  useEffect(() => {
+    optionsMountedPosRef.current = null;
+    mouseMovedAfterMountRef.current = false;
+    setFocusedIndex(-1);
+  }, [matches, directTicker, query]);
 
   // Trigger search on query change
   useEffect(() => {
@@ -158,22 +168,24 @@ export function AssetSearch({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
+      mouseMovedAfterMountRef.current = false;
       if (!isOpen && query.trim()) {
         setIsOpen(true);
         setFocusedIndex(0);
         return;
       }
       if (options.length === 0) return;
-      setFocusedIndex((prev) => (prev + 1) % options.length);
+      setFocusedIndex((prev) => (prev < 0 || prev >= options.length - 1 ? 0 : prev + 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      mouseMovedAfterMountRef.current = false;
       if (!isOpen && query.trim()) {
         setIsOpen(true);
         setFocusedIndex(options.length - 1);
         return;
       }
       if (options.length === 0) return;
-      setFocusedIndex((prev) => (prev - 1 + options.length) % options.length);
+      setFocusedIndex((prev) => (prev <= 0 ? options.length - 1 : prev - 1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (isOpen && focusedIndex >= 0 && options[focusedIndex]) {
@@ -189,6 +201,23 @@ export function AssetSearch({
       setIsOpen(false);
       setFocusedIndex(-1);
     }
+  };
+
+  const handleOptionHover = (e: React.MouseEvent, index: number) => {
+    if (!mouseMovedAfterMountRef.current) {
+      if (optionsMountedPosRef.current === null) {
+        optionsMountedPosRef.current = { x: e.clientX, y: e.clientY };
+        return;
+      }
+      if (
+        optionsMountedPosRef.current.x === e.clientX &&
+        optionsMountedPosRef.current.y === e.clientY
+      ) {
+        return;
+      }
+      mouseMovedAfterMountRef.current = true;
+    }
+    setFocusedIndex(index);
   };
 
   const handleClear = () => {
@@ -306,7 +335,8 @@ export function AssetSearch({
                     className={`market-search-option ${isFocused ? 'focused' : ''} ${
                       inList ? 'in-list' : ''
                     }`}
-                    onMouseEnter={() => setFocusedIndex(index)}
+                    onMouseEnter={(e) => handleOptionHover(e, index)}
+                    onMouseMove={(e) => handleOptionHover(e, index)}
                     onClick={() => handleSelectOption(option)}
                   >
                     <div className="market-search-option-info">

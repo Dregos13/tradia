@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DataFreshness, providerSettingsLink } from './DataFreshness';
+import { providerSettingsLink } from './DataFreshness';
 import { MacroPanel } from './macro/MacroPanel';
 import { useMarketData } from '../hooks/useMarketData';
 import { MarketWorkspace } from './market/MarketWorkspace';
@@ -7,7 +7,7 @@ import { MarketWorkspace } from './market/MarketWorkspace';
 /** Shell for the watchlist/chart and macro panel implemented in the next tasks. */
 export function MarketDataPage({
   kind,
-  offline = false,
+  offline: _offline = false,
 }: {
   kind: 'mercado' | 'macro';
   offline?: boolean;
@@ -45,7 +45,7 @@ export function MarketDataPage({
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
-      <DataFreshness offline={offline} />
+
       {data.statusError && (
         <p className="market-error" role="alert">
           {data.statusError}

@@ -223,12 +223,8 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       await expect(section.getByRole('alert')).toContainText('CLI no encontrada', {
         timeout: 15_000,
       });
-      // El aviso de abajo (SubscriptionNotice) todavía usa el texto
-      // heredado y genérico de Claude Code en vez del texto por motor de
-      // docs/diseno-mercado-ia.md (sección 2.4): ver hallazgo en el
-      // informe de QA. Se deja constancia de ambos textos reales.
       await expect(page.getByRole('status', { name: 'Estado de la suscripción' })).toContainText(
-        'Suscripción no disponible · CLI no encontrada',
+        'Suscripción no disponible · No encontramos el comando de Claude Code',
       );
       await capturePhaseScreenshot(page, 'ajustes-ia-cli-no-encontrada.png', section);
     } finally {
@@ -322,11 +318,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await capturePhaseScreenshot(page, 'mercado-buscador-eurusd-anadido.png');
 
     // Buscar «Apple» y añadirla navegando con el teclado (flecha + Enter).
-    // El puntero se aparta primero: si quedara sobre la primera
-    // sugerencia, su `onMouseEnter` adelantaría el resaltado y la
-    // primera flecha pasaría a la segunda opción en vez de a la mejor.
+    // Tras añadir EUR/USD con un clic, el puntero del ratón queda sobre la posición
+    // de la primera sugerencia; la primera pulsación de ArrowDown resalta la primera
+    // opción (AAPL) limpiamente sin adelantarse por ratón estático.
     const search = page.getByLabel('Buscar activo o divisa');
-    await page.mouse.move(0, 0);
     await search.fill('Apple');
     const aaplOption = page.getByRole('option', { name: /AAPL/ });
     await expect(aaplOption).toBeVisible({ timeout: 10_000 });

@@ -9,7 +9,7 @@ import type {
   ReconcileRun,
 } from '../../../../shared/broker';
 import { createSimulatedAdapter } from '../../adapters/simulated';
-import { OrdersPage } from './OrdersPage';
+import { OrdersPage, FX_MANUAL_ORDER_ERROR } from './OrdersPage';
 import { ReconcileBanner } from './ReconcileBanner';
 const run: ReconcileRun = {
   id: 1,
@@ -153,6 +153,33 @@ it('avisa si el envío de la orden limitada falla y conserva el formulario', asy
   // Sin cuenta conectada el adaptador rechaza la creación.
   expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo enviar la orden limitada/);
   expect(screen.getByLabelText('Activo')).toHaveValue('MSFT');
+});
+
+it('muestra mensaje explicativo indicando que las divisas no admiten órdenes manuales en el bróker (EURUSD y EUR/USD)', async () => {
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'EURUSD');
+  await user.type(screen.getByLabelText('Cantidad'), '1000');
+  await user.type(screen.getByLabelText('Precio límite'), '1.05');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(
+    'Las divisas no admiten órdenes manuales en el bróker y solo operan mediante señales automáticas en la cartera simulada.',
+  );
+  expect(alert).toHaveTextContent(FX_MANUAL_ORDER_ERROR);
+  expect(screen.getByLabelText('Activo')).toHaveValue('EURUSD');
+
+  // Comprueba también con formato con barra (EUR/USD)
+  await user.clear(screen.getByLabelText('Activo'));
+  await user.type(screen.getByLabelText('Activo'), 'EUR/USD');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+
+  expect(screen.getByRole('alert')).toHaveTextContent(FX_MANUAL_ORDER_ERROR);
+  expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');
 });
 
 it('recibe cambios en vivo, conserva foco y se desuscribe', async () => {

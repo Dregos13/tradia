@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { NEWS_SUBSCRIPTION_COPY } from '../../../../shared/newsSubscription';
+import { ENGINE_DISPLAY_NAMES, getNewsSubscriptionCopy } from '../../../../shared/newsSubscription';
 import type { NewsEngine, NewsStatus } from '../../../../shared/ai';
 import { useNewsStatus } from '../../hooks/useNewsStatus';
 import './subscription.css';
@@ -14,14 +14,6 @@ type Props = {
   engine?: NewsEngine;
 };
 
-const ENGINE_DISPLAY_NAMES: Record<NewsEngine, string> = {
-  'suscripcion-claude': 'Claude Code',
-  'suscripcion-codex': 'OpenAI Codex',
-  'suscripcion-antigravity': 'Google Antigravity',
-  'suscripcion-copilot': 'GitHub Copilot',
-  local: 'Analizador local',
-};
-
 export function SubscriptionNotice({
   status,
   error,
@@ -34,20 +26,20 @@ export function SubscriptionNotice({
   const retried = useRef(false);
   const failed = status?.provider === 'suscripcion' && status.state !== 'ok';
   if (!failed && !error && !busy && !retried.current) return null;
-  const copy = failed
-    ? NEWS_SUBSCRIPTION_COPY[status.state as Exclude<NewsStatus['state'], 'ok'>]
-    : null;
-  const activeEngine = engine ?? status?.engine ?? 'suscripcion-claude';
+  const activeEngine =
+    engine && engine !== 'local'
+      ? engine
+      : status?.engine && status.engine !== 'local'
+        ? status.engine
+        : 'suscripcion-claude';
   const engineName = ENGINE_DISPLAY_NAMES[activeEngine] ?? 'Claude Code';
-  const step =
-    context === 'noticias'
-      ? (status?.message ?? copy?.step)
-          ?.replace('en este ajuste', 'en Ajustes')
-          .replace(
-            /Mientras tanto, se usa el analizador local\.|Hasta entonces se usa el analizador local\./,
-            'Mientras tanto, las noticias se analizan con el analizador local.',
-          )
-      : (status?.message ?? copy?.step);
+  const copy = failed
+    ? getNewsSubscriptionCopy(status.state as Exclude<NewsStatus['state'], 'ok'>, activeEngine, {
+        context,
+      })
+    : null;
+  const step = copy?.step ?? status?.message;
+
   return (
     <div
       role="status"

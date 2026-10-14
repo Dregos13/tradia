@@ -45,15 +45,13 @@ afterEach(() => {
   window.location.hash = '';
 });
 
-it('banner, Inicio, Mercado, Macro e IA comparten fecha, motivo y acciones del adaptador', async () => {
+it('banner, Inicio e IA comparten fecha, motivo y acciones del adaptador', async () => {
   simulation.emitDataStatus(stale);
   for (const surface of [
     <ProviderBanner />,
     <Dashboard
       system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
     />,
-    <MarketDataPage kind="mercado" />,
-    <MarketDataPage kind="macro" />,
     <AiPage />,
   ]) {
     const view = render(surface);
@@ -239,12 +237,12 @@ it('con estrategias paper el vacío de señales no pide activarlas otra vez', as
   expect(screen.queryByText(/Activa una estrategia/)).not.toBeInTheDocument();
 });
 
-it('un fallo del estado detallado de Mercado mantiene un único indicador de frescura', async () => {
+it('un fallo del estado detallado de Mercado muestra el error sin duplicar indicador de frescura', async () => {
   simulation.emitDataStatus(stale);
   vi.spyOn(simulation.api.dataStatus, 'get').mockRejectedValue(new Error('IPC'));
   render(<MarketDataPage kind="mercado" />);
   await screen.findByText(/No pudimos comprobar el estado del dato/);
-  expect(screen.getAllByLabelText('Frescura de datos')).toHaveLength(1);
+  expect(screen.queryByLabelText('Frescura de datos')).not.toBeInTheDocument();
   expect(document.querySelector('p section')).toBeNull();
 });
 
