@@ -133,7 +133,7 @@ export function AssetSearch({
   useEffect(() => {
     if (focusedIndex >= 0 && options[focusedIndex]) {
       const activeElement = document.getElementById(`search-item-${options[focusedIndex].ticker}`);
-      activeElement?.scrollIntoView({ block: 'nearest' });
+      activeElement?.scrollIntoView?.({ block: 'nearest' });
     }
   }, [focusedIndex, options]);
 

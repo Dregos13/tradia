@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
-import { formatAssetSymbol } from '../../../../shared/fx';
+import { formatAssetSymbol, inferAssetClass, isFxPair } from '../../../../shared/fx';
 import {
   isTicker,
   normalizeAssetSymbol,
@@ -8,6 +8,7 @@ import {
   type DataStatusEntry,
   type WatchlistItem,
 } from '../../../../shared/ipc';
+import { AssetSearch } from './AssetSearch';
 
 interface Props {
   items: WatchlistItem[];
@@ -17,6 +18,7 @@ interface Props {
   onSelect(ticker: string | null): void;
   onChanged(): Promise<void>;
 }
+
 export function Watchlist({
   items,
   selected,
@@ -25,7 +27,6 @@ export function Watchlist({
   statuses = [],
   simulated = false,
 }: Props) {
-  const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,11 +34,12 @@ export function Watchlist({
   const [confirm, setConfirm] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const removeRef = useRef<HTMLButtonElement>(null);
+
   const mutate = async (
     action: () => Promise<WatchlistItem[]>,
     success: string,
     choose?: string,
-  ) => {
+  ): Promise<boolean> => {
     setBusy(true);
     setPendingTicker(choose ?? null);
     setError(null);
@@ -53,64 +55,51 @@ export function Watchlist({
       );
       setConfirm(null);
       setMessage(success);
-      if (choose) setInput('');
+      return true;
     } catch {
       setError('No pudimos actualizar la lista. Revisa el ticker e inténtalo de nuevo.');
+      return false;
     } finally {
       setBusy(false);
       setPendingTicker(null);
     }
   };
-  const add = () => {
+
+  const add = async (rawTicker: string): Promise<boolean> => {
     // 'EUR/USD' o 'eur-usd' se guardan en su forma canónica ('EURUSD').
-    const ticker = normalizeAssetSymbol(input) ?? input.trim().toUpperCase();
+    const ticker = normalizeAssetSymbol(rawTicker) ?? rawTicker.trim().toUpperCase();
     if (!isTicker(ticker)) {
-      setError('Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.');
-    } else if (items.some((item) => item.ticker === ticker)) {
-      setError(`${ticker} ya está en tu lista.`);
-    } else if (items.length >= WATCHLIST_MAX_ITEMS) {
-      setError('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
-    } else {
-      void mutate(
-        () => window.tradia.watchlist.add(ticker),
-        `${ticker} se ha añadido a tu lista.`,
-        ticker,
+      setError(
+        'Símbolo no reconocido. Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.',
       );
+      return false;
     }
+    if (items.some((item) => item.ticker === ticker)) {
+      setError(`${ticker} ya está en tu lista.`);
+      return false;
+    }
+    if (items.length >= WATCHLIST_MAX_ITEMS) {
+      setError('Has alcanzado el límite de 25 activos. Quita uno antes de añadir otro.');
+      return false;
+    }
+    return mutate(
+      () => window.tradia.watchlist.add(ticker),
+      `${formatAssetSymbol(ticker, inferAssetClass(ticker))} se ha añadido a tu lista.`,
+      ticker,
+    );
   };
+
   return (
     <>
       <div className="market-toolbar">
-        <form
-          className="market-add"
-          onSubmit={(event) => {
-            event.preventDefault();
-            add();
-          }}
-        >
-          <label htmlFor="market-ticker">Ticker</label>
-          <div className="market-add-controls">
-            <input
-              id="market-ticker"
-              ref={inputRef}
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                setError(null);
-              }}
-              placeholder="p. ej. AAPL o SPY"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={!!error}
-              aria-describedby={error ? 'market-list-error' : undefined}
-              disabled={busy}
-            />
-            <button className="button primary" disabled={busy}>
-              Añadir
-            </button>
-          </div>
-        </form>
+        <AssetSearch
+          items={items}
+          disabled={busy}
+          onAdd={add}
+          inputRef={inputRef}
+          error={error}
+          onClearError={() => setError(null)}
+        />
         <button
           className="button"
           disabled={busy || items.length >= WATCHLIST_MAX_ITEMS}
@@ -144,33 +133,44 @@ export function Watchlist({
         {items.length ? (
           <>
             <ul>
-              {items.map((item) => (
-                <li key={item.ticker}>
-                  <button
-                    className="market-asset"
-                    aria-pressed={selected === item.ticker}
-                    onClick={() => {
-                      onSelect(item.ticker);
-                      setConfirm(null);
-                    }}
-                  >
-                    <span
-                      className={
-                        statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
-                        'no-fiable'
-                          ? 'data-dimmed'
-                          : undefined
-                      }
+              {items.map((item) => {
+                const isForex = item.assetClass === 'fx' || isFxPair(item.ticker);
+                const display = formatAssetSymbol(
+                  item.ticker,
+                  item.assetClass ?? inferAssetClass(item.ticker),
+                );
+                return (
+                  <li key={item.ticker}>
+                    <button
+                      className="market-asset"
+                      aria-label={display}
+                      aria-pressed={selected === item.ticker}
+                      onClick={() => {
+                        onSelect(item.ticker);
+                        setConfirm(null);
+                      }}
                     >
-                      {formatAssetSymbol(item.ticker, item.assetClass)}
-                    </span>
-                  </button>
-                  <MarketStatus
-                    status={statuses.find((entry) => entry.key === `ticker:${item.ticker}`)}
-                    simulated={simulated}
-                  />
-                </li>
-              ))}
+                      <span
+                        className={
+                          statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
+                          'no-fiable'
+                            ? 'data-dimmed'
+                            : undefined
+                        }
+                      >
+                        {display}
+                      </span>
+                      {isForex && (
+                        <span className="asset-badge forex market-asset-badge">Divisa</span>
+                      )}
+                    </button>
+                    <MarketStatus
+                      status={statuses.find((entry) => entry.key === `ticker:${item.ticker}`)}
+                      simulated={simulated}
+                    />
+                  </li>
+                );
+              })}
             </ul>
             {selected && (
               <button
@@ -179,16 +179,19 @@ export function Watchlist({
                 disabled={busy}
                 onClick={() => setConfirm(selected)}
               >
-                Quitar {selected}
+                Quitar {formatAssetSymbol(selected, inferAssetClass(selected))}
               </button>
             )}
             {confirm && (
               <div
                 className="market-confirm"
                 role="group"
-                aria-label={`Confirmar quitar ${confirm}`}
+                aria-label={`Confirmar quitar ${formatAssetSymbol(confirm, inferAssetClass(confirm))}`}
               >
-                <p>¿Quitar {confirm} de tu lista? Puedes volver a añadirlo.</p>
+                <p>
+                  ¿Quitar {formatAssetSymbol(confirm, inferAssetClass(confirm))} de tu lista? Puedes
+                  volver a añadirlo.
+                </p>
                 <button
                   autoFocus
                   className="button"
@@ -206,12 +209,12 @@ export function Watchlist({
                   onClick={async () => {
                     await mutate(
                       () => window.tradia.watchlist.remove(confirm),
-                      `${confirm} se ha quitado de tu lista.`,
+                      `${formatAssetSymbol(confirm, inferAssetClass(confirm))} se ha quitado de tu lista.`,
                     );
                     inputRef.current?.focus();
                   }}
                 >
-                  Confirmar quitar {confirm}
+                  Confirmar quitar {formatAssetSymbol(confirm, inferAssetClass(confirm))}
                 </button>
               </div>
             )}
