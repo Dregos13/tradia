@@ -208,3 +208,76 @@ Capturas de después en `docs/qa/capturas/e2e-espaciado/`, regeneradas por `e2e/
 - **UXP-11 · resuelto.** En la cabecera de Diario, el botón va alineado abajo y, cuando pasa a otra fila, queda a 24 px de la descripción. Deshabilitado usa superficie y borde neutros con texto atenuado (contraste ≥ 4,5:1, medido por el spec), en lugar de texto gris sobre el azul de acento. Antes: `ux-perfil-resp-diario-1024-dark.png`. Después: `e2e-espaciado/diario-1024.png` y `diario-1280.png`.
 - **UXP-12 · resuelto.** «Conciliación con el broker» pasa debajo de la cabecera, al ancho de la pila (igual que filtros y tabla). Tiene la caja de las demás tarjetas: borde de 1 px, radio medio y relleno de 24 px, sin el filete verde que parecía un estado «correcto». La línea «Actualizado…» queda a 12 px de la descripción. Antes: `ux-perfil-resp-ordenes-1024-dark.png`. Después: `e2e-espaciado/ordenes-1024.png` y `ordenes-1280.png`.
 - **UXP-13 · resuelto.** El estado y el aviso de capital forman una sola caja roja (`.live-alert` en `ChecklistPage.tsx`). Primero va el estado («Dinero real bloqueado · faltan 7 de 7 requisitos»), en tamaño grande y seminegrita. Debajo, alineado con su texto, va el aviso general, que conserva el mismo texto. Si el estado es «Listo para confirmar», mantiene su fondo verde dentro de la caja. `ChecklistPage.test.tsx` y el spec comprueban que hay un solo aviso con el estado delante. Antes: `ux-perfil-resp-dinero-real-1280.png`. Después: `e2e-espaciado/dinero-real-1280.png` y `-1024.png`. «Estado del escalado» muestra sus 5 datos en una fila a 1280 y a 1024 (`.live-scaling .live-result-facts` a 5 columnas en `live.css`), así que «Drawdown real» ya no queda solo en una segunda fila. Por debajo de 1000 px vuelve a 2 columnas, y por debajo de 700 px, a 1.
+
+## Verificación final
+
+Fecha: 14 de octubre de 2026 · Rama `orquesta/modificar-el-logo-y-corregir-ux-ui-mucho-27a49c` · Tester: Devin · Sonnet · Equipo en el commit `47573245`, árbol de trabajo limpio antes y después de esta verificación.
+
+### Comandos
+
+```
+npm test
+  Test Files  198 passed (198)
+       Tests  2832 passed (2832)
+
+npm run typecheck    → en verde, sin salida (tsc --noEmit)
+
+npm run lint         → en verde, sin salida (eslint .)
+
+npm run format:check → "Checking formatting... All matched files use Prettier code style!"
+
+npm run test:e2e -- e2e/layout-espaciado.spec.ts
+  ✓ las 15 secciones respiran a 1280×800: sin desbordamiento, sin solapes y ≥ 24 px entre bloques (9.3s)
+  ✓ las 15 secciones respiran a 1024×700: sin desbordamiento, sin solapes y ≥ 24 px entre bloques (9.1s)
+  ✓ la marca Tradia se ve en «Antes de empezar» y en la barra lateral (tema claro) (2.4s)
+  ✓ la marca Tradia se ve en «Antes de empezar» y en la barra lateral (tema oscuro) (2.3s)
+  ✓ el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y Dinero real (40.1s)
+  ✓ el menú lateral: 15 entradas a la vista a 1280×800 y, a 1024×700, desplazamiento con indicio, rueda y Tab (3.1s)
+  ✓ casillas, selectores y enlaces en línea alcanzan el área mínima de control (5.9s)
+  7 passed (1.2m)
+
+npm run icons        → "Generados 20 iconos…"; `git status` no mostró cambios después: mismos bytes que los versionados (idempotente), scripts/iconos.test.ts (dentro de npm test) sigue en verde.
+```
+
+Los cinco comandos exigidos pasan en verde. El spec de layout reescribe las capturas versionadas de `docs/qa/capturas/e2e-espaciado/`; las restauré con `git checkout -- docs/qa/capturas` antes de generar las capturas finales, así que el árbol queda limpio salvo por las 16 capturas nuevas `ux-final-*.png` (15 secciones + «Antes de empezar»).
+
+### Comprobación manual con la app abierta
+
+Generé las 16 capturas `docs/qa/capturas/ux-final-{antes-de-empezar,inicio,mercado,ia,salud-modelos,macro,noticias,calendario,fuentes,estrategias,riesgo,diario,ordenes,real-vs-backtest,dinero-real,ajustes}.png` con la app Electron real (`electron-vite build` + Playwright, perfil limpio, reloj anclado), a 1280 × 800, tema claro, recorriendo las 15 secciones de la navegación más «Antes de empezar». El guion vivió fuera del repositorio mientras corría (temporalmente en la raíz del worktree, nunca en `e2e/`) y lo borré antes de entregar; no quedó rastro en `git status`. Abrí cada captura con mi herramienta de archivos y confirmé a ojo:
+
+- La marca de la barra lateral y de «Antes de empezar» es el monograma «T» de onda ascendente (travesaño curvo, sin nodos ni diagonal de «Vector de consenso»), a 32 px junto a «Tradia», visible en ambas pantallas.
+- Las 15 entradas del menú lateral caben sin desplazar a 1280 × 800 («Ajustes» visible al final, resaltado al navegar a esa sección).
+- Cada pantalla respira: cabecera, avisos y bloques principales quedan a 32 px (24 px donde la guía lo fija, p. ej. Dinero real), sin bloques pegados ni solapados.
+- Ajustes: las secciones de «General» y «Notificaciones» quedan a 32 px entre sí, sin el hueco de 64 px de UXP-08.
+- Dinero real: un único aviso rojo con el estado («Dinero real bloqueado · faltan 7 de 7 requisitos») delante del texto genérico, sin la duplicación de UXP-13.
+- `docs/qa/capturas/marca-monograma-escalas.png` (entregada por la tarea de logo) confirma que la «T» se lee a 16, 24, 32 y 256 px en claro y oscuro, y que los 4 estados de bandeja se distinguen por forma (punto lleno, anillo hueco, dos barras, cuadrado), también en las variantes Template en negro.
+
+No abrí la app en tema oscuro de forma interactiva adicional a lo ya cubierto por `e2e/layout-espaciado.spec.ts` (que sí comprueba la marca en claro y oscuro con aserciones automáticas); confío en esa prueba en verde para el criterio de tema oscuro en vez de repetir capturas manuales ya existentes (`e2e-espaciado/marca-barra-lateral-dark.png`, `marca-antes-de-empezar-dark.png`).
+
+### Criterio por criterio
+
+1. **Icono de la app y bandeja con la nueva marca, esquinas transparentes.** Cumplido. `build/icon.svg`, `build/icon.png`, `build/icon.icns`, `build/icon.ico` y `resources/icon.png` llevan el monograma «T» de onda ascendente; `npm run icons` no cambia ningún byte (idempotente) y `scripts/iconos.test.ts`, dentro de `npm test`, pasa en verde. Las 8 SVG de bandeja (4 estados × color/Template) se distinguen por forma, no solo por color. Esquinas transparentes verificadas por la propia prueba vitest (píxel (0,0) transparente).
+2. **Barra lateral y «Antes de empezar» con la marca junto a «Tradia», nombre accesible «Tradia», claro y oscuro.** Cumplido. Confirmado en capturas `ux-final-inicio.png` y `ux-final-antes-de-empezar.png` (claro) y en `e2e-espaciado/marca-barra-lateral-dark.png` / `marca-antes-de-empezar-dark.png` (oscuro, generadas por el spec con aserción de `role="img"` y nombre accesible «Tradia»).
+3. **`e2e/layout-espaciado.spec.ts` en las 15 secciones, 1280×800 y 1024×700, sin desbordamiento, sin solapes, con la separación mínima.** Cumplido. 7/7 pruebas en verde (ver salida arriba), incluidas las dos que cubren las 15 secciones a ambos tamaños.
+4. **Cada UX-xx y cada UXP-xx resuelto o descartado con motivo, con capturas de antes y después.** Cumplido. Las 23 entradas UX-01…UX-23 de `docs/diseno-espaciado.md` están marcadas «resuelto» en sus secciones «Cierre de implementación» (grupos shell, A, B y C), ninguna descartada. Las 13 entradas UXP-01…UXP-13 de este documento están resueltas en «## Correcciones» (marca y barra, tour y pantallas, noticias), cada una con capturas de antes (`ux-perfil-*`, `ux-antes-*`) y después (`e2e-espaciado/*`, `marca-monograma-escalas.png`). Ninguna sigue abierta ni pendiente de la rama.
+5. **`npm test`, `typecheck`, `lint` y `format:check` en verde.** Cumplido, ver salida de comandos arriba.
+6. **Ya no pasa «Cambios de diseño: comentarios» (el icono es aburrido y no transmite nada).** Cumplido. El icono dejó de ser la «T» lisa original. La propuesta intermedia «Vector de consenso» —que el usuario rechazó explícitamente («No, el logo no me gusta nada»)— tampoco está: la tarea «Logo: monograma «T» con curva ascendente» la sustituyó por el monograma que el propio usuario eligió en su respuesta a la pregunta de Claude · Opus («Monograma «T» reelaborado con una curva ascendente o predictiva»). La nueva marca es visible en interfaz, icono de app y bandeja, con los 4 estados distinguibles por forma. La aceptación subjetiva final («¿me gusta?») sigue, como siempre, pendiente del usuario tras instalar la app — no es algo que una prueba automática o esta tester puedan certificar por él.
+
+### Estado de los hallazgos UX-xx y UXP-xx
+
+- **UX-01 a UX-23** (`docs/diseno-espaciado.md`): las 23 están «resuelto», ninguna descartada. Verificado por `e2e/layout-espaciado.spec.ts` (7/7) y por inspección visual de las 16 capturas `ux-final-*.png`.
+- **UXP-01** (barra lateral sin pista de scroll): resuelto (degradado + `useScrollHint`), cubierto por la prueba del menú lateral del spec.
+- **UXP-02** (barra de estado partida a 1024): resuelto en UXE-03, remitido así en «Correcciones · tour y pantallas»; no se reabre aquí.
+- **UXP-03** (tour pasos 2, 4, 9, 10 cubren toda la columna): resuelto, cubierto por la prueba del tour del spec.
+- **UXP-04** (icono no es el monograma «T» elegido / ilegible a 16 px): resuelto — ver criterio 1, 2 y 6 arriba; pendiente solo la aceptación subjetiva del usuario, fuera del alcance de cualquier tester.
+- **UXP-05** (entidad HTML sin decodificar): resuelto (`decodeHtmlEntities`), cubierto por `entities.test.ts` y `rss.test.ts` dentro de `npm test`.
+- **UXP-06** (error de ticker estrecha el campo): resuelto (`.market-error { flex-basis: 100% }`).
+- **UXP-07** (editor de estrategias pegado a la cabecera): resuelto (`scroll-margin-top`).
+- **UXP-08** (hueco de 64 px Ayuda→Legal): resuelto, confirmado visualmente en `ux-final-ajustes.png` (secciones a 32 px).
+- **UXP-09** (muro de 3 100 px en «Cuenta de broker · Dinero real»): resuelto (tarjetas a 24 px, `SettingsPage.test.tsx`).
+- **UXP-10** (controles por debajo de 24 px): resuelto (reglas globales `:where` en `styles.css`), cubierto por la prueba de controles del spec.
+- **UXP-11** (botón «Exportar CSV» pegado y poco legible): resuelto.
+- **UXP-12** (panel de conciliación con caja distinta): resuelto.
+- **UXP-13** (dos avisos rojos iguales en Dinero real): resuelto, confirmado visualmente en `ux-final-dinero-real.png` (un solo aviso con el estado delante).
+
+Ningún hallazgo de cualquier gravedad queda sin resolver ni sin motivo de descarte.
