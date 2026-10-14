@@ -1,4 +1,5 @@
 import broker from './design/broker.tokens.json';
+import clarity from './design/data-clarity.tokens.json';
 import { describe, expect, it } from 'vitest';
 import news from './design/news.tokens.json';
 import base from './design/base.tokens.json';
@@ -131,3 +132,18 @@ it('conserva los tamaños de composición de Mercado al aplicar la base legible'
     expect(tokenStylesheet()).toContain(`--size-${name}:${market.size[name]};`);
   }
 });
+
+for (const mode of ['light', 'dark'] as const) {
+  it(`avisos y conectores: sus estados cumplen contraste AA en tema ${mode}`, () => {
+    const palette = clarity.color[mode];
+    for (const token of Object.values(clarity.color.semantic)) {
+      const surface = token[`${mode}Surface`];
+      expect(contrast(token[mode], surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(palette.text, surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const surface of [palette.canvas, palette.surface, palette.surfaceSubtle]) {
+      expect(contrast(palette.textMuted, surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast(palette.inverse, palette.accent)).toBeGreaterThanOrEqual(4.5);
+  });
+}

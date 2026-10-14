@@ -79,6 +79,11 @@ export function PriceChart({
         wickUpColor: color('candle-wick'),
         wickDownColor: color('candle-wick'),
         lastValueVisible: true,
+        priceFormat: {
+          type: 'price',
+          precision: isFxSymbol(result.ticker) ? 5 : 2,
+          minMove: isFxSymbol(result.ticker) ? 0.00001 : 0.01,
+        },
       });
       candles.setData(data.candles);
       averages.current = [20, 50, 200].map((period) =>
@@ -146,7 +151,7 @@ export function PriceChart({
       chart?.remove();
     };
     // Range selection intentionally resets the viewport; indicator visibility does not.
-  }, [data, years, theme]);
+  }, [data, years, theme, result.ticker]);
   const fx = isFxSymbol(result.ticker);
   const symbol = assetSymbol(result.ticker);
   useEffect(() => {

@@ -5,7 +5,6 @@ import {
   isFxSymbol,
 } from '../../../../shared/fxTrading';
 import { useDataFreshness } from '../../hooks/useDataFreshness';
-import { sessionDateLabel } from '../DataFreshness';
 import type { Signal, SignalStrategyState } from '../../../../shared/signals';
 import type { JournalEntry } from '../../../../shared/journal';
 import { direction, number, time } from './model';
@@ -35,7 +34,12 @@ export function SignalsBlock({
 }) {
   const { summary } = useDataFreshness();
   const paperCount = strategies.filter((strategy) => strategy.status === 'paper').length;
-  const paused = summary && summary.state !== 'current' && summary.state !== 'no-data';
+  // El motor guarda la frescura por ticker; un fallo de FRED o de otro activo
+  // no detiene las señales de los activos con velas vigentes.
+  const staleAssets =
+    summary?.items
+      .filter((item) => item.key.startsWith('ticker:') && item.state === 'desactualizado')
+      .map((item) => assetSymbol(item.key.slice(7))) ?? [];
   const rows = [
     ...signals.map((signal) => ({ kind: 'signal' as const, value: signal })),
     ...contradictions.map((entry) => ({ kind: 'conflict' as const, value: entry })),
@@ -45,8 +49,8 @@ export function SignalsBlock({
       {stopped && <p className="dashboard-stop">No se admiten nuevas señales.</p>}
       {!rows.length && (
         <p>
-          {paused ? (
-            `Sin señales nuevas: en pausa hasta poner al día los datos del ${sessionDateLabel(summary.sinceDate)}.`
+          {staleAssets.length ? (
+            `Sin señales nuevas. Faltan datos recientes de ${staleAssets.join(', ')}; esos activos no emiten señales nuevas hasta ponerse al día. Los demás siguen evaluándose con sus cierres verificados.`
           ) : paperCount ? (
             `Sin señales nuevas: ${paperCount} estrategias en paper esperan el siguiente cierre verificado.`
           ) : (

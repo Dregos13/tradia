@@ -78,6 +78,13 @@ export function ProviderConnectionResult({
   // si todo funciona o, en cualquier otro caso, volver a probar la conexión.
   const testPrimary = !keyProblem && status !== 'ok';
   const refocusTest = useRef(false);
+  const refreshButton = useRef<HTMLButtonElement>(null);
+  const refocusRefresh = useRef(false);
+  useEffect(() => {
+    if (busy || !refocusRefresh.current) return;
+    refocusRefresh.current = false;
+    refreshButton.current?.focus();
+  }, [busy]);
   useEffect(() => {
     // El botón cambia de bloque al pasar a «Funciona»: no perder el foco de quien lo pulsó.
     if (testing || !refocusTest.current) return;
@@ -127,7 +134,16 @@ export function ProviderConnectionResult({
           {!testPrimary && (
             <div className="settings-controls">
               {status === 'ok' ? (
-                <button type="button" className="button primary" onClick={onRefresh}>
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={busy}
+                  ref={refreshButton}
+                  onClick={() => {
+                    refocusRefresh.current = true;
+                    onRefresh();
+                  }}
+                >
                   Actualizar datos ahora
                 </button>
               ) : (

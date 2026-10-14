@@ -16,6 +16,7 @@ const charts = vi.hoisted(() => ({
       setData: ReturnType<typeof vi.fn>;
       applyOptions: ReturnType<typeof vi.fn>;
     }[];
+    addSeries: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     setVisibleRange: ReturnType<typeof vi.fn>;
   }[],
@@ -28,12 +29,13 @@ vi.mock('lightweight-charts', () => ({
   createChart: vi.fn(() => {
     const instance = {
       series: [] as (typeof charts.instances)[number]['series'],
+      addSeries: vi.fn(),
       remove: vi.fn(),
       setVisibleRange: vi.fn(),
     };
     charts.instances.push(instance);
     return {
-      addSeries: vi.fn(() => {
+      addSeries: instance.addSeries.mockImplementation(() => {
         const series = {
           data: undefined as unknown,
           setData: vi.fn((data: unknown) => {
@@ -325,5 +327,17 @@ it('la retirada desde el aviso también refresca la lista visible en Mercado', a
   await waitFor(() => {
     expect(screen.queryByRole('button', { name: 'EUR' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'SPY' })).toBeEnabled();
+  });
+});
+
+it('el gráfico de EUR/USD conserva cinco decimales en las velas y el eje de precio', async () => {
+  await simulation.api.watchlist.add('EURUSD');
+  render(<MarketWorkspace />);
+  await screen.findByRole('region', { name: 'Precio de EUR/USD' });
+  await waitFor(() => {
+    expect(charts.instances.at(-1)?.addSeries).toHaveBeenCalledWith(
+      'candles',
+      expect.objectContaining({ priceFormat: { type: 'price', precision: 5, minMove: 0.00001 } }),
+    );
   });
 });

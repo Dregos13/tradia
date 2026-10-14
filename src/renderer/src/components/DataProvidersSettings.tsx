@@ -142,6 +142,18 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<ProviderTestResult | null>(null);
   const [refreshMessage, setRefreshMessage] = useState('');
+  const refreshLock = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(
+    () =>
+      window.tradia.dataStatus.onChanged(() => {
+        // Un éxito describe la comprobación terminada, no los cambios posteriores.
+        // Los eventos de la propia descarga se resuelven con su resultado final.
+        if (!refreshLock.current)
+          setRefreshMessage((message) => (message === 'Datos actualizados.' ? '' : message));
+      }),
+    [],
+  );
   useEffect(() => {
     if (!testing && result?.status === 'clave-rechazada') focusProviderKey(provider);
   }, [testing, result, provider]);
@@ -164,17 +176,23 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
     }
   }
   async function refresh() {
+    if (refreshLock.current) return;
+    refreshLock.current = true;
+    setRefreshing(true);
     setRefreshMessage('Actualizando…');
     try {
-      setRefreshMessage(
-        refreshResultMessage(
-          await (provider === 'fred'
-            ? window.tradia.macro.refreshNow()
-            : window.tradia.market.refreshNow()),
-        ),
-      );
+      const result = await (provider === 'fred'
+        ? window.tradia.macro.refreshNow()
+        : window.tradia.market.refreshNow());
+      // La conexión puede funcionar aunque un activo siga sin datos. Verificar después
+      // de la descarga evita anunciar éxito con la instantánea anterior.
+      const summary = await window.tradia.dataStatus.freshness().catch(() => undefined);
+      setRefreshMessage(refreshResultMessage(result, summary));
     } catch {
       setRefreshMessage('No pudimos iniciar la actualización. Inténtalo de nuevo.');
+    } finally {
+      refreshLock.current = false;
+      setRefreshing(false);
     }
   }
   useEffect(() => {
@@ -226,7 +244,7 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
         <h3>{name}</h3>
         <p>
           {provider === 'tiingo'
-            ? 'Precios diarios de acciones y fondos de EE. UU.'
+            ? 'Precios diarios de acciones y fondos de EE. UU. y pares de divisas 24/5.'
             : 'Tipos, IPC, curva de tipos y VIX.'}
         </p>
       </header>
@@ -235,7 +253,7 @@ function ProviderKey({ provider, name }: { provider: 'tiingo' | 'fred'; name: st
         name={name}
         testing={testing}
         result={result}
-        busy={busy}
+        busy={busy || refreshing}
         onRetry={() => void testConnection()}
         onRefresh={() => void refresh()}
       />

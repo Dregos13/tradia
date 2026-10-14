@@ -887,3 +887,88 @@ it.each(['Inicio', 'Mercado'])(
     }
   },
 );
+
+it('sin resumen verificado no anuncia datos actualizados aunque la descarga termine', () => {
+  expect(refreshResultMessage({ accepted: true, reason: null, ok: true })).toBe(
+    'Actualización solicitada. Esperando datos verificados.',
+  );
+});
+
+it.each(['stale', 'unreliable', 'catching-up'] as const)(
+  'un estado global %s de FRED no dice que las señales estén en pausa',
+  async (state) => {
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+      ...uncoveredSummary,
+      state,
+      uncovered: [],
+      items: [
+        {
+          key: 'provider:fred',
+          label: 'FRED',
+          state: 'no-fiable',
+          lastDataDate: null,
+          reason: 'Sin respuesta',
+        },
+      ],
+    });
+    render(
+      <Dashboard
+        system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+      />,
+    );
+    const signals = screen.getByRole('region', { name: 'Señales vivas' });
+    await waitFor(() => expect(signals).toHaveTextContent('Todavía no hay señales.'));
+    expect(signals).not.toHaveTextContent('en pausa');
+  },
+);
+
+it('el vacío de señales nombra solo el activo atrasado y no pausa los demás', async () => {
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockResolvedValue({
+    ...uncoveredSummary,
+    state: 'stale',
+    uncovered: [],
+    items: [
+      {
+        key: 'ticker:EURUSD',
+        label: 'EURUSD',
+        state: 'desactualizado',
+        lastDataDate: '2026-10-08',
+        reason: 'Falta el cierre',
+      },
+    ],
+  });
+  render(
+    <Dashboard
+      system={{ connectivity: null, agents: null, connectionError: false, agentsError: false }}
+    />,
+  );
+  const signals = screen.getByRole('region', { name: 'Señales vivas' });
+  await waitFor(() =>
+    expect(signals).toHaveTextContent(
+      'Faltan datos recientes de EUR/USD; esos activos no emiten señales nuevas hasta ponerse al día.',
+    ),
+  );
+  expect(signals).toHaveTextContent('Los demás siguen evaluándose con sus cierres verificados.');
+});
+
+it('un refresco completo nombra el activo cuya frescura sigue pendiente', () => {
+  expect(
+    refreshResultMessage(
+      { accepted: true, reason: null, ok: true, updated: 2, total: 2 },
+      {
+        ...uncoveredSummary,
+        state: 'stale',
+        uncovered: [],
+        items: [
+          {
+            key: 'ticker:EURUSD',
+            label: 'EURUSD',
+            state: 'desactualizado',
+            lastDataDate: '2026-10-08',
+            reason: 'Falta el cierre',
+          },
+        ],
+      },
+    ),
+  ).toBe('Actualizados 2 de 2 · pendientes: EUR/USD');
+});

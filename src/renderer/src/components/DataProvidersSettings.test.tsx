@@ -279,3 +279,103 @@ it('H2: la tarjeta de Tiingo explica su alcance y el siguiente paso sin jerga', 
   expect(card).not.toHaveTextContent(/\b(?:ETF|símbolo|conector|par)\b/i);
   expect(screen.getByRole('heading', { name: 'Conectores de datos' })).toBeVisible();
 });
+
+it.each(['tiingo', 'fred'] as const)(
+  '%s: un refresco exitoso no oculta EUR sin cobertura y vuelve a verificar tras descargar',
+  async (provider) => {
+    const events: string[] = [];
+    vi.spyOn(simulation.api.providers, 'testConnection').mockResolvedValue({
+      provider,
+      status: 'ok',
+      message: 'Funciona',
+      latestDataDate: '2026-10-09',
+      checkedAt: '2026-10-11T12:15:00Z',
+      latencyMs: 20,
+    });
+    vi.spyOn(
+      provider === 'tiingo' ? simulation.api.market : simulation.api.macro,
+      'refreshNow',
+    ).mockImplementation(async () => {
+      events.push('descarga');
+      return { accepted: true, reason: null, ok: true };
+    });
+    vi.spyOn(simulation.api.dataStatus, 'freshness').mockImplementation(async () => {
+      events.push('verificación');
+      return {
+        state: 'current',
+        sinceDate: null,
+        expectedSessionDate: '2026-10-09',
+        missingSessions: 0,
+        items: [],
+        uncovered: [{ ticker: 'EUR', reason: 'Sin datos', suggestion: 'FXE' }],
+        updatedAt: '2026-10-11T12:15:00Z',
+      };
+    });
+    render(<DataProvidersSettings />);
+    const form = within(
+      screen.getByRole('form', { name: `Proveedor ${provider === 'tiingo' ? 'Tiingo' : 'FRED'}` }),
+    );
+    await userEvent.click(form.getByRole('button', { name: 'Probar conexión' }));
+    await userEvent.click(form.getByRole('button', { name: 'Actualizar datos ahora' }));
+    expect(await form.findByText('Actualización parcial · sin datos: EUR')).toBeVisible();
+    expect(events).toEqual(['descarga', 'verificación']);
+    expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
+  },
+);
+
+it('no anuncia éxito si falla la comprobación de frescura después de la descarga', async () => {
+  vi.spyOn(simulation.api.providers, 'testConnection').mockResolvedValue({
+    provider: 'tiingo',
+    status: 'ok',
+    message: 'Funciona',
+    latestDataDate: null,
+    checkedAt: '2026-10-11T12:15:00Z',
+    latencyMs: 20,
+  });
+  vi.spyOn(simulation.api.market, 'refreshNow').mockResolvedValue({
+    accepted: true,
+    reason: null,
+    ok: true,
+  });
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockRejectedValue(new Error('IPC'));
+  render(<DataProvidersSettings />);
+  const form = within(screen.getByRole('form', { name: 'Proveedor Tiingo' }));
+  await userEvent.click(form.getByRole('button', { name: 'Probar conexión' }));
+  await userEvent.click(form.getByRole('button', { name: 'Actualizar datos ahora' }));
+  expect(
+    await form.findByText('Actualización solicitada. Esperando datos verificados.'),
+  ).toBeVisible();
+  expect(screen.queryByText('Datos actualizados.')).not.toBeInTheDocument();
+});
+
+it('retira el éxito anterior si cambia después el estado de los datos', async () => {
+  vi.spyOn(simulation.api.providers, 'testConnection').mockResolvedValue({
+    provider: 'tiingo',
+    status: 'ok',
+    message: 'Funciona',
+    latestDataDate: null,
+    checkedAt: '2026-10-11T12:15:00Z',
+    latencyMs: 20,
+  });
+  vi.spyOn(simulation.api.market, 'refreshNow').mockResolvedValue({
+    accepted: true,
+    reason: null,
+    ok: true,
+  });
+  render(<DataProvidersSettings />);
+  const form = within(screen.getByRole('form', { name: 'Proveedor Tiingo' }));
+  await userEvent.click(form.getByRole('button', { name: 'Probar conexión' }));
+  await userEvent.click(form.getByRole('button', { name: 'Actualizar datos ahora' }));
+  expect(await form.findByText('Datos actualizados.')).toBeVisible();
+  act(() =>
+    simulation.emitDataStatus({
+      key: 'ticker:EURUSD',
+      state: 'desactualizado',
+      lastOkAt: null,
+      consecutiveFailures: 0,
+      reason: 'Falta el cierre',
+      updatedAt: '2026-10-11T13:15:00Z',
+    }),
+  );
+  await waitFor(() => expect(form.queryByText('Datos actualizados.')).not.toBeInTheDocument());
+});

@@ -68,14 +68,19 @@ export function refreshResultMessage(
     (summary.uncovered.length || summary.items.length || summary.state !== 'current')
   ) {
     const uncovered = summary.uncovered.map((asset) => asset.ticker);
+    const pending = summary.items
+      .filter((item) => item.key.startsWith('ticker:'))
+      .map((item) => assetSymbol(item.key.slice(7)));
     return uncovered.length
-      ? `${counts} · sin datos: ${uncovered.join(', ')}`
-      : 'Actualización recibida. Quedan datos pendientes de verificar.';
+      ? `${counts} · sin datos: ${uncovered.join(', ')}${pending.length ? ` · pendientes: ${pending.join(', ')}` : ''}`
+      : pending.length
+        ? `${counts} · pendientes: ${pending.join(', ')}`
+        : 'Actualización recibida. Quedan datos pendientes de verificar.';
   }
   if (result.ok === false)
     return `No se pudo actualizar: ${result.detail ?? 'el proveedor no pudo completar la descarga.'}`;
   if (result.accepted)
-    return result.ok === true
+    return result.ok === true && summary
       ? 'Datos actualizados.'
       : 'Actualización solicitada. Esperando datos verificados.';
   const reasons: Record<string, string> = {

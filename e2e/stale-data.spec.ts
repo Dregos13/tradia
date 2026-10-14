@@ -130,9 +130,12 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       // Ninguna franja por proveedor contradice a la única.
       await expect(page.getByRole('region', { name: 'Datos del mercado' })).toHaveCount(0);
       const inline = page.getByRole('group', { name: 'Frescura de datos' });
+      await expect(inline).toHaveCount(1);
       for (const chip of await inline.all()) {
         await expect(chip).toContainText(STALE_TITLE);
         await expect(chip.getByRole('button')).toHaveCount(0);
+        await expect(chip.getByRole('link')).toHaveCount(0);
+        await expect(chip.getByRole('status')).toHaveCount(0);
       }
       // El aviso y sus acciones aparecen una sola vez en la pantalla y en el orden de Tab.
       await expect(page.getByRole('button', { name: 'Actualizar ahora' })).toHaveCount(1);
