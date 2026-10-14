@@ -18,6 +18,8 @@
 
 import type Database from 'better-sqlite3';
 
+import { normalizeFxPair } from '../../shared/fx';
+import { exposureCurrencyOf } from '../../shared/fxTrading';
 import {
   LIQUIDITY_AVG_VOLUME_DAYS,
   RISK_DEFAULTS,
@@ -176,7 +178,8 @@ export interface RiskRepository {
 // Implementación
 // ---------------------------------------------------------------------------
 
-const normalizeTicker = (ticker: string): string => ticker.trim().toUpperCase();
+const normalizeTicker = (ticker: string): string =>
+  normalizeFxPair(ticker) ?? ticker.trim().toUpperCase();
 
 function rowToLimits(row: RiskLimitsRow): RiskLimits {
   return {
@@ -479,7 +482,9 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
             position.target ?? null,
             position.size,
             position.sector ?? null,
-            position.currency ?? 'USD',
+            // La divisa que expone: la de cotización en una acción, la
+            // moneda base en un par de divisas ('EUR' en EURUSD).
+            position.currency ?? exposureCurrencyOf(position.ticker),
             position.openedAt ?? nowIso,
             position.closedAt ?? null,
           );

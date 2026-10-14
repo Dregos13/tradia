@@ -167,7 +167,7 @@ const makeCtx = (): ServiceContext => {
       storage: { getDb: () => db },
       strategies,
       market: {
-        listWatchlist: () => [{ ticker: 'AAPL', addedAt: '', position: 0 }],
+        listWatchlist: () => [{ ticker: 'AAPL', assetClass: 'equity', addedAt: '', position: 0 }],
         onBarsStored: (listener: (event: MarketUpdatedEvent) => void) => {
           barsStoredListener = listener;
           return () => {

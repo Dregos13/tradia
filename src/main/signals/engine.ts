@@ -44,6 +44,7 @@
  * - Emite `signals:new` (por el `broadcast` perezoso, que delivery
  *   intercepta para los avisos) y registra la entrada del diario.
  */
+import { formatAssetSymbol, inferAssetClass, normalizeFxPair } from '../../shared/fx';
 import type { Strategy as ExecutableStrategy } from '../backtest/types';
 import { DEFAULT_MAX_POSITIONS } from '../backtest/types';
 import type { SessionDate } from '../market/providers/types';
@@ -179,8 +180,11 @@ export interface SignalNewsRef {
  *   y queda como 'confianza baja' en el Diario.
  */
 export interface SignalAiSources {
-  /** Régimen del mercado vigente (referencia SPY); null si aún no hay. */
-  marketRegime?(): ActiveRegime | null;
+  /**
+   * Régimen vigente del ticker: la referencia SPY para acciones/ETF o la
+   * de su moneda base en divisas (EUR en EURUSD); null si aún no hay.
+   */
+  marketRegime?(ticker: string): ActiveRegime | null;
   /** Modelo apto vigente; null si no hay servible o la ficha no lo es. */
   eligibleModel?(): EligibleModelRef | null;
   /**
@@ -228,8 +232,10 @@ export interface SignalEngineDeps {
    * al instante dado. Una vela anterior no se evalúa: llega de una puesta
    * al día atrasada y una señal sobre ella sería una decisión con datos
    * viejos. Sin la dependencia el motor no aplica la guarda de frescura.
+   * Recibe el ticker evaluado: el calendario es del tipo de activo
+   * (NYSE en acciones, 24/5 en divisas).
    */
-  expectedSessionDate?(nowMs: number): SessionDate | null;
+  expectedSessionDate?(nowMs: number, ticker?: string): SessionDate | null;
   /**
    * Sesión de negociación inmediatamente anterior a `barDate`
    * ('YYYY-MM-DD'), según el calendario de mercado. Es la frescura
@@ -237,9 +243,11 @@ export interface SignalEngineDeps {
    * última predicción disponible es la del cierre previo (el cálculo de
    * la sesión en curso es asíncrono); una más vieja llega de una serie
    * que estuvo atrasada y no debe ajustar la confianza. Sin la
-   * dependencia se exige la sesión exacta de la vela.
+   * dependencia se exige la sesión exacta de la vela. Recibe el ticker
+   * evaluado: el calendario es del tipo de activo (NYSE en acciones,
+   * 24/5 en divisas).
    */
-  previousExpectedSession?(barDate: SessionDate): SessionDate | null;
+  previousExpectedSession?(barDate: SessionDate, ticker?: string): SessionDate | null;
   /**
    * Fuentes de IA de la fase 6 (régimen, modelo apto y noticias
    * confirmadas). Sin el bloque el motor replica la fase 4 a la letra.
@@ -297,7 +305,9 @@ interface VoteWithOrder {
 export function executableMarkets(markets: readonly string[]): string[] {
   const seen = new Set<string>();
   for (const market of markets) {
-    const ticker = market.trim().toUpperCase();
+    // Un par en cualquier forma escrita ('EUR/USD', 'eur-usd') se guarda
+    // y evalúa en su forma canónica ('EURUSD').
+    const ticker = normalizeFxPair(market) ?? market.trim().toUpperCase();
     if (TICKER_PATTERN.test(ticker)) seen.add(ticker);
   }
   return [...seen];
@@ -453,12 +463,16 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
    * descarta. Sin `sessionDate` no se puede acotar: el llamador que la
    * sirve sin fecha (pruebas) la trata como vigente.
    */
-  const predictionIsCurrent = (prediction: SignalPredictionRef, barDate: SessionDate): boolean => {
+  const predictionIsCurrent = (
+    prediction: SignalPredictionRef,
+    ticker: string,
+    barDate: SessionDate,
+  ): boolean => {
     const session = prediction.sessionDate;
     if (session === undefined) return true;
     if (session === barDate) return true;
     if (session > barDate) return false;
-    const previous = deps.previousExpectedSession?.(barDate) ?? null;
+    const previous = deps.previousExpectedSession?.(barDate, ticker) ?? null;
     return previous !== null && session >= previous;
   };
 
@@ -597,7 +611,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     // no se evalúa (llega de una puesta al día atrasada). Solo la sesión
     // vigente puede emitir una señal; la vela vieja tampoco queda marcada
     // como procesada, no era evaluable.
-    const expectedSession = deps.expectedSessionDate?.(now());
+    const expectedSession = deps.expectedSessionDate?.(now(), ticker);
     if (expectedSession != null && barDate < expectedSession) {
       logger.info?.(
         `[signals] ${ticker} ${barDate}: vela anterior a la sesión esperada ` +
@@ -619,7 +633,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
     // con el motivo de su ficha; con régimen desconocido solo votan las
     // que no declaran `failsIn` (regla de cierre de enablement).
     const ai = deps.ai;
-    const marketRegime = ai?.marketRegime?.() ?? null;
+    const marketRegime = ai?.marketRegime?.(ticker) ?? null;
 
     const proposals: VoteWithOrder[] = [];
     let evalErrors = 0;
@@ -644,7 +658,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
             ],
             reason:
               `'${evaluable.ficha.name}' v${evaluable.ficha.version} no vota en ` +
-              `${ticker} (régimen: ${resolution.regimeState}): ${resolution.reason}`,
+              `${formatAssetSymbol(ticker, inferAssetClass(ticker))} (régimen: ${resolution.regimeState}): ${resolution.reason}`,
             dataUsed: { barDate, regimen: marketRegime },
             result: 'sin-senal',
           });
@@ -773,7 +787,7 @@ export function createSignalEngine(deps: SignalEngineDeps): SignalEngine {
         prediction !== null &&
         prediction.modelVersion === eligible.version &&
         prediction.modelHash === eligible.hash &&
-        predictionIsCurrent(prediction, barDate);
+        predictionIsCurrent(prediction, ticker, barDate);
       if (usable) {
         const factor = modelDirectionFactor(prediction!.probUp, direction);
         if (factor === null) {

@@ -39,6 +39,7 @@ import {
   type SignalIntent,
   type VetoReasonCode,
 } from '../../shared/ipc';
+import { FX_ANALYSIS_ONLY_REASON, signalDestinationOf } from '../../shared/fxTrading';
 import { drawdownPct, lossPctSince, periodStartUtc, type PortfolioSnapshot } from './portfolio';
 import { checkPortfolioLimits } from './portfolioLimits';
 import type { RiskVetoRecord } from './repository';
@@ -145,6 +146,13 @@ export function createRiskEngine(deps: RiskEngineDeps): RiskEngine {
     // pasando la guarda del borde (anomalía del modelo, contrato SignalIntent).
     if (!Number.isFinite(signal.confidence) || signal.confidence < 0 || signal.confidence > 1) {
       earlyReasons.push(reason('SIGNAL_INVALID', { confianza: signal.confidence }));
+    }
+    // Un par no cotizado en USD no abre posición: su P&L no estaría en
+    // la divisa de la cuenta. La señal se conserva como análisis.
+    if (signalDestinationOf(signal.ticker).destination === 'solo-analisis') {
+      earlyReasons.push(
+        reason('ANALYSIS_ONLY', { ticker: signal.ticker, motivo: FX_ANALYSIS_ONLY_REASON }),
+      );
     }
     if (earlyReasons.length > 0) {
       return conclude(signal, 'vetada', earlyReasons, 0, 1, 0, 0);

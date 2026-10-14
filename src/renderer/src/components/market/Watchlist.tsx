@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
+import { formatAssetSymbol } from '../../../../shared/fx';
 import {
   isTicker,
+  normalizeAssetSymbol,
   WATCHLIST_MAX_ITEMS,
   type DataStatusEntry,
   type WatchlistItem,
@@ -60,7 +62,8 @@ export function Watchlist({
     }
   };
   const add = () => {
-    const ticker = input.trim().toUpperCase();
+    // 'EUR/USD' o 'eur-usd' se guardan en su forma canónica ('EURUSD').
+    const ticker = normalizeAssetSymbol(input) ?? input.trim().toUpperCase();
     if (!isTicker(ticker)) {
       setError('Introduce un ticker de 1 a 12 caracteres: letras, números, punto o guion.');
     } else if (items.some((item) => item.ticker === ticker)) {
@@ -159,7 +162,7 @@ export function Watchlist({
                           : undefined
                       }
                     >
-                      {item.ticker}
+                      {formatAssetSymbol(item.ticker, item.assetClass)}
                     </span>
                   </button>
                   <MarketStatus

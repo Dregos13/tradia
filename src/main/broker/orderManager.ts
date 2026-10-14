@@ -44,6 +44,14 @@ import {
   type BrokerOrderSide,
   type CreateOrderRequest,
 } from '../../shared/broker';
+import {
+  FX_BROKER_REJECTION_CODE,
+  FX_BROKER_REJECTION_MESSAGE,
+  FX_BROKER_REJECTION_REASON,
+  isFxSymbol,
+} from '../../shared/fxTrading';
+import { normalizeAssetSymbol } from '../../shared/ipc';
+import { MarketDataError } from '../market/providers/types';
 import type { JournalRecordInput } from '../../shared/journal';
 import type { Signal, SignalNewEvent } from '../../shared/signals';
 import type { BrokerOrderPatch, BrokerRepository } from './repository';
@@ -410,6 +418,14 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     for (;;) {
       attempts += 1;
       try {
+        // Los pares de divisas no van al bróker (Alpaca no los opera): el
+        // envío se rechaza sin llegar a la red, igual que un 'not-found'.
+        if (isFxSymbol(request.ticker)) {
+          throw new MarketDataError('not-found', FX_BROKER_REJECTION_REASON, {
+            provider: 'alpaca',
+            ticker: request.ticker,
+          });
+        }
         const remote = await deps.adapter.submitOrder(request);
         return adoptRemote(current, remote, { attempts });
       } catch (error: unknown) {
@@ -566,6 +582,23 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     const { decision } = signal;
     if (decision.status === 'vetada' || !(decision.size > 0)) {
       return { outcome: 'ignorada', entry: null, exit: null };
+    }
+
+    // Las divisas no se operan por el bróker: la señal queda bloqueada y
+    // en el Diario, igual que una orden rechazada por las puertas.
+    if (isFxSymbol(signal.ticker)) {
+      const blocked = FX_BROKER_REJECTION_MESSAGE;
+      logger.warn?.(`[ordenes] señal ${signal.id} no ejecutada: ${blocked}`);
+      recordJournal({
+        type: 'error',
+        ticker: signal.ticker,
+        reason: `Señal ${signal.id} aprobada pero no ejecutada: ${blocked}`,
+        dataUsed: { code: FX_BROKER_REJECTION_CODE, signalId: signal.id },
+        result: 'error',
+        errors: [`envío bloqueado: ${blocked}`],
+        signalId: signal.id,
+      });
+      return { outcome: 'bloqueada', entry: null, exit: null };
     }
 
     const clientOrderId = orderClientId(signal.id, 'entrada');
@@ -824,16 +857,19 @@ export function createOrderManager(deps: OrderManagerDeps): OrderManager {
     },
 
     createLimitOrder: async (request) => {
-      const ticker = request.ticker.trim().toUpperCase();
+      const ticker = normalizeAssetSymbol(request.ticker) ?? request.ticker.trim().toUpperCase();
       // Una orden manual es una acción explícita del usuario: la paran la
       // parada de emergencia y la falta de conexión, no el interruptor de
-      // ejecución automática de señales.
+      // ejecución automática de señales. Las divisas no llegan al bróker
+      // (Alpaca no las opera): bloqueo con el mismo motivo que el automático.
       const blocked =
         deps.isKillSwitchActive?.() === true
           ? 'la parada de emergencia está activa'
           : deps.isOnline?.() === false
             ? 'sin conexión'
-            : null;
+            : isFxSymbol(ticker)
+              ? FX_BROKER_REJECTION_MESSAGE
+              : null;
       const capped =
         blocked ??
         (await orderCapReason(

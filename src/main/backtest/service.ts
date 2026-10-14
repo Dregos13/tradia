@@ -49,6 +49,7 @@ import {
   type RegimeComparisonRequest,
   type RegimeComparisonSide,
 } from '../../shared/ai';
+import { normalizeFxPair } from '../../shared/fx';
 import type {
   BacktestFinalTestRequest,
   BacktestListQuery,
@@ -274,7 +275,9 @@ function yearsBack(date: SessionDate, years: number): SessionDate {
 function executableMarkets(markets: readonly string[]): string[] {
   const seen = new Set<string>();
   for (const market of markets) {
-    const ticker = market.trim().toUpperCase();
+    // Un par en cualquier forma escrita ('EUR/USD', 'eur-usd') se evalúa
+    // en su forma canónica ('EURUSD').
+    const ticker = normalizeFxPair(market) ?? market.trim().toUpperCase();
     if (TICKER_PATTERN.test(ticker)) seen.add(ticker);
   }
   return [...seen];

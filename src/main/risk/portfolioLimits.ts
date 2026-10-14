@@ -23,7 +23,14 @@
  *   regla no decide sin evidencia.
  * - La liquidez es la excepción que cierra en falso: sin volumen medio
  *   de 20 días no se puede verificar el límite y la señal queda vetada
- *   (primero proteger el capital, docs/alcance.md §5).
+ *   (primero proteger el capital, docs/alcance.md §5). No aplica a los
+ *   pares de divisas: el mercado de divisas no publica volumen en las
+ *   velas diarias (Tiingo FX lo da a 0) y su profundidad es de otro
+ *   orden que el tamaño de la cartera simulada.
+ * - Divisa: un par cotizado en USD expone a su moneda base (EUR en
+ *   EURUSD), así que cuenta para CURRENCY_EXPOSURE, y su nominal
+ *   (tamaño × precio en USD) entra en el resto de exposiciones igual que
+ *   el de una acción.
  * - El orden de los motivos es fijo (el de `VETO_REASON_CODES` de los
  *   límites de cartera) para que el registro sea estable.
  */
@@ -36,6 +43,7 @@ import {
   type SignalIntent,
   type VetoReasonCode,
 } from '../../shared/risk';
+import { isFxSymbol } from '../../shared/fxTrading';
 import {
   UNKNOWN_SECTOR,
   UNIVERSE_CURRENCY,
@@ -214,6 +222,9 @@ function checkLiquidity(
   snapshot: PortfolioSnapshot,
   limits: RiskLimits,
 ): RiskDecisionReason[] {
+  // Las velas de divisas no traen volumen: el límite no se puede medir
+  // y no aplica (ver cabecera).
+  if (isFxSymbol(signal.ticker)) return [];
   const avgVolume = resolveInstrument(snapshot, signal.ticker).avgDailyVolume20d;
   if (avgVolume === null || !Number.isFinite(avgVolume) || avgVolume <= 0) {
     return [

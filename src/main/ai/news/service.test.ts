@@ -63,16 +63,19 @@ const analyzerStub = (
   ),
 });
 
-function setup(options: {
-  confirmed?: boolean;
-  assets?: string[];
-  local?: NewsHeadlineAnalyzer;
-  sub?: (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean }) | null;
-  hasKey?: boolean;
-  useSimulated?: boolean;
-  simulated?: NewsHeadlineAnalyzer | null;
-  notify?: (payload: unknown) => void;
-}) {
+function setup(
+  options: {
+    confirmed?: boolean;
+    assets?: string[];
+    local?: NewsHeadlineAnalyzer;
+    sub?: (NewsHeadlineAnalyzer & { ping?(): Promise<number>; available?(): boolean }) | null;
+    engines?: Parameters<typeof createNewsAiService>[0]['cliEngines'];
+    hasKey?: boolean;
+    useSimulated?: boolean;
+    simulated?: NewsHeadlineAnalyzer | null;
+    notify?: (payload: unknown) => void;
+  } = {},
+) {
   const db = openDatabase(':memory:');
   const repo = createNewsAnalysisRepository(db);
   const store = memoryStore();
@@ -91,6 +94,7 @@ function setup(options: {
   const service = createNewsAiService({
     repo,
     localAnalyzer: options.local ?? analyzerStub(),
+    cliEngines: options.engines,
     subscriptionAnalyzer: options.sub ?? null,
     simulatedAnalyzer: options.simulated ?? null,
     useSimulated: options.useSimulated ?? false,
@@ -844,5 +848,141 @@ describe('filtro de activos del resultado (solo ligados o mencionados)', () => {
     service.enqueueItem({ id, confirmed: true });
     await service.drain();
     expect(repo.list().map((row) => row.ticker)).toEqual(['NVDA']);
+  });
+});
+
+describe('desplegable de motores de suscripción', () => {
+  it('elegir un motor activa la suscripción con él y getLlmSettings lo refleja', async () => {
+    const ping = vi.fn(async () => 40);
+    const codex = analyzerStub(async () => ({
+      assets: [{ ticker: 'AAPL', summary: 's', sentiment: 'positivo' as const }],
+    }));
+    (codex as { ping?: () => Promise<number> }).ping = ping;
+    const { service } = setup({
+      engines: {
+        'suscripcion-codex': {
+          analyzer: codex,
+          available: () => true,
+          resolve: () => ({
+            path: '/usr/bin/codex',
+            source: 'path' as const,
+            configuredInvalid: false,
+          }),
+        },
+      },
+    });
+    const updated = await service.setLlmSettings({ engine: 'suscripcion-codex' });
+    expect(updated.provider).toBe('suscripcion');
+    expect(updated.engine).toBe('suscripcion-codex');
+    expect(updated.enabled).toBe(true);
+    const result = await service.testLlm();
+    expect(result).toMatchObject({ ok: true, latencyMs: 40 });
+    expect(ping).toHaveBeenCalledTimes(1);
+  });
+
+  it('elegir «local» equivale a desactivar la suscripción y prueba sin tocar la CLI', async () => {
+    const ping = vi.fn(async () => 10);
+    const claude = analyzerStub(async () => ({
+      assets: [{ ticker: 'AAPL', summary: 's', sentiment: 'positivo' as const }],
+    }));
+    (claude as { ping?: () => Promise<number> }).ping = ping;
+    const { service } = setup({
+      engines: {
+        'suscripcion-claude': {
+          analyzer: claude,
+          available: () => true,
+          resolve: () => ({ path: '/x/claude', source: 'path' as const, configuredInvalid: false }),
+        },
+      },
+    });
+    await service.setLlmSettings({ engine: 'suscripcion-claude' });
+    const off = await service.setLlmSettings({ engine: 'local' });
+    expect(off.provider).toBe('local');
+    expect(off.engine).toBe('local');
+    expect(off.enabled).toBe(false);
+    const result = await service.testLlm();
+    expect(result).toMatchObject({ ok: true, latencyMs: null });
+    expect(ping).not.toHaveBeenCalled();
+    // El motor elegido se conserva para volver sin reelegir.
+    const back = await service.setLlmSettings({ provider: 'suscripcion' });
+    expect(back.engine).toBe('suscripcion-claude');
+  });
+
+  it('la ruta personalizada se guarda por motor y la heredada migra a Claude Code', async () => {
+    const { service, store } = setup();
+    await service.setLlmSettings({ engine: 'suscripcion-codex', cliPath: '/opt/codex/bin' });
+    expect(store.getValue('newsLlm.cliPath.suscripcion-codex')).toBe('/opt/codex/bin');
+    // La clave heredada es de Claude Code, no del último motor elegido.
+    expect(store.getValue('newsLlm.cliPath')).toBeNull();
+  });
+
+  it('newsLlm.cliPath heredado se copia a la clave del motor Claude Code', async () => {
+    const { service, store } = setup();
+    store.setValue('newsLlm.cliPath', '/ruta/vieja/claude');
+    store.setValue('newsLlm.provider', 'suscripcion');
+    store.setValue('newsLlm.enabled', 'true');
+    const settings = await service.getLlmSettings();
+    expect(store.getValue('newsLlm.cliPath.suscripcion-claude')).toBe('/ruta/vieja/claude');
+    const claude = settings.engines.find((e) => e.id === 'suscripcion-claude');
+    expect(claude?.configuredPath).toBe('/ruta/vieja/claude');
+  });
+
+  it('engines[] informa de la detección de cada motor con su origen', async () => {
+    const { service } = setup({
+      engines: {
+        'suscripcion-codex': {
+          analyzer: null,
+          available: () => true,
+          resolve: () => ({
+            path: '/usr/bin/codex',
+            source: 'known' as const,
+            configuredInvalid: false,
+          }),
+        },
+      },
+    });
+    const settings = await service.getLlmSettings();
+    expect(settings.engines).toHaveLength(5);
+    const codex = settings.engines.find((e) => e.id === 'suscripcion-codex');
+    expect(codex).toMatchObject({
+      label: 'OpenAI Codex',
+      cliName: 'codex',
+      available: true,
+      resolvedPath: '/usr/bin/codex',
+      source: 'known',
+    });
+    const claude = settings.engines.find((e) => e.id === 'suscripcion-claude');
+    expect(claude?.available).toBe(false);
+    const local = settings.engines.find((e) => e.id === 'local');
+    expect(local).toMatchObject({ available: true, cliName: null });
+  });
+
+  it('un motor sin CLI da cli-no-encontrada y sigue el local en el análisis', async () => {
+    const local = analyzerStub(async () => ({
+      assets: [{ ticker: 'AAPL', summary: 's', sentiment: 'positivo' as const }],
+    }));
+    const { service, repo, db } = setup({
+      local,
+      engines: {
+        'suscripcion-codex': {
+          analyzer: null,
+          available: () => false,
+          resolve: () => ({ path: null, source: null, configuredInvalid: false }),
+        },
+      },
+    });
+    await service.setLlmSettings({ engine: 'suscripcion-codex' });
+    const test = await service.testLlm();
+    expect(test).toMatchObject({ ok: false, error: 'CLI no encontrada.' });
+    expect(await service.getNewsStatus()).toMatchObject({
+      provider: 'suscripcion',
+      engine: 'suscripcion-codex',
+      state: 'cli-no-encontrada',
+    });
+    // El titular sigue analizándose con el local.
+    const id = insertItem(db, { title: 'Apple beats estimates', confirmed: true, assets: [] });
+    service.enqueueItem({ id, confirmed: true });
+    await service.drain();
+    expect(repo.list()[0]?.analyzer).toBe('local');
   });
 });

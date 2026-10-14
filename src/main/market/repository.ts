@@ -9,16 +9,24 @@
  * `market/providers/types.ts`.
  *
  * Convenciones:
- * - Los tickers se normalizan a mayúsculas sin espacios al entrar.
+ * - Los tickers se normalizan a mayúsculas sin espacios al entrar; los
+ *   pares de divisas en cualquiera de sus formas escritas ('EUR/USD',
+ *   'eur-usd') se guardan en su forma canónica ('EURUSD', ver shared/fx).
+ * - Cada activo de la lista lleva su tipo derivado del símbolo
+ *   (`inferAssetClass`): 'fx' para los pares admitidos, 'equity' para el
+ *   resto — así una fila antigua o una futura migración no pueden
+ *   contradecir al símbolo.
  * - Toda escritura múltiple corre en una transacción.
  * - `upsertBars` conserva los valores ajustados ya calculados cuando la fila
  *   entrante no los trae (un lote crudo no pisa la limpieza anterior).
  */
 import type Database from 'better-sqlite3';
 
+import { inferAssetClass, normalizeFxPair } from '../../shared/fx';
 import {
   dataStatusKey,
   WATCHLIST_MAX_ITEMS,
+  type AssetClass,
   type DataStatusEntry,
   type DataStatusState,
 } from '../../shared/ipc';
@@ -37,6 +45,8 @@ const REPOSITORY = 'repository';
 
 export interface WatchlistEntry {
   ticker: string;
+  /** Tipo de activo, derivado del símbolo ('EURUSD' → 'fx'). */
+  assetClass: AssetClass;
   /** Alta en la lista (ISO 8601). */
   addedAt: string;
   /** Orden de visualización, 0..n-1. */
@@ -386,7 +396,19 @@ function normalizeTicker(ticker: string, what = 'ticker'): string {
   if (typeof ticker !== 'string' || ticker.trim() === '') {
     throw new MarketRepositoryError('invalid-input', `${what} vacío`);
   }
-  return ticker.trim().toUpperCase();
+  // Un par de divisas en cualquier forma escrita ('EUR/USD', 'eur-usd')
+  // se guarda siempre en su forma canónica de seis letras ('EURUSD').
+  return normalizeFxPair(ticker) ?? ticker.trim().toUpperCase();
+}
+
+/** Entrada de lista de seguimiento con el tipo derivado del símbolo. */
+function toWatchlistEntry(row: { ticker: string; alta: string; orden: number }): WatchlistEntry {
+  return {
+    ticker: row.ticker,
+    assetClass: inferAssetClass(row.ticker),
+    addedAt: row.alta,
+    position: row.orden,
+  };
 }
 
 function assertFinite(value: number, field: string): void {
@@ -401,7 +423,7 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
   const watchlistRows = (): WatchlistEntry[] =>
     (
       db.prepare('SELECT ticker, alta, orden FROM watchlist ORDER BY orden').all() as WatchlistRow[]
-    ).map((row) => ({ ticker: row.ticker, addedAt: row.alta, position: row.orden }));
+    ).map(toWatchlistEntry);
 
   const addWatchlistTicker = (ticker: string): WatchlistEntry => {
     const key = normalizeTicker(ticker);
@@ -409,7 +431,7 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
       .prepare('SELECT ticker, alta, orden FROM watchlist WHERE ticker = ?')
       .get(key) as WatchlistRow | undefined;
     if (existing) {
-      return { ticker: existing.ticker, addedAt: existing.alta, position: existing.orden };
+      return toWatchlistEntry(existing);
     }
     const count = (db.prepare('SELECT COUNT(*) AS n FROM watchlist').get() as { n: number }).n;
     if (count >= WATCHLIST_MAX_ITEMS) {
@@ -424,7 +446,7 @@ export function createMarketRepository(db: Database.Database): MarketRepository 
       addedAt,
       count,
     );
-    return { ticker: key, addedAt, position: count };
+    return { ticker: key, assetClass: inferAssetClass(key), addedAt, position: count };
   };
 
   const compactWatchlist = db.transaction(() => {

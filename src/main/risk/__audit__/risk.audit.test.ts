@@ -228,6 +228,19 @@ describe('auditoría · reglas por operación', () => {
     expectActiveKillSwitch('modelo-erratico');
     expect(killSwitch.getState().actor).toBe('automatico');
   });
+
+  it('ANALYSIS_ONLY: un par no cotizado en USD veta antes de cualquier regla', () => {
+    // USDJPY expone a USD cotizado en JPY: la cartera en USD no lo puede
+    // operar, así que la señal queda como análisis (veto legible).
+    const decision = service.submitSignal(
+      signal({ ticker: 'USDJPY', entry: 150, stop: 148, target: 155 }),
+    );
+
+    expectVeto(decision, 'ANALYSIS_ONLY');
+    expect(decision.reasons[0]?.details['motivo']).toContain('USD');
+    // El veto es del activo, no de la cartera: ninguna posición se abre.
+    expect(service.listPaperPositions('USDJPY')).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

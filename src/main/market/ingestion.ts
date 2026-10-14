@@ -9,6 +9,10 @@
  *   TRADIA_E2E y sin empaquetar. Sin clave ni E2E no hay proveedor.
  * - Histórico de 5 años al añadir un ticker; después, actualización
  *   incremental desde la última vela guardada.
+ * - Cada activo usa el calendario de su tipo (`assetClass`): NYSE para las
+ *   acciones y el 24/5 (`fxCalendar`) para los pares de divisas —tanto para
+ *   decidir la vela esperada como para los huecos de la limpieza—; la
+ *   pasada diaria sale en la hora más próxima de los calendarios presentes.
  * - Cada lote pasa por `cleaning/cleanBars` (dedupe, validación, huecos,
  *   ajuste hacia atrás) y se guarda versionado (`data_batches` + marcas en
  *   `quality_flags`); las acciones corporativas se persisten en
@@ -38,6 +42,8 @@ import {
   isE2eEnabled,
   isGetBarsRequest,
   isTicker,
+  normalizeAssetSymbol,
+  type AssetClass,
   type GetBarsRequest,
   type MarketBar,
   type MarketBarsResult,
@@ -50,12 +56,10 @@ import { sessionDateLabel } from '../../shared/dates';
 import { openDatabase } from '../db/database';
 import type { ServiceContext } from '../services';
 import * as nyseCalendar from './calendar';
-import {
-  cleanBars,
-  deriveCorporateActions,
-  type QualityReport,
-  type SessionCalendar,
-} from './cleaning';
+import { fxNextUpdateAt } from './calendar';
+import { calendarForAssetClass, type AssetSessionCalendar } from './assetCalendar';
+import { cleanBars, deriveCorporateActions, type QualityReport } from './cleaning';
+import { registerMarketSearch } from './search';
 import {
   createSimulatedProvider,
   createTiingoProvider,
@@ -178,8 +182,8 @@ export interface MarketIngestionDeps {
   isOnline?: () => boolean;
   /** Recuperación al volver de la suspensión. */
   powerMonitor?: MarketPowerMonitorLike;
-  /** Calendario de sesiones para la limpieza por proveedor. */
-  sessionsFor?: (provider: MarketDataProvider) => SessionCalendar;
+  /** Calendario de sesiones por proveedor y tipo de activo. */
+  sessionsFor?: (provider: MarketDataProvider, assetClass: AssetClass) => AssetSessionCalendar;
   retryIntervalMs?: number;
   maxRetries?: number;
   logger?: Partial<MarketIngestionLogger>;
@@ -235,8 +239,17 @@ export interface MarketIngestionService {
 // Calendario compartido por los proveedores reales y el simulado
 // ---------------------------------------------------------------------------
 
-export function defaultSessionsFor(_provider: MarketDataProvider): SessionCalendar {
-  return nyseCalendar;
+/**
+ * Calendario de un activo: las sesiones esperadas entre dos fechas (huecos
+ * y limpieza) y la última cuyo cierre ya pasó (qué vela toca pedir). La
+ * forma es la de `assetCalendar.ts` — `calendarForAssetClass` la resuelve
+ * por tipo ('equity' → NYSE, 'fx' → 24/5).
+ */
+export function defaultSessionsFor(
+  _provider: MarketDataProvider,
+  assetClass: AssetClass,
+): AssetSessionCalendar {
+  return calendarForAssetClass(assetClass);
 }
 
 // ---------------------------------------------------------------------------
@@ -474,10 +487,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestOne = async (
     ticker: string,
     provider: MarketDataProvider,
+    assetClass: AssetClass,
     onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult> => {
     const statusKey = dataStatusKey.ticker(ticker);
-    const lastExpected = nyseCalendar.lastExpectedSession(now());
+    // El calendario es del tipo de activo: NYSE en acciones, 24/5 en divisas.
+    const calendar = sessionsFor(provider, assetClass);
+    const lastExpected = calendar.lastExpectedSession(now());
     const lastStored = repo.lastBarDate(ticker, provider.id);
 
     if (lastExpected === null) {
@@ -571,7 +587,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         ticker,
         bars: combined,
         corporateActions: actions,
-        calendar: sessionsFor(provider),
+        calendar,
       },
       { previousBatch: previous ? { version: previous.version, hash: previous.hash } : null },
     );
@@ -634,12 +650,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   const ingestGuarded = async (
     ticker: string,
     provider: MarketDataProvider,
+    assetClass: AssetClass,
     onProviderFailure?: (reason: string) => void,
   ): Promise<TickerIngestResult | null> => {
     if (ingesting.has(ticker)) return null;
     ingesting.add(ticker);
     try {
-      return await ingestOne(ticker, provider, onProviderFailure);
+      return await ingestOne(ticker, provider, assetClass, onProviderFailure);
     } catch (error: unknown) {
       // Defensa ante fallos de base de datos u otros no tipados.
       return failTicker(ticker, provider, error, onProviderFailure);
@@ -661,8 +678,8 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
         providerBumped = true;
         bumpProviderFailure(provider, reason);
       };
-      for (const { ticker } of repo.listWatchlist()) {
-        const result = await ingestGuarded(ticker, provider, bumpOnce);
+      for (const { ticker, assetClass } of repo.listWatchlist()) {
+        const result = await ingestGuarded(ticker, provider, assetClass, bumpOnce);
         if (result === null) {
           results.push({
             ticker,
@@ -756,8 +773,14 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     try {
       // nextUpdateAt devuelve el instante >= ahora: se pide desde now()+1
       // para no rearmar sobre el instante que acaba de ejecutarse.
-      const next = nyseCalendar.nextUpdateAt(now() + 1);
-      armTimer(Date.parse(next.utc) - now());
+      const from = now() + 1;
+      let nextMs = Date.parse(nyseCalendar.nextUpdateAt(from).utc);
+      // Con divisas en la lista, la pasada sale en la hora más próxima de
+      // los dos calendarios (la 01:00 UTC del 24/5 adelanta a la de NYSE).
+      if (repo.listWatchlist().some((item) => item.assetClass === 'fx')) {
+        nextMs = Math.min(nextMs, Date.parse(fxNextUpdateAt(from).utc));
+      }
+      armTimer(nextMs - now());
     } catch (error: unknown) {
       logger.error?.(`[market] no se pudo programar la próxima actualización: ${String(error)}`);
     }
@@ -769,10 +792,10 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
   };
 
   /** Actualiza un ticker recién añadido sin esperar a la pasada diaria. */
-  const ingestNewTicker = async (ticker: string): Promise<void> => {
+  const ingestNewTicker = async (item: WatchlistItem): Promise<void> => {
     if (!isOnline()) {
       publishStatus({
-        key: dataStatusKey.ticker(ticker),
+        key: dataStatusKey.ticker(item.ticker),
         state: 'desactualizado',
         reason: 'sin conexión a internet',
       });
@@ -781,13 +804,13 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     const provider = await safeResolveProvider();
     if (provider === null) {
       publishStatus({
-        key: dataStatusKey.ticker(ticker),
+        key: dataStatusKey.ticker(item.ticker),
         state: 'desactualizado',
         reason: 'sin proveedor de datos configurado',
       });
       return;
     }
-    await ingestGuarded(ticker, provider);
+    await ingestGuarded(item.ticker, provider, item.assetClass);
   };
 
   // -- API pública -----------------------------------------------------------
@@ -811,14 +834,15 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     listWatchlist: () => repo.listWatchlist(),
 
     addTicker: async (ticker) => {
-      const entry = repo.addWatchlistTicker(ticker);
-      await ingestNewTicker(entry.ticker);
+      // El símbolo se guarda en su forma canónica: 'EUR/USD' → 'EURUSD'.
+      const entry = repo.addWatchlistTicker(normalizeAssetSymbol(ticker) ?? ticker);
+      await ingestNewTicker(entry);
       emitWatchlistChanged();
       return repo.listWatchlist();
     },
 
     removeTicker: (ticker) => {
-      repo.removeWatchlistTicker(ticker);
+      repo.removeWatchlistTicker(normalizeAssetSymbol(ticker) ?? ticker);
       emitWatchlistChanged();
       return repo.listWatchlist();
     },
@@ -835,7 +859,7 @@ export function createMarketIngestionService(deps: MarketIngestionDeps): MarketI
     },
 
     getBars: async (request) => {
-      const ticker = request.ticker.trim().toUpperCase();
+      const ticker = normalizeAssetSymbol(request.ticker) ?? request.ticker.trim().toUpperCase();
       const rows = repo.getBars(ticker, { desde: request.desde, hasta: request.hasta });
       // Una sola fuente por serie: la del proveedor activo, o la de la vela
       // más reciente guardada si ya no hay proveedor resoluble.
@@ -1032,6 +1056,7 @@ export function registerMarket(
     return service.getBars(request);
   });
   ipcMain.handle(IPC_CHANNELS.market.refreshNow, () => service.refreshNow());
+  registerMarketSearch(ipcMain);
 
   // Gancho de desarrollo: la app empaquetada no registra el canal.
   if (!app.isPackaged) {

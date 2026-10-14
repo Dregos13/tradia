@@ -387,6 +387,8 @@ describe('auditoría · la retirada no deja rutas olvidadas', () => {
     'src/main/ai/news/index.ts': 'documenta la migración y el borrado',
     'src/main/ai/news/claudeCli.ts':
       'borrado de ANTHROPIC_* del entorno del hijo y ruta del cli.js de npm en Windows',
+    'src/main/ai/news/cliEngines.ts':
+      'misma justificación que claudeCli.ts: el motor genérico no reenvía ANTHROPIC_* y conoce la ruta del cli.js de npm en Windows',
     'src/main/ai/news/service.ts': 'borrado de la clave en la migración (hasKey/deleteKey)',
   };
 

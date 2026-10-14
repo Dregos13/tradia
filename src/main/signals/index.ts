@@ -54,6 +54,9 @@ import { createCustomStrategy } from '../backtest/strategies/custom';
 import { createNewsAnalysisRepository } from '../ai/news/repository';
 import * as nyseCalendar from '../market/calendar';
 import { createMarketRepository, type StoredBar } from '../market/repository';
+import { expectedSessionDateFor, previousSessionDateFor } from '../market/assetCalendar';
+import { isFxSymbol } from '../../shared/fxTrading';
+import { REGIME_MARKET_TICKER } from '../../shared/ai';
 import type { ServiceContext } from '../services';
 import {
   createSignalEngine,
@@ -121,6 +124,20 @@ export function registerSignals(
   // servicios son opcionales y su ausencia deja ese factor sin efecto.
   const newsAnalyses = createNewsAnalysisRepository(db);
   const aiRegime = ctx.services.aiRegime ?? null;
+  const clockNow = (): number => options.clock?.now() ?? Date.now();
+  /** Sesión NYSE inmediatamente anterior a `barDate` (calendario por defecto). */
+  const previousExpectedSessionNyse = (barDate: string): string | null => {
+    const dayMs = Date.parse(`${barDate}T00:00:00.000Z`);
+    if (!Number.isFinite(dayMs)) return null;
+    return (
+      nyseCalendar
+        .expectedSessionsBetween(
+          new Date(dayMs - 40 * 86_400_000).toISOString().slice(0, 10),
+          new Date(dayMs - 86_400_000).toISOString().slice(0, 10),
+        )
+        .at(-1)?.date ?? null
+    );
+  };
   const aiPrediction = ctx.services.aiPrediction ?? null;
 
   const settings = ctx.services.settings;
@@ -306,33 +323,37 @@ export function registerSignals(
     wasProcessed: (ticker, barDate) => loadMarks().has(`${ticker}|${barDate}`),
     markProcessed,
     // Guarda de frescura: una vela anterior a la última sesión esperada
-    // no se evalúa (datos viejos de una puesta al día atrasada).
-    expectedSessionDate: () =>
-      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
+    // no se evalúa (datos viejos de una puesta al día atrasada). El
+    // calendario es el del tipo de activo: NYSE en acciones, 24/5 en
+    // divisas (`assetCalendar.ts` elige).
+    expectedSessionDate: (_nowMs, ticker) =>
+      ticker === undefined || ticker === ''
+        ? (nyseCalendar.lastExpectedSession(clockNow())?.date ?? null)
+        : expectedSessionDateFor(ticker, clockNow()),
     // Sesión inmediatamente anterior a la vela evaluada: es la frescura
-    // mínima que el motor exige a la predicción que ajusta la señal.
-    previousExpectedSession: (barDate) => {
-      const dayMs = Date.parse(`${barDate}T00:00:00.000Z`);
-      if (!Number.isFinite(dayMs)) return null;
-      return (
-        nyseCalendar
-          .expectedSessionsBetween(
-            new Date(dayMs - 40 * 86_400_000).toISOString().slice(0, 10),
-            new Date(dayMs - 86_400_000).toISOString().slice(0, 10),
-          )
-          .at(-1)?.date ?? null
-      );
-    },
+    // mínima que el motor exige a la predicción que ajusta la señal, con
+    // el calendario del tipo de activo.
+    previousExpectedSession: (barDate, ticker) =>
+      ticker === undefined || ticker === ''
+        ? previousExpectedSessionNyse(barDate)
+        : previousSessionDateFor(barDate, ticker),
     ai: {
-      // El régimen del mercado (referencia SPY) habilita o desactiva las
-      // estrategias: misma referencia que la página «IA» y el backtest.
-      // Si el régimen guardado es anterior a la sesión esperada está
-      // desactualizado y no decide nada (como si no hubiera régimen).
-      marketRegime: () => {
-        const snapshot = aiRegime?.service.marketRegime() ?? null;
+      // El régimen habilita o desactiva las estrategias: la referencia
+      // SPY en acciones/ETF (mismo criterio que la página «IA» y el
+      // filtro del backtest) y la del par en divisas (`regimeFor` lo
+      // calcula con su moneda base, EUR en EUR/USD). Si el régimen
+      // guardado es anterior a la sesión esperada está desactualizado y
+      // no decide nada (como si no hubiera régimen).
+      marketRegime: (ticker) => {
+        const snapshot =
+          (isFxSymbol(ticker)
+            ? aiRegime?.service.regimeFor(ticker)
+            : aiRegime?.service.marketRegime()) ?? null;
         if (snapshot === null) return null;
-        const expected =
-          nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null;
+        const expected = expectedSessionDateFor(
+          isFxSymbol(ticker) ? ticker : REGIME_MARKET_TICKER,
+          clockNow(),
+        );
         if (expected !== null && snapshot.sessionDate < expected) return null;
         return { direction: snapshot.direction, volatility: snapshot.volatility };
       },

@@ -105,7 +105,12 @@ const makeCtx = (): ServiceContext =>
       journal: { record: (input: JournalRecordInput) => journalEntries.push(input) },
       market: {
         listWatchlist: () =>
-          watchlist.map((w, i) => ({ ...w, addedAt: '2026-01-01', position: i })),
+          watchlist.map((w, i) => ({
+            ...w,
+            assetClass: 'equity' as const,
+            addedAt: '2026-01-01',
+            position: i,
+          })),
         onBarsStored: (listener: (event: MarketUpdatedEvent) => void) => {
           barsStoredListener = listener;
           return () => {

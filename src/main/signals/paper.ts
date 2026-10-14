@@ -27,6 +27,13 @@
  *   reportan a los observadores de la parada de emergencia (pérdida
  *   anómala y drawdown pueden activarla).
  */
+import { formatFxPair } from '../../shared/fx';
+import {
+  exposureCurrencyOf,
+  FX_SECTOR,
+  isFxSymbol,
+  signalDestinationOf,
+} from '../../shared/fxTrading';
 import type { JournalRecordInput, JournalStrategyRef } from '../../shared/journal';
 import type { MarketUpdatedEvent } from '../../shared/ipc';
 import { VETO_REASON_MESSAGES, type RiskLimits, type VetoReasonCode } from '../../shared/risk';
@@ -176,7 +183,13 @@ const PAPER_LIMIT_RULES: readonly PaperLimitRule[] = [
 
 const formatPct = (value: number): string => `${(Math.round(value * 100) / 100).toFixed(2)} %`;
 
-const formatPrice = (value: number): string => String(Math.round(value * 10_000) / 10_000);
+/**
+ * Precio legible por activo: en pares de divisas un pip es 0,0001, así
+ * que el formato fija 4 decimales (no el plano «máx. 4» de las acciones,
+ * que en 1,10485 mostraría 1,1049 y parecería otra cotización).
+ */
+export const formatPriceOf = (symbol: string, value: number): string =>
+  isFxSymbol(symbol) ? value.toFixed(4) : String(Math.round(value * 10_000) / 10_000);
 
 // ---------------------------------------------------------------------------
 // Tracker
@@ -203,6 +216,9 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
     const gateway = deps.gateway;
     const { decision } = signal;
     if (decision.status === 'vetada' || !(decision.size > 0)) return;
+    // Solo análisis: la decisión de riesgo ya la vetó, pero por si llega
+    // una señal antigua o de otra vía, el par no cotizado en USD no abre.
+    if (signalDestinationOf(signal.ticker).destination === 'solo-analisis') return;
     if (gateway === undefined) {
       logger.warn?.(
         `[paper] señal ${signal.id} aprobada sin cartera simulada disponible; no se abre posición`,
@@ -217,15 +233,17 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
         stop: signal.stop,
         target: signal.target,
         size: decision.size,
-        sector: null,
-        currency: 'USD',
+        // En divisas el sector es 'divisas' y la exposición va a la
+        // moneda base (EUR en EURUSD), como en `resolveInstrument`.
+        sector: isFxSymbol(signal.ticker) ? FX_SECTOR : null,
+        currency: exposureCurrencyOf(signal.ticker),
         signalId: signal.id,
         openedOnBar: signal.dataUsed.barDate,
         openedAt: isoNow(),
       });
       logger.info?.(
         `[paper] señal ${signal.id}: abierta posición simulada ${signal.direction} ` +
-          `${decision.size} uds de ${signal.ticker} @ ${formatPrice(signal.entry)}`,
+          `${decision.size} uds de ${signal.ticker} @ ${formatPriceOf(signal.ticker, signal.entry)}`,
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -283,6 +301,10 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
         : 0;
     const outcome = pnl > 0 ? 'ganancia' : pnl < 0 ? 'perdida' : 'empate';
     const motivoCierre = decision.reason === 'stop' ? 'stop de protección' : 'objetivo';
+    // En un par de divisas el ticker guardado ('EURUSD') se muestra con
+    // barra ('EUR/USD') y los precios con decimales de pip.
+    const label = isFxSymbol(position.ticker) ? formatFxPair(position.ticker) : position.ticker;
+    const formatOf = (value: number): string => formatPriceOf(position.ticker, value);
 
     let strategies: JournalStrategyRef[] = [];
     let signalReason: string | null = null;
@@ -304,9 +326,9 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
       ticker: position.ticker,
       strategies,
       reason:
-        `Cierre simulado por ${motivoCierre} de ${position.ticker}: ` +
+        `Cierre simulado por ${motivoCierre} de ${label}: ` +
         `${position.size} uds ${position.direction} ` +
-        `entrada ${formatPrice(position.entry)} → salida ${formatPrice(decision.exit)} ` +
+        `entrada ${formatOf(position.entry)} → salida ${formatOf(decision.exit)} ` +
         `(P&L ${pnl > 0 ? '+' : ''}${pnl})`,
       dataUsed: {
         posicionId: position.id,
@@ -336,8 +358,8 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
               ? 'Stop de protección ejecutado'
               : 'Objetivo de beneficio ejecutado',
           cumplida: true,
-          observed: `salida ${formatPrice(decision.exit)}`,
-          limit: `nivel ${formatPrice(decision.level)}`,
+          observed: `salida ${formatOf(decision.exit)}`,
+          limit: `nivel ${formatOf(decision.level)}`,
         },
         {
           code: 'TAMANO_ASIGNADO',
@@ -351,7 +373,7 @@ export function createPaperTracker(deps: PaperTrackerDeps): PaperTracker {
     });
     logger.info?.(
       `[paper] ${position.ticker}: cierre por ${motivoCierre} en ${bar.date} ` +
-        `a ${formatPrice(decision.exit)} (P&L ${pnl > 0 ? '+' : ''}${pnl})`,
+        `a ${formatOf(decision.exit)} (P&L ${pnl > 0 ? '+' : ''}${pnl})`,
     );
   };
 

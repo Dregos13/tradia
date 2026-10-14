@@ -50,6 +50,14 @@ import {
   type SignalIntent,
   type SimulateCalendarEventRequest,
 } from '../../shared/ipc';
+import { normalizeFxPair } from '../../shared/fx';
+import {
+  exposureCurrencyOf,
+  FX_ANALYSIS_ONLY_REASON,
+  FX_SECTOR,
+  isFxSymbol,
+  signalDestinationOf,
+} from '../../shared/fxTrading';
 import { openDatabase } from '../db/database';
 import { TICKER_PATTERN } from '../market/providers/types';
 import type { ServiceContext } from '../services';
@@ -337,7 +345,10 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
             mark === null || !(row.entry > 0)
               ? null
               : round2(((mark - row.entry) / row.entry) * 100 * sign),
-          sector: row.sector ?? TRADIA_UNIVERSE_SECTORS[row.ticker] ?? null,
+          sector:
+            row.sector ??
+            TRADIA_UNIVERSE_SECTORS[row.ticker] ??
+            (isFxSymbol(row.ticker) ? FX_SECTOR : null),
           currency: row.currency,
           signalId: row.signalId,
           openedAt: row.openedAt,
@@ -370,7 +381,7 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
     },
 
     openPaperPosition: (input) => {
-      const ticker = input.ticker.trim().toUpperCase();
+      const ticker = normalizeFxPair(input.ticker) ?? input.ticker.trim().toUpperCase();
       if (!TICKER_PATTERN.test(ticker)) {
         throw invalidPosition(`activo inválido: ${input.ticker}`);
       }
@@ -387,11 +398,20 @@ export function createRiskService(deps: RiskServiceDeps): RiskService {
       if (input.openedOnBar !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.openedOnBar)) {
         throw invalidPosition('vela_apertura debe tener formato YYYY-MM-DD');
       }
+      // Un par no cotizado en USD es solo análisis: la cartera no lo abre
+      // aunque llegue una petición (defensa en profundidad del seguidor).
+      if (signalDestinationOf(ticker).destination === 'solo-analisis') {
+        throw invalidPosition(`${ticker}: ${FX_ANALYSIS_ONLY_REASON}`);
+      }
       return deps.repo.openPaperPosition({
         ...input,
         ticker,
-        sector: input.sector ?? TRADIA_UNIVERSE_SECTORS[ticker] ?? null,
-        currency: input.currency || UNIVERSE_CURRENCY,
+        sector:
+          input.sector ??
+          TRADIA_UNIVERSE_SECTORS[ticker] ??
+          (isFxSymbol(ticker) ? FX_SECTOR : null),
+        // Un par expone a su moneda base (EUR en EURUSD); el P&L va en USD.
+        currency: input.currency || exposureCurrencyOf(ticker),
       });
     },
 

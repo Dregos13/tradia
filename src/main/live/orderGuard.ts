@@ -53,6 +53,7 @@
 import type { BrokerOrderLeg } from '../../shared/broker';
 import type { LiveLimits, LiveModeState } from '../../shared/live';
 import { LIVE_FIXED_SHORT_CAPS, LIVE_SHORT_ERROR_CODE } from '../../shared/live';
+import { FX_BROKER_REJECTION_REASON, isFxSymbol } from '../../shared/fxTrading';
 import type { BrokerOrderRequest } from '../broker/types';
 
 // ---------------------------------------------------------------------------
@@ -389,6 +390,12 @@ export function liveOrderBlockReason(
   >,
   context: LiveOrderContext,
 ): string | null {
+  // Los pares de divisas no llegan al bróker: Alpaca no opera FX, así que
+  // una orden sobre un par se bloquea siempre, sea la pata que sea.
+  if (isFxSymbol(request.ticker)) {
+    return FX_BROKER_REJECTION_REASON;
+  }
+
   // Una salida (el OCO que protege una posición abierta) nunca se frena
   // por techos: dejar una posición real sin protección sería peor.
   if (context.leg === 'salida') return null;

@@ -87,6 +87,7 @@ import {
   isSourceUrl,
   isTestSourceRequest,
   isTicker,
+  normalizeAssetSymbol,
   isUpdateSourceRequest,
   isBacktestFinalTestRequest,
   isBacktestListQuery,
@@ -102,9 +103,13 @@ import {
   isStrategyPeriod,
   isStrategyStatus,
   isUpdateStrategyRequest,
+  isNewsCliEngine,
+  isNewsEngine,
   JOURNAL_ENTRY_TYPES,
   JOURNAL_LIST_MAX_LIMIT,
   NEWS_ANALYZERS,
+  NEWS_CLI_ENGINES,
+  NEWS_ENGINES,
   NEWS_LIST_MAX_LIMIT,
   NEWS_PRIORITIES,
   NOTIFICATION_LEVELS,
@@ -177,6 +182,7 @@ describe('contrato IPC', () => {
     expect(IPC_CHANNELS.market).toEqual({
       getBars: 'market:get-bars',
       refreshNow: 'market:refresh-now',
+      search: 'market:search',
       updated: 'market:updated',
       advanceClock: 'market:advance-clock',
     });
@@ -469,9 +475,22 @@ describe('guardas de entrada', () => {
   it('valida tickers y fechas ISO reales', () => {
     expect(isTicker('AAPL')).toBe(true);
     expect(isTicker('BRK.B')).toBe(true);
+    // Los pares de divisas admitidos en cualquier forma escrita.
+    for (const fx of ['EURUSD', 'EUR/USD', 'eurusd', 'eur-usd', 'GBPUSD']) {
+      expect(isTicker(fx)).toBe(true);
+    }
+    // Un par escrito con barra pero no admitido no vale como par; como
+    // ticker tampoco (la barra no está en el patrón).
+    expect(isTicker('EUR/JPY')).toBe(false);
     expect(isTicker('')).toBe(false);
     expect(isTicker('DROP TABLE bars;--')).toBe(false);
     expect(isTicker(42)).toBe(false);
+
+    // La forma guardada del símbolo es canónica.
+    expect(normalizeAssetSymbol('eur/usd')).toBe('EURUSD');
+    expect(normalizeAssetSymbol('EUR-USD')).toBe('EURUSD');
+    expect(normalizeAssetSymbol(' aapl ')).toBe('AAPL');
+    expect(normalizeAssetSymbol('!!!')).toBeNull();
 
     expect(isIsoDate('2026-10-08')).toBe(true);
     expect(isIsoDate('2020-02-30')).toBe(false);
@@ -1709,5 +1728,25 @@ describe('contrato de la continuación (modo por orden, proveedores, tour, LLM)'
     ).toBe(true);
     // Los campos anteriores siguen validando igual (aditivo).
     expect(isNewsLlmSettingsInput({ enabled: true, monthlyBudgetEur: 5 })).toBe(true);
+  });
+
+  it('el motor del desplegable admite las cuatro CLI y local, y rechaza lo demás', () => {
+    expect(NEWS_CLI_ENGINES).toEqual([
+      'suscripcion-claude',
+      'suscripcion-codex',
+      'suscripcion-antigravity',
+      'suscripcion-copilot',
+    ]);
+    expect(NEWS_ENGINES).toEqual([...NEWS_CLI_ENGINES, 'local']);
+    for (const engine of NEWS_ENGINES) {
+      expect(isNewsEngine(engine)).toBe(true);
+      expect(isNewsLlmSettingsInput({ engine })).toBe(true);
+    }
+    expect(isNewsCliEngine('suscripcion-codex')).toBe(true);
+    expect(isNewsCliEngine('local')).toBe(false);
+    expect(isNewsEngine('suscripcion')).toBe(false);
+    expect(isNewsEngine('otro')).toBe(false);
+    expect(isNewsLlmSettingsInput({ engine: 'llm' })).toBe(false);
+    expect(isNewsLlmSettingsInput({ engine: 'gpt' })).toBe(false);
   });
 });
