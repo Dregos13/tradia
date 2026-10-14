@@ -1,0 +1,89 @@
+// @vitest-environment jsdom
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useTourAnchor } from './useTourAnchor';
+
+// Paso 3 (Mercado): ancla «mercado-lista», respaldo «Datos de mercado».
+const STEP = 3;
+const ANCHOR_TOP = 300;
+const FALLBACK_TOP = 100;
+
+function mount(html: string) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper.firstElementChild!);
+}
+
+describe('useTourAnchor', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = this.dataset.tour ? ANCHOR_TOP : this.matches('section') ? FALLBACK_TOP : 0;
+      const height = top ? 100 : 0;
+      return {
+        left: 100,
+        top,
+        width: top ? 200 : 0,
+        height,
+        right: 300,
+        bottom: top + height,
+        x: 100,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+    mount('<section aria-label="Datos de mercado"><p>Cargando…</p></section>');
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  const dialog = { current: null };
+
+  it('ilumina el ancla data-tour presente desde el inicio', () => {
+    document
+      .querySelector('section')!
+      .insertAdjacentHTML('beforeend', '<ul data-tour="mercado-lista"></ul>');
+    const { result } = renderHook(() => useTourAnchor(STEP, dialog));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.rect?.top).toBe(ANCHOR_TOP - 8);
+  });
+
+  it('pasa del respaldo al ancla cuando se monta tarde', async () => {
+    const { result } = renderHook(() => useTourAnchor(STEP, dialog));
+    expect(result.current.rect?.top).toBe(FALLBACK_TOP - 8);
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      document
+        .querySelector('section')!
+        .insertAdjacentHTML('beforeend', '<ul data-tour="mercado-lista"></ul>');
+    });
+    expect(result.current.rect?.top).toBe(ANCHOR_TOP - 8);
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current.rect?.top).toBe(ANCHOR_TOP - 8);
+  });
+
+  it('se queda en el respaldo sin parpadeos si el ancla no llega', async () => {
+    const { result } = renderHook(() => useTourAnchor(STEP, dialog));
+    const seen: Array<number | undefined> = [];
+    expect(result.current.rect?.top).toBe(FALLBACK_TOP - 8);
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    seen.push(result.current.rect?.top);
+    await act(async () => {
+      document.querySelector('section')!.insertAdjacentHTML('beforeend', '<p>Más</p>');
+      vi.advanceTimersByTime(1000);
+    });
+    seen.push(result.current.rect?.top);
+    expect(seen).toEqual([FALLBACK_TOP - 8, FALLBACK_TOP - 8]);
+    expect(result.current.loading).toBe(false);
+  });
+});

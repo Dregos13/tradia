@@ -47,35 +47,46 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
             : null,
       });
     };
+    const visible = (element: HTMLElement | null): element is HTMLElement => {
+      if (!element || element.closest('[hidden]')) return false;
+      const bounds = element.getBoundingClientRect();
+      return (
+        bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).visibility !== 'hidden'
+      );
+    };
+    const settle = () => {
+      observer.disconnect();
+      window.clearTimeout(timeout);
+    };
+    const select = (next: HTMLElement) => {
+      if (next === target) return;
+      target = next;
+      resize?.disconnect();
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      next.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+      measure();
+      if (typeof ResizeObserver !== 'undefined') {
+        resize = new ResizeObserver(measure);
+        resize.observe(next);
+      }
+    };
+    // El respaldo se ilumina de forma provisional: se sigue observando hasta
+    // que aparezca el ancla data-tour o venza el plazo.
     const find = () => {
       if (current.route && window.location.hash !== `#${current.route}`) return;
       const selected = document.querySelector('.nav a[aria-current="page"]');
       if (current.route && selected && selected.getAttribute('href') !== `#${current.route}`)
         return;
-      const candidates = [
-        document.querySelector<HTMLElement>(`[data-tour="${current.anchor}"]`),
-        current.fallback ? document.querySelector<HTMLElement>(current.fallback) : null,
-      ];
-      target =
-        candidates.find((element) => {
-          if (!element || element.closest('[hidden]')) return false;
-          const bounds = element.getBoundingClientRect();
-          return (
-            bounds.width > 0 &&
-            bounds.height > 0 &&
-            getComputedStyle(element).visibility !== 'hidden'
-          );
-        }) ?? null;
-      if (!target) return;
-      observer.disconnect();
-      window.clearTimeout(timeout);
-      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      target.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
-      measure();
-      if (typeof ResizeObserver !== 'undefined') {
-        resize = new ResizeObserver(measure);
-        resize.observe(target);
+      const own = document.querySelector<HTMLElement>(`[data-tour="${current.anchor}"]`);
+      if (visible(own)) {
+        settle();
+        select(own);
+        return;
       }
+      const fallback = current.fallback
+        ? document.querySelector<HTMLElement>(current.fallback)
+        : null;
+      if (visible(fallback)) select(fallback);
     };
     const observer = new MutationObserver(find);
     observer.observe(document.body, {
@@ -86,7 +97,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     });
     const timeout = window.setTimeout(() => {
       observer.disconnect();
-      setAnchor({ step, rect: null, loading: false });
+      if (!target) setAnchor({ step, rect: null, loading: false });
     }, 1500);
     window.addEventListener('resize', measure);
     document.addEventListener('scroll', measure, true);
