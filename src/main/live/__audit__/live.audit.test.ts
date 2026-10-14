@@ -632,7 +632,14 @@ describe('auditoría de cierre · copia restaurada con dinero real activo', () =
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    if (dir !== null) rmSync(dir, { recursive: true, force: true });
+    // La base restaurada vive dentro de `dir`: los brokers escriben su
+    // desconexión al parar, así que primero se detienen, luego se cierra
+    // la base y solo entonces se borra la carpeta (Windows no permite
+    // eliminar archivos abiertos; los reintentos cubren bloqueos
+    // transitorios como el antivirus o el indexador).
+    for (const live of registered.splice(0)) live.broker.stop();
+    if (db.open) db.close();
+    if (dir !== null) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     dir = null;
   });
 
