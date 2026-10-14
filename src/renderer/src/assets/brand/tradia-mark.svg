@@ -1,15 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
   <title>Tradia</title>
-  <g stroke="#557BE8" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M5.25 22.5 11.5 15.75 16.5 19.5 26.5 7.5" />
-    <path d="M6.25 8.5 11.5 15.75M10.25 26 16.5 19.5" />
-  </g>
-  <g fill="#557BE8">
-    <circle cx="5.25" cy="22.5" r="2.35" />
-    <circle cx="6.25" cy="8.5" r="2.35" />
-    <circle cx="10.25" cy="26" r="2.35" />
-    <circle cx="11.5" cy="15.75" r="2.55" />
-    <circle cx="16.5" cy="19.5" r="2.55" />
-    <circle cx="26.5" cy="7.5" r="2.35" />
+  <g stroke="#557BE8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12C9 12 11 9 16 9S23 7.5 28 4" />
+    <path d="M16 9V28" />
   </g>
 </svg>

@@ -14,6 +14,9 @@ Contrato de `docs/diseno-espaciado.md`, sección «Contrato que medirá el E2E»
 | Separación vertical mínima 24 px                                | `siguiente.top − anterior.bottom` entre bloques que no comparten fila, ±1 px                                                                                                                                                     |
 | Marca «Tradia»                                                  | `role="img"` con nombre accesible «Tradia», símbolo cargado (`naturalWidth > 0`) de al menos 24 px y palabra «Tradia» visible, en la barra lateral y en «Antes de empezar», tema claro y oscuro                                   |
 | Tour                                                            | Pasos 2 a 10: el foco (`.tour-spotlight`) acaba sobre el elemento `data-tour` del paso (no sobre `#contenido`), el globo tiene 24 px de relleno y cabe en la ventana                                                              |
+| Tour, pasos 8 y 9 (UXE-01, UXE-02)                              | Con el globo quieto, su rectángulo no se cruza con el del ancla; en el paso 9 el foco mide 400 px de alto como mucho. El paso 8 se mide a 1280 × 800 y, volviendo a entrar en él, a 1024 × 700                                   |
+| Barra de estado (UXE-03)                                        | En Inicio, a los dos tamaños: `footer.statusbar` mide 48 px ±1 y el dato con `title` «Último latido …» se ve dentro de la barra                                                                                                 |
+| Selector «Prioridad» de Noticias (UXE-04)                       | A los dos tamaños: muestra «Todas las prioridades», su ancho cubre el texto medido con su fuente más relleno y flecha, y no sale de `.news-filters` ni la desborda                                                              |
 
 Las 15 rutas, en el orden de la navegación: Inicio, Mercado (con SPY en seguimiento), IA, Salud de modelos, Macro, Noticias, Calendario, Fuentes, Estrategias, Riesgo, Diario, Órdenes, Real vs backtest, Dinero real y Ajustes. Tamaños: 1280 × 800 y 1024 × 700.
 
@@ -80,39 +83,47 @@ Pasos: mismo recorrido a 1024 × 700 (portátil pequeño), revisión de cada cap
 
 ## Hallazgos
 
-Ninguno rompe el contrato del spec; los cuatro son de gravedad baja y quedan para el rol de frontend.
+Ninguno rompía el contrato original del spec; los cuatro eran de gravedad baja. Los cuatro están resueltos (tarea `fe-correcciones-e2e-espaciado`) y el spec los comprueba desde entonces. Las capturas `*-antes.png` son las de la primera pasada; las que llevan el nombre sin sufijo son las de después.
 
-### UXE-01 · Tour, paso 9: el foco cubre toda la ventana (baja)
+### UXE-01 · Tour, paso 9: el foco cubre toda la ventana (baja) · resuelto
 
 - Pasos: perfil limpio → aceptar aviso → «Empezar» → «Siguiente» hasta el paso 9 (Dinero real).
 - Esperado: el resaltado enmarca un elemento identificable de la lista de requisitos.
 - Observado: el ancla `dinero-real-lista` es la sección de requisitos completa (unos 2 200 px de alto), así que el recorte al viewport ilumina todo `main` y el globo tapa el contenido. El usuario no distingue este estado del respaldo genérico.
-- Evidencia: `docs/qa/capturas/e2e-espaciado/tour-paso-9.png`.
+- Evidencia (antes): `docs/qa/capturas/e2e-espaciado/tour-paso-9-antes.png`.
 - Rol: frontend (ancla o altura del elemento señalado en `ChecklistPage`).
+- Resuelto: el ancla `dinero-real-lista` pasa de la sección completa a su cabecera (título «Requisitos previos», explicación y fecha de la última evaluación) en `ChecklistPage.tsx`. El foco mide unos 130 px y el globo queda debajo, sin taparlo.
+- Después: `tour-paso-9.png`; antes: `tour-paso-9-antes.png`.
 
-### UXE-02 · Tour, paso 8: el globo tapa el panel resaltado (baja)
+### UXE-02 · Tour, paso 8: el globo tapa el panel resaltado (baja) · resuelto
 
 - Pasos: igual que UXE-01 hasta el paso 8 (IA).
 - Esperado: el globo se coloca junto al panel «Régimen del mercado», sin ocultarlo.
 - Observado: el ancla ocupa todo el ancho y no queda sitio en ninguno de los cuatro lados, así que el globo cae centrado sobre el panel y oculta sus dos primeros textos.
-- Evidencia: `docs/qa/capturas/e2e-espaciado/tour-paso-8.png`.
+- Evidencia (antes): `docs/qa/capturas/e2e-espaciado/tour-paso-8-antes.png`.
 - Rol: frontend (`useTourAnchor`, colocación cuando ningún candidato cabe).
+- Resuelto en la colocación (`useTourAnchor.ts`, `scrollBlock`): si, con el ancla centrada, el globo no cabe a ningún lado pero ancla y globo caben juntos en la altura de la ventana, la vista lleva el ancla al borde superior y el globo se coloca debajo. El ancla sigue siendo el panel «Régimen del mercado» entero.
+- Después: `tour-paso-8.png` (1280 × 800) y `tour-paso-8-1024.png` (1024 × 700); antes: `tour-paso-8-antes.png`.
 
-### UXE-03 · Barra de estado en dos líneas a 1024 × 700 (baja)
+### UXE-03 · Barra de estado en dos líneas a 1024 × 700 (baja) · resuelto
 
 - Pasos: cualquier sección a 1024 × 700.
 - Esperado: una sola línea de estado de 48 px.
 - Observado: «Último latido» pasa a una segunda línea y la barra crece a unos 96 px; en una ventana de 700 px eso resta espacio al contenido. Ya anotado por los grupos A, B y C como asunto del shell.
-- Evidencia: `docs/qa/capturas/e2e-espaciado/inicio-1024.png`.
+- Evidencia (antes): `docs/qa/capturas/e2e-espaciado/inicio-1024-antes.png`.
 - Rol: frontend (`.statusbar` en `styles.css`).
+- Resuelto: `.statusbar` ya no salta de línea; las horas no encogen y el estado de conexión y agentes cede con recorte si hiciera falta. Por debajo de 1200 px las etiquetas se abrevian («Comprobado», «Reintento», «Latido») y la etiqueta completa sigue en el árbol accesible y en el `title` (`SystemStatus.tsx`). Por debajo de 760 px la barra vuelve a poder partirse.
+- Después: `inicio-1024.png`; antes: `inicio-1024-antes.png`.
 
-### UXE-04 · Noticias: el selector «Prioridad» corta su texto a 1024 (baja)
+### UXE-04 · Noticias: el selector «Prioridad» corta su texto a 1024 (baja) · resuelto
 
 - Pasos: Noticias a 1024 × 700.
 - Esperado: «Todas las prioridades» legible entero.
 - Observado: el selector mide unos 160 px y el texto se corta en «Todas las prioridad».
-- Evidencia: `docs/qa/capturas/e2e-espaciado/noticias-1024.png`.
+- Evidencia (antes): `docs/qa/capturas/e2e-espaciado/noticias-1024-antes.png`.
 - Rol: frontend (`news.css`, anchura mínima de los filtros).
+- Resuelto: en `news.css`, los selectores de `.news-filters` no encogen por debajo de su opción más larga (`min-width: max-content`) y su etiqueta tampoco; si la fila no cabe, el siguiente filtro salta de línea.
+- Después: `noticias-1024.png`; antes: `noticias-1024-antes.png`.
 
 ## Límites de la prueba
 

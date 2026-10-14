@@ -11,32 +11,15 @@
     stroke="#31435F"
     stroke-width="4"
   />
-  <g transform="translate(128 112) scale(24)">
-    <path
-      d="M5.25 22.5 11.5 15.75 16.5 19.5 26.5 7.5"
-      fill="none"
-      stroke="#8EACFF"
-      stroke-width="3.25"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-    <path
-      d="M6.25 8.5 11.5 15.75M10.25 26 16.5 19.5"
-      fill="none"
-      stroke="#5ED7C0"
-      stroke-width="3.25"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-    <g fill="#5ED7C0">
-      <circle cx="5.25" cy="22.5" r="2.35" />
-      <circle cx="6.25" cy="8.5" r="2.35" />
-      <circle cx="10.25" cy="26" r="2.35" />
-    </g>
-    <g fill="#8EACFF">
-      <circle cx="11.5" cy="15.75" r="2.55" />
-      <circle cx="16.5" cy="19.5" r="2.55" />
-      <circle cx="26.5" cy="7.5" r="2.35" />
-    </g>
+  <g
+    transform="translate(192 192) scale(20)"
+    fill="none"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M4 12C9 12 11 9 16 9" stroke="#8EACFF" />
+    <path d="M16 9C21 9 23 7.5 28 4" stroke="#5ED7C0" />
+    <path d="M16 9V28" stroke="#8EACFF" />
   </g>
 </svg>

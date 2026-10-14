@@ -86,4 +86,52 @@ describe('useTourAnchor', () => {
     expect(seen).toEqual([FALLBACK_TOP - 8, FALLBACK_TOP - 8]);
     expect(result.current.loading).toBe(false);
   });
+
+  describe('desplazamiento hacia el ancla', () => {
+    const globe = document.createElement('div');
+    Object.defineProperty(globe, 'offsetWidth', { value: 360 });
+    Object.defineProperty(globe, 'offsetHeight', { value: 320 });
+    const sized = { current: globe };
+    let scroll: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      scroll = vi.fn();
+      HTMLElement.prototype.scrollIntoView = scroll as unknown as HTMLElement['scrollIntoView'];
+    });
+    afterEach(() => {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+    });
+
+    it('centra el ancla cuando el globo cabe a un lado', () => {
+      document
+        .querySelector('section')!
+        .insertAdjacentHTML('beforeend', '<ul data-tour="mercado-lista"></ul>');
+      renderHook(() => useTourAnchor(STEP, sized));
+      expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'center' }));
+    });
+
+    it('sube el ancla al borde si, centrada, el globo no cabe a ningún lado', () => {
+      // Ancla a todo el ancho y de 200 px: centrada no deja 320 px ni arriba ni abajo.
+      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const own = Boolean(this.dataset.tour);
+        return {
+          left: 0,
+          top: own ? ANCHOR_TOP : 0,
+          width: own ? window.innerWidth : 0,
+          height: own ? 200 : 0,
+          right: own ? window.innerWidth : 0,
+          bottom: own ? ANCHOR_TOP + 200 : 0,
+          x: 0,
+          y: own ? ANCHOR_TOP : 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      });
+      document
+        .querySelector('section')!
+        .insertAdjacentHTML('beforeend', '<ul data-tour="mercado-lista"></ul>');
+      renderHook(() => useTourAnchor(STEP, sized));
+      expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'start' }));
+    });
+  });
 });

@@ -185,3 +185,21 @@ describe('conector RSS/Atom', () => {
     );
   });
 });
+
+describe('entidades HTML en titulares y resúmenes (UXP-05)', () => {
+  it('la CNMV escapa dos veces: el titular llega como «A&P», no «A&amp;P»', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><Channel><Title>CNMV</Title>
+  <item>
+    <Title>A&amp;amp;P LIFESCIENCE FUND, FI</Title>
+    <link>https://www.cnmv.es/hr/1</link>
+    <description>Fondo &amp;quot;A&amp;amp;P&amp;quot; &amp;#x2019;s &amp;amp;amp;</description>
+  </item>
+</Channel></rss>`;
+    const { fetch } = fetchReturning(xml);
+    const [item] = await make(fetch).fetchItems(source());
+    expect(item?.title).toBe('A&P LIFESCIENCE FUND, FI');
+    // Una sola pasada: el triple escape conserva una capa.
+    expect(item?.summary).toBe('Fondo "A&P" ’s &amp;');
+  });
+});

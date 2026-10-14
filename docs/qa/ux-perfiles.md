@@ -168,3 +168,13 @@ Pendiente del usuario (no verificable aquí): aspecto en el Dock, Finder y Cmd+T
 ## Evidencia
 
 Capturas en `docs/qa/capturas/`: `ux-perfil-indep-<sección>-1280.png` (15, tema claro), `ux-perfil-resp-<sección>-1024-dark.png` (15, tema oscuro), las de «Antes de empezar» (`ux-perfil-indep-antes-de-empezar-*`, `ux-perfil-resp-antes-de-empezar-1280-dark.png`), el tour (`ux-perfil-indep-tour-paso-{2,3,4,9}-1280.png`), `ux-perfil-icono-comparativa.png` y las citadas en cada hallazgo.
+
+## Correcciones
+
+### Correcciones · noticias
+
+- **UXP-05 · resuelto.** Los titulares y resúmenes de todas las fuentes (RSS, Atom, CNMV y demás organismos, NewsAPI, Finnhub, Alpha Vantage y GDELT) pasan una sola vez por `decodeHtmlEntities` (`src/main/news/connectors/entities.ts`, sin dependencias nuevas: entidades con nombre comunes y numéricas decimales y hexadecimales) al normalizarse en el conector. «A&amp;amp;P» en el XML de la CNMV llega como «A&P LIFESCIENCE FUND, FI»; el doble escape no se decodifica dos veces («&amp;amp;» queda «&amp;»). El renderer sigue pintándolo como texto (no hay `dangerouslySetInnerHTML`). Pruebas: `entities.test.ts` y «entidades HTML en titulares y resúmenes (UXP-05)» en `rss.test.ts`. Antes: `docs/qa/capturas/ux-perfil-indep-noticias-1280.png`. Los titulares guardados antes del cambio conservan su texto (sin migración); los nuevos llegan decodificados y no se duplican, porque la deduplicación casa primero por URL canónica.
+
+### Correcciones · marca (monograma «T»)
+
+- **UXP-04 · resuelto en el dibujo; la integración en la barra lateral queda para «Iconos con el monograma, marca y menú lateral alcanzables».** Se retira «Vector de consenso» y se dibuja la marca elegida por el usuario: un monograma «T» cuyo travesaño es una curva ascendente (sube, hace una meseta sobre el tallo y vuelve a subir). Se reescriben `build/icon.svg`, `src/renderer/src/assets/brand/tradia-mark.svg` (trazo de 5/32, 3,75 px a 24 px) y las 8 SVG de `resources/tray/`, con una silueta simplificada y un trazo de 2 px exactos a 16 px. Los 4 estados de bandeja se distinguen ahora por la forma del distintivo, no solo por el color: en línea, punto lleno; sin conexión, anillo hueco; en pausa, dos barras; detenida, cuadrado. Se ve en las Template, que solo usan negro. Concepto, construcción, tamaños y usos: `docs/diseno-identidad.md`. Antes: `docs/qa/capturas/ux-perfil-icono-comparativa.png`. Después: `docs/qa/capturas/marca-monograma-escalas.png` (16, 24, 32, 256 y 1024 px, en claro y oscuro, con el ráster de 16 px ampliado). La aceptación final del logo depende del usuario.

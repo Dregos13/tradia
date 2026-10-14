@@ -21,7 +21,10 @@ import {
  * 24 px (1024) del borde de `main`. La marca de la barra lateral y de
  * «Antes de empezar» debe verse y llamarse «Tradia» en claro y oscuro. El
  * tour se mide en su propia superficie: el foco acaba sobre el ancla
- * `data-tour` de cada paso, no sobre el respaldo.
+ * `data-tour` de cada paso, no sobre el respaldo. Además (UXE-01…04): en los
+ * pasos 8 y 9 el globo no tapa el ancla y el foco del 9 no pasa de 400 px,
+ * la barra de estado ocupa una línea de 48 px con «Último latido» a la vista
+ * y el selector «Prioridad» de Noticias muestra su texto entero.
  */
 
 const GAP_MIN = 24;
@@ -247,6 +250,86 @@ async function expectBrand(page: Page, scope: ReturnType<Page['locator']>): Prom
   expect(size?.height ?? 0).toBeGreaterThanOrEqual(24);
 }
 
+/**
+ * UXE-03: la barra de estado ocupa una sola línea de 48 px y «Último latido»
+ * sigue a la vista, con su etiqueta completa en el title.
+ */
+async function readStatusBar(page: Page, width: number): Promise<string[]> {
+  const problems: string[] = [];
+  const bar = page.locator('footer.statusbar');
+  const box = await bar.boundingBox();
+  if (!box || Math.abs(box.height - 48) > TOLERANCE) {
+    problems.push(`barra de estado@${width}: mide ${box?.height ?? 0} px de alto, esperado 48 px`);
+  }
+  const heartbeat = bar.locator('[title^="Último latido"]');
+  if (!(await heartbeat.isVisible())) {
+    problems.push(`barra de estado@${width}: «Último latido» no se ve`);
+  } else {
+    const item = await heartbeat.boundingBox();
+    if (!item || !box || item.x + item.width > box.x + box.width + TOLERANCE) {
+      problems.push(`barra de estado@${width}: «Último latido» se sale de la barra`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * UXE-04: el selector «Prioridad» de Noticias muestra «Todas las prioridades»
+ * entero y no desborda la barra de filtros.
+ */
+async function readPriorityFilter(page: Page, width: number): Promise<string[]> {
+  const priority = page
+    .locator('.news-filters label')
+    .filter({ hasText: /^Prioridad/ })
+    .locator('select');
+  const reading = await priority.evaluate((element) => {
+    const select = element as HTMLSelectElement;
+    const style = getComputedStyle(select);
+    const context = document.createElement('canvas').getContext('2d')!;
+    context.font = style.font;
+    const text = select.selectedOptions[0]?.textContent ?? '';
+    // Texto + relleno + flecha nativa (16 px) + borde.
+    const needed =
+      context.measureText(text).width +
+      parseFloat(style.paddingLeft) +
+      parseFloat(style.paddingRight) +
+      16 +
+      2;
+    const bar = select.closest('.news-filters')!;
+    const box = select.getBoundingClientRect();
+    const barBox = bar.getBoundingClientRect();
+    return {
+      text,
+      width: box.width,
+      needed: Math.ceil(needed),
+      inside: box.left >= barBox.left - 1 && box.right <= barBox.right + 1,
+      overflow: bar.scrollWidth - bar.clientWidth,
+    };
+  });
+  const problems: string[] = [];
+  if (reading.text !== 'Todas las prioridades') {
+    problems.push(`noticias@${width}: el selector «Prioridad» muestra «${reading.text}»`);
+  }
+  if (reading.width < reading.needed) {
+    problems.push(
+      `noticias@${width}: el selector «Prioridad» mide ${reading.width} px y su texto necesita ${reading.needed} px`,
+    );
+  }
+  if (!reading.inside || reading.overflow > 0) {
+    problems.push(`noticias@${width}: el selector «Prioridad» desborda la barra de filtros`);
+  }
+  return problems;
+}
+
+type Rect = { x: number; y: number; width: number; height: number };
+
+/** Píxeles de solape entre el globo y el ancla en cada eje (0 si no se tocan). */
+function overlapOf(a: Rect, b: Rect): number {
+  const x = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const y = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return x > TOLERANCE && y > TOLERANCE ? Math.round(Math.min(x, y)) : 0;
+}
+
 let context: PhaseApp | undefined;
 
 test.afterEach(async () => {
@@ -291,6 +374,8 @@ for (const viewport of VIEWPORTS) {
       ).toBeGreaterThan(0);
       const problems = auditGroups(reading.groups);
       if (problems.length) failures.push(formatProblems(route, viewport.width, problems));
+      if (route === 'inicio') failures.push(...(await readStatusBar(page, viewport.width)));
+      if (route === 'noticias') failures.push(...(await readPriorityFilter(page, viewport.width)));
     }
     expect(failures, failures.join('\n')).toEqual([]);
   });
@@ -323,6 +408,51 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expectBrand(page, page.locator('aside.side'));
     await page.screenshot({ path: resolve(evidenceDir, `marca-barra-lateral-${colorScheme}.png`) });
   });
+}
+
+/**
+ * UXE-01 y UXE-02: el foco enmarca un elemento acotado (≤ 400 px de alto) y
+ * el globo, ya quieto, no se solapa con el ancla.
+ */
+async function readTourFocus(
+  page: Page,
+  step: number,
+  anchor: string,
+  width: number,
+): Promise<string[]> {
+  const target = page.locator(`[data-tour="${anchor}"]`).first();
+  const dialog = tourDialog(page);
+  let last = '';
+  await expect
+    .poll(
+      async () => {
+        const first = [await target.boundingBox(), await dialog.boundingBox()];
+        await page.waitForTimeout(150);
+        const box = await target.boundingBox();
+        const globe = await dialog.boundingBox();
+        const spot = await page.locator('.tour-spotlight').boundingBox();
+        if (!box || !globe || !spot) return 'sin medir';
+        const still = JSON.stringify(first) === JSON.stringify([box, globe]);
+        last = `ancla ${Math.round(box.height)} px, foco ${Math.round(spot.height)} px, solape ${overlapOf(globe, box)} px`;
+        return still && overlapOf(globe, box) === 0 ? 'ok' : last;
+      },
+      { timeout: 8_000 },
+    )
+    .toBe('ok')
+    .catch(() => undefined);
+  const problems: string[] = [];
+  const box = await target.boundingBox();
+  const globe = await dialog.boundingBox();
+  const spot = await page.locator('.tour-spotlight').boundingBox();
+  if (!box || !globe || !spot) return [`paso ${step}@${width}: no se pudo medir el foco`];
+  if (anchor === 'dinero-real-lista' && spot.height > 400) {
+    problems.push(`paso ${step}@${width}: el foco mide ${Math.round(spot.height)} px de alto`);
+  }
+  const overlap = overlapOf(globe, box);
+  if (overlap) {
+    problems.push(`paso ${step}@${width}: el globo tapa el ancla ${anchor} (${last})`);
+  }
+  return problems;
 }
 
 test('el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y Dinero real', async () => {
@@ -377,8 +507,24 @@ test('el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y
         )
         .toBe('ancla');
     }
+    if (data.anchor === 'dinero-real-lista' || data.anchor === 'ia-regimen') {
+      failures.push(...(await readTourFocus(page, step, data.anchor, 1280)));
+    }
     mkdirSync(evidenceDir, { recursive: true });
     await page.screenshot({ path: resolve(evidenceDir, `tour-paso-${step}.png`) });
+    if (data.anchor === 'ia-regimen') {
+      // UXE-02 también a 1024 × 700: se vuelve a entrar en el paso para que
+      // el tour desplace y coloque el globo con la ventana pequeña.
+      await page.setViewportSize({ width: 1024, height: 700 });
+      await dialog.getByRole('button', { name: 'Atrás', exact: true }).click();
+      await expect(dialog).toHaveAccessibleName(new RegExp(`^Paso ${step - 1} de`));
+      await dialog.getByRole('button', { name: 'Siguiente', exact: true }).click();
+      await expect(dialog).toHaveAccessibleName(new RegExp(`^Paso ${step} de`));
+      await expect(dialog).toHaveAttribute('aria-busy', 'false', { timeout: 5_000 });
+      failures.push(...(await readTourFocus(page, step, data.anchor, 1024)));
+      await page.screenshot({ path: resolve(evidenceDir, `tour-paso-${step}-1024.png`) });
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
     if (step < TOUR_TOTAL_STEPS) {
       await dialog.getByRole('button', { name: 'Siguiente', exact: true }).click();
     }
