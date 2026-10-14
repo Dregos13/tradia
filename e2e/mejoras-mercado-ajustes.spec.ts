@@ -313,7 +313,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
 
     // Buscar «EUR» sugiere el par de divisas con su badge y lo añade.
     await addViaSearch(page, 'EUR', /EUR\/USD/);
-    await expect(page.getByRole('status').filter({ hasText: 'EUR/USD se ha añadido' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'EUR/USD se ha añadido' }),
+    ).toBeVisible();
     await waitForCandles(page, 'EURUSD');
     await expect(page.getByRole('heading', { name: 'EUR/USD', level: 3 })).toBeVisible();
     await expect(page.getByText('Divisa Forex 24/5')).toBeVisible();
@@ -350,9 +352,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     // Con espacios no es un ticker directo añadible: solo cabe el estado
     // sin resultados (un «zzznoexiste» de un solo token sí lo sería).
     await search.fill('activo totalmente inventado');
-    await expect(
-      page.getByText(/No encontramos ningún activo para/, { exact: false }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/No encontramos ningún activo para/, { exact: false })).toBeVisible(
+      { timeout: 10_000 },
+    );
     await search.fill('');
     await expect(page.getByRole('listbox', { name: 'Sugerencias de activos' })).toHaveCount(0);
   });
@@ -373,7 +375,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(chart).toBeVisible();
 
     // Cotización de divisa a 4 decimales, como pide el diseño.
-    await expect(page.locator('.market-close')).toHaveText(/^\d\,\d{4} EUR\/USD$/);
+    await expect(page.locator('.market-close')).toHaveText(/^\d,\d{4} EUR\/USD$/);
 
     // Paneles RSI/ATR conmutables: el nombre accesible del lienzo lo refleja.
     const rsiToggle = page.getByRole('button', { name: /Panel RSI 14/ });
@@ -401,12 +403,24 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     // Cambio de rango temporal: el botón activo lleva aria-pressed.
     const ranges = page.getByRole('group', { name: 'Rango del gráfico' });
-    await expect(ranges.getByRole('button', { name: '5A' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(ranges.getByRole('button', { name: '5A' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await ranges.getByRole('button', { name: '1A' }).click();
-    await expect(ranges.getByRole('button', { name: '1A' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(ranges.getByRole('button', { name: '5A' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(ranges.getByRole('button', { name: '1A' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(ranges.getByRole('button', { name: '5A' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     await ranges.getByRole('button', { name: '3A' }).click();
-    await expect(ranges.getByRole('button', { name: '3A' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(ranges.getByRole('button', { name: '3A' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
     // Tooltip/crosshair OHLCV: la barra de lectura muestra apertura/máximo/mínimo/cierre.
     const ohlcv = page.locator('.ohlcv-bar');
@@ -417,18 +431,14 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(ohlcv).toContainText('Cierre:');
 
     await capturePhaseScreenshot(page, 'mercado-grafico-eurusd-1280x800.png', chartCard);
-    const overflow1280 = await chartCard.evaluate(
-      (el) => el.scrollWidth - el.clientWidth,
-    );
+    const overflow1280 = await chartCard.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(overflow1280).toBeLessThanOrEqual(1);
 
     // Resolución compacta: el gráfico se adapta sin desbordamiento horizontal.
     await page.setViewportSize({ width: 1024, height: 700 });
     await expect(chartCard).toBeVisible();
     await capturePhaseScreenshot(page, 'mercado-grafico-eurusd-1024x700.png', chartCard);
-    const overflow1024 = await chartCard.evaluate(
-      (el) => el.scrollWidth - el.clientWidth,
-    );
+    const overflow1024 = await chartCard.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(overflow1024).toBeLessThanOrEqual(1);
     const workspaceOverflow = await page
       .locator('.market-workspace')
