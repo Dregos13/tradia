@@ -154,6 +154,7 @@ export function NewsFeed() {
     <section
       ref={root}
       className="news-feed"
+      data-layout-page="noticias"
       aria-label="Feed de noticias"
       aria-busy={data.loading}
     >
@@ -165,7 +166,7 @@ export function NewsFeed() {
         </p>
       )}
       <NewsSubscriptionNotice />
-      <div className="news-filters">
+      <div className="news-filters" data-layout-block="filtros">
         <label>
           Prioridad
           <select value={priority} onChange={(event) => setPriority(event.target.value)}>
@@ -202,7 +203,7 @@ export function NewsFeed() {
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
         </label>
       </div>
-      <p role="status">
+      <p role="status" data-layout-block="resultado">
         {data.loading ? 'Cargando noticias…' : `${visible.length} titulares disponibles.`}
       </p>
       {changed && (
@@ -242,16 +243,18 @@ export function NewsFeed() {
         </div>
       )}
       {Array.from(days, ([day, items]) => (
-        <section key={day} aria-label={day}>
+        <section className="news-day-group" data-layout-block="dia" key={day} aria-label={day}>
           <h2 className="news-day">{day}</h2>
-          {items.map((item) => (
-            <NewsHeadline
-              key={item.id}
-              item={item}
-              selectAsset={setAsset}
-              offline={connectivity?.status === 'offline'}
-            />
-          ))}
+          <div className="news-day-cards">
+            {items.map((item) => (
+              <NewsHeadline
+                key={item.id}
+                item={item}
+                selectAsset={setAsset}
+                offline={connectivity?.status === 'offline'}
+              />
+            ))}
+          </div>
         </section>
       ))}
     </section>

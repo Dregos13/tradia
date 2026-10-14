@@ -1,5 +1,5 @@
 .data-freshness-inline {
-  padding: var(--space-3);
+  padding: var(--space-card-padding-compact);
   font-size: var(--type-sm);
   flex-wrap: wrap;
 }

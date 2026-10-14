@@ -108,6 +108,7 @@ export function SmokeTestPanel({
   }
   return (
     <section
+      data-layout-block="prueba-humo"
       className="live-surface live-sheet live-smoke"
       aria-labelledby={`${id}-title`}
       aria-busy={live.loading}

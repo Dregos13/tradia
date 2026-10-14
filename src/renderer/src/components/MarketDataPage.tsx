@@ -34,8 +34,12 @@ export function MarketDataPage({
   const simulated =
     kind === 'macro' && data.statuses.some((entry) => entry.key === 'provider:simulated');
   return (
-    <section aria-label={kind === 'mercado' ? 'Datos de mercado' : 'Datos macro'}>
-      <div className="headline">
+    <section
+      className="market-data-page"
+      data-layout-page={kind}
+      aria-label={kind === 'mercado' ? 'Datos de mercado' : 'Datos macro'}
+    >
+      <div className="headline" data-layout-block="cabecera">
         <h2>
           {kind === 'mercado' ? 'Tu mercado, con perspectiva.' : 'El contexto detrás del precio.'}
         </h2>
@@ -45,7 +49,9 @@ export function MarketDataPage({
             : 'Tipos, IPC, curva de tipos y volatilidad. Fuente: FRED.'}
         </p>
       </div>
-      <DataFreshness offline={offline} />
+      <div data-layout-block="frescura">
+        <DataFreshness offline={offline} />
+      </div>
       {data.statusError && (
         <p className="market-error" role="alert">
           {data.statusError}

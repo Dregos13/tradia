@@ -21,6 +21,7 @@
  *   Reuters, AP, Bloomberg o Dow Jones (`inferItemReliability`).
  */
 import { createRateLimiter } from '../../market/providers/rateLimiter';
+import { decodeHtmlEntities } from './entities';
 import { stripHtml } from './rss';
 import {
   acquireQuota,
@@ -115,7 +116,7 @@ function mapArticle(raw: unknown, now: () => number): RawNewsItem | null {
       : null;
 
   return {
-    title: truncateText(title, MAX_API_TITLE_LENGTH),
+    title: truncateText(decodeHtmlEntities(title).trim(), MAX_API_TITLE_LENGTH),
     url,
     publishedAt,
     summary: summary ? truncateText(stripHtml(summary), MAX_API_SUMMARY_LENGTH) : null,

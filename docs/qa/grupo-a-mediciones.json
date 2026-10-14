@@ -1,0 +1,346 @@
+[
+  {
+    "route": "inicio",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "width": 1052,
+    "scrollWidth": 1052,
+    "gaps": [
+      {
+        "stack": ".app-page",
+        "gap": 32
+      },
+      {
+        "stack": ".dashboard",
+        "gap": 32
+      },
+      {
+        "stack": ".dashboard",
+        "gap": 32
+      }
+    ],
+    "firstSteps": {
+      "padding": "24px",
+      "rowGap": "normal",
+      "columnGap": "normal"
+    },
+    "dashboard": {
+      "padding": "0px",
+      "rowGap": "32px",
+      "columnGap": "16px"
+    },
+    "workspace": null,
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "mercado",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "width": 1052,
+    "scrollWidth": 1052,
+    "gaps": [
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": {
+      "padding": "0px",
+      "rowGap": "32px",
+      "columnGap": "16px"
+    },
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "ia",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "width": 1052,
+    "scrollWidth": 1052,
+    "gaps": [
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "salud-modelos",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "width": 1052,
+    "scrollWidth": 1052,
+    "gaps": [
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": {
+      "padding": "24px",
+      "rowGap": "12px",
+      "columnGap": "12px"
+    },
+    "macro": null
+  },
+  {
+    "route": "macro",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "width": 1052,
+    "scrollWidth": 1052,
+    "gaps": [
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".macro-panel",
+        "gap": 24
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": null,
+    "macro": {
+      "padding": "0px",
+      "rowGap": "24px",
+      "columnGap": "24px"
+    }
+  },
+  {
+    "route": "inicio",
+    "viewport": {
+      "width": 1024,
+      "height": 700
+    },
+    "width": 796,
+    "scrollWidth": 796,
+    "gaps": [
+      {
+        "stack": ".app-page",
+        "gap": 32
+      },
+      {
+        "stack": ".dashboard",
+        "gap": 32
+      },
+      {
+        "stack": ".dashboard",
+        "gap": 32
+      }
+    ],
+    "firstSteps": {
+      "padding": "24px",
+      "rowGap": "normal",
+      "columnGap": "normal"
+    },
+    "dashboard": {
+      "padding": "0px",
+      "rowGap": "32px",
+      "columnGap": "16px"
+    },
+    "workspace": null,
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "mercado",
+    "viewport": {
+      "width": 1024,
+      "height": 700
+    },
+    "width": 796,
+    "scrollWidth": 796,
+    "gaps": [
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": {
+      "padding": "0px",
+      "rowGap": "32px",
+      "columnGap": "16px"
+    },
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "ia",
+    "viewport": {
+      "width": 1024,
+      "height": 700
+    },
+    "width": 796,
+    "scrollWidth": 796,
+    "gaps": [
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": null,
+    "macro": null
+  },
+  {
+    "route": "salud-modelos",
+    "viewport": {
+      "width": 1024,
+      "height": 700
+    },
+    "width": 796,
+    "scrollWidth": 796,
+    "gaps": [
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      },
+      {
+        "stack": ".ai-page",
+        "gap": 32
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": {
+      "padding": "24px",
+      "rowGap": "12px",
+      "columnGap": "12px"
+    },
+    "macro": null
+  },
+  {
+    "route": "macro",
+    "viewport": {
+      "width": 1024,
+      "height": 700
+    },
+    "width": 796,
+    "scrollWidth": 796,
+    "gaps": [
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".market-data-page",
+        "gap": 32
+      },
+      {
+        "stack": ".macro-panel",
+        "gap": 24
+      }
+    ],
+    "firstSteps": null,
+    "dashboard": null,
+    "workspace": null,
+    "health": null,
+    "macro": {
+      "padding": "0px",
+      "rowGap": "24px",
+      "columnGap": "24px"
+    }
+  }
+]

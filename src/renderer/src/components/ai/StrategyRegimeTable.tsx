@@ -8,7 +8,11 @@ export function StrategyRegimeTable({
   onOpenStrategy?: (id: number) => void;
 }) {
   return (
-    <section className="ai-section" aria-labelledby="ai-strategies-title">
+    <section
+      className="ai-section"
+      data-layout-block="seccion"
+      aria-labelledby="ai-strategies-title"
+    >
       <h3 id="ai-strategies-title">Estrategias según el régimen</h3>
       {!strategies.length ? (
         <p>Aún no hay estrategias evaluadas por régimen.</p>

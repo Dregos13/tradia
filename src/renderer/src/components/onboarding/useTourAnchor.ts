@@ -12,6 +12,38 @@ const margin = parseInt(tokens.size.viewportMargin);
 const offset = parseInt(tokens.size.popoverOffset);
 const padding = parseInt(tokens.spacing['2']);
 
+/**
+ * Alineación al desplazar hacia el ancla. Se centra salvo que, centrada, el
+ * globo no quepa a ningún lado (ancla a todo el ancho y sin sitio arriba ni
+ * abajo): entonces el ancla sube al borde superior y el globo va debajo.
+ */
+function scrollBlock(target: HTMLElement, dialog: HTMLDivElement | null): ScrollLogicalPosition {
+  const width = dialog?.offsetWidth ?? 0;
+  const height = dialog?.offsetHeight ?? 0;
+  if (!width || !height) return 'center';
+  const bounds = target.getBoundingClientRect();
+  const side =
+    bounds.right + padding + offset + width <= window.innerWidth - margin ||
+    bounds.left - padding - offset - width >= margin;
+  if (side) return 'center';
+  const top = (window.innerHeight - bounds.height) / 2 - padding;
+  const bottom = top + bounds.height + 2 * padding;
+  const below = bottom + offset + height <= window.innerHeight - margin;
+  const above = top - offset - height >= margin;
+  if (below || above) return 'center';
+  return bounds.height + 2 * padding + offset + height + 2 * margin <= window.innerHeight
+    ? 'start'
+    : 'center';
+}
+
+/** Contenedor con desplazamiento vertical más cercano al ancla. */
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+}
+
 export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | null>) {
   const current = TOUR_STEPS[step - 1]!;
   const [anchor, setAnchor] = useState<{ step: number; rect: Rect | null; loading: boolean }>({
@@ -31,6 +63,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     setAnchor({ step, rect: null, loading: true });
     let target: HTMLElement | null = null;
     let resize: ResizeObserver | undefined;
+    let layout: ResizeObserver | undefined;
     const measure = () => {
       if (!target) return;
       const bounds = target.getBoundingClientRect();
@@ -47,35 +80,67 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
             : null,
       });
     };
+    const visible = (element: HTMLElement | null): element is HTMLElement => {
+      if (!element || element.closest('[hidden]')) return false;
+      const bounds = element.getBoundingClientRect();
+      return (
+        bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).visibility !== 'hidden'
+      );
+    };
+    const settle = () => {
+      observer.disconnect();
+      window.clearTimeout(timeout);
+    };
+    const select = (next: HTMLElement) => {
+      if (next === target) return;
+      target = next;
+      resize?.disconnect();
+      layout?.disconnect();
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const reveal = () =>
+        next.scrollIntoView?.({
+          block: scrollBlock(next, dialog.current),
+          behavior: reduced ? 'auto' : 'smooth',
+        });
+      reveal();
+      measure();
+      if (typeof ResizeObserver !== 'undefined') {
+        resize = new ResizeObserver(measure);
+        resize.observe(next);
+        // Si el contenido de la página cambia de alto (p. ej., termina una
+        // carga encima del ancla), el destino del desplazamiento ya no vale:
+        // se vuelve a alinear mientras el ancla no esté entera a la vista.
+        const container = scrollParent(next);
+        let initial = true;
+        layout = new ResizeObserver(() => {
+          if (initial) {
+            initial = false;
+            return;
+          }
+          const bounds = next.getBoundingClientRect();
+          const view = container!.getBoundingClientRect();
+          if (bounds.top < view.top || bounds.bottom > view.bottom) reveal();
+        });
+        if (container) for (const child of Array.from(container.children)) layout.observe(child);
+      }
+    };
+    // El respaldo se ilumina de forma provisional: se sigue observando hasta
+    // que aparezca el ancla data-tour o venza el plazo.
     const find = () => {
       if (current.route && window.location.hash !== `#${current.route}`) return;
       const selected = document.querySelector('.nav a[aria-current="page"]');
       if (current.route && selected && selected.getAttribute('href') !== `#${current.route}`)
         return;
-      const candidates = [
-        document.querySelector<HTMLElement>(`[data-tour="${current.anchor}"]`),
-        current.fallback ? document.querySelector<HTMLElement>(current.fallback) : null,
-      ];
-      target =
-        candidates.find((element) => {
-          if (!element || element.closest('[hidden]')) return false;
-          const bounds = element.getBoundingClientRect();
-          return (
-            bounds.width > 0 &&
-            bounds.height > 0 &&
-            getComputedStyle(element).visibility !== 'hidden'
-          );
-        }) ?? null;
-      if (!target) return;
-      observer.disconnect();
-      window.clearTimeout(timeout);
-      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      target.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
-      measure();
-      if (typeof ResizeObserver !== 'undefined') {
-        resize = new ResizeObserver(measure);
-        resize.observe(target);
+      const own = document.querySelector<HTMLElement>(`[data-tour="${current.anchor}"]`);
+      if (visible(own)) {
+        settle();
+        select(own);
+        return;
       }
+      const fallback = current.fallback
+        ? document.querySelector<HTMLElement>(current.fallback)
+        : null;
+      if (visible(fallback)) select(fallback);
     };
     const observer = new MutationObserver(find);
     observer.observe(document.body, {
@@ -86,7 +151,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     });
     const timeout = window.setTimeout(() => {
       observer.disconnect();
-      setAnchor({ step, rect: null, loading: false });
+      if (!target) setAnchor({ step, rect: null, loading: false });
     }, 1500);
     window.addEventListener('resize', measure);
     document.addEventListener('scroll', measure, true);
@@ -94,11 +159,12 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     return () => {
       observer.disconnect();
       resize?.disconnect();
+      layout?.disconnect();
       window.clearTimeout(timeout);
       window.removeEventListener('resize', measure);
       document.removeEventListener('scroll', measure, true);
     };
-  }, [step, current]);
+  }, [step, current, dialog]);
   useLayoutEffect(() => {
     if (!rect || !dialog.current) {
       setPosition({});

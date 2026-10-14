@@ -59,7 +59,7 @@ export function Report({ report: r }: { report: BacktestReport }) {
   return (
     <>
       <a href={`#estrategias/${r.strategyId}/v${r.version}`}>Volver a la ficha · v{r.version}</a>
-      <header className="strategy-heading">
+      <header className="strategy-heading" data-layout-block="cabecera">
         <div>
           <h2>Informe de backtest</h2>
           <p>
@@ -86,7 +86,7 @@ export function Report({ report: r }: { report: BacktestReport }) {
           </div>
         ))}
       </dl>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Configuración y división de datos</h3>
         <p>
           Periodo pedido: {r.config.desde} → {r.config.hasta} · Ejecutado hasta:{' '}

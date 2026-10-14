@@ -5,7 +5,11 @@ export function TourHelp() {
   const tour = useOnboarding();
   if (!tour) return null;
   return (
-    <section className="settings-section" aria-labelledby="tour-help-title">
+    <section
+      data-layout-block="ayuda"
+      className="settings-section"
+      aria-labelledby="tour-help-title"
+    >
       <div>
         <h2 id="tour-help-title">Ayuda</h2>
         <p>Conoce las secciones principales de Tradia en 2 minutos.</p>

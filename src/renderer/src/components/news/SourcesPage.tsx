@@ -219,12 +219,12 @@ export function SourcesPage() {
       <style>{sourceTokenStylesheet()}</style>
       <section
         className="sources-page"
-        data-tour="fuentes-lista"
+        data-layout-page="fuentes"
         aria-label="Fuentes de noticias"
         aria-busy={data.loading}
         inert={removing ? true : undefined}
       >
-        <div className="source-heading">
+        <div className="source-heading" data-layout-block="cabecera" data-tour="fuentes-lista">
           <div>
             <h2>Canales de información bajo tu control.</h2>
             <p>
@@ -270,7 +270,12 @@ export function SourcesPage() {
             (source) => (source.kind === 'oficial') === (group === 'oficial'),
           );
           return sources.length ? (
-            <section className="source-list" key={group} aria-labelledby={`sources-${group}`}>
+            <section
+              className="source-list"
+              data-layout-block="lista"
+              key={group}
+              aria-labelledby={`sources-${group}`}
+            >
               <h3 id={`sources-${group}`}>
                 {group === 'oficial' ? 'Fuentes oficiales predefinidas' : 'Proveedores de noticias'}
               </h3>

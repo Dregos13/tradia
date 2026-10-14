@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-card-padding);
   border-radius: var(--radius-md);
   overflow-wrap: anywhere;
 }
@@ -15,7 +15,7 @@
 .subscription-notice p {
   color: inherit;
   margin: var(--space-2) 0 0;
-  max-width: 75ch;
+  max-width: var(--size-readingMax);
 }
 .subscription-failed {
   color: var(--state-critical);
@@ -33,5 +33,11 @@
   .subscription-notice {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 760px) {
+  .subscription-notice {
+    padding: var(--space-card-padding-compact);
   }
 }

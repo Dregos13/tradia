@@ -1,4 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <rect width="1024" height="1024" rx="228" fill="#17233A"/>
-  <path d="M4 5.5C4 4.67 4.67 4 5.5 4H26.5C27.33 4 28 4.67 28 5.5V8C28 8.83 27.33 9.5 26.5 9.5H18.5V26C18.5 26.83 17.83 27.5 17 27.5H15C14.17 27.5 13.5 26.83 13.5 26V9.5H5.5C4.67 9.5 4 8.83 4 8V5.5Z" transform="translate(254 259) scale(21.5)" fill="#7EA2FF"/>
+  <title>Tradia</title>
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="#101A2A" />
+  <rect
+    x="112"
+    y="112"
+    width="800"
+    height="800"
+    rx="172"
+    fill="none"
+    stroke="#31435F"
+    stroke-width="4"
+  />
+  <g
+    transform="translate(192 192) scale(20)"
+    fill="none"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M4 12C9 12 11 9 16 9" stroke="#8EACFF" />
+    <path d="M16 9C21 9 23 7.5 28 4" stroke="#5ED7C0" />
+    <path d="M16 9V28" stroke="#8EACFF" />
+  </g>
 </svg>

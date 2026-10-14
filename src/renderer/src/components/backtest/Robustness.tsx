@@ -6,7 +6,7 @@ export const pct = (value: number | null | undefined) =>
 export function Robustness({ report: r }: { report: BacktestReport }) {
   return (
     <>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Ventanas walk-forward</h3>
         {r.walkForward?.windows.length ? (
           <ReportTable
@@ -44,7 +44,7 @@ function Sensitivity({ data: d }: { data: SensitivityDto | null }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   return (
-    <section className="strategy-section">
+    <section className="strategy-section" data-layout-block="seccion">
       <h3>Sensibilidad de parámetros</h3>
       {d ? (
         <>
@@ -123,7 +123,7 @@ function MonteCarlo({ data: d }: { data: MonteCarloDto | null }) {
   });
   const height = Math.max(1, ...bins.map((b) => b.count));
   return (
-    <section className="strategy-section">
+    <section className="strategy-section" data-layout-block="seccion">
       <h3>Dispersión Monte Carlo</h3>
       {d ? (
         <>

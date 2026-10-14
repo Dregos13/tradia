@@ -176,7 +176,11 @@ function HealthRow({ row }: { row: ModelHealthRow }) {
 }
 export function HealthTable({ rows }: { rows: ModelHealthRow[] }) {
   return (
-    <section className="ai-section" aria-labelledby="health-table-title">
+    <section
+      className="ai-section"
+      data-layout-block="seccion"
+      aria-labelledby="health-table-title"
+    >
       <h3 id="health-table-title">Revisión de modelos y estrategias</h3>
       {!rows.length ? (
         <>

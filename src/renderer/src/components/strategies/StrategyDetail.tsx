@@ -54,7 +54,7 @@ export function StrategyDetail({
   return (
     <>
       <a href="#estrategias">Volver a la biblioteca</a>
-      <header className="strategy-heading">
+      <header className="strategy-heading" data-layout-block="cabecera">
         <div>
           <h2>{s.name}</h2>
           <StatusBadge status={s.status} />
@@ -84,7 +84,11 @@ export function StrategyDetail({
           {!historical && <a href={`#estrategias/${s.id}/editar`}>Editar</a>}
         </div>
       </header>
-      {historical && <p className="strategy-section">Versión histórica · solo lectura</p>}
+      {historical && (
+        <p className="strategy-section" data-layout-block="seccion">
+          Versión histórica · solo lectura
+        </p>
+      )}
       {(!s.executable || execution.parsed.ok) && (
         <ExecutionNotice
           executable={execution.executable}
@@ -94,7 +98,11 @@ export function StrategyDetail({
         />
       )}
       <StrategyHealth strategy={latest} />
-      <section className="strategy-section" aria-labelledby="strategy-evidence">
+      <section
+        className="strategy-section"
+        data-layout-block="seccion"
+        aria-labelledby="strategy-evidence"
+      >
         <h3 id="strategy-evidence">Resumen de evidencia</h3>
         {evidence.loading ? (
           <p role="status">Cargando evidencia…</p>
@@ -127,11 +135,11 @@ export function StrategyDetail({
           ))}
         </dl>
       </section>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Hipótesis</h3>
         <p>{s.hypothesis}</p>
       </section>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Reglas reproducibles</h3>
         <p>Opera en: {side === 'ambos' ? 'largo y corto' : side}.</p>
         {side !== 'largo' && <LiveShortStatus />}
@@ -144,7 +152,7 @@ export function StrategyDetail({
           ))}
         </dl>
       </section>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Mercados y periodos</h3>
         <p>{s.markets.join(', ')}</p>
         <dl>
@@ -176,7 +184,7 @@ export function StrategyDetail({
           </>
         )}
       </section>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Régimen de mercado</h3>
         <dl className="strategy-grid">
           <div>
@@ -201,7 +209,7 @@ export function StrategyDetail({
         strategy={runnable}
         readOnly={historical}
       />
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Costes asumidos</h3>
         <p>
           Comisión {number(s.assumedCosts.commissionPct, '%')} · mínimo{' '}
@@ -210,7 +218,7 @@ export function StrategyDetail({
           {number(s.assumedCosts.spreadBps, ' pb')}
         </p>
       </section>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Parámetros</h3>
         {Object.keys(s.parameters).length ? (
           <dl>
@@ -230,7 +238,7 @@ export function StrategyDetail({
         )}
       </section>
       {!historical && (
-        <section className="strategy-section">
+        <section className="strategy-section" data-layout-block="seccion">
           <h3>Cambiar estado</h3>
           <p>El cambio de estado se registra sin crear otra versión.</p>
           <form
@@ -282,7 +290,7 @@ export function StrategyDetail({
         readOnly={historical}
       />
       <BacktestLauncher strategy={runnable} readOnly={historical} />
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Registro de cambios</h3>
         <ol className="strategy-history">
           {history.map((x) => (

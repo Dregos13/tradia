@@ -29,6 +29,30 @@ describe('Tokens aprobados', () => {
     }
     expect(css).toContain('@media(prefers-color-scheme:dark)');
     expect(css).toContain(`--size-controlMin:${tokens.size.controlMin};`);
+    expect(css).toContain(`--size-readingMax:${tokens.size.readingMax};`);
+  });
+
+  it('traduce los alias semánticos de ritmo como variables --space-*', () => {
+    const css = tokenStylesheet();
+    const semanticSpacing = [
+      'page-inline-wide',
+      'page-inline-compact',
+      'page-inline-narrow',
+      'page-block-wide',
+      'page-block-compact',
+      'section-gap',
+      'section-gap-compact',
+      'block-gap-min',
+      'card-padding',
+      'card-padding-compact',
+      'title-content-gap',
+      'form-field-gap',
+      'label-control-gap',
+      'table-row-block',
+    ] as const;
+
+    for (const name of semanticSpacing)
+      expect(css).toContain(`--space-${name}:${tokens.spacing[name]};`);
   });
 });
 

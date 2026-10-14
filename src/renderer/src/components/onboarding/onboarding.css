@@ -35,7 +35,7 @@
   max-width: var(--onboarding-popoverMaxWidth);
   max-height: calc(100dvh - 2 * var(--onboarding-viewportMargin));
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--space-card-padding);
   background: var(--onboarding-popover-color);
   color: var(--onboarding-title);
   border: 1px solid var(--onboarding-border);
@@ -83,7 +83,7 @@
   background: var(--color-surfaceSubtle);
 }
 .tour-popover h2 {
-  margin: var(--space-2) 0 var(--space-1);
+  margin: var(--space-title-content-gap) 0;
   font-size: var(--type-lg);
   line-height: var(--type-lg-line);
   font-weight: var(--weight-semibold);
@@ -97,7 +97,7 @@
 .tour-progress {
   display: flex;
   gap: var(--space-1);
-  margin: var(--space-3) 0;
+  margin: var(--space-form-field-gap) 0;
 }
 .tour-progress span {
   width: var(--onboarding-progressSegment);
@@ -110,6 +110,7 @@
 }
 .tour-actions {
   flex-wrap: wrap;
+  gap: var(--space-form-field-gap);
   justify-content: flex-end;
 }
 .tour-actions .button,
@@ -216,6 +217,7 @@
 }
 @media (max-width: 760px) {
   .tour-popover {
+    padding: var(--space-card-padding-compact);
     left: var(--onboarding-viewportMargin) !important;
     right: var(--onboarding-viewportMargin);
     bottom: var(--onboarding-viewportMargin);

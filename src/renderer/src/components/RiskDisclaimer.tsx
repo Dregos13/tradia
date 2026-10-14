@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TradiaBrand } from './TradiaBrand';
 import {
   RISK_DISCLAIMER_PARAGRAPHS,
   RISK_DISCLAIMER_VERSION,
@@ -39,9 +40,9 @@ export function RiskDisclaimer({ onAccept, onClose, inline }: Props) {
       </aside>
     );
   return (
-    <main className="risk-shell">
+    <main className="risk-shell" data-layout-page="aviso-riesgo">
       <aside className="risk-brand">
-        <div className="logo">Tradia</div>
+        <TradiaBrand />
         <p>Decisiones basadas en datos, con el riesgo por delante de la rentabilidad.</p>
         <p>
           {onAccept ? 'Primer arranque' : 'Ajustes · Legal'} · Aviso {RISK_DISCLAIMER_VERSION}
@@ -49,13 +50,15 @@ export function RiskDisclaimer({ onAccept, onClose, inline }: Props) {
       </aside>
       <section className="risk-main" aria-labelledby="risk-title">
         <div className="risk-content">
-          <h1 id="risk-title" ref={heading} tabIndex={-1}>
-            {onAccept ? 'Antes de empezar' : 'Aviso de riesgo'}
-          </h1>
-          <p className="risk-intro">
-            Lee este aviso con atención. Tradia empezará en modo de señales y simulación.
-          </p>
-          <div className="risk-notice">
+          <header className="risk-heading" data-layout-block="introduccion">
+            <h1 id="risk-title" ref={heading} tabIndex={-1}>
+              {onAccept ? 'Antes de empezar' : 'Aviso de riesgo'}
+            </h1>
+            <p className="risk-intro">
+              Lee este aviso con atención. Tradia empezará en modo de señales y simulación.
+            </p>
+          </header>
+          <div className="risk-notice" data-layout-block="aviso">
             <div className="risk-warning">
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <path

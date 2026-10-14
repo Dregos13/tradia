@@ -28,7 +28,7 @@ export function BacktestLauncher({
   const final = history.items.find((run) => run.kind === 'prueba-final');
   return (
     <>
-      <section className="strategy-section">
+      <section className="strategy-section" data-layout-block="seccion">
         <h3>Lanzar backtest</h3>
         <p>
           Entrenamiento 60 % · validación 20 % · prueba final reservada 20 %. El backtest deja
@@ -178,71 +178,71 @@ export function BacktestLauncher({
             <p>Puedes seguir usando Tradia.</p>
           </div>
         )}
-        <section className="backtest-final">
-          <h4>Prueba final · {final ? 'ejecutada y bloqueada' : 'bloqueada sin ejecutar'}</h4>
-          <p>
-            Solo puede ejecutarse una vez por versión, usando la configuración del último backtest
-            guardado.
-          </p>
-          {final ? (
-            <a href={`#estrategias/${s.id}/backtest/${final.id}`}>Ver prueba final</a>
-          ) : (
-            <button
-              ref={confirmButton}
-              disabled={
-                !executable ||
-                readOnly ||
-                state.busy ||
-                history.loading ||
-                !!history.error ||
-                !history.items.length
+      </section>
+      <section className="strategy-section backtest-final" data-layout-block="prueba-final">
+        <h4>Prueba final · {final ? 'ejecutada y bloqueada' : 'bloqueada sin ejecutar'}</h4>
+        <p>
+          Solo puede ejecutarse una vez por versión, usando la configuración del último backtest
+          guardado.
+        </p>
+        {final ? (
+          <a href={`#estrategias/${s.id}/backtest/${final.id}`}>Ver prueba final</a>
+        ) : (
+          <button
+            ref={confirmButton}
+            disabled={
+              !executable ||
+              readOnly ||
+              state.busy ||
+              history.loading ||
+              !!history.error ||
+              !history.items.length
+            }
+            onClick={() => setConfirm(true)}
+          >
+            Ejecutar prueba final
+          </button>
+        )}
+        {!history.loading && !history.items.length && (
+          <p>Primero guarda un backtest de entrenamiento y validación.</p>
+        )}
+        {confirm && (
+          <div
+            className="backtest-notice notice-method"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setConfirm(false);
+                confirmButton.current?.focus();
               }
-              onClick={() => setConfirm(true)}
-            >
-              Ejecutar prueba final
-            </button>
-          )}
-          {!history.loading && !history.items.length && (
-            <p>Primero guarda un backtest de entrenamiento y validación.</p>
-          )}
-          {confirm && (
-            <div
-              className="backtest-notice notice-method"
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+            }}
+          >
+            <strong>Confirmar prueba final bloqueada</strong>
+            <p>
+              Consumirás la única prueba final de v{s.version}. No podrás repetirla con otros
+              parámetros.
+            </p>
+            <div className="strategy-actions">
+              <button
+                autoFocus
+                onClick={() => {
                   setConfirm(false);
                   confirmButton.current?.focus();
-                }
-              }}
-            >
-              <strong>Confirmar prueba final bloqueada</strong>
-              <p>
-                Consumirás la única prueba final de v{s.version}. No podrás repetirla con otros
-                parámetros.
-              </p>
-              <div className="strategy-actions">
-                <button
-                  autoFocus
-                  onClick={() => {
-                    setConfirm(false);
-                    confirmButton.current?.focus();
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  disabled={!executable || readOnly || state.busy}
-                  onClick={() => {
-                    setConfirm(false);
-                    if (s.executable && !readOnly) void state.launch();
-                  }}
-                >
-                  Confirmar y ejecutar prueba final
-                </button>
-              </div>
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!executable || readOnly || state.busy}
+                onClick={() => {
+                  setConfirm(false);
+                  if (s.executable && !readOnly) void state.launch();
+                }}
+              >
+                Confirmar y ejecutar prueba final
+              </button>
             </div>
-          )}
-        </section>
+          </div>
+        )}
       </section>
       <BacktestHistory strategyId={s.id} version={s.version} />
     </>

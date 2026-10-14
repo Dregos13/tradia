@@ -88,7 +88,7 @@ export function LimitsForm({ limits, caution }: { limits: RiskLimits; caution?: 
     }
   }
   return (
-    <section className="risk-paper" aria-labelledby="limits-title">
+    <section data-layout-block="limites" className="risk-paper" aria-labelledby="limits-title">
       <h3 id="limits-title">Límites de riesgo</h3>
       <p className="risk-muted">Valores prudentes y márgenes duros.</p>
       <p>Estas reglas no las puede cambiar la IA</p>

@@ -145,6 +145,7 @@ export function StressResults({
   return (
     <section
       className="strategy-section"
+      data-layout-block="seccion"
       aria-labelledby="stress-heading"
       aria-busy={state.loading || busy}
     >

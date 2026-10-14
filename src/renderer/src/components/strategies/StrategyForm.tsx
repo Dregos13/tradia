@@ -227,7 +227,7 @@ export function StrategyForm({
   }
   return (
     <>
-      <header className="strategy-heading">
+      <header className="strategy-heading" data-layout-block="cabecera">
         <div>
           <a href={strategy ? `#estrategias/${strategy.id}` : '#estrategias'}>Volver sin guardar</a>
           <h2>{strategy ? 'Editar estrategia' : 'Nueva estrategia'}</h2>
@@ -238,7 +238,13 @@ export function StrategyForm({
           </p>
         </div>
       </header>
-      <form noValidate aria-busy={busy} className="strategy-form" onSubmit={(e) => void submit(e)}>
+      <form
+        noValidate
+        aria-busy={busy}
+        className="strategy-form"
+        data-layout-block="formulario"
+        onSubmit={(e) => void submit(e)}
+      >
         <nav aria-label="Secciones del formulario">
           {[
             'Identidad',

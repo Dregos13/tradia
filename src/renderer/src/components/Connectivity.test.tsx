@@ -176,3 +176,28 @@ it('mantiene la pausa manual al reconectar y no inventa un banner ante errores I
   expect(screen.getByText('· Pausa manual')).toBeInTheDocument();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
+
+it('la barra de estado conserva las etiquetas completas aunque muestre las cortas', () => {
+  render(
+    <StatusBar
+      state={{
+        connectivity: { status: 'online', lastCheckedAt: checked, nextRetryAt: null, attempt: 0 },
+        agents: { paused: false, pauseReason: null, lastHeartbeatAt: checked },
+        connectionError: false,
+        agentsError: false,
+      }}
+    />,
+  );
+  const bar = screen.getByRole('contentinfo');
+  const heartbeat = bar.querySelector('[title^="Último latido"]')!;
+  expect(heartbeat).toHaveTextContent(/^Último latidoLatido \d{2}:\d{2}:\d{2}$/);
+  expect(within(heartbeat as HTMLElement).getByText('Latido')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+  expect(heartbeat.getAttribute('title')).toBe(
+    `Último latido ${heartbeat.querySelector('time')!.textContent}`,
+  );
+  expect(bar.querySelector('[title^="Última comprobación"]')).toBeInTheDocument();
+  expect(bar.querySelector('[title="Próximo reintento —"]')).toBeInTheDocument();
+});

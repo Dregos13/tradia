@@ -86,12 +86,16 @@
   margin-bottom: var(--space-4);
 }
 .live-broker {
-  padding: var(--space-5);
+  padding: var(--space-card-padding);
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-form-field-gap);
 }
 .live-broker p {
   margin: 0;
+}
+/* La lista de requisitos pendientes no suma su margen al hueco de la tarjeta. */
+.live-broker [role='region'] ul {
+  margin: var(--space-3) 0 0;
 }
 .live-broker fieldset {
   margin: 0;
@@ -207,5 +211,35 @@
   .live-surface .live-actions > * {
     width: 100%;
     justify-content: center;
+  }
+}
+
+.live-broker form {
+  display: grid;
+  gap: var(--space-card-padding);
+}
+.live-banner-heading,
+.live-smoke-step {
+  min-width: 0;
+}
+.live-smoke-step {
+  overflow-wrap: anywhere;
+}
+.live-banner {
+  padding-inline: var(--page-inline);
+}
+/* El escalado muestra 5 datos: en una sola fila, sin dejar «Drawdown real»
+   solo en una segunda (UXP-13). */
+.live-scaling .live-result-facts {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 1000px) {
+  .live-scaling .live-result-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .live-scaling .live-result-facts {
+    grid-template-columns: 1fr;
   }
 }

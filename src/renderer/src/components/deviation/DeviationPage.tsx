@@ -57,9 +57,9 @@ export function DeviationPage() {
   const alerts = report?.rows.filter((row) => row.outOfMargin) ?? [];
   const strategies = new Set(report?.rows.map((row) => row.strategyId)).size;
   return (
-    <div className="deviation-page">
+    <div className="deviation-page" data-layout-page="real-vs-backtest">
       <style>{deviationTokens()}</style>
-      <div className="deviation-top">
+      <div className="deviation-top" data-layout-block="cabecera">
         <header>
           <div className="deviation-title">
             <h2>Real vs backtest</h2>
@@ -86,7 +86,7 @@ export function DeviationPage() {
           ))}
         </div>
       </div>
-      <dl className="deviation-summary">
+      <dl className="deviation-summary" data-layout-block="resumen">
         <div>
           <dt>Periodo</dt>
           <dd>{state.period === 'semanal' ? 'Semanas cerradas' : 'Meses cerrados'}</dd>
@@ -135,68 +135,76 @@ export function DeviationPage() {
           )}
         </div>
       )}
-      <p className="deviation-scroll-hint">
-        Desplázate horizontalmente para ver todas las columnas.
-      </p>
-      <div
-        className="deviation-table-wrap"
-        tabIndex={0}
-        role="region"
-        aria-label="Informe real frente a backtest"
-        aria-busy={state.loading}
-      >
-        <table>
-          <caption>
-            Resultados {state.period === 'semanal' ? 'semanales' : 'mensuales'} por estrategia y
-            periodo cerrado
-          </caption>
-          <thead>
-            <tr>
-              {[
-                'Estrategia',
-                'Periodo',
-                'Operaciones',
-                'Esperado',
-                'Real',
-                'Desviación',
-                'Tasa de acierto',
-                'Slippage medio',
-                'Margen',
-                'Estado',
-              ].map((label) => (
-                <th scope="col" key={label}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {state.loading && !report
-              ? Array.from({ length: 5 }, (_, index) => (
-                  <tr key={index}>
-                    <td colSpan={10}>
-                      {index === 0 ? (
-                        <span role="status">Cargando informe…</span>
-                      ) : (
-                        <span aria-hidden="true">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              : report?.rows.map((row) => (
-                  <DeviationRow key={`${row.strategyId}:${row.desde}`} row={row} report={report} />
-                ))}
-          </tbody>
-        </table>
-      </div>
-      {!state.loading && !state.error && report?.rows.length === 0 && (
-        <p className="deviation-empty">
-          {state.period === 'semanal'
-            ? 'Aún no hay semanas cerradas con operaciones en paper'
-            : 'Aún no hay meses cerrados con operaciones en paper'}
+      <div className="deviation-results" data-layout-block="resultados">
+        <p className="deviation-scroll-hint">
+          Desplázate horizontalmente para ver todas las columnas.
         </p>
-      )}
-      <DeviationMargins onSaved={state.reload} />
+        <div
+          className="deviation-table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Informe real frente a backtest"
+          aria-busy={state.loading}
+        >
+          <table>
+            <caption>
+              Resultados {state.period === 'semanal' ? 'semanales' : 'mensuales'} por estrategia y
+              periodo cerrado
+            </caption>
+            <thead>
+              <tr>
+                {[
+                  'Estrategia',
+                  'Periodo',
+                  'Operaciones',
+                  'Esperado',
+                  'Real',
+                  'Desviación',
+                  'Tasa de acierto',
+                  'Slippage medio',
+                  'Margen',
+                  'Estado',
+                ].map((label) => (
+                  <th scope="col" key={label}>
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {state.loading && !report
+                ? Array.from({ length: 5 }, (_, index) => (
+                    <tr key={index}>
+                      <td colSpan={10}>
+                        {index === 0 ? (
+                          <span role="status">Cargando informe…</span>
+                        ) : (
+                          <span aria-hidden="true">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                : report?.rows.map((row) => (
+                    <DeviationRow
+                      key={`${row.strategyId}:${row.desde}`}
+                      row={row}
+                      report={report}
+                    />
+                  ))}
+            </tbody>
+          </table>
+        </div>
+        {!state.loading && !state.error && report?.rows.length === 0 && (
+          <p className="deviation-empty">
+            {state.period === 'semanal'
+              ? 'Aún no hay semanas cerradas con operaciones en paper'
+              : 'Aún no hay meses cerrados con operaciones en paper'}
+          </p>
+        )}
+      </div>
+      <div data-layout-block="umbrales">
+        <DeviationMargins onSaved={state.reload} />
+      </div>
     </div>
   );
 }

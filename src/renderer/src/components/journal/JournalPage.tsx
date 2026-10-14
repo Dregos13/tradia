@@ -10,9 +10,9 @@ export function JournalPage() {
   const journal = useJournal();
   const [selected, setSelected] = useState<number | null>(null);
   return (
-    <div className="journal">
+    <div className="journal" data-layout-page="diario">
       <style>{`.journal{--journal-table-min:${tokens.size.journalTableMin};--journal-detail-size:${tokens.size.detailPanel};--journal-shadow:${tokens.shadow.floating.value};--journal-veil:${tokens.color.overlay.light};}@media(prefers-color-scheme:dark){.journal{--journal-veil:${tokens.color.overlay.dark};}}`}</style>
-      <div className="headline journal-heading">
+      <div className="headline journal-heading" data-layout-block="cabecera">
         <div>
           <h2>Diario</h2>
           <p>
@@ -27,7 +27,9 @@ export function JournalPage() {
           {journal.exporting ? 'Preparando CSV…' : `Exportar CSV · ${journal.total} entradas`}
         </button>
       </div>
-      <JournalFilters apply={journal.apply} />
+      <div data-layout-block="filtros">
+        <JournalFilters apply={journal.apply} />
+      </div>
       <p role="status">
         {journal.savedPath
           ? `CSV guardado en ${journal.savedPath}`
@@ -95,23 +97,52 @@ export function JournalPage() {
                   </button>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {journal.entries.map((entry) => (
+                <tr key={entry.id} aria-selected={selected === entry.id}>
+                  <td>
+                    <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
+                  </td>
+                  <td>{entryLabel(entry)}</td>
+                  <td>{entry.ticker ?? 'No aplica'}</td>
+                  <td>
+                    {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
+                      'No aplica'}
+                  </td>
+                  <td>{entry.result ? resultLabel[entry.result] : 'No aplica'}</td>
+                  <td>{entry.reason}</td>
+                  <td>
+                    <button
+                      aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
+                      onClick={() => setSelected(entry.id)}
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {journal.loading ? (
+          <p role="status">Cargando diario…</p>
+        ) : (
+          !journal.error &&
+          journal.entries.length === 0 && (
+            <p>
+              {Object.keys(journal.query).length
+                ? 'No hay entradas con estos filtros'
+                : 'El diario todavía está vacío'}
+            </p>
+          )
+        )}
       </div>
-      {journal.loading ? (
-        <p role="status">Cargando diario…</p>
-      ) : (
-        !journal.error &&
-        journal.entries.length === 0 && (
-          <p>
-            {Object.keys(journal.query).length
-              ? 'No hay entradas con estos filtros'
-              : 'El diario todavía está vacío'}
-          </p>
-        )
-      )}
-      <nav className="journal-pagination" aria-label="Paginación del diario">
+      <nav
+        data-layout-block="paginacion"
+        className="journal-pagination"
+        aria-label="Paginación del diario"
+      >
         <button
           disabled={journal.loading || journal.offset === 0}
           onClick={() => journal.setOffset(Math.max(0, journal.offset - JOURNAL_PAGE_SIZE))}
