@@ -169,10 +169,7 @@ export function DataProvidersSettings() {
     };
   }, []);
   return (
-    <section
-      className="settings-section"
-      aria-label="Proveedores de datos"
-    >
+    <section className="settings-section" aria-label="Proveedores de datos">
       <style>{dataStateTokenStylesheet()}</style>
       <div data-tour="ajustes-proveedores">
         <h2>Proveedores de datos</h2>

@@ -133,5 +133,64 @@ describe('useTourAnchor', () => {
       renderHook(() => useTourAnchor(STEP, sized));
       expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'start' }));
     });
+
+    it('vuelve a alinear el ancla si una carga encima la saca de la vista (paso 10)', () => {
+      const observers: Array<{ callback: () => void; targets: Element[] }> = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          private entry: { callback: () => void; targets: Element[] };
+          constructor(callback: () => void) {
+            this.entry = { callback, targets: [] };
+            observers.push(this.entry);
+          }
+          observe(target: Element) {
+            this.entry.targets.push(target);
+          }
+          disconnect() {}
+        },
+      );
+      let anchorTop = ANCHOR_TOP;
+      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const own = Boolean(this.dataset.tour);
+        const scroller = this.id === 'scroller';
+        const top = own ? anchorTop : 0;
+        const height = own ? 100 : scroller ? 800 : 0;
+        return {
+          left: 100,
+          top,
+          width: own || scroller ? 200 : 0,
+          height,
+          right: 300,
+          bottom: top + height,
+          x: 100,
+          y: top,
+          toJSON: () => ({}),
+        } as DOMRect;
+      });
+      const section = document.querySelector('section')!;
+      const scroller = document.createElement('div');
+      scroller.id = 'scroller';
+      scroller.style.overflowY = 'auto';
+      section.replaceWith(scroller);
+      scroller.appendChild(section);
+      section.insertAdjacentHTML('beforeend', '<ul data-tour="mercado-lista"></ul>');
+      renderHook(() => useTourAnchor(STEP, sized));
+      expect(scroll).toHaveBeenCalledTimes(1);
+      const layout = observers.find(({ targets }) => targets.includes(section))!;
+      // La primera notificación es la inicial del observador: no desplaza.
+      layout.callback();
+      expect(scroll).toHaveBeenCalledTimes(1);
+      // Con el ancla a la vista, un cambio de alto no mueve la página.
+      layout.callback();
+      expect(scroll).toHaveBeenCalledTimes(1);
+      // La carga de encima termina y el ancla queda por encima de la vista.
+      anchorTop = -200;
+      layout.callback();
+      expect(scroll).toHaveBeenCalledTimes(2);
+      vi.unstubAllGlobals();
+    });
   });
 });

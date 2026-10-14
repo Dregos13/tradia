@@ -220,6 +220,10 @@ section[aria-label='Preferencias'] + .settings-section::before {
 .settings-stack > .live-limits-settings > .live-sheet {
   border-radius: var(--radius-lg);
 }
+/* La columna del título mide lo que su texto, no el alto del panel. */
+.settings-section > div:first-of-type {
+  align-self: start;
+}
 .settings-section > div:first-child > p {
   margin: var(--space-title-content-gap) 0 0;
 }

@@ -39,8 +39,8 @@
 }
 /* Sin entradas, el botón se lee como cualquier acción deshabilitada (UXP-11). */
 .journal-heading > button:disabled {
-  background: var(--color-surfaceStrong);
-  border-color: var(--color-surfaceStrong);
+  background: var(--color-surface);
+  border-color: var(--color-border);
   color: var(--color-textMuted);
 }
 .journal-filters {

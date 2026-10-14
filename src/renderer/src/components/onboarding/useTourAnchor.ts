@@ -36,6 +36,14 @@ function scrollBlock(target: HTMLElement, dialog: HTMLDivElement | null): Scroll
     : 'center';
 }
 
+/** Contenedor con desplazamiento vertical más cercano al ancla. */
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+}
+
 export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | null>) {
   const current = TOUR_STEPS[step - 1]!;
   const [anchor, setAnchor] = useState<{ step: number; rect: Rect | null; loading: boolean }>({
@@ -55,6 +63,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     setAnchor({ step, rect: null, loading: true });
     let target: HTMLElement | null = null;
     let resize: ResizeObserver | undefined;
+    let layout: ResizeObserver | undefined;
     const measure = () => {
       if (!target) return;
       const bounds = target.getBoundingClientRect();
@@ -86,15 +95,33 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
       if (next === target) return;
       target = next;
       resize?.disconnect();
+      layout?.disconnect();
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      next.scrollIntoView?.({
-        block: scrollBlock(next, dialog.current),
-        behavior: reduced ? 'auto' : 'smooth',
-      });
+      const reveal = () =>
+        next.scrollIntoView?.({
+          block: scrollBlock(next, dialog.current),
+          behavior: reduced ? 'auto' : 'smooth',
+        });
+      reveal();
       measure();
       if (typeof ResizeObserver !== 'undefined') {
         resize = new ResizeObserver(measure);
         resize.observe(next);
+        // Si el contenido de la página cambia de alto (p. ej., termina una
+        // carga encima del ancla), el destino del desplazamiento ya no vale:
+        // se vuelve a alinear mientras el ancla no esté entera a la vista.
+        const container = scrollParent(next);
+        let initial = true;
+        layout = new ResizeObserver(() => {
+          if (initial) {
+            initial = false;
+            return;
+          }
+          const bounds = next.getBoundingClientRect();
+          const view = container!.getBoundingClientRect();
+          if (bounds.top < view.top || bounds.bottom > view.bottom) reveal();
+        });
+        if (container) for (const child of Array.from(container.children)) layout.observe(child);
       }
     };
     // El respaldo se ilumina de forma provisional: se sigue observando hasta
@@ -132,6 +159,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     return () => {
       observer.disconnect();
       resize?.disconnect();
+      layout?.disconnect();
       window.clearTimeout(timeout);
       window.removeEventListener('resize', measure);
       document.removeEventListener('scroll', measure, true);

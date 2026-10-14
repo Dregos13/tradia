@@ -28,7 +28,14 @@ import {
  * UXP-10): a 1280 × 800 caben las 15 entradas del menú lateral; a 1024 × 700
  * la lista desplaza dentro de la barra con un indicio inferior mientras queda
  * algo oculto, y «Ajustes» se alcanza con rueda y con Tab. Casillas (con su
- * etiqueta), selectores y enlaces en línea alcanzan el área mínima.
+ * etiqueta), selectores y enlaces en línea alcanzan el área mínima. Y (UXP-03,
+ * 06, 07, 08, 09, 11, 12 y 13): en los pasos 2, 4, 9 y 10 el foco es la
+ * cabecera del bloque (≤ 400 px) y el globo no la tapa a los dos tamaños; el
+ * error del ticker no cambia la caja del campo; el editor de estrategias
+ * conserva el margen superior; Ajustes va a 32 px entre secciones y apila las
+ * tarjetas de dinero real a 24 px; «Exportar CSV» se separa de la cabecera y
+ * se lee deshabilitado; la conciliación tiene la caja de las demás tarjetas, y
+ * Dinero real muestra un solo aviso rojo.
  */
 
 const GAP_MIN = 24;
@@ -325,6 +332,251 @@ async function readPriorityFilter(page: Page, width: number): Promise<string[]> 
   return problems;
 }
 
+/** Relación de contraste WCAG entre dos colores `rgb()` de getComputedStyle. */
+function contrast(foreground: string, background: string): number {
+  const luminance = (color: string) => {
+    const [r, g, b] = (color.match(/[\d.]+/g) ?? []).slice(0, 3).map((value) => {
+      const channel = Number(value) / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (light! + 0.05) / (dark! + 0.05);
+}
+
+/** UXP-06: con un ticker de 36 caracteres el error va debajo y el campo no cambia. */
+async function readTickerError(page: Page, width: number): Promise<string[]> {
+  const input = page.locator('#market-ticker');
+  const before = await input.boundingBox();
+  await input.fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  const error = page.locator('#market-list-error');
+  await expect(error).toBeVisible();
+  const after = await input.boundingBox();
+  const message = await error.boundingBox();
+  await capture(page, `mercado-error-ticker-${width}`);
+  await input.fill('');
+  await expect(error).toHaveCount(0);
+  if (!before || !after || !message) return [`mercado@${width}: no se pudo medir el ticker`];
+  const problems: string[] = [];
+  if (Math.abs(after.width - before.width) > TOLERANCE || after.height !== before.height) {
+    problems.push(
+      `mercado@${width}: el error cambia el campo de ${Math.round(before.width)} a ${Math.round(after.width)} px`,
+    );
+  }
+  if (message.y < after.y + after.height) {
+    problems.push(`mercado@${width}: el error del ticker no va debajo de la fila`);
+  }
+  return problems;
+}
+
+/** UXP-07: el editor arranca con el margen superior de página (32–40 px). */
+async function readEditorTop(page: Page, width: number): Promise<string[]> {
+  await page.evaluate(() => (location.hash = 'estrategias/nueva'));
+  const heading = page.locator('.strategy-heading');
+  await expect(page.getByRole('heading', { name: 'Nueva estrategia', level: 2 })).toBeVisible();
+  // El foco tras navegar desplaza la página: se mide ya quieta.
+  await page.waitForTimeout(300);
+  const reading = await heading.evaluate((element) => {
+    const main = document.querySelector('main#contenido')!.getBoundingClientRect();
+    const link = element.querySelector('a')!.getBoundingClientRect();
+    const title = element.querySelector('h2')!.getBoundingClientRect();
+    return {
+      top: element.getBoundingClientRect().top - main.top,
+      linkToTitle: title.top - link.bottom,
+    };
+  });
+  await page.screenshot({ path: resolve(evidenceDir, `estrategias-editor-${width}.png`) });
+  await page.evaluate(() => (location.hash = 'estrategias'));
+  await expect(page.getByRole('heading', { name: 'Nueva estrategia', level: 2 })).toHaveCount(0);
+  const problems: string[] = [];
+  if (reading.top < 32 - TOLERANCE || reading.top > 40 + TOLERANCE) {
+    problems.push(
+      `estrategias@${width}: el editor empieza a ${Math.round(reading.top)} px de la cabecera`,
+    );
+  }
+  if (reading.linkToTitle < 8) {
+    problems.push(
+      `estrategias@${width}: «Volver sin guardar» a ${Math.round(reading.linkToTitle)} px del título`,
+    );
+  }
+  return problems;
+}
+
+interface CardReading {
+  gap: number;
+  padding: string;
+  titleGap: number | null;
+}
+
+/** UXP-08 y UXP-09: secciones de Ajustes a 32 px y tarjetas de dinero real a 24 px. */
+async function readSettings(page: Page, width: number): Promise<string[]> {
+  const reading = await page.evaluate(() => {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "section[aria-label='Preferencias'] .settings-section, section[aria-label='Preferencias'] + .settings-section",
+      ),
+    ).map((section) => ({
+      name: section.querySelector('h2')?.textContent ?? '',
+      box: section.getBoundingClientRect(),
+    }));
+    const gaps = sections.slice(1).map((section, index) => ({
+      between: `${sections[index]!.name} → ${section.name}`,
+      gap: section.box.top - sections[index]!.box.bottom,
+    }));
+    const stack = document.querySelector(
+      "section[aria-label='Cuenta de broker · Dinero real'] .settings-stack",
+    );
+    const cards = stack
+      ? [
+          stack.querySelector('.settings-panel')!,
+          ...Array.from(stack.querySelectorAll('.live-limits-settings > .live-sheet')),
+        ]
+      : [];
+    const boxes = cards.map((card) => card.getBoundingClientRect());
+    const readings = cards.map((card, index): CardReading => {
+      const surface = card.matches('.settings-panel') ? card.firstElementChild! : card;
+      const title = card.querySelector('h3');
+      // El primer elemento visible tras el título.
+      let next = title?.nextElementSibling ?? null;
+      while (next && !next.getBoundingClientRect().height) next = next.nextElementSibling;
+      return {
+        gap: index ? boxes[index]!.top - boxes[index - 1]!.bottom : 0,
+        padding: getComputedStyle(surface).paddingTop,
+        titleGap:
+          title && next
+            ? next.getBoundingClientRect().top - title.getBoundingClientRect().bottom
+            : null,
+      };
+    });
+    return { gaps, stack: !!stack, cards: readings };
+  });
+  // Evidencia: el bloque de dinero real y el final («Ayuda» → «Legal»).
+  for (const [selector, name] of [
+    ["section[aria-label='Cuenta de broker · Dinero real']", 'ajustes-dinero-real'],
+    ["section[aria-labelledby='legal-heading']", 'ajustes-ayuda-legal'],
+  ] as const) {
+    await page.locator(selector).evaluate((element) => element.scrollIntoView({ block: 'end' }));
+    await page.screenshot({ path: resolve(evidenceDir, `${name}-${width}.png`) });
+  }
+  await page.locator('main#contenido').evaluate((main) => main.scrollTo({ top: 0 }));
+  const problems = reading.gaps
+    .filter(({ gap }) => Math.abs(gap - 32) > TOLERANCE)
+    .map(({ between, gap }) => `ajustes@${width}: ${Math.round(gap)} px entre ${between}`);
+  if (!reading.stack || reading.cards.length !== 4) {
+    problems.push(`ajustes@${width}: «Cuenta de broker · Dinero real» no apila sus 4 tarjetas`);
+  }
+  reading.cards.forEach((card, index) => {
+    const name = `ajustes@${width}: tarjeta ${index + 1} de dinero real`;
+    if (index && Math.abs(card.gap - 24) > TOLERANCE)
+      problems.push(`${name} a ${Math.round(card.gap)} px de la anterior`);
+    if (card.padding !== '24px') problems.push(`${name} con relleno ${card.padding}`);
+    if (card.titleGap !== null && Math.abs(card.titleGap - 12) > TOLERANCE)
+      problems.push(`${name} con ${Math.round(card.titleGap)} px de título a contenido`);
+  });
+  return problems;
+}
+
+/** UXP-11: «Exportar CSV» separado de la cabecera y legible deshabilitado. */
+async function readJournalExport(page: Page, width: number): Promise<string[]> {
+  const reading = await page.locator('.journal-heading').evaluate((heading) => {
+    const text = heading.querySelector('p')!.getBoundingClientRect();
+    const button = heading.querySelector('button')!;
+    const box = button.getBoundingClientRect();
+    const style = getComputedStyle(button);
+    return {
+      below: box.top >= text.bottom,
+      gap: box.top - text.bottom,
+      disabled: button.disabled,
+      color: style.color,
+      background: style.backgroundColor,
+    };
+  });
+  const problems: string[] = [];
+  if (reading.below && reading.gap < GAP_MIN - TOLERANCE) {
+    problems.push(`diario@${width}: «Exportar CSV» a ${Math.round(reading.gap)} px de la cabecera`);
+  }
+  const ratio = contrast(reading.color, reading.background);
+  if (reading.disabled && ratio < 4.5) {
+    problems.push(
+      `diario@${width}: «Exportar CSV» deshabilitado con contraste ${ratio.toFixed(2)}`,
+    );
+  }
+  return problems;
+}
+
+/** UXP-12: la conciliación ocupa el ancho de la pila con la caja de tarjeta. */
+async function readReconcile(page: Page, width: number): Promise<string[]> {
+  const reading = await page.evaluate(() => {
+    const reconcile = document.querySelector<HTMLElement>('.orders-reconcile')!;
+    const filters = document.querySelector<HTMLElement>('.orders-filters')!;
+    const style = getComputedStyle(reconcile);
+    return {
+      width: reconcile.getBoundingClientRect().width,
+      stack: filters.getBoundingClientRect().width,
+      border: [style.borderTopWidth, style.borderLeftWidth, style.borderBottomWidth],
+      padding: style.paddingTop,
+    };
+  });
+  const problems: string[] = [];
+  if (Math.abs(reading.width - reading.stack) > TOLERANCE) {
+    problems.push(
+      `ordenes@${width}: la conciliación mide ${Math.round(reading.width)} px y la pila ${Math.round(reading.stack)} px`,
+    );
+  }
+  if (reading.border.some((border) => border !== '1px') || reading.padding !== '24px') {
+    problems.push(
+      `ordenes@${width}: la conciliación no tiene la caja de tarjeta (${reading.border.join(' ')}, ${reading.padding})`,
+    );
+  }
+  return problems;
+}
+
+/** UXP-13: un solo aviso rojo en Dinero real, con el estado primero. */
+async function readLiveAlert(page: Page, width: number): Promise<string[]> {
+  const reading = await page.evaluate(() => {
+    const root = document.querySelector('.app-page [data-layout-page="dinero-real"]')!;
+    return {
+      boxes: root.querySelectorAll(':scope > [data-layout-block="aviso"]').length,
+      first: root.querySelector('.live-alert > :first-child')?.className ?? '',
+      // «Estado del escalado»: sus datos comparten fila.
+      rows: new Set(
+        Array.from(document.querySelectorAll('.live-scaling .live-result-facts > div')).map(
+          (fact) => Math.round(fact.getBoundingClientRect().top),
+        ),
+      ).size,
+    };
+  });
+  const scaling = page.locator('.live-scaling');
+  if ((await scaling.count()) > 0) {
+    await scaling.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: resolve(evidenceDir, `dinero-real-escalado-${width}.png`) });
+    await page.locator('main#contenido').evaluate((main) => main.scrollTo({ top: 0 }));
+  }
+  const problems: string[] = [];
+  if (reading.boxes !== 1 || !reading.first.includes('live-mode-status')) {
+    problems.push(
+      `dinero-real@${width}: ${reading.boxes} avisos rojos seguidos; se espera uno con el estado primero`,
+    );
+  }
+  if (reading.rows > 1) {
+    problems.push(`dinero-real@${width}: los datos del escalado ocupan ${reading.rows} filas`);
+  }
+  return problems;
+}
+
+/** Comprobaciones locales de UXP-06…13 en la página abierta. */
+async function readLocalFixes(page: Page, route: string, width: number): Promise<string[]> {
+  if (route === 'mercado') return readTickerError(page, width);
+  if (route === 'estrategias') return readEditorTop(page, width);
+  if (route === 'ajustes') return readSettings(page, width);
+  if (route === 'diario') return readJournalExport(page, width);
+  if (route === 'ordenes') return readReconcile(page, width);
+  if (route === 'dinero-real') return readLiveAlert(page, width);
+  return [];
+}
+
 type Rect = { x: number; y: number; width: number; height: number };
 
 /** Píxeles de solape entre el globo y el ancla en cada eje (0 si no se tocan). */
@@ -380,6 +632,7 @@ for (const viewport of VIEWPORTS) {
       if (problems.length) failures.push(formatProblems(route, viewport.width, problems));
       if (route === 'inicio') failures.push(...(await readStatusBar(page, viewport.width)));
       if (route === 'noticias') failures.push(...(await readPriorityFilter(page, viewport.width)));
+      failures.push(...(await readLocalFixes(page, route, viewport.width)));
     }
     expect(failures, failures.join('\n')).toEqual([]);
   });
@@ -414,9 +667,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
   });
 }
 
+/** Pasos cuyo ancla es la cabecera de un bloque largo (UXE-01 y UXP-03). */
+const BOUNDED_ANCHORS = new Set([
+  'inicio-situacion',
+  'fuentes-lista',
+  'dinero-real-lista',
+  'ajustes-proveedores',
+]);
+
 /**
- * UXE-01 y UXE-02: el foco enmarca un elemento acotado (≤ 400 px de alto) y
- * el globo, ya quieto, no se solapa con el ancla.
+ * UXE-01, UXE-02 y UXP-03: el foco enmarca un elemento acotado (≤ 400 px de
+ * alto) y el globo, ya quieto, no se solapa con el ancla.
  */
 async function readTourFocus(
   page: Page,
@@ -449,7 +710,7 @@ async function readTourFocus(
   const globe = await dialog.boundingBox();
   const spot = await page.locator('.tour-spotlight').boundingBox();
   if (!box || !globe || !spot) return [`paso ${step}@${width}: no se pudo medir el foco`];
-  if (anchor === 'dinero-real-lista' && spot.height > 400) {
+  if (BOUNDED_ANCHORS.has(anchor) && spot.height > 400) {
     problems.push(`paso ${step}@${width}: el foco mide ${Math.round(spot.height)} px de alto`);
   }
   const overlap = overlapOf(globe, box);
@@ -511,21 +772,24 @@ test('el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y
         )
         .toBe('ancla');
     }
-    if (data.anchor === 'dinero-real-lista' || data.anchor === 'ia-regimen') {
-      failures.push(...(await readTourFocus(page, step, data.anchor, 1280)));
+    const measured =
+      !!data.anchor && (BOUNDED_ANCHORS.has(data.anchor) || data.anchor === 'ia-regimen');
+    if (measured) {
+      failures.push(...(await readTourFocus(page, step, data.anchor!, 1280)));
     }
     mkdirSync(evidenceDir, { recursive: true });
     await page.screenshot({ path: resolve(evidenceDir, `tour-paso-${step}.png`) });
-    if (data.anchor === 'ia-regimen') {
-      // UXE-02 también a 1024 × 700: se vuelve a entrar en el paso para que
-      // el tour desplace y coloque el globo con la ventana pequeña.
+    if (measured) {
+      // UXE-02 y UXP-03 también a 1024 × 700: se vuelve a entrar en el paso
+      // para que el tour desplace y coloque el globo con la ventana pequeña.
       await page.setViewportSize({ width: 1024, height: 700 });
       await dialog.getByRole('button', { name: 'Atrás', exact: true }).click();
       await expect(dialog).toHaveAccessibleName(new RegExp(`^Paso ${step - 1} de`));
-      await dialog.getByRole('button', { name: 'Siguiente', exact: true }).click();
+      // Desde el paso 1 se avanza con «Empezar».
+      await dialog.getByRole('button', { name: /^(Siguiente|Empezar)$/ }).click();
       await expect(dialog).toHaveAccessibleName(new RegExp(`^Paso ${step} de`));
       await expect(dialog).toHaveAttribute('aria-busy', 'false', { timeout: 5_000 });
-      failures.push(...(await readTourFocus(page, step, data.anchor, 1024)));
+      failures.push(...(await readTourFocus(page, step, data.anchor!, 1024)));
       await page.screenshot({ path: resolve(evidenceDir, `tour-paso-${step}-1024.png`) });
       await page.setViewportSize({ width: 1280, height: 800 });
     }
