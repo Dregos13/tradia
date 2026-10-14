@@ -11,10 +11,15 @@ import * as nyseCalendar from '../calendar';
 import { createDataHealthService, type DataHealthService } from '../health';
 import { createMarketIngestionService, type MarketIngestionService } from '../ingestion';
 import { createMarketRepository, type MarketRepository } from '../repository';
-import { createSignalEngine } from '../../signals/engine';
+import { createSignalEngine, type EvaluableStrategy } from '../../signals/engine';
 import { createSignalsRepository } from '../../signals/repository';
+import { createPredictionsRepository } from '../../ai/prediction/repository';
+import { createPredictionService } from '../../ai/prediction/service';
+import type { ModelPrediction, PredictionModel } from '../../ai/prediction/model';
 import type { RiskDecision } from '../../../shared/risk';
 import type { SignalIntent } from '../../../shared/risk';
+import type { Strategy } from '../../../shared/strategy';
+import type { Strategy as ExecutableStrategy } from '../../backtest/types';
 import { dataStatusKey, IPC_CHANNELS, type DataStatusEntry } from '../../../shared/ipc';
 import { sessionDateLabel } from '../../../shared/dates';
 
@@ -295,6 +300,192 @@ describe('datos desactualizados y cálculos', () => {
     expect(submitted).toHaveLength(0);
     expect(processedMarks.size).toBe(0);
     expect(signalsRepo.listSignals({})).toHaveLength(0);
+  });
+});
+
+describe('activo sin cobertura aislado', () => {
+  const HASH = 'c'.repeat(64);
+
+  const fakeModel = (): PredictionModel => ({
+    version: '0.1.0',
+    horizonDays: 5,
+    modelHash: HASH,
+    volHash: 'd'.repeat(64),
+    predictBatch: async (vectors) =>
+      vectors.map((vector): ModelPrediction => ({
+        rawProbUp: vector[0]!,
+        probUp: Math.min(1, Math.max(0, 0.5 + vector[0]!)),
+        probDown: Math.min(1, Math.max(0, 0.5 - vector[0]!)),
+        expectedVolatility: 0.02,
+      })),
+    release: async () => undefined,
+  });
+
+  const cardJson = (): Record<string, unknown> => ({
+    version: '0.1.0',
+    hash: HASH,
+    horizonDays: 5,
+    trainingPeriod: { startDate: '2020-01-01', endDate: '2021-12-31' },
+    calibrationPeriod: { startDate: '2022-01-01', endDate: '2022-06-30' },
+    testPeriod: { startDate: '2022-07-01', endDate: '2022-12-31' },
+    dataOrigin: 'real',
+    metrics: { brierOos: 0.18, logLossOos: 0.55, brierBaseline: 0.25 },
+    calibration: [],
+    referenceDistribution: [],
+    trainedAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  const ficha = (id: number): Strategy => ({
+    id,
+    executable: true,
+    version: 3,
+    name: `Estrategia ${id}`,
+    hypothesis: 'hipótesis',
+    rules: { entry: 'entra', exit: 'sale', stop: 'stop', target: '2:1' },
+    parameters: {},
+    parameterRanges: {},
+    markets: ['AAPL'],
+    trainingPeriod: null,
+    outOfSamplePeriod: null,
+    metricsSummary: null,
+    regime: 'tendencial',
+    worksIn: [],
+    failsIn: [],
+    assumedCosts: { commissionPct: 0.05, commissionMin: 1, slippageBps: 5, spreadBps: 2 },
+    status: 'activa',
+    changeNote: '',
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+    versionCreatedAt: '2026-10-01T00:00:00.000Z',
+  });
+
+  const buyerAll = (): ExecutableStrategy => ({
+    init: () => undefined,
+    onBar: (ctx) => ctx.buy('AAPL'),
+  });
+
+  it('las señales y la predicción solo se generan para el activo con datos', async () => {
+    const { db, repo, provider, ingestion, health } = createMarketFixture();
+
+    // El proveedor responde vacío para EUR y normal para el resto.
+    const realGetBars = provider.getBars.bind(provider);
+    vi.spyOn(provider, 'getBars').mockImplementation((ticker, desde, hasta) =>
+      ticker === 'EUR' ? Promise.resolve([]) : realGetBars(ticker, desde, hasta),
+    );
+
+    // Señales: mismo cableado que registerSignals (onBarsStored → engine).
+    const signalsRepo = createSignalsRepository(db);
+    const processed = new Set<string>();
+    const submitted: SignalIntent[] = [];
+    const evaluables: EvaluableStrategy[] = [{ ficha: ficha(1), create: buyerAll }];
+    const engine = createSignalEngine({
+      repo: signalsRepo,
+      listEvaluables: () => evaluables,
+      listStrategies: () =>
+        evaluables.map((e) => ({
+          id: e.ficha.id,
+          name: e.ficha.name,
+          version: e.ficha.version,
+          status: e.ficha.status,
+        })),
+      listWatchlistTickers: () => repo.listWatchlist().map((item) => item.ticker),
+      barsFor: (ticker, hasta, preferSource) =>
+        repo
+          .getBars(ticker, {
+            hasta,
+            ...(preferSource === null ? {} : { source: preferSource }),
+          })
+          .map((bar) => ({
+            date: bar.date,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume,
+            batchId: bar.batchId,
+            source: bar.source,
+          })),
+      lastBarDate: (ticker) => repo.lastBarDate(ticker),
+      getBatchVersion: (batchId) => repo.getBatch(batchId)?.version ?? null,
+      submitSignal: (intent) => {
+        submitted.push(intent);
+        return {
+          status: 'aprobada',
+          size: 1,
+          sizeFactor: 1,
+          riskAmount: 0,
+          notional: 0,
+          reasons: [],
+          decidedAt: new Date().toISOString(),
+        } satisfies RiskDecision;
+      },
+      recordJournal: () => undefined,
+      broadcast: () => undefined,
+      isAgentsPaused: () => false,
+      isOffline: () => false,
+      isKillSwitchActive: () => false,
+      wasProcessed: (ticker, barDate) => processed.has(`${ticker}|${barDate}`),
+      markProcessed: (ticker, barDate) => {
+        processed.add(`${ticker}|${barDate}`);
+      },
+      expectedSessionDate: (nowMs) => nyseCalendar.lastExpectedSession(nowMs)?.date ?? null,
+      now: () => Date.now(),
+      logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+    });
+    ingestion.onBarsStored((event) => engine.handleBarStored(event));
+
+    // Predicción: mismo cableado que registerPrediction.
+    const predictionsRepo = createPredictionsRepository(db);
+    const prediction = createPredictionService({
+      repo: predictionsRepo,
+      barsFor: (ticker) =>
+        repo.getBars(ticker).map((bar) => ({
+          date: bar.date,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+        })),
+      listWatchlistTickers: () => repo.listWatchlist().map((item) => item.ticker),
+      loadModel: async () => fakeModel(),
+      loadCardJson: () => cardJson(),
+      broadcast: () => undefined,
+      expectedSessionDate: (nowMs) => nyseCalendar.lastExpectedSession(nowMs)?.date ?? null,
+      now: () => Date.now(),
+      logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+    });
+    ingestion.onBarsStored((event) => prediction.handleBarStored(event));
+
+    await ingestion.addTicker('AAPL');
+    await ingestion.addTicker('EUR');
+    const refresh = await ingestion.refreshNow();
+    await prediction.ready();
+
+    // El refresco distingue el éxito parcial: no es «todo al día».
+    expect(refresh).toMatchObject({ ok: false, updated: 1, total: 2, failedTickers: ['EUR'] });
+
+    // El fallo queda aislado: EUR sin cobertura, proveedor fiable,
+    // resumen global 'current'.
+    expect(repo.getDataStatus(dataStatusKey.ticker('EUR'))).toMatchObject({
+      state: 'sin-cobertura',
+    });
+    expect(repo.getDataStatus(dataStatusKey.provider('simulated'))).toMatchObject({
+      state: 'fiable',
+    });
+    expect(health.freshness()).toMatchObject({ state: 'current' });
+
+    // El activo con datos emite su señal y guarda sus predicciones.
+    expect(submitted.map((intent) => intent.ticker)).toEqual(['AAPL']);
+    expect(signalsRepo.listSignals({}).map((signal) => signal.ticker)).toContain('AAPL');
+    expect(predictionsRepo.listPredictions({ ticker: 'AAPL' }).length).toBeGreaterThan(0);
+
+    // El activo sin cobertura no genera ni señal ni predicción.
+    expect(signalsRepo.listSignals({}).some((signal) => signal.ticker === 'EUR')).toBe(false);
+    expect(predictionsRepo.listPredictions({ ticker: 'EUR' })).toHaveLength(0);
+
+    await prediction.stop();
+    engine.stop();
   });
 });
 

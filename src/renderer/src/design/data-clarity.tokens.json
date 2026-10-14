@@ -1,0 +1,270 @@
+{
+  "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+  "meta": {
+    "name": "Tradia — Claridad de datos y conectores",
+    "version": "1.0.0",
+    "extends": [
+      "src/renderer/src/design/base.tokens.json",
+      "src/renderer/src/design/market.tokens.json",
+      "src/renderer/src/design/onboarding.tokens.json"
+    ],
+    "scope": "Solo tokens nuevos o cambiados para legibilidad, activos sin cobertura y conectores",
+    "contrastStandard": "WCAG 2.2 AA",
+    "contrastMethod": "Luminancia relativa sRGB (WCAG 2.2)",
+    "baseUnit": "4px"
+  },
+  "color": {
+    "light": {
+      "canvas": "#F5F3ED",
+      "surface": "#FFFEFA",
+      "surfaceSubtle": "#ECE9E1",
+      "sidebar": "#17233A",
+      "sidebarText": "#F5F3ED",
+      "text": "#17233A",
+      "textMuted": "#566174",
+      "accent": "#1746C6",
+      "accentHover": "#10369E",
+      "inverse": "#FFFFFF",
+      "focus": "#0C60E8"
+    },
+    "dark": {
+      "canvas": "#0E1522",
+      "surface": "#151F30",
+      "surfaceSubtle": "#1D293B",
+      "sidebar": "#090F19",
+      "sidebarText": "#F4F5F7",
+      "text": "#F4F5F7",
+      "textMuted": "#B8C1CE",
+      "accent": "#7EA2FF",
+      "accentHover": "#A9C0FF",
+      "inverse": "#0E1522",
+      "focus": "#9DB8FF"
+    },
+    "semantic": {
+      "covered": {
+        "label": "Al día",
+        "light": "#126B4B",
+        "lightSurface": "#DDF3E9",
+        "dark": "#65D6A4",
+        "darkSurface": "#12382C",
+        "secondaryCue": "icono circle-check + texto"
+      },
+      "uncovered": {
+        "label": "Sin cobertura",
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "secondaryCue": "icono circle-slash + texto; nunca tratar como caída del proveedor"
+      },
+      "partial": {
+        "label": "Actualización parcial",
+        "light": "#765500",
+        "lightSurface": "#F5EAC2",
+        "dark": "#F4CB62",
+        "darkSurface": "#3E3214",
+        "secondaryCue": "recuento actualizado/total + lista de excepciones"
+      },
+      "critical": {
+        "label": "Necesita atención",
+        "light": "#A12232",
+        "lightSurface": "#FBE4E7",
+        "dark": "#FF8D9B",
+        "darkSurface": "#4B1C26",
+        "secondaryCue": "icono circle-alert + texto"
+      },
+      "offline": {
+        "label": "Sin conexión",
+        "light": "#A33B18",
+        "lightSurface": "#FCE7DC",
+        "dark": "#FF9B73",
+        "darkSurface": "#4A2419",
+        "secondaryCue": "icono wifi-off + texto"
+      },
+      "info": {
+        "label": "Comprobando",
+        "light": "#1746C6",
+        "lightSurface": "#E5EBFF",
+        "dark": "#8EACFF",
+        "darkSurface": "#1B3265",
+        "secondaryCue": "icono loader + texto"
+      }
+    }
+  },
+  "contrastPairs": [
+    {
+      "name": "Texto principal / lienzo",
+      "light": { "text": "#17233A", "background": "#F5F3ED", "ratio": "14.15:1" },
+      "dark": { "text": "#F4F5F7", "background": "#0E1522", "ratio": "16.75:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Texto principal / superficie",
+      "light": { "text": "#17233A", "background": "#FFFEFA", "ratio": "15.55:1" },
+      "dark": { "text": "#F4F5F7", "background": "#151F30", "ratio": "15.15:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Texto de navegación / barra lateral",
+      "light": { "text": "#F5F3ED", "background": "#17233A", "ratio": "14.15:1" },
+      "dark": { "text": "#F4F5F7", "background": "#090F19", "ratio": "17.60:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Texto secundario / lienzo",
+      "light": { "text": "#566174", "background": "#F5F3ED", "ratio": "5.64:1" },
+      "dark": { "text": "#B8C1CE", "background": "#0E1522", "ratio": "10.06:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Texto secundario / superficie",
+      "light": { "text": "#566174", "background": "#FFFEFA", "ratio": "6.20:1" },
+      "dark": { "text": "#B8C1CE", "background": "#151F30", "ratio": "9.10:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Texto de acción primaria / acento",
+      "light": { "text": "#FFFFFF", "background": "#1746C6", "ratio": "7.70:1" },
+      "dark": { "text": "#0E1522", "background": "#7EA2FF", "ratio": "7.40:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Enlace / superficie",
+      "light": { "text": "#1746C6", "background": "#FFFEFA", "ratio": "7.63:1" },
+      "dark": { "text": "#7EA2FF", "background": "#151F30", "ratio": "6.69:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Foco / superficie",
+      "light": { "text": "#0C60E8", "background": "#FFFEFA", "ratio": "5.40:1" },
+      "dark": { "text": "#9DB8FF", "background": "#151F30", "ratio": "8.45:1" },
+      "minimum": "3:1 no textual; se exige 4.5:1 por esta guía",
+      "pass": true
+    },
+    {
+      "name": "Etiqueta sin cobertura o parcial / fondo de estado",
+      "light": { "text": "#765500", "background": "#F5EAC2", "ratio": "5.68:1" },
+      "dark": { "text": "#F4CB62", "background": "#3E3214", "ratio": "8.12:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Cuerpo / fondo sin cobertura o parcial",
+      "light": { "text": "#17233A", "background": "#F5EAC2", "ratio": "13.03:1" },
+      "dark": { "text": "#F4F5F7", "background": "#3E3214", "ratio": "11.52:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Etiqueta crítica / fondo crítico",
+      "light": { "text": "#A12232", "background": "#FBE4E7", "ratio": "6.22:1" },
+      "dark": { "text": "#FF8D9B", "background": "#4B1C26", "ratio": "6.39:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Cuerpo / fondo crítico",
+      "light": { "text": "#17233A", "background": "#FBE4E7", "ratio": "12.97:1" },
+      "dark": { "text": "#F4F5F7", "background": "#4B1C26", "ratio": "12.89:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Etiqueta correcta / fondo correcto",
+      "light": { "text": "#126B4B", "background": "#DDF3E9", "ratio": "5.59:1" },
+      "dark": { "text": "#65D6A4", "background": "#12382C", "ratio": "7.19:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Cuerpo / fondo correcto",
+      "light": { "text": "#17233A", "background": "#DDF3E9", "ratio": "13.51:1" },
+      "dark": { "text": "#F4F5F7", "background": "#12382C", "ratio": "11.83:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Etiqueta sin red / fondo sin red",
+      "light": { "text": "#A33B18", "background": "#FCE7DC", "ratio": "5.51:1" },
+      "dark": { "text": "#FF9B73", "background": "#4A2419", "ratio": "6.54:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Cuerpo / fondo sin red",
+      "light": { "text": "#17233A", "background": "#FCE7DC", "ratio": "13.16:1" },
+      "dark": { "text": "#F4F5F7", "background": "#4A2419", "ratio": "12.36:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Etiqueta informativa / fondo informativo",
+      "light": { "text": "#1746C6", "background": "#E5EBFF", "ratio": "6.47:1" },
+      "dark": { "text": "#8EACFF", "background": "#1B3265", "ratio": "5.62:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    },
+    {
+      "name": "Cuerpo / fondo informativo",
+      "light": { "text": "#17233A", "background": "#E5EBFF", "ratio": "13.20:1" },
+      "dark": { "text": "#F4F5F7", "background": "#1B3265", "ratio": "11.39:1" },
+      "minimum": "4.5:1",
+      "pass": true
+    }
+  ],
+  "typography": {
+    "family": {
+      "interface": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "editorial": "Iowan Old Style, Charter, Georgia, serif",
+      "numeric": "SFMono-Regular, Consolas, 'Liberation Mono', monospace"
+    },
+    "size": {
+      "caption": {
+        "value": "14px",
+        "lineHeight": "20px",
+        "use": "metadatos y ayudas; mínimo informativo"
+      },
+      "small": {
+        "value": "15px",
+        "lineHeight": "22px",
+        "use": "texto secundario, insignias y etiquetas"
+      },
+      "body": { "value": "16px", "lineHeight": "24px", "use": "base de la aplicación y controles" },
+      "titleSmall": { "value": "18px", "lineHeight": "26px", "use": "tarjetas y avisos" },
+      "title": { "value": "24px", "lineHeight": "32px", "use": "título de pantalla" },
+      "display": {
+        "value": "32px",
+        "lineHeight": "40px",
+        "use": "encabezado principal cuando exista"
+      }
+    },
+    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
+    "rule": "No usar 12px en información, estados, fechas ni acciones. 12px queda reservado a marcas decorativas sin contenido decisivo."
+  },
+  "spacing": {
+    "inlineGap": "8px",
+    "controlGap": "12px",
+    "contentGap": "16px",
+    "cardPadding": "20px",
+    "sectionGap": "32px",
+    "pagePaddingWide": "32px",
+    "pagePaddingNarrow": "20px"
+  },
+  "radius": { "control": "8px", "card": "12px", "panel": "16px", "pill": "999px" },
+  "shadow": { "floating": "0 18px 48px rgba(8, 18, 35, 0.18)" },
+  "focus": { "width": "3px", "offset": "2px", "style": "solid", "token": "color.*.focus" },
+  "size": {
+    "controlMinHeight": "44px",
+    "controlMinWidth": "44px",
+    "copyMaxWidth": "70ch",
+    "connectorCardMinWidth": "300px"
+  },
+  "motion": { "fast": "120ms", "normal": "200ms", "reduced": "0ms" }
+}

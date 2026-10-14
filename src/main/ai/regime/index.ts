@@ -26,7 +26,8 @@ import {
   isSimulateRegimeRequest,
 } from '../../../shared/ipc';
 import type { JournalRecordInput } from '../../../shared/journal';
-import * as nyseCalendar from '../../market/calendar';
+import { REGIME_MARKET_TICKER } from '../../../shared/ai';
+import { expectedSessionDateFor } from '../../market/assetCalendar';
 import type { StoredBar } from '../../market/repository';
 import { createMarketRepository } from '../../market/repository';
 import { openDatabase } from '../../db/database';
@@ -119,9 +120,11 @@ export function registerRegime(
     broadcast: (channel, payload) => ctx.broadcast(channel, payload),
     // Guarda de frescura: una serie por detrás de la última sesión
     // esperada no recalcula el régimen (datos viejos de una puesta al
-    // día atrasada) y el overview lo marca como desactualizado.
-    expectedSessionDate: () =>
-      nyseCalendar.lastExpectedSession(options.clock?.now() ?? Date.now())?.date ?? null,
+    // día atrasada) y el overview lo marca como desactualizado. Cada
+    // activo con su calendario: NYSE para acciones, 24/5 para divisas;
+    // el mercado (sin ticker) es la referencia SPY.
+    expectedSessionDate: (_nowMs, ticker) =>
+      expectedSessionDateFor(ticker ?? REGIME_MARKET_TICKER, options.clock?.now() ?? Date.now()),
   });
 
   // Disparo: cada lote guardado recalcula el régimen del activo (y del

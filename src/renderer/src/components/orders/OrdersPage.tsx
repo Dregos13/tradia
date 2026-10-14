@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { fxPairForCurrency, normalizeFxPair } from '../../../../shared/fx';
+import { assetSymbol } from '../assetPresentation';
 import type {
   BrokerOrder,
   BrokerOrderMode,
@@ -25,7 +27,6 @@ import {
   FX_BROKER_REJECTION_CODE,
   FX_BROKER_REJECTION_REASON,
 } from '../../../../shared/fxTrading';
-import { fxPairForCurrency } from '../../../../shared/fx';
 import './orders.css';
 
 export const FX_MANUAL_ORDER_ERROR =
@@ -94,8 +95,11 @@ export function OrdersPage() {
     if (createBusy.current || offline || symbol === '' || !(quantity > 0) || !(limitPrice > 0)) {
       return;
     }
-    if (isFxSymbol(symbol) || fxPairForCurrency(symbol) !== null) {
-      setCreateError(FX_MANUAL_ORDER_ERROR);
+    const pair = normalizeFxPair(symbol);
+    if (pair) {
+      setCreateError(
+        `${assetSymbol(pair)} es una divisa y no se envía al bróker: ${FX_BROKER_REJECTION_REASON}. Sus señales aprobadas se operan en la cartera simulada.`,
+      );
       return;
     }
     createBusy.current = true;
@@ -168,9 +172,9 @@ export function OrdersPage() {
   });
 
   return (
-    <div className="orders-page orders-surface live-surface">
+    <div className="orders-page orders-surface live-surface" data-layout-page="ordenes">
       <style>{ordersTokenStylesheet() + liveTokens()}</style>
-      <div className="orders-top">
+      <div className="orders-top" data-layout-block="cabecera">
         <header>
           <div className="orders-title">
             <h2>Órdenes</h2>
@@ -185,7 +189,11 @@ export function OrdersPage() {
         </header>
         <ReconcileStatus state={reconciliation} />
       </div>
-      <section className="orders-filters" aria-label="Filtros de órdenes">
+      <section
+        data-layout-block="filtros"
+        className="orders-filters"
+        aria-label="Filtros de órdenes"
+      >
         <label>
           Modo
           <select
@@ -243,7 +251,7 @@ export function OrdersPage() {
           Limpiar filtros
         </button>
       </section>
-      <div className="orders-actions">
+      <div className="orders-actions" data-layout-block="acciones">
         <button
           ref={createTrigger}
           className="button"
@@ -392,118 +400,122 @@ export function OrdersPage() {
           </div>
         </section>
       )}
-      <p>
-        {mode || status || strategy || ticker
-          ? `${rows.length} de ${state.orders.length}`
-          : state.orders.length}{' '}
-        órdenes · Hora local
-      </p>
-      <p className="orders-scroll-hint">Desplázate horizontalmente para ver todas las columnas.</p>
-      <div
-        className="orders-table-wrap"
-        data-tour="ordenes-paper"
-        role="region"
-        aria-label="Órdenes, desplazamiento horizontal"
-        tabIndex={0}
-        aria-busy={state.loading}
-      >
-        <table className={state.error || offline ? 'orders-frozen' : undefined}>
-          <caption className="sr-only">Modo de cada orden y precios de ejecución</caption>
-          <thead>
-            <tr>
-              {[
-                'Hora',
-                'Modo',
-                'Activo',
-                'Tipo',
-                'Lado',
-                'Cantidad',
-                'Precio pedido',
-                'Precio ejecutado',
-                'Slippage',
-                'Estrategia',
-                'Estado',
-                'Acciones',
-              ].map((label) => (
-                <th key={label} scope="col">
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          {state.loading && state.orders.length === 0 ? (
-            <tbody>
-              {Array.from({ length: 5 }, (_, index) => (
-                <tr key={index}>
-                  <td colSpan={12}>
-                    {index === 0 ? (
-                      <span role="status">Cargando órdenes…</span>
-                    ) : (
-                      <span aria-hidden="true">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          ) : (
-            [...groups.entries()].map(([key, group]) => (
-              <tbody
-                key={key}
-                aria-label={
-                  key.startsWith('oco:') ? `Protección OCO de ${group[0]?.ticker}` : undefined
-                }
-              >
-                {key.startsWith('oco:') && (
-                  <tr className="orders-oco-parent">
-                    <th scope="rowgroup" colSpan={12}>
-                      Protección OCO · {group[0]?.ticker} · {quantity(group[0]?.quantity ?? 0)} ·{' '}
-                      {group.length} {group.length === 1 ? 'orden vinculada' : 'órdenes vinculadas'}{' '}
-                      ·{' '}
-                      {group.some(cancelable)
-                        ? 'Activa'
-                        : group.some((row) => row.status === 'ejecutada')
-                          ? 'Ejecutada'
-                          : 'Cerrada'}
-                    </th>
+      <div className="orders-results" data-layout-block="resultados">
+        <p>
+          {mode || status || strategy || ticker
+            ? `${rows.length} de ${state.orders.length}`
+            : state.orders.length}{' '}
+          órdenes · Hora local
+        </p>
+        <p className="orders-scroll-hint">
+          Desplázate horizontalmente para ver todas las columnas.
+        </p>
+        <div
+          className="orders-table-wrap"
+          data-tour="ordenes-paper"
+          role="region"
+          aria-label="Órdenes, desplazamiento horizontal"
+          tabIndex={0}
+          aria-busy={state.loading}
+        >
+          <table className={state.error || offline ? 'orders-frozen' : undefined}>
+            <caption className="sr-only">Modo de cada orden y precios de ejecución</caption>
+            <thead>
+              <tr>
+                {[
+                  'Hora',
+                  'Modo',
+                  'Activo',
+                  'Tipo',
+                  'Lado',
+                  'Cantidad',
+                  'Precio pedido',
+                  'Precio ejecutado',
+                  'Slippage',
+                  'Estrategia',
+                  'Estado',
+                  'Acciones',
+                ].map((label) => (
+                  <th key={label} scope="col">
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            {state.loading && state.orders.length === 0 ? (
+              <tbody>
+                {Array.from({ length: 5 }, (_, index) => (
+                  <tr key={index}>
+                    <td colSpan={12}>
+                      {index === 0 ? (
+                        <span role="status">Cargando órdenes…</span>
+                      ) : (
+                        <span aria-hidden="true">—</span>
+                      )}
+                    </td>
                   </tr>
-                )}
-                {group.map((row) => (
-                  <OrderRow
-                    key={orderKey(row)}
-                    order={row}
-                    grouped={key.startsWith('oco:')}
-                    names={names}
-                    offline={offline}
-                    canceling={canceling}
-                    onCancel={(order, button) => {
-                      trigger.current = button;
-                      setCancelError(null);
-                      setConfirmation(orderKey(order));
-                    }}
-                  />
                 ))}
               </tbody>
-            ))
-          )}
-        </table>
+            ) : (
+              [...groups.entries()].map(([key, group]) => (
+                <tbody
+                  key={key}
+                  aria-label={
+                    key.startsWith('oco:') ? `Protección OCO de ${group[0]?.ticker}` : undefined
+                  }
+                >
+                  {key.startsWith('oco:') && (
+                    <tr className="orders-oco-parent">
+                      <th scope="rowgroup" colSpan={12}>
+                        Protección OCO · {group[0]?.ticker} · {quantity(group[0]?.quantity ?? 0)} ·{' '}
+                        {group.length}{' '}
+                        {group.length === 1 ? 'orden vinculada' : 'órdenes vinculadas'} ·{' '}
+                        {group.some(cancelable)
+                          ? 'Activa'
+                          : group.some((row) => row.status === 'ejecutada')
+                            ? 'Ejecutada'
+                            : 'Cerrada'}
+                      </th>
+                    </tr>
+                  )}
+                  {group.map((row) => (
+                    <OrderRow
+                      key={orderKey(row)}
+                      order={row}
+                      grouped={key.startsWith('oco:')}
+                      names={names}
+                      offline={offline}
+                      canceling={canceling}
+                      onCancel={(order, button) => {
+                        trigger.current = button;
+                        setCancelError(null);
+                        setConfirmation(orderKey(order));
+                      }}
+                    />
+                  ))}
+                </tbody>
+              ))
+            )}
+          </table>
+        </div>
+        {!state.loading && !state.error && !rows.length && (
+          <section className="orders-empty">
+            <h2>
+              {state.orders.length ? 'No hay órdenes con estos filtros' : 'Todavía no hay órdenes'}
+            </h2>
+            {state.orders.length ? (
+              <button className="button" onClick={clear}>
+                Limpiar filtros
+              </button>
+            ) : (
+              <>
+                <p>Cuando Riesgo apruebe una señal y la ejecución esté activa, aparecerá aquí.</p>
+                <a href="#ajustes">Revisar cuenta paper</a>
+              </>
+            )}
+          </section>
+        )}
       </div>
-      {!state.loading && !state.error && !rows.length && (
-        <section className="orders-empty">
-          <h2>
-            {state.orders.length ? 'No hay órdenes con estos filtros' : 'Todavía no hay órdenes'}
-          </h2>
-          {state.orders.length ? (
-            <button className="button" onClick={clear}>
-              Limpiar filtros
-            </button>
-          ) : (
-            <>
-              <p>Cuando Riesgo apruebe una señal y la ejecución esté activa, aparecerá aquí.</p>
-              <a href="#ajustes">Revisar cuenta paper</a>
-            </>
-          )}
-        </section>
-      )}
     </div>
   );
 }

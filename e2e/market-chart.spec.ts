@@ -197,7 +197,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await expect(
       providerBanner
         .getByRole('status')
-        .filter({ hasText: /^No se pudo actualizar: fallo simulado del proveedor \(network\)/ }),
+        .filter({ hasText: /^Actualizados 0 de 1 · sin datos: AAPL$/ }),
     ).toBeVisible();
     await page.evaluate(() => window.tradia.testing!.simulateProviderFailure(false));
     await expect(providerBanner).toHaveCount(0);

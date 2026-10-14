@@ -11,9 +11,19 @@
  * Nueva York). Las señales y las operaciones se acotan a ese día; las
  * posiciones y la curva se leen completas porque sus enlaces (senal_id,
  * posicionId, instantes de cierre) pueden apuntar a días anteriores.
+ *
+ * Divisas: la vela 24/5 del día D llega a la 01:00 UTC de D+1 (la tarde
+ * de D en Nueva York), después de la conciliación de las 17:30, y hay
+ * velas en los festivos de NYSE, cuando la rutina no corre. Por eso las
+ * señales (por vela), los cierres y las operaciones de los pares se
+ * concilian en el siguiente día de NYSE: la ventana de divisas de `dia`
+ * es [`fxWindowStart`, `dia`), con `fxWindowStart` la sesión de NYSE
+ * anterior. Así cada día de divisas cae en una sola conciliación. Sin
+ * `fxWindowStart` los pares se acotan a `dia` como las acciones.
  */
 
 import type { JournalEntry } from '../../shared/journal';
+import { isFxSymbol } from '../../shared/fxTrading';
 import type { Signal } from '../../shared/signals';
 import { nySessionDate } from '../market/calendar';
 import type { PaperPositionRecord } from '../risk/portfolio';
@@ -25,8 +35,17 @@ export const RECONCILE_TOLERANCE = 0.01;
 export interface ReconcileInput {
   /** Día de mercado reconciliado ('YYYY-MM-DD', America/New_York). */
   dia: string;
-  /** Señales emitidas el `dia` (vela_fecha = dia). */
+  /**
+   * Señales candidatas: las de `dia` (vela_fecha = dia) y, si hay
+   * `fxWindowStart`, también las de las velas desde esa fecha; la
+   * función se queda con las de su ventana.
+   */
   signals: readonly Signal[];
+  /**
+   * Inicio (inclusive) de la ventana de divisas: la sesión de NYSE
+   * anterior a `dia`. Los pares se concilian en [fxWindowStart, dia).
+   */
+  fxWindowStart?: string | null;
   /** Todas las posiciones simuladas, abiertas y cerradas. */
   positions: readonly PaperPositionRecord[];
   /** Entradas 'operacion' del diario (las recientes bastan). */
@@ -67,6 +86,12 @@ const money = (value: number): string => String(Math.round(value * 100) / 100);
 
 export function reconcileDay(input: ReconcileInput): ReconcileResult {
   const discrepancies: string[] = [];
+  const fxStart = input.fxWindowStart ?? null;
+  /** ¿La fecha de Nueva York `day` de este activo entra en la conciliación? */
+  const inWindow = (ticker: string | null | undefined, day: string): boolean =>
+    ticker !== null && ticker !== undefined && isFxSymbol(ticker) && fxStart !== null
+      ? day >= fxStart && day < input.dia
+      : day === input.dia;
   const positionsById = new Map(input.positions.map((p) => [p.id, p]));
   const linkedSignalIds = new Set(
     input.positions.map((p) => p.signalId).filter((id): id is number => id !== null),
@@ -76,7 +101,11 @@ export function reconcileDay(input: ReconcileInput): ReconcileResult {
   // (La apertura va por el broadcast de signals:new; si el proceso murió
   // entre el persist y el broadcast la posición nunca se abrió.)
   const approved = input.signals.filter(
-    (s) => s.decision.status !== 'vetada' && s.decision.size > 0,
+    (s) =>
+      s.decision.status !== 'vetada' &&
+      s.decision.size > 0 &&
+      s.destination !== 'solo-analisis' &&
+      inWindow(s.ticker, s.dataUsed.barDate ?? input.dia),
   );
   for (const signal of approved) {
     if (!linkedSignalIds.has(signal.id)) {
@@ -89,13 +118,13 @@ export function reconcileDay(input: ReconcileInput): ReconcileResult {
 
   // 2 · Posición cerrada hoy ⇒ entrada 'operacion' con su posicionId.
   const closedToday = input.positions.filter(
-    (p) => p.closedAt !== null && nySessionDate(p.closedAt) === input.dia,
+    (p) => p.closedAt !== null && inWindow(p.ticker, nySessionDate(p.closedAt)),
   );
   // Las 'operacion' de dinero real (prueba de humo y órdenes live) no
   // son simuladas: no cierran ninguna posición paper y no deben
   // descuadrar la conciliación diaria.
   const opsToday = input.operations.filter(
-    (e) => e.mode !== 'live' && nySessionDate(e.createdAt) === input.dia,
+    (e) => e.mode !== 'live' && inWindow(e.ticker, nySessionDate(e.createdAt)),
   );
   const opsByPosition = new Map<number, JournalEntry>();
   for (const entry of opsToday) {

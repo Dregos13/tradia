@@ -1,7 +1,7 @@
 /**
  * Calendario de sesiones de NYSE y horario de la actualización diaria, más
- * el calendario propio de los bonos (`bondCalendar`) y el de las divisas
- * 24/5 (`fxCalendar`), elegidos por tipo de activo.
+ * los calendarios propios de los bonos (`bondCalendar`) y de las divisas
+ * 24/5 (`fxCalendar`), que la vigilancia de frescura elige por activo.
  *
  * Solo funciones puras. El cambio de horario se resuelve con `Intl` y las
  * zonas IANA America/New_York y Europe/Madrid, sin librerías nuevas, así la

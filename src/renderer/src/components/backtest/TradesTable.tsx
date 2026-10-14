@@ -13,7 +13,7 @@ export function TradesTable({ trades }: { trades: TradeDto[] }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(trades.length / 20));
   return (
-    <section className="strategy-section">
+    <section className="strategy-section" data-layout-block="seccion">
       <h3>Operaciones</h3>
       {trades.length ? (
         <>

@@ -117,7 +117,7 @@ export function LimitsForm({
     </div>
   );
   return (
-    <section className="live-sheet" aria-labelledby={`${id}-title`}>
+    <section data-layout-block="limites" className="live-sheet" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>Límites de capital real</h3>
       <p>Tu valor debe ser igual o menor que el techo fijo.</p>
       <p>

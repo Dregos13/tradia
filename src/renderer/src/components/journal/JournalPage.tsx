@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useState } from 'react';
 import tokens from '../../design/dashboard.tokens.json';
 import { JOURNAL_PAGE_SIZE, useJournal } from '../../hooks/useJournal';
@@ -9,9 +10,9 @@ export function JournalPage() {
   const journal = useJournal();
   const [selected, setSelected] = useState<number | null>(null);
   return (
-    <div className="journal">
+    <div className="journal" data-layout-page="diario">
       <style>{`.journal{--journal-table-min:${tokens.size.journalTableMin};--journal-detail-size:${tokens.size.detailPanel};--journal-shadow:${tokens.shadow.floating.value};--journal-veil:${tokens.color.overlay.light};}@media(prefers-color-scheme:dark){.journal{--journal-veil:${tokens.color.overlay.dark};}}`}</style>
-      <div className="headline journal-heading">
+      <div className="headline journal-heading" data-layout-block="cabecera">
         <div>
           <h2>Diario</h2>
           <p>
@@ -26,7 +27,9 @@ export function JournalPage() {
           {journal.exporting ? 'Preparando CSV…' : `Exportar CSV · ${journal.total} entradas`}
         </button>
       </div>
-      <JournalFilters apply={journal.apply} />
+      <div data-layout-block="filtros">
+        <JournalFilters apply={journal.apply} />
+      </div>
       <p role="status">
         {journal.savedPath
           ? `CSV guardado en ${journal.savedPath}`
@@ -78,7 +81,7 @@ export function JournalPage() {
                   <time dateTime={entry.createdAt}>{localDate(entry.createdAt)}</time>
                 </td>
                 <td>{entryLabel(entry)}</td>
-                <td>{entry.ticker ?? 'No aplica'}</td>
+                <td>{entry.ticker ? assetSymbol(entry.ticker) : 'No aplica'}</td>
                 <td>
                   {entry.strategies.map((s) => `${s.name} · v${s.version}`).join(', ') ||
                     'No aplica'}
@@ -87,7 +90,7 @@ export function JournalPage() {
                 <td>{entry.reason}</td>
                 <td>
                   <button
-                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ?? 'General'} · entrada ${entry.id}`}
+                    aria-label={`Ver detalle de ${entryLabel(entry)} de ${entry.ticker ? assetSymbol(entry.ticker) : 'General'} · entrada ${entry.id}`}
                     onClick={() => setSelected(entry.id)}
                   >
                     Ver detalle
@@ -110,7 +113,11 @@ export function JournalPage() {
           </p>
         )
       )}
-      <nav className="journal-pagination" aria-label="Paginación del diario">
+      <nav
+        data-layout-block="paginacion"
+        className="journal-pagination"
+        aria-label="Paginación del diario"
+      >
         <button
           disabled={journal.loading || journal.offset === 0}
           onClick={() => journal.setOffset(Math.max(0, journal.offset - JOURNAL_PAGE_SIZE))}

@@ -15,12 +15,12 @@ export function ModelHealthPage() {
     action: RetrainAction;
   } | null>(null);
   return (
-    <div className="ai-page health-page" aria-busy={state.loading}>
+    <div data-layout-page="salud-modelos" className="ai-page health-page" aria-busy={state.loading}>
       <style>
         {aiTokens()}
         {`.health-page{--ai-table-min:${tokens.size.healthTableMin}}.health-dialog{--health-dialog-max:${tokens.size.dialogMax}}`}
       </style>
-      <header className="ai-top">
+      <header className="ai-top" data-layout-block="cabecera">
         <div>
           <h2>Salud de modelos</h2>
           <p>Drift de datos, resultados y estrategias. Tradia nunca reentrena automáticamente.</p>
@@ -41,7 +41,7 @@ export function ModelHealthPage() {
           </button>
         </div>
       </header>
-      <p className="ai-notice">
+      <p className="ai-notice" data-layout-block="aviso">
         Una racha mala aislada no degrada una estrategia. La degradación requiere evidencia
         sostenida y una muestra suficiente.
       </p>
@@ -75,7 +75,11 @@ export function ModelHealthPage() {
       {state.loading && <p role="status">Calculando salud con las últimas revisiones…</p>}
       {state.overview && (
         <>
-          <section className="health-summary" aria-label="Resumen de salud">
+          <section
+            data-layout-block="resumen"
+            className="health-summary"
+            aria-label="Resumen de salud"
+          >
             {Object.entries(healthStates).map(([key, value]) => (
               <div key={key}>
                 <Badge kind={`health-${value.kind}`}>{value.label}</Badge>
@@ -102,7 +106,11 @@ export function ModelHealthPage() {
         </>
       )}
       {state.instructions && (
-        <section className="ai-section" aria-labelledby="retrain-instructions">
+        <section
+          className="ai-section"
+          data-layout-block="seccion"
+          aria-labelledby="retrain-instructions"
+        >
           <h3 id="retrain-instructions">Pasos del reentrenamiento fuera de la app</h3>
           <p role="status">
             Propuesta aprobada. Ejecuta el pipeline externo y verifica la nueva ficha antes de usar

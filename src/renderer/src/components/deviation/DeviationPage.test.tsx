@@ -174,3 +174,11 @@ it('permite reintentar carga de márgenes y conserva el borrador si no se guarda
   expect(screen.getByLabelText('Rentabilidad · ± pp')).toHaveValue(3);
   expect(screen.queryByText('Márgenes guardados')).not.toBeInTheDocument();
 });
+
+it('mantiene la leyenda y la tabla dentro de una unidad de resultados separada', async () => {
+  await mount();
+  const hint = screen.getByText('Desplázate horizontalmente para ver todas las columnas.');
+  const results = hint.closest('[data-layout-block="resultados"]');
+  expect(results).not.toBeNull();
+  expect(results).toContainElement(screen.getByRole('table'));
+});

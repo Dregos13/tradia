@@ -10,7 +10,7 @@
 .source-heading {
   justify-content: space-between;
   gap: var(--space-6);
-  margin-bottom: var(--space-6);
+  margin-bottom: 0;
 }
 .source-heading h2 {
   font: var(--weight-semibold) var(--type-xl)/var(--type-xl-line) var(--font-editorial);
@@ -23,11 +23,12 @@
 }
 .source-list,
 .source-form-panel {
-  margin-top: var(--space-6);
+  margin-top: 0;
+  min-width: 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-card-padding);
 }
 .source-list h3 {
   font-size: var(--type-lg);
@@ -108,7 +109,7 @@
 .source-form {
   display: grid;
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: var(--space-form-field-gap);
 }
 .source-form fieldset {
   border: 0;
@@ -172,7 +173,7 @@
 }
 .source-dialog {
   width: min(100%, 65ch);
-  padding: var(--space-8);
+  padding: var(--space-card-padding);
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-floating);
@@ -192,4 +193,53 @@
   .source-heading-actions {
     width: 100%;
   }
+}
+
+.sources-page {
+  display: grid;
+  gap: var(--space-section-gap);
+  min-width: 0;
+}
+.sources-page > :not(style) {
+  margin-block: 0;
+}
+.sources-page > [role='status']:empty {
+  position: absolute;
+}
+.source-list h3 {
+  margin: 0 0 var(--space-title-content-gap);
+}
+.source-list > p {
+  margin: 0;
+  max-width: var(--size-readingMax);
+}
+.source-table-scroll {
+  min-width: 0;
+  max-width: 100%;
+}
+.source-form-fields > label {
+  min-width: 0;
+}
+.source-form > .button {
+  margin-top: var(--space-label-control-gap);
+}
+@media (max-width: 760px) {
+  .sources-page {
+    gap: var(--space-section-gap-compact);
+  }
+  .source-list,
+  .source-form-panel {
+    padding: var(--space-card-padding-compact);
+  }
+}
+
+.source-heading,
+.source-form-panel,
+.source-table tbody th {
+  overflow-wrap: anywhere;
+}
+.source-table thead th,
+.source-reliability,
+.source-table .online {
+  white-space: nowrap;
 }

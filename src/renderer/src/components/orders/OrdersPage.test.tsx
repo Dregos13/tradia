@@ -9,7 +9,7 @@ import type {
   ReconcileRun,
 } from '../../../../shared/broker';
 import { createSimulatedAdapter } from '../../adapters/simulated';
-import { OrdersPage, FX_MANUAL_ORDER_ERROR } from './OrdersPage';
+import { OrdersPage } from './OrdersPage';
 import { ReconcileBanner } from './ReconcileBanner';
 const run: ReconcileRun = {
   id: 1,
@@ -168,9 +168,8 @@ it('muestra mensaje explicativo indicando que las divisas no admiten órdenes ma
 
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent(
-    'Las divisas no admiten órdenes manuales en el bróker y solo operan mediante señales automáticas en la cartera simulada.',
+    'EUR/USD es una divisa y no se envía al bróker: el bróker conectado no opera divisas; se opera solo en la cartera simulada.',
   );
-  expect(alert).toHaveTextContent(FX_MANUAL_ORDER_ERROR);
   expect(screen.getByLabelText('Activo')).toHaveValue('EURUSD');
 
   // Comprueba también con formato con barra (EUR/USD)
@@ -178,7 +177,9 @@ it('muestra mensaje explicativo indicando que las divisas no admiten órdenes ma
   await user.type(screen.getByLabelText('Activo'), 'EUR/USD');
   await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
 
-  expect(screen.getByRole('alert')).toHaveTextContent(FX_MANUAL_ORDER_ERROR);
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'EUR/USD es una divisa y no se envía al bróker',
+  );
   expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');
 });
 
@@ -423,4 +424,21 @@ it('muestra en español el motivo del rechazo de una entrada en corto real', asy
   expect(reason).toBeVisible();
   expect(reason.closest('tr')).toHaveTextContent('Dinero real');
   expect(reason.closest('tr')).toHaveTextContent('Rechazada');
+});
+
+it('una orden manual de EUR/USD no se envía al bróker y explica que se opera en la cartera simulada', async () => {
+  const create = vi.spyOn(window.tradia.orders, 'create');
+  const user = userEvent.setup();
+  render(<OrdersPage />);
+  await screen.findByText('+8 pb · desfavorable');
+  await user.click(screen.getByRole('button', { name: 'Crear orden limitada' }));
+  await user.type(screen.getByLabelText('Activo'), 'EUR/USD');
+  await user.type(screen.getByLabelText('Cantidad'), '1000');
+  await user.type(screen.getByLabelText('Precio límite'), '1.08');
+  await user.click(screen.getByRole('button', { name: 'Enviar orden limitada' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'EUR/USD es una divisa y no se envía al bróker: el bróker conectado no opera divisas; se opera solo en la cartera simulada.',
+  );
+  expect(create).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Activo')).toHaveValue('EUR/USD');
 });

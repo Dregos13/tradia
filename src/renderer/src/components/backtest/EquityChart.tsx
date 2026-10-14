@@ -53,7 +53,7 @@ export function EquityChart({ report: r }: { report: BacktestReport }) {
     return () => chart?.remove();
   }, [r, theme]);
   return (
-    <section className="strategy-section">
+    <section className="strategy-section" data-layout-block="seccion">
       <h3>Curva de capital</h3>
       {r.equityCurve.length ? (
         <>

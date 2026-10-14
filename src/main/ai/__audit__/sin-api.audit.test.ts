@@ -407,7 +407,9 @@ describe('auditoría · la retirada no deja rutas olvidadas', () => {
         if (!/\.(ts|tsx|mts|mjs)$/.test(entry.name) || /\.test\.(ts|tsx)$/.test(entry.name)) {
           continue;
         }
-        const rel = full.slice(repoRoot.length);
+        // Rutas relativas siempre con '/', como en la allowlist,
+        // independientemente del separador del sistema que corre la prueba.
+        const rel = full.slice(repoRoot.length).replace(/\\/g, '/');
         if (rel in ANTHROPIC_ALLOWLIST) continue;
         const hits = readFileSync(full, 'utf8')
           .split('\n')

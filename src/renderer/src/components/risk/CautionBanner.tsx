@@ -2,7 +2,7 @@ import type { CautionState } from '../../../../shared/risk';
 export function CautionBanner({ caution }: { caution?: CautionState }) {
   if (!caution?.active) return null;
   return (
-    <div className="risk-caution" role="status">
+    <div data-layout-block="cautela" className="risk-caution" role="status">
       <strong>Modo cautela activo</strong>
       <p>
         {caution.eventTitle ?? caution.cause} ·{' '}

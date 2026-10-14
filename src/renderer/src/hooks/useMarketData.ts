@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { subscribeWatchlistChanged } from './watchlistEvents';
 import type {
   DataStatusEntry,
   GetBarsRequest,
@@ -76,6 +77,7 @@ export function useMarketData(request?: GetBarsRequest) {
     }
   }, [ticker, desde, hasta]);
   useEffect(() => {
+    const offWatchlist = subscribeWatchlistChanged(() => void reload());
     const offMarket = window.tradia.market.onUpdated(() => void reload());
     const offStatus = window.tradia.dataStatus.onChanged((entry) => {
       events.current.set(entry.key, entry);
@@ -92,6 +94,7 @@ export function useMarketData(request?: GetBarsRequest) {
       generation.current++;
       offMarket();
       offStatus();
+      offWatchlist();
     };
   }, [reload]);
   return { ...state, reload, refreshNow: () => window.tradia.market.refreshNow() };

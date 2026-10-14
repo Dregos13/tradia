@@ -638,6 +638,117 @@ describe('auditoría · causas automáticas de la parada', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Divisas en la cartera simulada
+// ---------------------------------------------------------------------------
+
+describe('auditoría · divisas', () => {
+  /** EURUSD con stop al 4 % y objetivo al 10 %: ratio 2,5. */
+  const eurusd = (patch: Partial<SignalIntent> = {}): SignalIntent =>
+    signal({ ticker: 'EURUSD', entry: 1.09, stop: 1.0464, target: 1.199, ...patch });
+
+  beforeEach(() => {
+    // Velas de divisas sin volumen, como las publica Tiingo FX.
+    seedBars('EURUSD', [1.081, 1.083, 1.079, 1.085, 1.09], 0);
+  });
+
+  it('ANALYSIS_ONLY: un par no cotizado en USD (USDJPY) se veta como solo análisis', () => {
+    const decision = service.submitSignal(
+      signal({ ticker: 'USDJPY', entry: 146, stop: 140, target: 160 }),
+    );
+
+    expectVeto(decision, 'ANALYSIS_ONLY');
+    expect(decision.reasons.map((r) => r.code)).toEqual(['ANALYSIS_ONLY']);
+    expect(decision.size).toBe(0);
+    expect(decision.reasons[0]?.message).toBe('Par no cotizado en USD: solo análisis por ahora');
+    expect(decision.reasons[0]?.details).toMatchObject({
+      ticker: 'USDJPY',
+      motivo: 'par no cotizado en USD: solo análisis por ahora',
+    });
+  });
+
+  it('EURUSD: tamaño en euros por distancia al stop; nominal y riesgo en USD; sin veto de liquidez', () => {
+    const decision = service.submitSignal(eurusd());
+
+    expect(decision.status).toBe('aprobada');
+    // 0,5 % de 100 000 USD = 500 USD de riesgo / 0,0436 USD por euro.
+    expect(decision.size).toBe(11_467);
+    expect(decision.notional).toBeCloseTo(11_467 * 1.09, 6);
+    expect(decision.riskAmount).toBeCloseTo(11_467 * (1.09 - 1.0464), 6);
+    expect(decision.riskAmount).toBeLessThanOrEqual(500);
+  });
+
+  it('EURUSD corto: mismas reglas, con el stop por encima de la entrada', () => {
+    const decision = service.submitSignal(
+      eurusd({ direction: 'corto', entry: 1.07, stop: 1.1128, target: 0.963 }),
+    );
+
+    expect(decision.status).toBe('aprobada');
+    expect(decision.size).toBe(Math.floor(500 / (1.1128 - 1.07)));
+  });
+
+  it('EURUSD expone a EUR: cuenta para el límite de exposición por divisa', () => {
+    // 20 000 USD ya expuestos a EUR + 12 500 de la candidata = 32,5 % > 25 %.
+    service.seedPortfolio({
+      positions: [
+        {
+          ticker: 'ASML',
+          direction: 'largo',
+          entry: 100,
+          size: 200,
+          sector: 'semiconductores',
+          currency: 'EUR',
+        },
+      ],
+    });
+
+    const decision = service.submitSignal(eurusd());
+    expectVeto(decision, 'CURRENCY_EXPOSURE');
+    expect(decision.reasons.map((r) => r.code)).toEqual(['CURRENCY_EXPOSURE']);
+    expect(decision.reasons[0]?.details['divisa']).toBe('EUR');
+  });
+
+  it('EURUSD cuenta en el sector divisas y por activo con su nominal en USD', () => {
+    // Un EURUSD abierto de 17 000 USD + la candidata (12 499 USD) supera el 20 % por activo.
+    service.seedPortfolio({
+      positions: [{ ticker: 'EURUSD', direction: 'largo', entry: 1, size: 17_000 }],
+    });
+
+    const decision = service.submitSignal(eurusd());
+    expect(decision.status).toBe('vetada');
+    const codes = decision.reasons.map((r) => r.code);
+    expect(codes).toContain('ASSET_EXPOSURE');
+    expect(codes).toContain('CURRENCY_EXPOSURE');
+    expect(codes).toContain('SECTOR_EXPOSURE');
+    const sector = decision.reasons.find((r) => r.code === 'SECTOR_EXPOSURE');
+    expect(sector?.details['sector']).toBe('divisas');
+  });
+
+  it('cautela: el festivo de NYSE no frena al par; un dato de alto impacto sí', () => {
+    // Jueves de Acción de Gracias: NYSE cerrada, divisas en sesión.
+    nowMs = Date.parse('2026-11-26T15:00:00.000Z');
+    expectVeto(service.submitSignal(signal()), 'CAUTION_MODE');
+    expect(service.submitSignal(eurusd()).status).toBe('aprobada');
+
+    service.simulateCalendarEvent({
+      kind: 'nfp',
+      title: 'Empleo de EE. UU. (auditoría)',
+      dateUtc: new Date(nowMs).toISOString(),
+      impact: 'alto',
+    });
+    const decision = service.submitSignal(eurusd());
+    expectVeto(decision, 'CAUTION_MODE');
+    expect(decision.reasons[0]?.details['causa']).toBe('alto-impacto');
+  });
+
+  it('la parada activa veta también las señales de divisas', () => {
+    killSwitch.activate('manual', 'usuario');
+    const decision = service.submitSignal(eurusd());
+    expectVeto(decision, 'KILL_SWITCH_ACTIVE');
+    expect(decision.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Cobertura del contrato
 // ---------------------------------------------------------------------------
 

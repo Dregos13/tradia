@@ -55,7 +55,11 @@ export function SignalTester() {
     }
   }
   return (
-    <section className="risk-paper risk-tester" aria-labelledby="tester-title">
+    <section
+      data-layout-block="simulador"
+      className="risk-paper risk-tester"
+      aria-labelledby="tester-title"
+    >
       <span className="risk-simulation">Simulación</span>
       <h3 id="tester-title">Probador de señales</h3>
       <p>Evalúa una señal con el motor de riesgo. No envía órdenes al mercado.</p>

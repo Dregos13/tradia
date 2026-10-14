@@ -10,7 +10,11 @@ export function RetrainProposals({
   onDecide: (proposal: RetrainProposal, action: RetrainAction) => void;
 }) {
   return (
-    <section className="ai-section" aria-labelledby="health-proposals-title">
+    <section
+      className="ai-section"
+      data-layout-block="seccion"
+      aria-labelledby="health-proposals-title"
+    >
       <h3 id="health-proposals-title">Propuestas de reentrenamiento</h3>
       <p>Como máximo una propuesta por trimestre natural.</p>
       {!proposals.length && (

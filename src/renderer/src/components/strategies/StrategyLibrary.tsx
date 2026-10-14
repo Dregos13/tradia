@@ -26,7 +26,7 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
     );
   return (
     <>
-      <header className="strategy-heading">
+      <header className="strategy-heading" data-layout-block="cabecera">
         <div>
           <h2>Biblioteca de estrategias</h2>
           <p>Hipótesis versionadas, reglas reproducibles y evidencia.</p>
@@ -35,7 +35,7 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
           Nueva estrategia
         </a>
       </header>
-      <div className="strategy-actions">
+      <div className="strategy-actions" data-layout-block="controles">
         <label>
           Estado
           <select aria-label="Estado" value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -57,73 +57,86 @@ export function StrategyLibrary({ strategies }: { strategies: StrategySummary[] 
           </select>
         </label>
       </div>
-      {!rows.length ? (
-        <section className="strategy-section">
-          <h3>
-            {strategies.length ? 'No hay estrategias con este estado' : 'Aún no hay estrategias'}
-          </h3>
-          <p>Documenta tu primera hipótesis para comenzar.</p>
-          <a href="#estrategias/nueva">Crear estrategia</a>
-        </section>
-      ) : (
-        <table className="strategy-table strategy-library-table">
-          <caption className="sr-only">Estrategias y métricas del último backtest</caption>
-          <thead>
-            <tr>
-              <th scope="col">Estrategia</th>
-              {[
-                'Versión',
-                'Estado',
-                'Rentabilidad',
-                'Drawdown',
-                'Sharpe',
-                'Operaciones',
-                'Actualización',
-              ].map((x) => (
-                <th key={x} scope="col" className="strategy-table-fixed">
-                  {x}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s) => (
-              <tr key={s.id}>
-                <th scope="row" data-label="Estrategia">
-                  <a className="strategy-table-name" href={`#estrategias/${s.id}`} title={s.name}>
-                    {s.name}
-                  </a>
-                  <small>
-                    {s.regime} · {s.markets.join(', ')}
-                  </small>
-                </th>
-                <td data-label="Versión" className="strategy-table-fixed">
-                  v{s.version}
-                </td>
-                <td data-label="Estado" className="strategy-table-fixed">
-                  <StrategyStatus status={s.status} />
-                </td>
-                <td data-label="Rentabilidad" className="strategy-table-fixed">
-                  {number(s.metricsSummary?.totalReturnPct, '%')}
-                </td>
-                <td data-label="Drawdown" className="strategy-table-fixed">
-                  {number(s.metricsSummary?.maxDrawdownPct, '%')}
-                </td>
-                <td data-label="Sharpe" className="strategy-table-fixed">
-                  {number(s.metricsSummary?.sharpe)}
-                </td>
-                <td data-label="Operaciones" className="strategy-table-fixed">
-                  {number(s.metricsSummary?.trades)}
-                </td>
-                <td data-label="Actualización" className="strategy-table-fixed">
-                  {date(s.updatedAt)}
-                  <small>Procedencia no disponible</small>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="strategy-results" data-layout-block="resultados">
+        {!rows.length ? (
+          <section className="strategy-section" data-layout-block="seccion">
+            <h3>
+              {strategies.length ? 'No hay estrategias con este estado' : 'Aún no hay estrategias'}
+            </h3>
+            <p>Documenta tu primera hipótesis para comenzar.</p>
+            <a href="#estrategias/nueva">Crear estrategia</a>
+          </section>
+        ) : (
+          <div
+            className="strategy-table-scroll"
+            role="region"
+            aria-label="Estrategias y métricas"
+            tabIndex={0}
+          >
+            <table className="strategy-table strategy-library-table">
+              <caption className="sr-only">Estrategias y métricas del último backtest</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Estrategia</th>
+                  {[
+                    'Versión',
+                    'Estado',
+                    'Rentabilidad',
+                    'Drawdown',
+                    'Sharpe',
+                    'Operaciones',
+                    'Actualización',
+                  ].map((x) => (
+                    <th key={x} scope="col" className="strategy-table-fixed">
+                      {x}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.id}>
+                    <th scope="row" data-label="Estrategia">
+                      <a
+                        className="strategy-table-name"
+                        href={`#estrategias/${s.id}`}
+                        title={s.name}
+                      >
+                        {s.name}
+                      </a>
+                      <small>
+                        {s.regime} · {s.markets.join(', ')}
+                      </small>
+                    </th>
+                    <td data-label="Versión" className="strategy-table-fixed">
+                      v{s.version}
+                    </td>
+                    <td data-label="Estado" className="strategy-table-fixed">
+                      <StrategyStatus status={s.status} />
+                    </td>
+                    <td data-label="Rentabilidad" className="strategy-table-fixed">
+                      {number(s.metricsSummary?.totalReturnPct, '%')}
+                    </td>
+                    <td data-label="Drawdown" className="strategy-table-fixed">
+                      {number(s.metricsSummary?.maxDrawdownPct, '%')}
+                    </td>
+                    <td data-label="Sharpe" className="strategy-table-fixed">
+                      {number(s.metricsSummary?.sharpe)}
+                    </td>
+                    <td data-label="Operaciones" className="strategy-table-fixed">
+                      {number(s.metricsSummary?.trades)}
+                    </td>
+                    <td data-label="Actualización" className="strategy-table-fixed">
+                      {date(s.updatedAt)}
+                      <small>Procedencia no disponible</small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </>
   );
 }

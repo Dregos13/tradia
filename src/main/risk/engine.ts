@@ -16,6 +16,11 @@
  *   partir de la distancia al stop; los límites de cartera
  *   (`checkPortfolioLimits`) se evalúan sobre ese tamaño —si el tamaño
  *   mayor ya pasa, el reducido por cautela también—.
+ * - Un par de divisas no cotizado en USD (USDJPY, USDCHF) es solo
+ *   análisis: se veta de entrada con 'ANALYSIS_ONLY' («par no cotizado en
+ *   USD: solo análisis por ahora»), junto a la parada si también está
+ *   activa. Los pares cotizados en USD siguen las mismas reglas que una
+ *   acción: tamaño en unidades de la moneda base, nominal y riesgo en USD.
  * - La cautela puede bloquear la entrada (`vetada` con `CAUTION_MODE`) o
  *   reducir el tamaño (`reducida`, registrada igual en `risk_vetoes`).
  *
@@ -28,6 +33,7 @@
  * Electron, SQLite ni el reloj por su cuenta.
  */
 
+import { FX_ANALYSIS_ONLY_REASON, signalDestinationOf } from '../../shared/fxTrading';
 import {
   VETO_REASON_MESSAGES,
   type CautionState,
@@ -39,7 +45,6 @@ import {
   type SignalIntent,
   type VetoReasonCode,
 } from '../../shared/ipc';
-import { FX_ANALYSIS_ONLY_REASON, signalDestinationOf } from '../../shared/fxTrading';
 import { drawdownPct, lossPctSince, periodStartUtc, type PortfolioSnapshot } from './portfolio';
 import { checkPortfolioLimits } from './portfolioLimits';
 import type { RiskVetoRecord } from './repository';

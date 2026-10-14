@@ -8,6 +8,8 @@ export interface AssetSearchProps {
   onAdd(ticker: string): Promise<boolean> | boolean | void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   error?: string | null;
+  /** Texto del botón de envío mientras se comprueba el alta (por defecto «Añadir»). */
+  pendingLabel?: string | null;
   onClearError?: () => void;
 }
 
@@ -49,6 +51,7 @@ export function AssetSearch({
   onAdd,
   inputRef: externalInputRef,
   error,
+  pendingLabel = null,
   onClearError,
 }: AssetSearchProps) {
   const [query, setQuery] = useState('');
@@ -306,7 +309,7 @@ export function AssetSearch({
             className="button primary market-search-add-btn"
             disabled={disabled || !query.trim()}
           >
-            Añadir
+            {pendingLabel ?? 'Añadir'}
           </button>
         </div>
 

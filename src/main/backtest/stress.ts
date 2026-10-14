@@ -19,6 +19,7 @@
  * descartan, así que ninguna operación ni punto de la curva cae antes del
  * inicio oficial de la ventana.
  */
+import { warmupCalendarFor } from '../market/assetCalendar';
 import { isTradingDay } from '../market/calendar';
 import {
   createSimulatedProvider,
@@ -31,6 +32,7 @@ import {
 } from '../market/providers';
 import type { StrategyCosts } from '../../shared/strategy';
 import { runBacktest } from './engine';
+import { annualizationForMarkets } from './annualization';
 import { computeMetrics } from './metrics';
 import type { CostConfig, EngineBar, EquityPoint, Strategy, StrategyParams } from './types';
 
@@ -174,9 +176,15 @@ export function costConfigFromAssumed(costs: Partial<StrategyCosts>): Partial<Co
 /**
  * Fecha de descarga que deja `sessions` sesiones de mercado antes de
  * `desde` como calentamiento (la propia `desde` no cuenta). Retrocede día a
- * día sobre el calendario NYSE, el mismo que usa el proveedor simulado.
+ * día sobre el calendario dado: por defecto NYSE, el mismo que usa el
+ * proveedor simulado; un universo solo de divisas pasa el 24/5
+ * (`warmupCalendarFor` de market/assetCalendar).
  */
-export function warmupStartDate(desde: SessionDate, sessions: number): SessionDate {
+export function warmupStartDate(
+  desde: SessionDate,
+  sessions: number,
+  isSessionDay: (date: SessionDate) => boolean = isTradingDay,
+): SessionDate {
   if (!Number.isInteger(sessions) || sessions < 0) {
     throw new RangeError(`stress: 'warmupSessions' debe ser un entero >= 0 (${sessions})`);
   }
@@ -187,7 +195,7 @@ export function warmupStartDate(desde: SessionDate, sessions: number): SessionDa
   }
   while (remaining > 0) {
     day.setUTCDate(day.getUTCDate() - 1);
-    if (isTradingDay(day.toISOString().slice(0, 10))) remaining--;
+    if (isSessionDay(day.toISOString().slice(0, 10))) remaining--;
   }
   return day.toISOString().slice(0, 10);
 }
@@ -333,10 +341,14 @@ export async function runStressTests(input: StressTestInput): Promise<StressTest
 
   const results: CrisisStressResult[] = [];
   for (const window of windows) {
-    const desde = warmupStartDate(window.desde, warmupSessions);
     // Universo + benchmark (deduplicado): el benchmark puede no estar en
     // los mercados de la ficha y, si está, no se descarga dos veces.
     const tickers = [...new Set([...markets, benchmarkTicker])];
+    const desde = warmupStartDate(
+      window.desde,
+      warmupSessions,
+      warmupCalendarFor(tickers).isSessionDay,
+    );
     const fetched = new Map<string, EngineBar[]>();
     for (const ticker of tickers) {
       fetched.set(ticker, await source.getBars(ticker, desde, window.hasta));
@@ -361,7 +373,11 @@ export async function runStressTests(input: StressTestInput): Promise<StressTest
       startDate: window.desde,
       endDate: window.hasta,
     });
-    const metrics = computeMetrics(result.equityCurve, result.trades);
+    const metrics = computeMetrics(
+      result.equityCurve,
+      result.trades,
+      annualizationForMarkets(markets),
+    );
 
     results.push({
       crisis: { ...window },

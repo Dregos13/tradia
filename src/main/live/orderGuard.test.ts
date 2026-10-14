@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { FX_BROKER_REJECTION_MESSAGE } from '../../shared/fxTrading';
 import { LIVE_FIXED_CAPS, LIVE_FIXED_SHORT_CAPS, type LiveLimits } from '../../shared/live';
 import type { BrokerOrderRequest } from '../broker/types';
 import {
@@ -560,5 +561,36 @@ describe('guarda de órdenes live — requisitos propios del corto', () => {
         context(),
       ),
     ).toBeNull();
+  });
+});
+
+describe('liveOrderBlockReason — divisas', () => {
+  it.each([
+    [
+      'entrada en largo',
+      request({ ticker: 'EURUSD', quantity: 50 }),
+      context({ requestedPrice: 1.09 }),
+    ],
+    [
+      'entrada en corto',
+      request({ ticker: 'GBPUSD', side: 'sell', type: 'stop', stopPrice: 1.27, quantity: 50 }),
+      shortContext({ requestedPrice: 1.27, entryStopPrice: 1.3 }),
+    ],
+    [
+      'pata de salida',
+      request({ ticker: 'eurusd', side: 'sell', type: 'oco', limitPrice: 1.2, stopPrice: 1.05 }),
+      context({ leg: 'salida', requestedPrice: 1.2 }),
+    ],
+  ])('una orden de divisas (%s) no sale nunca con dinero real', (_label, order, ctx) => {
+    // Con todo en regla para operar (modo activo, límites y corto habilitados).
+    const reason = liveOrderBlockReason(shortSnapshot(), order, ctx);
+    expect(reason).toBe(FX_BROKER_REJECTION_MESSAGE);
+    expect(reason).toContain(
+      'el bróker conectado no opera divisas; se opera solo en la cartera simulada',
+    );
+  });
+
+  it('una acción con el mismo snapshot sigue pasando (el bloqueo es solo de divisas)', () => {
+    expect(liveOrderBlockReason(snapshot(), request({ quantity: 1 }), context())).toBeNull();
   });
 });

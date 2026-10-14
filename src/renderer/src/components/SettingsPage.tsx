@@ -476,9 +476,10 @@ export function SettingsPage({ state }: { state: SystemState }) {
       <AiSettings />
       <BrokerSettings />
       <div id="broker-live" tabIndex={-1}>
-        <LiveBrokerSettings />
+        <LiveBrokerSettings>
+          <LiveLimitsSettings />
+        </LiveBrokerSettings>
       </div>
-      <LiveLimitsSettings />
       <DeliverySettings />
       <RoutineSettings />
       <BackupSettings />

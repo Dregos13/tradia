@@ -18,7 +18,7 @@ export function MarketWorkspace() {
     ? data.statuses.find((entry) => entry.key === dataStatusKey.ticker(selected))
     : undefined;
   return (
-    <div className="market-workspace">
+    <div className="market-workspace" data-layout-block="herramientas-y-grafico">
       {data.statusError && (
         <p className="market-error" role="alert">
           {data.statusError}

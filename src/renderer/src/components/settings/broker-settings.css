@@ -65,3 +65,20 @@
     grid-template-columns: 1fr;
   }
 }
+
+.broker-settings > p {
+  margin: 0;
+}
+.broker-settings > .broker-paper-badge,
+.broker-settings > .broker-account {
+  margin-inline: var(--space-card-padding);
+}
+.broker-settings > .broker-paper-badge {
+  margin-top: var(--space-card-padding);
+}
+.broker-settings > .settings-actions {
+  padding: var(--space-card-padding);
+}
+.broker-fields {
+  gap: var(--space-form-field-gap);
+}

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
+import tradiaMark from '../assets/brand/tradia-mark.svg';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -25,6 +26,14 @@ it('bloquea la navegación y enfoca el aviso hasta aceptar con teclado', async (
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   const heading = await screen.findByRole('heading', { name: 'Antes de empezar' });
   await waitFor(() => expect(heading).toHaveFocus());
+  const brand = screen.getByRole('img', { name: 'Tradia' });
+  expect(brand.closest('.risk-brand')).toBeInTheDocument();
+  expect(brand).toHaveTextContent('Tradia');
+  const symbol = brand.querySelector('img');
+  expect(symbol).toHaveAttribute('src', tradiaMark);
+  expect(symbol).toHaveAttribute('alt', '');
+  expect(symbol).toHaveAttribute('aria-hidden', 'true');
+  expect(screen.getAllByRole('img', { name: 'Tradia' })).toHaveLength(1);
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(document.querySelector('.onboarding-root')).not.toBeInTheDocument();
   const button = screen.getByRole('button', { name: 'Continuar' });

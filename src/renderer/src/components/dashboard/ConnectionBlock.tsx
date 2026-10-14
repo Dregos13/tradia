@@ -46,16 +46,18 @@ export function ConnectionBlock({ system, state }: { system: SystemState; state:
       prefix === 'ticker:'
         ? ['provider:tiingo', 'provider:simulated']
         : ['provider:fred', 'provider:macro-simulated'];
-    const entries = (state.statuses.data ?? []).filter(
+    const all = (state.statuses.data ?? []).filter(
       (row) => row.key.startsWith(prefix) || providerKeys.includes(row.key),
     );
+    // Un activo sin cobertura es un problema local (tiene su propio aviso): no rebaja al conector.
+    const entries = all.filter((row) => row.state !== 'sin-cobertura');
     return entries.some((row) => row.state === 'no-fiable')
       ? 'No disponible'
       : entries.some((row) => row.state === 'desactualizado')
         ? 'Con retraso'
         : entries.length && entries.every((row) => row.state === 'fiable')
           ? 'Disponible'
-          : entries.length
+          : entries.length || all.length
             ? 'Sin evaluar'
             : 'Sin configurar';
   };

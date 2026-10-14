@@ -1,3 +1,4 @@
+import { assetSymbol } from '../assetPresentation';
 import { useState } from 'react';
 import {
   VETO_REASON_CODES,
@@ -33,7 +34,7 @@ export function VetoLog({
     .filter((row) => !rule || row.code === rule)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
   return (
-    <section className="risk-paper" aria-labelledby="veto-title">
+    <section data-layout-block="vetos" className="risk-paper" aria-labelledby="veto-title">
       <div className="risk-section-head">
         <h3 id="veto-title">Registro de vetos</h3>
         <label>
@@ -93,7 +94,7 @@ export function VetoLog({
                       {new Date(row.createdAt).toLocaleString('es-ES', { timeZoneName: 'short' })}
                     </time>
                   </td>
-                  <td>{row.ticker}</td>
+                  <td>{assetSymbol(row.ticker)}</td>
                   <td>
                     <strong>{row.code}</strong>
                     <br />

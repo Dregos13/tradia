@@ -6,9 +6,11 @@ import { CautionBanner } from './CautionBanner';
 import './risk.css';
 export function RiskPage({ risk }: { risk: RiskState }) {
   return (
-    <section className="risk-page" aria-labelledby="risk-page-title">
-      <h2 id="risk-page-title">Control de riesgo</h2>
-      <p className="risk-muted">Límites independientes y registro de cada decisión vetada.</p>
+    <section data-layout-page="riesgo" className="risk-page" aria-labelledby="risk-page-title">
+      <header className="risk-page-head" data-layout-block="cabecera">
+        <h2 id="risk-page-title">Control de riesgo</h2>
+        <p className="risk-muted">Límites independientes y registro de cada decisión vetada.</p>
+      </header>
       <CautionBanner caution={risk.caution} />
       {risk.loading && <p role="status">Cargando estado de riesgo…</p>}
       {risk.error && (
@@ -19,7 +21,7 @@ export function RiskPage({ risk }: { risk: RiskState }) {
           </button>
         </div>
       )}
-      <div className="risk-grid">
+      <div className="risk-grid" data-layout-block="paneles">
         {risk.limits && <LimitsForm limits={risk.limits} caution={risk.caution} />}
         <VetoLog
           vetoes={risk.vetoes}

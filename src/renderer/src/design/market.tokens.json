@@ -2,7 +2,7 @@
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
     "name": "Tradia — Cuaderno cuantitativo · Mercado",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "extends": "../fase-0-1/tokens.json",
     "contrastStandard": "WCAG 2.2 AA",
     "baseUnit": "4px"
@@ -148,7 +148,21 @@
     "8": "32px",
     "10": "40px",
     "12": "48px",
-    "16": "64px"
+    "16": "64px",
+    "page-inline-wide": "32px",
+    "page-inline-compact": "24px",
+    "page-inline-narrow": "20px",
+    "page-block-wide": "40px",
+    "page-block-compact": "32px",
+    "section-gap": "32px",
+    "section-gap-compact": "24px",
+    "block-gap-min": "24px",
+    "card-padding": "24px",
+    "card-padding-compact": "16px",
+    "title-content-gap": "12px",
+    "form-field-gap": "16px",
+    "label-control-gap": "8px",
+    "table-row-block": "12px"
   },
   "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
   "shadow": {
@@ -161,7 +175,8 @@
     "watchlist": "252px",
     "contentMax": "1440px",
     "statusBar": "48px",
-    "chartMinHeight": "360px"
+    "chartMinHeight": "360px",
+    "readingMax": "72ch"
   },
   "motion": {
     "fast": "120ms",

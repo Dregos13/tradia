@@ -117,8 +117,10 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       const banner = page.getByRole('region', { name: 'Estado de los datos' });
       await expect(banner).toHaveCount(1);
       await expect(banner.getByRole('status').first()).toContainText(STALE_TITLE);
+      // Texto contrastado con el motor: sin vela al día no se evalúan señales, no se crean
+      // predicciones y no se recalcula el régimen (lo ya calculado se conserva).
       await expect(banner).toContainText(
-        'Régimen, predicciones y señales en pausa hasta ponerse al día.',
+        'no se calculan régimen, predicciones ni señales nuevas para esos activos',
       );
       await expect(banner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
       await expect(banner.getByRole('link', { name: 'Probar conexión' })).toHaveAttribute(
@@ -128,7 +130,17 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
       // Ninguna franja por proveedor contradice a la única.
       await expect(page.getByRole('region', { name: 'Datos del mercado' })).toHaveCount(0);
       const inline = page.getByRole('group', { name: 'Frescura de datos' });
-      for (const chip of await inline.all()) await expect(chip).toContainText(STALE_TITLE);
+      await expect(inline).toHaveCount(1);
+      for (const chip of await inline.all()) {
+        await expect(chip).toContainText(STALE_TITLE);
+        await expect(chip.getByRole('button')).toHaveCount(0);
+        await expect(chip.getByRole('link')).toHaveCount(0);
+        await expect(chip.getByRole('status')).toHaveCount(0);
+      }
+      // El aviso y sus acciones aparecen una sola vez en la pantalla y en el orden de Tab.
+      await expect(page.getByRole('button', { name: 'Actualizar ahora' })).toHaveCount(1);
+      await expect(page.getByRole('link', { name: 'Probar conexión' })).toHaveCount(1);
+      await expect(page.getByText('Por qué ocurre', { exact: true })).toHaveCount(1);
     }
 
     // IA: ni régimen ni probabilidades caducadas presentadas como vigentes.
@@ -160,9 +172,9 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(globalTitle).not.toContainText(/\b\d{4}-\d{2}-\d{2}\b/);
     await capturePhaseScreenshot(page, 'continuacion-datos-desactualizados-ia.png');
 
-    // «Ver detalles»: una fila por entrada, con su último dato y su motivo.
+    // «Por qué ocurre»: una fila por entrada, con su último dato y su motivo.
     const banner = page.getByRole('region', { name: 'Estado de los datos' });
-    await banner.getByText('Ver detalles').click();
+    await banner.getByText('Por qué ocurre').click();
     const details = banner.getByRole('listitem');
     await expect(details.filter({ hasText: /^SPY · último dato 6 oct 2026 · / })).toHaveCount(1);
     await expect(details.filter({ hasText: /^AAPL · último dato 6 oct 2026 · / })).toHaveCount(1);
@@ -186,7 +198,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(
       banner
         .getByRole('status')
-        .filter({ hasText: /^No se pudo actualizar: / })
+        .filter({ hasText: /^(Actualizados \d+ de \d+ · sin datos: |No se pudo actualizar: )/ })
         .first(),
     ).toBeVisible({ timeout: 15_000 });
     await expect(banner.getByRole('button', { name: 'Actualizar ahora' })).toBeEnabled();
@@ -245,7 +257,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     // el cierre local no debe convertirse en «desactualizados desde».
     await expect(
       page
-        .locator('.ai-page > [role="status"]')
+        .locator('.ai-page > .data-freshness-container [role="status"]')
         .filter({ hasText: /^Sin conexión · datos del 6 oct 2026/ }),
     ).toBeVisible();
     for (const name of ['Régimen del mercado', 'Predicción por activo']) {

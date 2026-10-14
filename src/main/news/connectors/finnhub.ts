@@ -18,6 +18,7 @@
  */
 import { TICKER_PATTERN } from '../../../shared/ipc';
 import { createRateLimiter } from '../../market/providers/rateLimiter';
+import { decodeHtmlEntities } from './entities';
 import { stripHtml } from './rss';
 import {
   acquireQuota,
@@ -100,7 +101,7 @@ function mapArticle(raw: unknown, now: () => number): RawNewsItem | null {
   const sourceName = asString(article.source);
 
   return {
-    title: truncateText(title, MAX_API_TITLE_LENGTH),
+    title: truncateText(decodeHtmlEntities(title).trim(), MAX_API_TITLE_LENGTH),
     url,
     publishedAt,
     summary: summary ? truncateText(stripHtml(summary), MAX_API_SUMMARY_LENGTH) : null,

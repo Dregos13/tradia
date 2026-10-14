@@ -6,6 +6,8 @@ import { createSimulatedAdapter } from '../../adapters/simulated';
 import { sma, rsi, atr } from '../../../../shared/indicators';
 import { adjustedCandles, chartData, rangeStart } from './chartData';
 import { MarketWorkspace } from './MarketWorkspace';
+import { ProviderBanner } from '../ProviderBanner';
+import type { DataFreshnessSummary } from '../../../../shared/ipc';
 
 const charts = vi.hoisted(() => ({
   instances: [] as {
@@ -14,6 +16,7 @@ const charts = vi.hoisted(() => ({
       setData: ReturnType<typeof vi.fn>;
       applyOptions: ReturnType<typeof vi.fn>;
     }[];
+    addSeries: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     setVisibleRange: ReturnType<typeof vi.fn>;
   }[],
@@ -26,12 +29,13 @@ vi.mock('lightweight-charts', () => ({
   createChart: vi.fn(() => {
     const instance = {
       series: [] as (typeof charts.instances)[number]['series'],
+      addSeries: vi.fn(),
       remove: vi.fn(),
       setVisibleRange: vi.fn(),
     };
     charts.instances.push(instance);
     return {
-      addSeries: vi.fn(() => {
+      addSeries: instance.addSeries.mockImplementation(() => {
         const series = {
           data: undefined as unknown,
           setData: vi.fn((data: unknown) => {
@@ -119,6 +123,29 @@ describe('Lista y gráfico con adaptador simulado', () => {
     expect(charts.instances.every((instance) => instance.remove.mock.calls.length === 1)).toBe(
       true,
     );
+  });
+  it('EUR se rechaza, «Añadir EUR/USD (divisa)» lo añade al día con su etiqueta y su calendario 24/5', async () => {
+    simulation.markTickerUncovered('EUR');
+    const user = userEvent.setup();
+    render(<MarketWorkspace />);
+    await screen.findByText('Tu lista está vacía.');
+    await add('EUR');
+    await user.click(await screen.findByRole('button', { name: 'Añadir EUR/USD (divisa)' }));
+    const row = await screen.findByRole('button', { name: 'EUR/USD' });
+    await waitFor(() =>
+      expect(row).toHaveAccessibleDescription(/Divisa · 24\/5 · cartera simulada.*Fiable/),
+    );
+    const card = await screen.findByRole('region', { name: 'Precio de EUR/USD' });
+    expect(within(card).getByRole('heading', { name: 'EUR/USD' })).toBeVisible();
+    expect(within(card).getByText(/USD por EUR · Divisa · 24\/5 · cartera simulada/)).toBeVisible();
+    expect(
+      within(card).getByText(
+        /No se esperan datos en fin de semana; sí en los festivos de EE\. UU\./,
+      ),
+    ).toBeVisible();
+    expect(await simulation.api.watchlist.list()).toEqual([
+      expect.objectContaining({ ticker: 'EURUSD', assetClass: 'fx' }),
+    ]);
   });
   it('rechaza formato, duplicados y el límite de 25; añade el universo mediante IPC', async () => {
     const addSpy = vi.spyOn(simulation.api.watchlist, 'add');
@@ -290,7 +317,9 @@ it('mantiene el formulario bloqueado y muestra descarga mientras el alta ingiere
   await screen.findByText('Tu lista está vacía.');
   await add('AAPL');
   expect(screen.getByRole('progressbar').hasAttribute('value')).toBe(false);
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Añadir' }).disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Comprobando…' }).disabled).toBe(
+    true,
+  );
   await act(async () => {
     finish();
   });
@@ -320,4 +349,48 @@ it('marca lista y gráfico al fallar y restaura la confianza al recuperarse', as
   );
   await waitFor(() => expect(screen.queryByText('No fiable')).toBeNull());
   expect(chart.classList.contains('data-unreliable')).toBe(false);
+});
+
+it('la retirada desde el aviso también refresca la lista visible en Mercado', async () => {
+  await simulation.api.watchlist.add('EUR');
+  await simulation.api.watchlist.add('SPY');
+  const uncoveredSummary: DataFreshnessSummary = {
+    state: 'current',
+    sinceDate: null,
+    expectedSessionDate: null,
+    missingSessions: 0,
+    items: [],
+    uncovered: [{ ticker: 'EUR', reason: null, suggestion: 'FXE' }],
+    updatedAt: new Date().toISOString(),
+  };
+  vi.spyOn(simulation.api.dataStatus, 'freshness').mockImplementation(async () => ({
+    ...uncoveredSummary,
+    uncovered: (await simulation.api.watchlist.list()).some((item) => item.ticker === 'EUR')
+      ? uncoveredSummary.uncovered
+      : [],
+  }));
+  render(
+    <>
+      <ProviderBanner />
+      <MarketWorkspace />
+    </>,
+  );
+  await screen.findByRole('button', { name: 'EUR' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Quitar EUR de la lista' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'EUR' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SPY' })).toBeEnabled();
+  });
+});
+
+it('el gráfico de EUR/USD conserva cinco decimales en las velas y el eje de precio', async () => {
+  await simulation.api.watchlist.add('EURUSD');
+  render(<MarketWorkspace />);
+  await screen.findByRole('region', { name: 'Precio de EUR/USD' });
+  await waitFor(() => {
+    expect(charts.instances.at(-1)?.addSeries).toHaveBeenCalledWith(
+      'candles',
+      expect.objectContaining({ priceFormat: { type: 'price', precision: 5, minMove: 0.00001 } }),
+    );
+  });
 });

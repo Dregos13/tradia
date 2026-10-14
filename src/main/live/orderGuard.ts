@@ -10,6 +10,9 @@
  * realizada del día en sesión de Nueva York).
  *
  * Reglas:
+ * - Ninguna orden de divisas (EURUSD…) pasa: el bróker conectado no las
+ *   opera y se operan solo en la cartera simulada
+ *   (`FX_BROKER_REJECTION_MESSAGE`).
  * - Las patas 'salida' (el OCO de protección de una entrada ejecutada)
  *   nunca se bloquean por techos: cierran riesgo, y una posición real no
  *   puede quedar atrapada por un límite.
@@ -51,9 +54,9 @@
  *   la puerta externa puedan atrapar un cierre de riesgo).
  */
 import type { BrokerOrderLeg } from '../../shared/broker';
+import { FX_BROKER_REJECTION_MESSAGE, isFxSymbol } from '../../shared/fxTrading';
 import type { LiveLimits, LiveModeState } from '../../shared/live';
 import { LIVE_FIXED_SHORT_CAPS, LIVE_SHORT_ERROR_CODE } from '../../shared/live';
-import { FX_BROKER_REJECTION_REASON, isFxSymbol } from '../../shared/fxTrading';
 import type { BrokerOrderRequest } from '../broker/types';
 
 // ---------------------------------------------------------------------------
@@ -390,12 +393,9 @@ export function liveOrderBlockReason(
   >,
   context: LiveOrderContext,
 ): string | null {
-  // Los pares de divisas no llegan al bróker: Alpaca no opera FX, así que
-  // una orden sobre un par se bloquea siempre, sea la pata que sea.
-  if (isFxSymbol(request.ticker)) {
-    return FX_BROKER_REJECTION_REASON;
-  }
-
+  // Divisas: el bróker conectado no las opera; ninguna orden de un par
+  // sale con dinero real, ni siquiera una salida (nunca hay entrada).
+  if (isFxSymbol(request.ticker)) return FX_BROKER_REJECTION_MESSAGE;
   // Una salida (el OCO que protege una posición abierta) nunca se frena
   // por techos: dejar una posición real sin protección sería peor.
   if (context.leg === 'salida') return null;

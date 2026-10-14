@@ -16,9 +16,9 @@
  * capital por defecto es `RISK_PAPER_EQUITY_DEFAULT`.
  */
 
+import { normalizeFxPair } from '../../shared/fx';
 import type Database from 'better-sqlite3';
 
-import { normalizeFxPair } from '../../shared/fx';
 import { exposureCurrencyOf } from '../../shared/fxTrading';
 import {
   LIQUIDITY_AVG_VOLUME_DAYS,
@@ -439,7 +439,7 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
         // la propia posición); aquí solo aporta el dato de mercado.
         instruments[ticker] = {
           sector: null,
-          currency: 'USD',
+          currency: exposureCurrencyOf(ticker),
           avgDailyVolume20d: avgVolume20d(ticker),
         };
         returns[ticker] = dailyReturns(ticker);
@@ -482,8 +482,7 @@ export function createRiskRepository(db: Database.Database): RiskRepository {
             position.target ?? null,
             position.size,
             position.sector ?? null,
-            // La divisa que expone: la de cotización en una acción, la
-            // moneda base en un par de divisas ('EUR' en EURUSD).
+            // Un par expone a su moneda base (EUR en EURUSD).
             position.currency ?? exposureCurrencyOf(position.ticker),
             position.openedAt ?? nowIso,
             position.closedAt ?? null,
