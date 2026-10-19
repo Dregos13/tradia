@@ -1,0 +1,3642 @@
+{
+  "ai": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · IA y salud de modelos",
+      "version": "7.0.0",
+      "extends": ["./base.tokens.json", "./strategy.tokens.json", "./news.tokens.json"],
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "regime": {
+        "trend": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Tendencia",
+          "icon": "trending-up",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1"
+        },
+        "sideways": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Lateral",
+          "icon": "move-horizontal",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "highVolatility": {
+          "light": "#7F5E00",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Volatilidad alta",
+          "icon": "activity",
+          "contrastLight": "5.34:1",
+          "contrastDark": "10.24:1"
+        },
+        "lowVolatility": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Volatilidad baja",
+          "icon": "waves",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "unknown": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin clasificar",
+          "icon": "circle-help",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "eligibility": {
+        "enabled": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Activa por régimen",
+          "icon": "circle-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "disabled": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Desactivada por régimen",
+          "icon": "circle-pause",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "degraded": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Degradada",
+          "icon": "triangle-alert",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1"
+        }
+      },
+      "probability": {
+        "primary": {
+          "light": "#4A6500",
+          "lightSurface": "#EDF7CF",
+          "dark": "#C6F432",
+          "darkSurface": "#1D2610",
+          "label": "Probabilidad estimada",
+          "contrastLight": "5.97:1",
+          "contrastDark": "12.26:1"
+        },
+        "complement": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Probabilidad complementaria",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "unavailable": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin estimación",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "modelFitness": {
+        "eligible": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Apto para apoyar señales",
+          "icon": "badge-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "synthetic": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Datos sintéticos · no apto",
+          "icon": "flask-conical",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1"
+        },
+        "unrated": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin evaluar",
+          "icon": "circle-help",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "sentiment": {
+        "favorable": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Sentimiento favorable",
+          "icon": "arrow-up-right",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "neutral": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sentimiento neutral",
+          "icon": "minus",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "unfavorable": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Sentimiento desfavorable",
+          "icon": "arrow-down-right",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1"
+        },
+        "mixed": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Sentimiento mixto",
+          "icon": "split",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "notAnalyzed": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin analizar",
+          "icon": "circle-dashed",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "verification": {
+        "unverified": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Sin verificar · no genera señales",
+          "icon": "shield-alert",
+          "borderStyle": "dashed",
+          "contrastLight": "5.06:1",
+          "contrastDark": "7.41:1"
+        }
+      },
+      "health": {
+        "healthy": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Saludable",
+          "icon": "heart-pulse",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "watch": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "En observación",
+          "icon": "eye",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "degraded": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Degradado",
+          "icon": "triangle-alert",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1"
+        },
+        "unknown": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin datos suficientes",
+          "icon": "circle-help",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "chart": {
+        "calibrationIdeal": {
+          "light": "#525F6C",
+          "dark": "#9AA8B6",
+          "name": "Calibración ideal",
+          "lineStyle": "dashed"
+        },
+        "calibrationObserved": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "Frecuencia observada",
+          "lineStyle": "solid"
+        },
+        "reference": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Modelo de referencia",
+          "lineStyle": "dotted"
+        },
+        "grid": {
+          "light": "#D3DAE0",
+          "dark": "#1C252E",
+          "name": "Rejilla"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "numeric": {
+        "fontVariantNumeric": "tabular-nums",
+        "slashedZero": true
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "probabilityTrack": "10px",
+      "calibrationChartMinHeight": "320px",
+      "regimeTableMin": "960px",
+      "healthTableMin": "980px",
+      "dialogMax": "560px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "broker": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Broker paper",
+      "version": "7.0.0",
+      "extends": ["./base.tokens.json", "./risk.tokens.json"],
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "paper": {
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
+        "label": "Solo paper · sin dinero real",
+        "icon": "flask-conical"
+      },
+      "orderStatus": {
+        "pending": {
+          "light": "#7A5900",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Pendiente",
+          "icon": "clock-3"
+        },
+        "sent": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Enviada",
+          "icon": "send"
+        },
+        "partial": {
+          "light": "#7A5900",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Ejecución parcial",
+          "icon": "circle-dashed"
+        },
+        "filled": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Ejecutada",
+          "icon": "circle-check"
+        },
+        "cancelled": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Cancelada",
+          "icon": "circle-slash-2"
+        },
+        "rejected": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Rechazada",
+          "icon": "circle-x"
+        },
+        "orphaned": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Huérfana",
+          "icon": "unlink"
+        }
+      },
+      "reconciliation": {
+        "matched": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Sin diferencias",
+          "icon": "equal"
+        },
+        "running": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Conciliando",
+          "icon": "loader"
+        },
+        "mismatch": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Descuadre",
+          "icon": "triangle-alert"
+        },
+        "unknown": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin comprobar",
+          "icon": "circle-help"
+        }
+      },
+      "deviation": {
+        "within": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Dentro del margen",
+          "icon": "check"
+        },
+        "outside": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Fuera de margen",
+          "icon": "triangle-alert"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "numeric": {
+        "fontVariantNumeric": "tabular-nums",
+        "slashedZero": true
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "ordersTableMin": "1180px",
+      "deviationTableMin": "1040px",
+      "dialogMax": "520px",
+      "ocoRail": "2px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "dashboard": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Panel, diario y operaciones",
+      "version": "7.0.0",
+      "extends": ["./base.tokens.json", "./risk.tokens.json"],
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "signal": {
+        "approved": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "name": "Señal aprobada",
+          "symbol": "✓",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "vetoed": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "name": "Señal vetada",
+          "symbol": "×",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1"
+        },
+        "conflict": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "name": "Contradicción",
+          "symbol": "↔",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "informative": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "name": "Informativa",
+          "symbol": "i",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1"
+        }
+      },
+      "strategy": {
+        "active": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "name": "Activa",
+          "symbol": "●"
+        },
+        "paper": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "name": "Paper",
+          "symbol": "◇"
+        },
+        "degraded": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "name": "Degradada",
+          "symbol": "△"
+        },
+        "paused": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "name": "En pausa",
+          "symbol": "Ⅱ"
+        }
+      },
+      "chart": {
+        "positive": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Positivo"
+        },
+        "negative": {
+          "light": "#B0202E",
+          "dark": "#FF7D87",
+          "name": "Negativo"
+        },
+        "threshold": {
+          "light": "#7A5900",
+          "dark": "#EBC05A",
+          "name": "Límite"
+        },
+        "grid": {
+          "light": "#D3DAE0",
+          "dark": "#1C252E",
+          "name": "Rejilla"
+        },
+        "neutral": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Neutral"
+        }
+      },
+      "overlay": {
+        "light": "rgba(10, 14, 18, 0.54)",
+        "dark": "rgba(10, 14, 18, 0.72)",
+        "name": "Velo de diálogo"
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px",
+          "name": "Metadato"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px",
+          "name": "Interfaz compacta"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px",
+          "name": "Cuerpo"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px",
+          "name": "Título de bloque"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px",
+          "name": "Indicador"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px",
+          "name": "Título de página"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      },
+      "scrollEdge": {
+        "value": "inset -12px 0 12px -14px rgba(10, 14, 18, 0.32)",
+        "name": "Continuidad horizontal"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "dashboardGap": "16px",
+      "panelMin": "280px",
+      "journalTableMin": "1040px",
+      "detailPanel": "420px",
+      "dialogMax": "520px"
+    },
+    "layout": {
+      "wide": {
+        "breakpoint": "1100px",
+        "columns": 12,
+        "pagePadding": "32px"
+      },
+      "compact": {
+        "breakpoint": "700px",
+        "columns": 1,
+        "pagePadding": "20px"
+      },
+      "dashboard": {
+        "connection": "span 12",
+        "macro": "span 12",
+        "signals": "span 12",
+        "positions": "span 12",
+        "drawdown": "span 12",
+        "exposure": "span 12",
+        "strategies": "span 12"
+      }
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "data-clarity": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Claridad de datos y conectores",
+      "version": "7.0.0",
+      "extends": [
+        "src/renderer/src/design/base.tokens.json",
+        "src/renderer/src/design/market.tokens.json",
+        "src/renderer/src/design/onboarding.tokens.json"
+      ],
+      "scope": "Solo tokens nuevos o cambiados para legibilidad, activos sin cobertura y conectores",
+      "contrastStandard": "WCAG 2.2 AA",
+      "contrastMethod": "Luminancia relativa sRGB (WCAG 2.2)",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "light": {
+        "canvas": "#EEF2F5",
+        "surface": "#FFFFFF",
+        "surfaceSubtle": "#E7ECF0",
+        "sidebar": "#E3E9EE",
+        "sidebarText": "#0C1218",
+        "text": "#0C1218",
+        "textMuted": "#475563",
+        "accent": "#4A6500",
+        "accentHover": "#3A5000",
+        "inverse": "#FFFFFF",
+        "focus": "#4A6500"
+      },
+      "dark": {
+        "canvas": "#0A0E12",
+        "surface": "#10161C",
+        "surfaceSubtle": "#151C23",
+        "sidebar": "#07090C",
+        "sidebarText": "#E4EAF0",
+        "text": "#E4EAF0",
+        "textMuted": "#9AA8B6",
+        "accent": "#C6F432",
+        "accentHover": "#D7FB66",
+        "inverse": "#0A0E12",
+        "focus": "#C6F432"
+      },
+      "semantic": {
+        "covered": {
+          "label": "Al día",
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "secondaryCue": "icono circle-check + texto"
+        },
+        "uncovered": {
+          "label": "Sin cobertura",
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "secondaryCue": "icono circle-slash + texto; nunca tratar como caída del proveedor"
+        },
+        "partial": {
+          "label": "Actualización parcial",
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "secondaryCue": "recuento actualizado/total + lista de excepciones"
+        },
+        "critical": {
+          "label": "Necesita atención",
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "secondaryCue": "icono circle-alert + texto"
+        },
+        "offline": {
+          "label": "Sin conexión",
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "secondaryCue": "icono wifi-off + texto"
+        },
+        "info": {
+          "label": "Comprobando",
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "secondaryCue": "icono loader + texto"
+        }
+      }
+    },
+    "contrastPairs": [
+      {
+        "name": "Texto principal / lienzo",
+        "light": {
+          "text": "#0C1218",
+          "background": "#EEF2F5",
+          "ratio": "16.73:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#0A0E12",
+          "ratio": "15.98:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Texto principal / superficie",
+        "light": {
+          "text": "#0C1218",
+          "background": "#FFFFFF",
+          "ratio": "18.83:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#10161C",
+          "ratio": "15.02:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Texto de navegación / barra lateral",
+        "light": {
+          "text": "#0C1218",
+          "background": "#E3E9EE",
+          "ratio": "15.38:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#07090C",
+          "ratio": "16.45:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Texto secundario / lienzo",
+        "light": {
+          "text": "#475563",
+          "background": "#EEF2F5",
+          "ratio": "6.79:1"
+        },
+        "dark": {
+          "text": "#9AA8B6",
+          "background": "#0A0E12",
+          "ratio": "7.98:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Texto secundario / superficie",
+        "light": {
+          "text": "#475563",
+          "background": "#FFFFFF",
+          "ratio": "7.64:1"
+        },
+        "dark": {
+          "text": "#9AA8B6",
+          "background": "#10161C",
+          "ratio": "7.50:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Texto de acción primaria / acento",
+        "light": {
+          "text": "#FFFFFF",
+          "background": "#4A6500",
+          "ratio": "6.66:1"
+        },
+        "dark": {
+          "text": "#0A0E12",
+          "background": "#C6F432",
+          "ratio": "15.11:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Enlace / superficie",
+        "light": {
+          "text": "#4A6500",
+          "background": "#FFFFFF",
+          "ratio": "6.66:1"
+        },
+        "dark": {
+          "text": "#C6F432",
+          "background": "#10161C",
+          "ratio": "14.21:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Foco / superficie",
+        "light": {
+          "text": "#4A6500",
+          "background": "#FFFFFF",
+          "ratio": "6.66:1"
+        },
+        "dark": {
+          "text": "#C6F432",
+          "background": "#10161C",
+          "ratio": "14.21:1"
+        },
+        "minimum": "3:1 no textual; se exige 4.5:1 por esta guía",
+        "pass": true
+      },
+      {
+        "name": "Etiqueta sin cobertura o parcial / fondo de estado",
+        "light": {
+          "text": "#7A5900",
+          "background": "#F5ECCB",
+          "ratio": "5.45:1"
+        },
+        "dark": {
+          "text": "#EBC05A",
+          "background": "#2E2610",
+          "ratio": "8.72:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Cuerpo / fondo sin cobertura o parcial",
+        "light": {
+          "text": "#0C1218",
+          "background": "#F5ECCB",
+          "ratio": "15.91:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#2E2610",
+          "ratio": "12.37:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Etiqueta crítica / fondo crítico",
+        "light": {
+          "text": "#B0202E",
+          "background": "#FBE3E5",
+          "ratio": "5.57:1"
+        },
+        "dark": {
+          "text": "#FF7D87",
+          "background": "#3A1519",
+          "ratio": "6.56:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Cuerpo / fondo crítico",
+        "light": {
+          "text": "#0C1218",
+          "background": "#FBE3E5",
+          "ratio": "15.44:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#3A1519",
+          "ratio": "13.32:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Etiqueta correcta / fondo correcto",
+        "light": {
+          "text": "#0B7548",
+          "background": "#DCF2E7",
+          "ratio": "4.90:1"
+        },
+        "dark": {
+          "text": "#3CCB8A",
+          "background": "#0E271D",
+          "ratio": "7.61:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Cuerpo / fondo correcto",
+        "light": {
+          "text": "#0C1218",
+          "background": "#DCF2E7",
+          "ratio": "16.05:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#0E271D",
+          "ratio": "13.06:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Etiqueta sin red / fondo sin red",
+        "light": {
+          "text": "#A3460E",
+          "background": "#FBE6D8",
+          "ratio": "5.06:1"
+        },
+        "dark": {
+          "text": "#FF9A5C",
+          "background": "#33200F",
+          "ratio": "7.41:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Cuerpo / fondo sin red",
+        "light": {
+          "text": "#0C1218",
+          "background": "#FBE6D8",
+          "ratio": "15.61:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#33200F",
+          "ratio": "12.79:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Etiqueta informativa / fondo informativo",
+        "light": {
+          "text": "#0A6390",
+          "background": "#DDEFF8",
+          "ratio": "5.55:1"
+        },
+        "dark": {
+          "text": "#6CC6F2",
+          "background": "#0E2431",
+          "ratio": "8.36:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      },
+      {
+        "name": "Cuerpo / fondo informativo",
+        "light": {
+          "text": "#0C1218",
+          "background": "#DDEFF8",
+          "ratio": "15.94:1"
+        },
+        "dark": {
+          "text": "#E4EAF0",
+          "background": "#0E2431",
+          "ratio": "13.17:1"
+        },
+        "minimum": "4.5:1",
+        "pass": true
+      }
+    ],
+    "typography": {
+      "family": {
+        "interface": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "editorial": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "numeric": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace"
+      },
+      "size": {
+        "caption": {
+          "value": "14px",
+          "lineHeight": "21px",
+          "use": "metadatos y ayudas; mínimo informativo"
+        },
+        "small": {
+          "value": "14px",
+          "lineHeight": "21px",
+          "use": "texto secundario, insignias y etiquetas"
+        },
+        "body": {
+          "value": "16px",
+          "lineHeight": "24px",
+          "use": "base de la aplicación y controles"
+        },
+        "titleSmall": {
+          "value": "18px",
+          "lineHeight": "26px",
+          "use": "tarjetas y avisos"
+        },
+        "title": {
+          "value": "24px",
+          "lineHeight": "30px",
+          "use": "título de pantalla"
+        },
+        "display": {
+          "value": "36px",
+          "lineHeight": "40px",
+          "use": "encabezado principal cuando exista"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "rule": "No usar 12px en información, estados, fechas ni acciones. 12px queda reservado a marcas decorativas sin contenido decisivo."
+    },
+    "spacing": {
+      "inlineGap": "8px",
+      "controlGap": "12px",
+      "contentGap": "16px",
+      "cardPadding": "20px",
+      "sectionGap": "32px",
+      "pagePaddingWide": "32px",
+      "pagePaddingNarrow": "20px"
+    },
+    "radius": {
+      "control": "8px",
+      "card": "12px",
+      "panel": "16px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "floating": "0 16px 40px rgba(3, 5, 8, 0.32)"
+    },
+    "focus": {
+      "width": "2px",
+      "offset": "2px",
+      "style": "solid",
+      "token": "color.*.focus"
+    },
+    "size": {
+      "controlMinHeight": "44px",
+      "controlMinWidth": "44px",
+      "copyMaxWidth": "70ch",
+      "connectorCardMinWidth": "300px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "reduced": "0ms"
+    }
+  },
+  "live": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Dinero real",
+      "version": "7.0.0",
+      "extends": ["./base.tokens.json", "./risk.tokens.json", "./broker.tokens.json"],
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "live": {
+        "banner": {
+          "light": "#9F253D",
+          "lightText": "#FFFFFF",
+          "dark": "#FF9FAC",
+          "darkText": "#0A0E12",
+          "label": "DINERO REAL",
+          "icon": "shield-alert",
+          "contrastLight": "7.48:1",
+          "contrastDark": "9.97:1"
+        },
+        "bannerHover": {
+          "light": "#7E1830",
+          "dark": "#FFBBC5",
+          "name": "Acción sobre franja"
+        },
+        "surface": {
+          "light": "#F9E4EB",
+          "dark": "#341A23",
+          "name": "Superficie de dinero real"
+        },
+        "text": {
+          "light": "#9F253D",
+          "dark": "#FF9FAC",
+          "name": "Texto de dinero real",
+          "contrastLightOnSurface": "6.17:1",
+          "contrastDarkOnSurface": "8.20:1"
+        }
+      },
+      "requirement": {
+        "complete": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Cumplido",
+          "icon": "circle-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "pending": {
+          "light": "#9F253D",
+          "lightSurface": "#F9E4EB",
+          "dark": "#FF9FAC",
+          "darkSurface": "#341A23",
+          "label": "Pendiente",
+          "icon": "circle-x",
+          "contrastLight": "6.17:1",
+          "contrastDark": "8.20:1"
+        },
+        "review": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Revisar",
+          "icon": "clock-3",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "locked": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Verificación automática",
+          "icon": "lock",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        }
+      },
+      "liveMode": {
+        "blocked": {
+          "light": "#9F253D",
+          "lightSurface": "#F9E4EB",
+          "dark": "#FF9FAC",
+          "darkSurface": "#341A23",
+          "label": "Dinero real bloqueado",
+          "icon": "lock-keyhole",
+          "contrastLight": "6.17:1",
+          "contrastDark": "8.20:1"
+        },
+        "ready": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Listo para confirmar",
+          "icon": "shield-check",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1"
+        },
+        "active": {
+          "light": "#9F253D",
+          "lightSurface": "#F9E4EB",
+          "dark": "#FF9FAC",
+          "darkSurface": "#341A23",
+          "label": "Dinero real activo",
+          "icon": "shield-alert",
+          "contrastLight": "6.17:1",
+          "contrastDark": "8.20:1"
+        },
+        "suspended": {
+          "light": "#9F253D",
+          "lightSurface": "#F9E4EB",
+          "dark": "#FF9FAC",
+          "darkSurface": "#341A23",
+          "label": "Dinero real suspendido",
+          "icon": "octagon-pause",
+          "contrastLight": "6.17:1",
+          "contrastDark": "8.20:1"
+        }
+      },
+      "smoke": {
+        "notRun": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "No ejecutada",
+          "icon": "circle-dashed",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "running": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "En curso",
+          "icon": "loader",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1"
+        },
+        "reconciled": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Cerrada y conciliada",
+          "icon": "badge-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        },
+        "failed": {
+          "light": "#9F253D",
+          "lightSurface": "#F9E4EB",
+          "dark": "#FF9FAC",
+          "darkSurface": "#341A23",
+          "label": "Fallida",
+          "icon": "triangle-alert",
+          "contrastLight": "6.17:1",
+          "contrastDark": "8.20:1"
+        }
+      },
+      "scaling": {
+        "locked": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Escalado bloqueado",
+          "icon": "lock",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "evidence": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Evidencia en curso",
+          "icon": "chart-no-axes-combined",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1"
+        },
+        "eligible": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Elegible para evaluación en fase 8",
+          "icon": "clipboard-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1"
+        }
+      },
+      "overlay": {
+        "light": "rgba(10, 14, 18, 0.62)",
+        "dark": "rgba(10, 14, 18, 0.78)",
+        "name": "Velo de confirmación crítica"
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "numeric": {
+        "fontVariantNumeric": "tabular-nums",
+        "slashedZero": true
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "liveBannerMin": "48px",
+      "checklistLabel": "260px",
+      "limitsPanelMin": "320px",
+      "shortRequirementLabel": "176px",
+      "dialogMax": "620px",
+      "smokeTimelineRail": "2px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "market": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Mercado",
+      "version": "7.0.0",
+      "extends": "../fase-0-1/tokens.json",
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "light": {
+        "canvas": {
+          "value": "#EEF2F5",
+          "name": "Lienzo · aluminio frío"
+        },
+        "surface": {
+          "value": "#FFFFFF",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#E7ECF0",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#DDE3E9",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#0C1218",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#475563",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#525F6C",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#CBD3DA",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#738392",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#4A6500",
+          "name": "Tinta lima"
+        },
+        "accentHover": {
+          "value": "#3A5000",
+          "name": "Tinta lima activa"
+        },
+        "accentSoft": {
+          "value": "#EDF7CF",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#4A6500",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#FFFFFF",
+          "name": "Texto sobre lima"
+        }
+      },
+      "dark": {
+        "canvas": {
+          "value": "#0A0E12",
+          "name": "Lienzo · acero pavonado"
+        },
+        "surface": {
+          "value": "#10161C",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#151C23",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#1C252E",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#E4EAF0",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#9AA8B6",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#8796A5",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#252F39",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#66747F",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#C6F432",
+          "name": "Lima"
+        },
+        "accentHover": {
+          "value": "#D7FB66",
+          "name": "Lima activa"
+        },
+        "accentSoft": {
+          "value": "#1D2610",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#C6F432",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#0A0E12",
+          "name": "Texto sobre lima"
+        }
+      },
+      "candle": {
+        "up": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Vela alcista",
+          "secondaryCue": "cuerpo vacío y cierre arriba"
+        },
+        "down": {
+          "light": "#C0282B",
+          "dark": "#FF6B6B",
+          "name": "Vela bajista",
+          "secondaryCue": "cuerpo sólido y cierre abajo"
+        },
+        "wick": {
+          "light": "#5B6B7A",
+          "dark": "#93A1AF",
+          "name": "Mecha"
+        },
+        "grid": {
+          "light": "#D3DAE0",
+          "dark": "#1B232C",
+          "name": "Rejilla de gráfico"
+        },
+        "crosshair": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Cursor de gráfico"
+        }
+      },
+      "dataStatus": {
+        "reliable": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Fiable",
+          "icon": "check-circle"
+        },
+        "updating": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Actualizando",
+          "icon": "progress-ring"
+        },
+        "stale": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Desactualizado",
+          "icon": "clock"
+        },
+        "unreliable": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "No fiable",
+          "icon": "diamond-alert"
+        },
+        "simulated": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Datos simulados",
+          "icon": "flask"
+        }
+      },
+      "series": {
+        "price": {
+          "light": "#0C1218",
+          "dark": "#E4EAF0",
+          "name": "Precio"
+        },
+        "sma20": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "Media 20"
+        },
+        "sma50": {
+          "light": "#7F5E00",
+          "dark": "#FFD23F",
+          "name": "Media 50"
+        },
+        "sma200": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Media 200"
+        },
+        "dff": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "DFF"
+        },
+        "cpi": {
+          "light": "#A3460E",
+          "dark": "#FF9A5C",
+          "name": "IPC"
+        },
+        "yield2y": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Treasury 2 años"
+        },
+        "yield10y": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Treasury 10 años"
+        },
+        "spread": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Diferencial 10–2"
+        },
+        "vix": {
+          "light": "#B0202E",
+          "dark": "#FF7D87",
+          "name": "VIX"
+        },
+        "rsi": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "RSI 14"
+        },
+        "atr": {
+          "light": "#7F5E00",
+          "dark": "#FFD23F",
+          "name": "ATR 14"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px",
+      "page-inline-wide": "32px",
+      "page-inline-compact": "24px",
+      "page-inline-narrow": "20px",
+      "page-block-wide": "40px",
+      "page-block-compact": "32px",
+      "section-gap": "32px",
+      "section-gap-compact": "24px",
+      "block-gap-min": "24px",
+      "card-padding": "24px",
+      "card-padding-compact": "16px",
+      "title-content-gap": "12px",
+      "form-field-gap": "16px",
+      "label-control-gap": "8px",
+      "table-row-block": "12px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "watchlist": "252px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "chartMinHeight": "360px",
+      "readingMax": "72ch"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "news": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Noticias, fuentes y calendario",
+      "version": "7.0.0",
+      "extends": "../fase-1/tokens.json",
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "light": {
+        "canvas": {
+          "value": "#EEF2F5",
+          "name": "Lienzo · aluminio frío"
+        },
+        "surface": {
+          "value": "#FFFFFF",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#E7ECF0",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#DDE3E9",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#0C1218",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#475563",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#525F6C",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#CBD3DA",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#738392",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#4A6500",
+          "name": "Tinta lima"
+        },
+        "accentHover": {
+          "value": "#3A5000",
+          "name": "Tinta lima activa"
+        },
+        "accentSoft": {
+          "value": "#EDF7CF",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#4A6500",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#FFFFFF",
+          "name": "Texto sobre lima"
+        }
+      },
+      "dark": {
+        "canvas": {
+          "value": "#0A0E12",
+          "name": "Lienzo · acero pavonado"
+        },
+        "surface": {
+          "value": "#10161C",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#151C23",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#1C252E",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#E4EAF0",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#9AA8B6",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#8796A5",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#252F39",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#66747F",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#C6F432",
+          "name": "Lima"
+        },
+        "accentHover": {
+          "value": "#D7FB66",
+          "name": "Lima activa"
+        },
+        "accentSoft": {
+          "value": "#1D2610",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#C6F432",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#0A0E12",
+          "name": "Texto sobre lima"
+        }
+      },
+      "state": {
+        "online": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "En línea"
+        },
+        "offline": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Sin conexión"
+        },
+        "paused": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "En pausa"
+        },
+        "info": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Información"
+        },
+        "alert": {
+          "light": "#7F5E00",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Alerta"
+        },
+        "critical": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Crítica"
+        },
+        "success": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Correcto"
+        }
+      },
+      "reliability": {
+        "oficial": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Oficial",
+          "symbol": "🏛",
+          "code": "OF",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "description": "Organismos oficiales e instituciones reguladoras (Fed, BCE, BLS, BEA, SEC EDGAR, CNMV)"
+        },
+        "agencia": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Agencia",
+          "symbol": "📡",
+          "code": "AG",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "description": "Agencias internacionales de noticias con cable directo (Reuters, Bloomberg, AP, Dow Jones)"
+        },
+        "prensa": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Prensa",
+          "symbol": "📰",
+          "code": "PR",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1",
+          "description": "Prensa económica y financiera especializada (WSJ, FT, Expansión, Cinco Días, CNBC)"
+        },
+        "redes": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Redes",
+          "symbol": "💬",
+          "code": "RD",
+          "contrastLight": "5.06:1",
+          "contrastDark": "7.41:1",
+          "description": "Redes sociales y foros comunitarios (Reddit, X, StockTwits). Alto riesgo de rumores sin contrastar"
+        }
+      },
+      "newsPriority": {
+        "maxima": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Prioridad máxima",
+          "symbol": "⚡",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1",
+          "description": "Mueven todo el mercado: bancos centrales (Fed, BCE, BoE, BoJ), NFP, IPC, PCE, PIB, PMI, shocks geopolíticos, aranceles, quiebras"
+        },
+        "media": {
+          "light": "#7F5E00",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Prioridad media",
+          "symbol": "◆",
+          "contrastLight": "5.34:1",
+          "contrastDark": "10.24:1",
+          "description": "Impacto sectorial o macro secundario: resultados grandes empresas, inventarios EIA, OPEP, subastas deuda, vivienda, confianza"
+        },
+        "activo": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Por activo",
+          "symbol": "🎯",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "description": "Noticias específicas sobre un activo de la lista de seguimiento: resultados, guías, M&A, directivos, litigios, ampliaciones, hackeos"
+        },
+        "baja": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Baja",
+          "symbol": "○",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1",
+          "description": "Información general, comentarios de opinión o contexto de fondo sin efecto inmediato en precio"
+        }
+      },
+      "confirmation": {
+        "confirmada": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Confirmada",
+          "symbol": "✓",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1",
+          "borderStyle": "solid",
+          "description": "Noticia respaldada por al menos una fuente oficial o agencia reconocida"
+        },
+        "sinConfirmar": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "border": "#A3460E",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "borderDark": "#FF9A5C",
+          "label": "Sin confirmar",
+          "symbol": "⚠️",
+          "contrastLight": "5.06:1",
+          "contrastDark": "7.41:1",
+          "borderStyle": "dashed",
+          "description": "Procedente únicamente de redes sociales. Nunca se marca como confirmada ni habilita señales automáticas"
+        }
+      },
+      "impactLevel": {
+        "alto": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Impacto alto",
+          "bars": 3,
+          "symbol": "■■■",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1",
+          "description": "Volatilidad esperada muy alta en índices y divisas (FOMC, NFP, IPC, PCE, PIB)"
+        },
+        "medio": {
+          "light": "#7F5E00",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Impacto medio",
+          "bars": 2,
+          "symbol": "■■□",
+          "contrastLight": "5.34:1",
+          "contrastDark": "10.24:1",
+          "description": "Volatilidad moderada o sectorial (EIA petróleo, subastas del Tesoro, PMI secundario, OPEP)"
+        },
+        "bajo": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Impacto bajo",
+          "bars": 1,
+          "symbol": "■□□",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1",
+          "description": "Volatilidad baja o datos de menor relevancia inmediata"
+        }
+      },
+      "calendar": {
+        "upcoming": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Próximo evento",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "description": "Evento programado más cercano en el tiempo dentro de la jornada"
+        },
+        "past": {
+          "light": "#525F6C",
+          "lightSurface": "#E7ECF0",
+          "dark": "#8796A5",
+          "darkSurface": "#1C252E",
+          "opacity": "1",
+          "label": "Evento finalizado",
+          "contrastLight": "5.50:1",
+          "contrastDark": "5.12:1",
+          "description": "Evento ya concluido; datos atenuados para enfocar la atención en el presente y futuro"
+        },
+        "earnings": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Resultados de activos seguidos",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1",
+          "description": "Presentación de resultados trimestrales (BPA/Ingresos) de empresas en la lista de seguimiento"
+        }
+      },
+      "connectionTest": {
+        "idle": {
+          "label": "Probar conexión",
+          "description": "Estado inicial en reposo"
+        },
+        "testing": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Probando conexión…",
+          "description": "Petición HTTP en curso con spinner accesible"
+        },
+        "success": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Conexión correcta",
+          "description": "Feed o API accesible, muestra número de titulares detectados"
+        },
+        "error": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Error de conexión",
+          "description": "Fallo en la prueba con explicación clara (401, 429, red)"
+        }
+      },
+      "candle": {
+        "up": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Vela alcista",
+          "secondaryCue": "cuerpo vacío y cierre arriba"
+        },
+        "down": {
+          "light": "#C0282B",
+          "dark": "#FF6B6B",
+          "name": "Vela bajista",
+          "secondaryCue": "cuerpo sólido y cierre abajo"
+        },
+        "wick": {
+          "light": "#5B6B7A",
+          "dark": "#93A1AF",
+          "name": "Mecha"
+        },
+        "grid": {
+          "light": "#D3DAE0",
+          "dark": "#1B232C",
+          "name": "Rejilla de gráfico"
+        },
+        "crosshair": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Cursor de gráfico"
+        }
+      },
+      "dataStatus": {
+        "reliable": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Fiable",
+          "icon": "check-circle"
+        },
+        "updating": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Actualizando",
+          "icon": "progress-ring"
+        },
+        "stale": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Desactualizado",
+          "icon": "clock"
+        },
+        "unreliable": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "No fiable",
+          "icon": "diamond-alert"
+        },
+        "simulated": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Datos simulados",
+          "icon": "flask"
+        }
+      },
+      "series": {
+        "price": {
+          "light": "#0C1218",
+          "dark": "#E4EAF0",
+          "name": "Precio"
+        },
+        "sma20": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "Media 20"
+        },
+        "sma50": {
+          "light": "#7F5E00",
+          "dark": "#FFD23F",
+          "name": "Media 50"
+        },
+        "sma200": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Media 200"
+        },
+        "dff": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "DFF"
+        },
+        "cpi": {
+          "light": "#A3460E",
+          "dark": "#FF9A5C",
+          "name": "IPC"
+        },
+        "yield2y": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Treasury 2 años"
+        },
+        "yield10y": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Treasury 10 años"
+        },
+        "spread": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Diferencial 10–2"
+        },
+        "vix": {
+          "light": "#B0202E",
+          "dark": "#FF7D87",
+          "name": "VIX"
+        },
+        "rsi": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "RSI 14"
+        },
+        "atr": {
+          "light": "#7F5E00",
+          "dark": "#FFD23F",
+          "name": "ATR 14"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "sidebarCompact": "76px",
+      "watchlist": "252px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "chartMinHeight": "360px",
+      "badgeMinHeight": "24px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "onboarding": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Tour guiado, conexión y frescura de datos",
+      "version": "7.0.0",
+      "extends": ["./base.tokens.json", "./market.tokens.json"],
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px",
+      "note": "No introduce colores nuevos: cada valor procede de base.tokens.json (color.light/dark y color.state) o de market.tokens.json (color.dataStatus). Los velos son la tinta base con transparencia. Los contrastes están calculados con la fórmula de luminancia relativa de WCAG 2.2."
+    },
+    "color": {
+      "tour": {
+        "scrim": {
+          "light": "rgba(10, 14, 18, 0.55)",
+          "dark": "rgba(10, 14, 18, 0.72)",
+          "name": "Velo del tour",
+          "source": "base.color.light.text / base.color.dark.canvas con alfa",
+          "compositeLight": "#738392",
+          "compositeDark": "#07090C"
+        },
+        "spotlightRing": {
+          "light": "#4A6500",
+          "dark": "#C6F432",
+          "name": "Anillo del elemento resaltado",
+          "source": "base.color.*.focus",
+          "width": "3px",
+          "offset": "4px",
+          "contrastLightOnSurface": "5.40:1",
+          "contrastDarkOnSurface": "8.45:1",
+          "contrastDarkOnScrim": "10.00:1"
+        },
+        "spotlightHalo": {
+          "light": "#FFFFFF",
+          "dark": "#10161C",
+          "name": "Halo exterior del anillo",
+          "source": "base.color.*.surface",
+          "width": "2px",
+          "contrastLightOnScrim": "3.89:1",
+          "why": "En claro el anillo de foco sobre el velo solo da 1.39:1; el halo de superficie separa el resaltado del velo con 3.89:1 (no textual, mínimo 3:1)."
+        },
+        "popover": {
+          "light": "#FFFFFF",
+          "dark": "#10161C",
+          "border": {
+            "light": "#738392",
+            "dark": "#66747F"
+          },
+          "title": {
+            "light": "#0C1218",
+            "dark": "#E4EAF0",
+            "contrastLight": "15.55:1",
+            "contrastDark": "15.15:1"
+          },
+          "body": {
+            "light": "#475563",
+            "dark": "#9AA8B6",
+            "contrastLight": "6.20:1",
+            "contrastDark": "9.10:1"
+          },
+          "name": "Globo del paso",
+          "borderContrastLight": "3.03:1",
+          "borderContrastDark": "4.12:1"
+        },
+        "progressDone": {
+          "light": "#0A6390",
+          "dark": "#C6F432",
+          "name": "Segmento de progreso hecho",
+          "source": "base.color.*.accent",
+          "contrastLightOnSurface": "7.63:1",
+          "contrastDarkOnSurface": "6.69:1"
+        },
+        "progressPending": {
+          "light": "#738392",
+          "dark": "#66747F",
+          "name": "Segmento de progreso pendiente",
+          "source": "base.color.*.borderStrong",
+          "contrastLightOnSurface": "3.03:1",
+          "contrastDarkOnSurface": "4.12:1",
+          "note": "Decorativo (aria-hidden). El progreso se escribe siempre: «Paso 3 de 10»."
+        },
+        "stepLabel": {
+          "light": "#4A6500",
+          "dark": "#C6F432",
+          "surfaceLight": "#DDEFF8",
+          "surfaceDark": "#0E2431",
+          "name": "Etiqueta «Paso n de 10»",
+          "contrastLight": "6.47:1",
+          "contrastDark": "5.62:1"
+        }
+      },
+      "firstSteps": {
+        "done": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Hecho",
+          "icon": "circle-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1",
+          "source": "base.color.state.success"
+        },
+        "pending": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Pendiente",
+          "icon": "circle-dashed",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1",
+          "source": "live.color.requirement.locked"
+        },
+        "attention": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Revisar",
+          "icon": "triangle-alert",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1",
+          "source": "market.color.dataStatus.stale"
+        }
+      },
+      "connection": {
+        "idle": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin probar",
+          "icon": "plug",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "testing": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Probando",
+          "icon": "loader",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "source": "market.color.dataStatus.updating"
+        },
+        "ok": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Conectado",
+          "icon": "circle-check",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1",
+          "source": "market.color.dataStatus.reliable"
+        },
+        "missingKey": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Sin clave",
+          "icon": "key-round",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1",
+          "source": "market.color.dataStatus.stale"
+        },
+        "rejectedKey": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Clave rechazada",
+          "icon": "key-round-x",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1",
+          "source": "base.color.state.critical"
+        },
+        "quota": {
+          "light": "#7F5E00",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Cuota agotada",
+          "icon": "gauge",
+          "contrastLight": "5.34:1",
+          "contrastDark": "10.24:1",
+          "source": "base.color.state.alert"
+        },
+        "offline": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Sin red",
+          "icon": "wifi-off",
+          "contrastLight": "5.06:1",
+          "contrastDark": "7.41:1",
+          "source": "base.color.state.offline"
+        },
+        "error": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Error del proveedor",
+          "icon": "circle-alert",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1",
+          "source": "base.color.state.critical"
+        }
+      },
+      "freshness": {
+        "current": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Al día",
+          "icon": "check-circle",
+          "contrastLight": "4.90:1",
+          "contrastDark": "7.61:1",
+          "source": "market.color.dataStatus.reliable"
+        },
+        "catchingUp": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Poniéndose al día",
+          "icon": "progress-ring",
+          "contrastLight": "5.55:1",
+          "contrastDark": "8.36:1",
+          "source": "market.color.dataStatus.updating"
+        },
+        "stale": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Datos desactualizados",
+          "icon": "clock",
+          "contrastLight": "5.45:1",
+          "contrastDark": "8.72:1",
+          "textOnSurfaceLight": "13.03:1",
+          "textOnSurfaceDark": "11.52:1",
+          "focusOnSurfaceLight": "4.52:1",
+          "focusOnSurfaceDark": "6.42:1",
+          "source": "market.color.dataStatus.stale"
+        },
+        "unreliable": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Datos no fiables",
+          "icon": "diamond-alert",
+          "contrastLight": "5.57:1",
+          "contrastDark": "6.56:1",
+          "textOnSurfaceLight": "12.97:1",
+          "textOnSurfaceDark": "12.89:1",
+          "focusOnSurfaceLight": "4.50:1",
+          "focusOnSurfaceDark": "7.19:1",
+          "source": "market.color.dataStatus.unreliable"
+        },
+        "noData": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Sin datos",
+          "icon": "database",
+          "contrastLight": "6.43:1",
+          "contrastDark": "6.39:1"
+        },
+        "offline": {
+          "light": "#A3460E",
+          "lightSurface": "#FBE6D8",
+          "dark": "#FF9A5C",
+          "darkSurface": "#33200F",
+          "label": "Sin conexión",
+          "icon": "wifi-off",
+          "contrastLight": "5.06:1",
+          "contrastDark": "7.41:1",
+          "source": "base.color.state.offline"
+        }
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px"
+    },
+    "radius": {
+      "spotlight": "12px",
+      "popover": "16px",
+      "chip": "999px",
+      "card": "16px"
+    },
+    "shadow": {
+      "popover": {
+        "value": "0 18px 48px rgba(8, 18, 35, 0.18)",
+        "name": "Flotante",
+        "source": "base.shadow.floating"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "popoverWidth": "360px",
+      "popoverMaxWidth": "calc(100vw - 40px)",
+      "popoverOffset": "16px",
+      "viewportMargin": "20px",
+      "progressSegment": "20px",
+      "progressSegmentHeight": "4px",
+      "freshnessChipMin": "32px",
+      "bottomSheetBreakpoint": "760px"
+    },
+    "zIndex": {
+      "scrim": 900,
+      "spotlight": 901,
+      "popover": 902,
+      "note": "Por encima de la franja DINERO REAL y de los banners; por debajo de nada. El diálogo de reanudación de la parada nunca coincide con el tour (el tour no arranca si hay un diálogo abierto)."
+    },
+    "motion": {
+      "spotlightMove": "200ms",
+      "popoverEnter": "120ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms",
+      "scrollBehavior": "smooth",
+      "scrollBehaviorReduced": "auto",
+      "spinnerReduced": "Sin giro: el icono queda fijo y el texto «Probando…» o «Poniéndose al día…» lleva el estado."
+    }
+  },
+  "risk": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Riesgo",
+      "version": "7.0.0",
+      "extends": "./base.tokens.json",
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "light": {
+        "canvas": {
+          "value": "#EEF2F5",
+          "name": "Lienzo · aluminio frío"
+        },
+        "surface": {
+          "value": "#FFFFFF",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#E7ECF0",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#DDE3E9",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#0C1218",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#475563",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#525F6C",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#CBD3DA",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#738392",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#4A6500",
+          "name": "Tinta lima"
+        },
+        "accentHover": {
+          "value": "#3A5000",
+          "name": "Tinta lima activa"
+        },
+        "accentSoft": {
+          "value": "#EDF7CF",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#4A6500",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#FFFFFF",
+          "name": "Texto sobre lima"
+        }
+      },
+      "dark": {
+        "canvas": {
+          "value": "#0A0E12",
+          "name": "Lienzo · acero pavonado"
+        },
+        "surface": {
+          "value": "#10161C",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#151C23",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#1C252E",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#E4EAF0",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#9AA8B6",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#8796A5",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#252F39",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#66747F",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#C6F432",
+          "name": "Lima"
+        },
+        "accentHover": {
+          "value": "#D7FB66",
+          "name": "Lima activa"
+        },
+        "accentSoft": {
+          "value": "#1D2610",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#C6F432",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#0A0E12",
+          "name": "Texto sobre lima"
+        }
+      },
+      "riskStatus": {
+        "safe": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Operativo",
+          "icon": "shield-check"
+        },
+        "caution": {
+          "light": "#7A5900",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Modo cautela",
+          "icon": "triangle-alert"
+        },
+        "stopped": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Parada activa",
+          "icon": "octagon-stop"
+        },
+        "resuming": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Reanudando",
+          "icon": "loader"
+        },
+        "simulation": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Simulación",
+          "icon": "flask"
+        }
+      },
+      "decision": {
+        "approved": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Aprobada"
+        },
+        "reduced": {
+          "light": "#7A5900",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Tamaño reducido"
+        },
+        "vetoed": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Vetada"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "limitsLabel": "220px",
+      "vetoTableMin": "880px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  },
+  "strategy": {
+    "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
+    "meta": {
+      "name": "Tradia — Telemetría de box · Estrategias y backtest",
+      "version": "7.0.0",
+      "extends": "./base.tokens.json",
+      "contrastStandard": "WCAG 2.2 AA",
+      "baseUnit": "4px"
+    },
+    "color": {
+      "light": {
+        "canvas": {
+          "value": "#EEF2F5",
+          "name": "Lienzo · aluminio frío"
+        },
+        "surface": {
+          "value": "#FFFFFF",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#E7ECF0",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#DDE3E9",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#0C1218",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#475563",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#525F6C",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#CBD3DA",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#738392",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#4A6500",
+          "name": "Tinta lima"
+        },
+        "accentHover": {
+          "value": "#3A5000",
+          "name": "Tinta lima activa"
+        },
+        "accentSoft": {
+          "value": "#EDF7CF",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#4A6500",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#FFFFFF",
+          "name": "Texto sobre lima"
+        }
+      },
+      "dark": {
+        "canvas": {
+          "value": "#0A0E12",
+          "name": "Lienzo · acero pavonado"
+        },
+        "surface": {
+          "value": "#10161C",
+          "name": "Superficie"
+        },
+        "surfaceSubtle": {
+          "value": "#151C23",
+          "name": "Superficie tenue · carril"
+        },
+        "surfaceStrong": {
+          "value": "#1C252E",
+          "name": "Superficie marcada"
+        },
+        "text": {
+          "value": "#E4EAF0",
+          "name": "Tinta"
+        },
+        "textMuted": {
+          "value": "#9AA8B6",
+          "name": "Tinta secundaria"
+        },
+        "textFaint": {
+          "value": "#8796A5",
+          "name": "Tinta terciaria"
+        },
+        "border": {
+          "value": "#252F39",
+          "name": "Línea de reparto"
+        },
+        "borderStrong": {
+          "value": "#66747F",
+          "name": "Línea de control"
+        },
+        "accent": {
+          "value": "#C6F432",
+          "name": "Lima"
+        },
+        "accentHover": {
+          "value": "#D7FB66",
+          "name": "Lima activa"
+        },
+        "accentSoft": {
+          "value": "#1D2610",
+          "name": "Lima tenue"
+        },
+        "focus": {
+          "value": "#C6F432",
+          "name": "Foco"
+        },
+        "inverse": {
+          "value": "#0A0E12",
+          "name": "Texto sobre lima"
+        }
+      },
+      "strategyStatus": {
+        "research": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Investigación",
+          "icon": "flask"
+        },
+        "paper": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Paper",
+          "icon": "file-check"
+        },
+        "active": {
+          "light": "#0B7548",
+          "lightSurface": "#DCF2E7",
+          "dark": "#3CCB8A",
+          "darkSurface": "#0E271D",
+          "label": "Activa",
+          "icon": "play-circle"
+        },
+        "degraded": {
+          "light": "#7A5900",
+          "lightSurface": "#F5ECCB",
+          "dark": "#EBC05A",
+          "darkSurface": "#2E2610",
+          "label": "Degradada",
+          "icon": "trend-down"
+        },
+        "retired": {
+          "light": "#475563",
+          "lightSurface": "#E7ECF0",
+          "dark": "#9AA8B6",
+          "darkSurface": "#1C252E",
+          "label": "Retirada",
+          "icon": "archive"
+        }
+      },
+      "chart": {
+        "equity": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "Capital"
+        },
+        "benchmark": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Referencia"
+        },
+        "positive": {
+          "light": "#0B7548",
+          "dark": "#3CCB8A",
+          "name": "Positivo"
+        },
+        "negative": {
+          "light": "#B0202E",
+          "dark": "#FF7D87",
+          "name": "Negativo"
+        },
+        "neutral": {
+          "light": "#525F6C",
+          "dark": "#8796A5",
+          "name": "Neutral"
+        },
+        "grid": {
+          "light": "#D3DAE0",
+          "dark": "#1B232C",
+          "name": "Rejilla"
+        },
+        "training": {
+          "light": "#0A6390",
+          "dark": "#6CC6F2",
+          "name": "Entrenamiento"
+        },
+        "validation": {
+          "light": "#7F5E00",
+          "dark": "#EBC05A",
+          "name": "Validación"
+        },
+        "lockedTest": {
+          "light": "#475563",
+          "dark": "#9AA8B6",
+          "name": "Prueba final bloqueada"
+        }
+      },
+      "heatmap": {
+        "low": {
+          "light": "#FBE3E5",
+          "dark": "#3A1519",
+          "name": "Resultado débil"
+        },
+        "mid": {
+          "light": "#F5ECCB",
+          "dark": "#2E2610",
+          "name": "Resultado medio"
+        },
+        "high": {
+          "light": "#DCF2E7",
+          "dark": "#0E271D",
+          "name": "Resultado robusto"
+        },
+        "selected": {
+          "light": "#4A6500",
+          "dark": "#C6F432",
+          "name": "Parámetro seleccionado"
+        }
+      },
+      "notice": {
+        "method": {
+          "light": "#7A5900",
+          "lightSurface": "#FFF2BF",
+          "dark": "#FFD23F",
+          "darkSurface": "#302709",
+          "label": "Riesgo metodológico"
+        },
+        "critical": {
+          "light": "#B0202E",
+          "lightSurface": "#FBE3E5",
+          "dark": "#FF7D87",
+          "darkSurface": "#3A1519",
+          "label": "Error"
+        },
+        "info": {
+          "light": "#0A6390",
+          "lightSurface": "#DDEFF8",
+          "dark": "#6CC6F2",
+          "darkSurface": "#0E2431",
+          "label": "Información"
+        }
+      }
+    },
+    "typography": {
+      "family": {
+        "interface": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Interfaz · Sora"
+        },
+        "editorial": {
+          "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          "name": "Titulares · Sora"
+        },
+        "numeric": {
+          "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+          "name": "Datos · IBM Plex Mono"
+        }
+      },
+      "size": {
+        "xs": {
+          "value": "13px",
+          "lineHeight": "18px"
+        },
+        "sm": {
+          "value": "14px",
+          "lineHeight": "21px"
+        },
+        "md": {
+          "value": "16px",
+          "lineHeight": "24px"
+        },
+        "lg": {
+          "value": "18px",
+          "lineHeight": "26px"
+        },
+        "xl": {
+          "value": "24px",
+          "lineHeight": "30px"
+        },
+        "2xl": {
+          "value": "36px",
+          "lineHeight": "40px"
+        }
+      },
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "tracking": {
+        "tight": "-0.02em",
+        "normal": "0",
+        "wide": "0.08em"
+      }
+    },
+    "spacing": {
+      "0": "0",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "16": "64px"
+    },
+    "radius": {
+      "xs": "2px",
+      "sm": "4px",
+      "md": "6px",
+      "lg": "8px",
+      "pill": "999px"
+    },
+    "shadow": {
+      "raised": {
+        "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+        "name": "Elevado (solo menús y popovers)"
+      },
+      "floating": {
+        "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+        "name": "Flotante (diálogos)"
+      }
+    },
+    "size": {
+      "controlMin": "44px",
+      "sidebar": "228px",
+      "contentMax": "1120px",
+      "statusBar": "48px",
+      "chartMinHeight": "320px",
+      "metricMin": "136px"
+    },
+    "motion": {
+      "fast": "100ms",
+      "normal": "160ms",
+      "slow": "240ms",
+      "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
+      "reduced": "0ms"
+    }
+  }
+}

@@ -1,4 +1,7 @@
 /* global document, Image */
+// Setup: npm install && npx playwright install chromium
+// Regenerate: node scripts/generar-iconos.mjs
+// Edit only build/icon.svg, including its optical/tray variants in <defs>.
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -93,6 +96,14 @@ function icns(images) {
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage();
+  // One versioned master includes the approved optical corrections and tray states.
+  const source = await readFile(new URL('build/icon.svg', root), 'utf8');
+  function extractVariant(id) {
+    const svg = source.match(new RegExp(`<svg id="${id}"[\\s\\S]*?</svg>`))?.[0];
+    if (!svg) throw new Error(`Missing icon variant: ${id}`);
+    return svg.replace(` id="${id}"`, '') + '\n';
+  }
+  const sourceMaster = source;
   async function render(source, size) {
     const pixels = await page.evaluate(
       async ({ source, size }) => {
@@ -107,12 +118,16 @@ try {
       },
       { source, size },
     );
-    return png(size, Buffer.from(pixels), createHash('sha256').update(source).digest('hex'));
+    return png(
+      size,
+      Buffer.from(pixels),
+      createHash('sha256').update(sourceMaster).update('\0').update(source).digest('hex'),
+    );
   }
-  const source = await readFile(new URL('build/icon.svg', root), 'utf8');
+  const small = extractVariant('app-small');
   const images = new Map();
   for (const size of new Set([...icoSizes, ...icnsSizes.map(([, size]) => size)])) {
-    images.set(size, await render(source, size));
+    images.set(size, await render(size <= 32 ? small : source, size));
   }
   const outputs = new Map([
     ['build/icon.png', images.get(1024)],
@@ -123,7 +138,8 @@ try {
   for (const state of ['online', 'offline', 'paused', 'stopped']) {
     for (const variant of ['', '-Template']) {
       const base = `resources/tray/tray-${state}${variant}`;
-      const svg = await readFile(new URL(`${base}.svg`, root), 'utf8');
+      const svg = extractVariant(`tray-${state}${variant}`);
+      outputs.set(`${base}.svg`, svg);
       outputs.set(`${base}.png`, await render(svg, 16));
       outputs.set(`${base}@2x.png`, await render(svg, 32));
     }
