@@ -300,8 +300,8 @@
   clip-path: inset(50%);
 }
 .risk-page h3 {
-  font-size: var(--type-xl);
-  line-height: var(--type-xl-line);
+  font-size: var(--type-md);
+  line-height: var(--type-md-line);
 }
 .risk-page :is(input, select, button, [tabindex]):focus-visible {
   outline: 2px solid var(--color-focus);
@@ -385,6 +385,9 @@
   padding-inline: 0;
 }
 .risk-page-head h2 {
+  margin: 0;
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-tight);
 }

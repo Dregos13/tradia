@@ -42,8 +42,8 @@
 }
 .dashboard-block h3 {
   margin: 0;
-  font-size: var(--type-lg);
-  line-height: var(--type-lg-line);
+  font-size: var(--type-md);
+  line-height: var(--type-md-line);
 }
 .dashboard-block p,
 .dashboard-block a,
@@ -272,13 +272,16 @@
 
 /* Primeros pasos pertenece a Inicio; el tour conserva sus reglas propias. */
 .app-page .first-steps {
-  padding: var(--space-card-padding);
+  padding: var(--space-4) var(--space-card-padding);
 }
 .app-page .first-steps-header {
-  margin-bottom: var(--space-title-content-gap);
+  margin-bottom: var(--space-2);
 }
 .app-page .first-steps-row {
-  padding-block: var(--space-4);
+  padding-block: var(--space-3);
+}
+.app-page .first-steps-footer {
+  margin-top: 0;
 }
 @media (max-width: 760px) {
   .app-page .first-steps,

@@ -240,17 +240,34 @@ summary:focus-visible,
 .headline > p {
   margin: 0;
 }
+/* Título y descripción comparten línea cuando caben; si no, la descripción baja. */
+.headline:not(.journal-heading) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-4);
+}
+.headline > h2 {
+  flex: 0 1 auto;
+}
 /* Los márgenes de los hijos no se suman al ritmo de una pila de página. */
 :where([data-layout-page], [data-layout-block]) > .headline {
   margin-bottom: 0;
 }
 
+/* El título de la página es el h1 de la barra superior (24 px); el h2 de la
+   cabecera es el subtítulo (escala lg) y nunca lo supera. */
 .headline h2 {
-  font: var(--weight-semibold) var(--type-2xl)/var(--type-2xl-line) var(--font-editorial);
+  font: var(--weight-semibold) var(--type-lg)/var(--type-lg-line) var(--font-editorial);
   letter-spacing: var(--tracking-tight);
-  margin: 0 0 var(--space-2);
-  max-width: 26ch;
+  margin: 0 0 var(--space-1);
+  max-width: none;
   text-wrap: balance;
+}
+/* Metadatos: nunca por debajo de la escala xs (13 px), que es el mínimo de la guía. */
+small {
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
 }
 p {
   color: var(--color-textMuted);
@@ -338,27 +355,40 @@ h3 {
   padding: var(--space-table-row-block) var(--page-inline);
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-1) var(--space-6);
   white-space: nowrap;
 }
-/* Una sola línea: el estado cede con puntos suspensivos y las horas no se parten. */
+/* Nada se recorta: si no cabe en una línea, la barra pasa a dos; las horas no se parten. */
+.statusbar {
+  flex-wrap: wrap;
+}
 .statusbar [role='status'] {
   display: flex;
-  gap: var(--space-6);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.statusbar [role='status'] > * {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  flex-shrink: 0;
 }
 .statusbar-time {
+  position: relative;
   flex-shrink: 0;
 }
 .statusbar-label-short {
   display: none;
+}
+/* Por debajo de 1200 px las etiquetas cortas dejan la barra en una línea; las largas siguen
+   en el árbol accesible y en el title. */
+@media (max-width: 1200px) {
+  .statusbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .statusbar-label-short {
+    display: inline;
+  }
 }
 .skip-link {
   position: fixed;

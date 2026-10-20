@@ -13,7 +13,7 @@
 }
 .live-page-head h2 {
   margin: 0;
-  font: var(--weight-semibold) var(--type-2xl)/var(--type-2xl-line) var(--font-interface);
+  font: var(--weight-semibold) var(--type-lg)/var(--type-lg-line) var(--font-interface);
 }
 .live-checklist-page h3 {
   margin: 0 0 var(--space-3);

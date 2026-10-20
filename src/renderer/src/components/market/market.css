@@ -1,6 +1,7 @@
 .market-data-page {
   display: grid;
-  gap: var(--page-section-gap);
+  /* 24 px es el mínimo entre bloques; en Mercado deja el gráfico en el primer pliegue. */
+  gap: var(--space-6);
   min-width: 0;
 }
 .market-data-page > * {
@@ -9,9 +10,10 @@
 }
 .market-workspace {
   display: grid;
-  grid-template-columns: var(--size-watchlist) minmax(0, 1fr);
+  /* La lista crece lo justo para que ticker e insignias quepan en una línea por activo. */
+  grid-template-columns: clamp(var(--size-watchlist), 24vw, 300px) minmax(0, 1fr);
   column-gap: var(--space-6);
-  row-gap: var(--space-section-gap);
+  row-gap: var(--space-6);
   align-items: start;
 }
 .market-toolbar {
@@ -20,6 +22,42 @@
   flex-wrap: wrap;
   gap: var(--space-4);
   align-items: end;
+}
+/* Con espacio: el campo con su ayuda debajo, y «Añadir universo inicial» y el aviso
+   en la misma línea que el campo, no en filas propias. */
+@media (min-width: 1201px) {
+  .market-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 580px) auto minmax(0, 1fr);
+    column-gap: var(--space-4);
+    row-gap: 0;
+    align-items: end;
+  }
+  .market-toolbar > .market-add {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+  }
+  .market-toolbar > .market-ticker-help {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .market-toolbar > .button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .market-toolbar > .market-announcement {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: end;
+    margin: 0;
+    padding-bottom: var(--space-3);
+  }
+  .market-toolbar > .market-add-feedback {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: var(--space-4);
+  }
 }
 .asset-badge {
   display: inline-flex;
@@ -263,7 +301,7 @@
 .market-asset {
   width: 100%;
   min-height: var(--size-controlMin);
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-4);
   text-align: left;
   border: 0;
   border-bottom: 1px solid var(--color-border);
@@ -275,15 +313,34 @@
   align-items: center;
   justify-content: space-between;
 }
-/* Cada fila agrupa el activo y sus insignias; el divisor separa filas, no el botón del estado. */
+/* Cada fila es un carril compacto: el activo a la izquierda y sus insignias a la derecha,
+   en la misma línea siempre que quepan. El divisor separa filas, no el botón del estado. */
 .market-watch li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   border-bottom: 1px solid var(--color-border);
 }
+.market-watch li:hover {
+  background: var(--color-surfaceSubtle);
+}
+.market-watch li:has(> .market-asset[aria-pressed='true']) {
+  background: var(--color-accentSoft);
+  box-shadow: inset 4px 0 var(--color-accent);
+}
 .market-watch li .market-asset {
+  width: auto;
+  padding-right: var(--space-1);
   border-bottom: 0;
+  background: transparent;
 }
 .market-watch li .market-status {
-  padding: 0 var(--space-4) var(--space-3);
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+.market-watch li .market-badge {
+  padding: 2px var(--space-2);
+  white-space: nowrap;
 }
 .market-asset:hover {
   background: var(--color-surfaceSubtle);
@@ -291,6 +348,10 @@
 .market-asset[aria-pressed='true'] {
   background: var(--color-accentSoft);
   box-shadow: inset 4px 0 var(--color-accent);
+}
+.market-watch li .market-asset[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
 }
 .market-remove {
   margin: var(--space-4);
@@ -318,13 +379,24 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: var(--space-4);
-  padding: var(--space-card-padding);
+  padding: var(--space-4) var(--space-card-padding);
   border-bottom: 1px solid var(--color-border);
 }
+/* Activo, fuente y precio en menos líneas: la fuente comparte línea con la descripción
+   y el lienzo del gráfico queda más arriba. */
 .ticker-main-group {
+  flex: 1 1 320px;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-4);
+  row-gap: 0;
+}
+.ticker-main-group > .market-chart-title-row,
+.ticker-main-group > .market-fx-calendar,
+.ticker-main-group > .quote-display {
+  flex-basis: 100%;
 }
 .market-chart-title-row {
   display: flex;
@@ -446,14 +518,14 @@
   outline-offset: 2px;
 }
 .chart-toolbar {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   background: var(--color-surfaceSubtle);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: 0 var(--space-3);
   font-size: var(--type-xs);
 }
 .toolbar-group {
@@ -517,6 +589,7 @@
 .candle-legend {
   color: var(--color-textMuted);
   font-size: var(--type-xs);
+  margin-left: auto;
 }
 .market-chart {
   height: 600px;
@@ -531,7 +604,7 @@
 .market-chart-note,
 .market-attribution {
   padding: 0 var(--space-card-padding);
-  margin: var(--space-title-content-gap) 0;
+  margin: var(--space-2) 0;
   overflow-wrap: anywhere;
   color: var(--color-textMuted);
   font-size: var(--type-xs);
@@ -715,11 +788,13 @@
   overflow-wrap: anywhere;
 }
 .market-asset-coverage {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  min-width: 0;
 }
 .market-asset-class {
   display: block;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  text-align: right;
   color: var(--color-text);
   font-size: var(--data-clarity-type-caption);
   line-height: var(--data-clarity-leading-caption);

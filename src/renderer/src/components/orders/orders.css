@@ -27,6 +27,8 @@
 .orders-title h2 {
   margin: 0;
   font-family: var(--font-interface);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
 }
 .orders-paper,
 .orders-status {

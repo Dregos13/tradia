@@ -19,8 +19,8 @@
 }
 .strategy-heading h2 {
   font-family: var(--font-interface);
-  font-size: var(--type-2xl);
-  line-height: var(--type-2xl-line);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
   margin: 0 0 var(--space-title-content-gap);
 }
 .strategy-heading p,
@@ -91,12 +91,27 @@
   white-space: nowrap;
   min-width: var(--space-16);
 }
+.strategy-library-table :is(th, td) {
+  padding-inline: var(--space-2);
+}
+.strategy-library-table .strategy-status {
+  font-family: var(--font-interface);
+}
+/* Los rótulos de columna son texto: en Sora caben las ocho columnas a 1120 px sin desplazamiento. */
+.strategy-library-table thead th {
+  font-family: var(--font-interface);
+}
 .strategy-library-table .strategy-table-fixed small {
   white-space: normal;
 }
 .strategy-library-table th[scope='row'] {
   width: 100%;
-  min-width: calc(var(--space-16) * 3);
+  min-width: calc(var(--space-16) * 2);
+  /* Nombre y descripción son prosa: van en Sora; la monoespaciada queda para las cifras
+     (IDV-E2E-7: en mono ensanchaban la fila y empujaban las últimas columnas). */
+  font-family: var(--font-interface);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-regular);
 }
 .strategy-table-name {
   display: -webkit-box;
