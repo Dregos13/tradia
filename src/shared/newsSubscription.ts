@@ -16,6 +16,14 @@ export const ENGINE_COMMANDS: Record<NewsEngine, string> = {
   local: '',
 };
 
+/** Cómo iniciar sesión en cada CLI (Claude Code lleva el paso extra de `/login`). */
+export const ENGINE_LOGIN_HINTS: Record<Exclude<NewsEngine, 'local'>, string> = {
+  'suscripcion-claude': 'ejecuta claude y después /login',
+  'suscripcion-codex': 'ejecuta codex para iniciar sesión',
+  'suscripcion-antigravity': 'ejecuta agy para iniciar sesión',
+  'suscripcion-copilot': 'ejecuta copilot para iniciar sesión',
+};
+
 export interface SubscriptionCopyOptions {
   context?: 'noticias' | 'ajustes';
   dailyCap?: number;
@@ -27,7 +35,8 @@ export function getNewsSubscriptionCopy(
   options?: SubscriptionCopyOptions,
 ): { title: string; step: string } {
   const engineName = ENGINE_DISPLAY_NAMES[engine] ?? 'Claude Code';
-  const cliCmd = ENGINE_COMMANDS[engine] ?? 'claude';
+  const loginHint =
+    engine === 'local' ? ENGINE_LOGIN_HINTS['suscripcion-claude'] : ENGINE_LOGIN_HINTS[engine];
   const location = options?.context === 'noticias' ? 'en Ajustes' : 'arriba';
   const cap = options?.dailyCap ?? 200;
 
@@ -39,8 +48,8 @@ export function getNewsSubscriptionCopy(
       };
     case 'sin-sesion':
       return {
-        title: `Suscripción no disponible · No hay una sesión iniciada en ${engineName}.`,
-        step: `Tu suscripción no está validada en este equipo. Abre un terminal, ejecuta ${cliCmd} para iniciar sesión y pulsa el botón de comprobar. Mientras tanto, las noticias se analizan con el analizador local.`,
+        title: 'Suscripción no disponible · sesión no iniciada',
+        step: `No hay una sesión iniciada en ${engineName}. Abre un terminal, ${loginHint}. Vuelve aquí y prueba de nuevo. Mientras tanto, las noticias se analizan con el analizador local.`,
       };
     case 'tope-diario':
       return {

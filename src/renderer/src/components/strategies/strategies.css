@@ -18,9 +18,9 @@
   margin-bottom: var(--space-title-content-gap);
 }
 .strategy-heading h2 {
-  font-family: var(--font-editorial);
-  font-size: var(--type-2xl);
-  line-height: var(--type-2xl-line);
+  font-family: var(--font-interface);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
   margin: 0 0 var(--space-title-content-gap);
 }
 .strategy-heading p,
@@ -53,7 +53,7 @@
   max-width: 100%;
 }
 .strategies-page :is(input, select, textarea):focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .strategies-page button {
@@ -61,7 +61,9 @@
 }
 .strategies-page button:disabled {
   cursor: default;
-  opacity: 0.65;
+  color: var(--color-textMuted);
+  background: var(--color-surfaceStrong);
+  border-style: dashed;
 }
 .strategies-page .strategy-primary {
   background: var(--color-accent);
@@ -89,12 +91,27 @@
   white-space: nowrap;
   min-width: var(--space-16);
 }
+.strategy-library-table :is(th, td) {
+  padding-inline: var(--space-2);
+}
+.strategy-library-table .strategy-status {
+  font-family: var(--font-interface);
+}
+/* Los rótulos de columna son texto: en Sora caben las ocho columnas a 1120 px sin desplazamiento. */
+.strategy-library-table thead th {
+  font-family: var(--font-interface);
+}
 .strategy-library-table .strategy-table-fixed small {
   white-space: normal;
 }
 .strategy-library-table th[scope='row'] {
   width: 100%;
-  min-width: calc(var(--space-16) * 3);
+  min-width: calc(var(--space-16) * 2);
+  /* Nombre y descripción son prosa: van en Sora; la monoespaciada queda para las cifras
+     (IDV-E2E-7: en mono ensanchaban la fila y empujaban las últimas columnas). */
+  font-family: var(--font-interface);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-regular);
 }
 .strategy-table-name {
   display: -webkit-box;
@@ -112,7 +129,7 @@
 .strategy-status {
   display: inline-block;
   white-space: nowrap;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   padding: var(--space-1) var(--space-2);
   font-size: var(--type-sm);
 }
@@ -137,7 +154,7 @@
   background: var(--strategy-retired-surface);
 }
 .strategy-section {
-  border-top: 3px solid var(--color-text);
+  border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   padding: var(--space-card-padding);
   margin-top: 0;
@@ -347,7 +364,7 @@
   overflow-x: auto;
 }
 .strategies-page .strategy-comparison-scroll:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 @media (max-width: 700px) {
@@ -434,7 +451,7 @@
   border-top: 1px solid var(--color-border);
 }
 .strategy-rule-reference h3 {
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
 }
 .strategy-rule-reference code {
   font-family: var(--font-numeric);
@@ -478,7 +495,7 @@
   color: var(--color-textMuted);
 }
 .strategies-page :is(textarea, button, a, summary):focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 @media (max-width: 1000px) {
@@ -504,7 +521,7 @@
   overflow-x: auto;
 }
 .strategy-table-scroll:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .strategy-section {
@@ -552,4 +569,62 @@
   .strategy-form fieldset {
     padding: var(--space-card-padding-compact);
   }
+}
+
+/* Evidencia en carriles; las cifras conservan columnas estables. */
+.strategy-heading h2 {
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+.strategy-heading p {
+  color: var(--color-textMuted);
+}
+.strategy-table thead {
+  background: var(--color-surfaceStrong);
+}
+.strategy-table tbody tr:hover {
+  background: var(--color-surfaceSubtle);
+}
+.strategy-library-table td:nth-child(n + 4) {
+  font-family: var(--font-numeric);
+  text-align: right;
+}
+.strategy-library-table thead th:nth-child(n + 4) {
+  text-align: right;
+}
+.strategy-status {
+  border: 1px solid currentColor;
+  font-family: var(--font-numeric);
+  font-size: var(--type-xs);
+}
+.strategies-page .strategy-primary {
+  border-color: var(--color-accent);
+}
+.strategies-page .strategy-primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-accentHover);
+}
+.strategies-page button:not(.strategy-primary):hover:enabled {
+  background: var(--color-surfaceStrong);
+}
+.strategy-section,
+.strategy-form fieldset {
+  background: transparent;
+  padding-inline: 0;
+}
+.strategy-form fieldset {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+@media (max-width: 700px) {
+  .strategy-library-table td:nth-child(n + 4) {
+    text-align: left;
+  }
+}
+
+.strategies-page .strategy-primary:disabled,
+.strategies-page .strategy-primary[aria-disabled='true'] {
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
+  border-color: var(--color-borderStrong);
+  border-style: dashed;
 }

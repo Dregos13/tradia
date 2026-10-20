@@ -111,6 +111,8 @@ type DataFreshnessProps = {
   offline?: boolean;
   snapshotSessionDate?: string;
   snapshotStale?: boolean;
+  /** Marca el contenedor como bloque medible de la página (`data-layout-block`). */
+  layoutBlock?: string;
 };
 
 const onlyUncovered = (summary: DataFreshnessSummary | null) =>
@@ -128,6 +130,7 @@ export function DataFreshness(props: DataFreshnessProps) {
   return (
     <div
       className="data-freshness-container"
+      data-layout-block={props.layoutBlock}
       ref={focusTarget}
       tabIndex={-1}
       role="group"

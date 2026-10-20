@@ -13,7 +13,8 @@
 }
 .ai-top h2 {
   font-family: var(--font-editorial);
-  font-size: var(--type-2xl);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
   margin: 0;
 }
 .ai-page h3 {

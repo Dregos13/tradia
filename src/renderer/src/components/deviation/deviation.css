@@ -16,7 +16,9 @@
 }
 .deviation-title h2 {
   margin: 0;
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
 }
 .deviation-top header {
   flex: 1;
@@ -33,7 +35,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
 }
@@ -64,7 +66,7 @@
   display: grid;
   grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
   background: var(--color-surface);
-  border-top: var(--space-1) solid var(--color-text);
+  border-top: 1px solid var(--color-border);
   margin: 0;
 }
 .deviation-summary > div {
@@ -177,7 +179,7 @@
   font: inherit;
 }
 .deviation-page :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .deviation-scroll-hint {
@@ -241,4 +243,24 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-title-content-gap);
   }
+}
+
+.deviation-margins form {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+.deviation-status,
+.deviation-paper {
+  border: 1px solid currentColor;
+  font-family: var(--font-numeric);
+}
+.deviation-fields input {
+  font-family: var(--font-numeric);
+}
+.deviation-table-wrap thead {
+  background: var(--color-surfaceStrong);
 }

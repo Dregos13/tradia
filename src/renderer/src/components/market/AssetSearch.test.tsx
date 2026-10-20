@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSimulatedAdapter } from '../../adapters/simulated';
@@ -19,6 +19,59 @@ afterEach(() => {
 });
 
 describe('AssetSearch', () => {
+  it('no reabre las sugerencias rechazadas ni con resultados tardíos ni al recuperar el foco', async () => {
+    const result = await window.tradia.market.search('EUR');
+    let finishSearch!: (value: typeof result) => void;
+    vi.spyOn(window.tradia.market, 'search')
+      .mockResolvedValueOnce(result)
+      .mockImplementationOnce(() => new Promise((resolve) => (finishSearch = resolve)));
+    const onAdd = vi.fn().mockResolvedValue(false);
+    render(<AssetSearch items={[]} onAdd={onAdd} />);
+    const input = screen.getByLabelText('Buscar activo o divisa');
+    fireEvent.change(input, { target: { value: 'EUR' } });
+    await screen.findByRole('option', { name: /EUR\/USD/i });
+    // Se amplía la consulta y se elige una sugerencia antes de la respuesta nueva.
+    fireEvent.change(input, { target: { value: 'EURO' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('EURUSD'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await act(async () => finishSearch(result));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /EUR\/USD/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('IDV-E2E-1: tras un envío rechazado el desplegable no se reabre sobre el aviso', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn().mockResolvedValue(false);
+    const { rerender } = render(<AssetSearch items={[]} onAdd={onAdd} />);
+    const input = screen.getByLabelText('Buscar activo o divisa');
+    await user.type(input, 'EUR');
+    await screen.findByRole('listbox');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('EUR'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // El foco vuelve al campo (como hace la lista) y los resultados no lo reabren.
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // La lista pide reponer «EUR» tras el rechazo: los resultados llegan con el desplegable cerrado.
+    rerender(<AssetSearch items={[]} onAdd={onAdd} queryRequest={{ value: 'EUR', nonce: 1 }} />);
+    await waitFor(() => expect(input).toHaveValue('EUR'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // Escribir de nuevo o ArrowDown lo vuelven a abrir.
+    await user.type(input, '/');
+    expect(await screen.findByRole('listbox')).toBeDefined();
+  });
+
   it('tiene la estructura y roles ARIA de combobox accesibles', () => {
     render(<AssetSearch items={[]} onAdd={vi.fn()} />);
 

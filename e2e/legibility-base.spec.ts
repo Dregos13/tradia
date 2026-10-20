@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
+import base from '../src/renderer/src/design/base.tokens.json';
 import { closePhaseApp, launchPhaseApp } from './phase-6-7.helpers';
+
+const rgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).join(', ')})`;
 
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`la navegación conserva foco visible con Tab en tema ${colorScheme}`, async () => {
@@ -7,6 +11,44 @@ for (const colorScheme of ['light', 'dark'] as const) {
     try {
       const { page } = context;
       await page.emulateMedia({ colorScheme });
+      const fonts = await page.evaluate(async () => {
+        for (const descriptor of [
+          '400 14px Sora',
+          '600 14px Sora',
+          '400 14px "IBM Plex Mono"',
+          '500 14px "IBM Plex Mono"',
+          '600 14px "IBM Plex Mono"',
+        ]) {
+          await document.fonts.load(descriptor);
+        }
+        await document.fonts.ready;
+        return {
+          loaded: [...document.fonts]
+            .filter((face) => face.status === 'loaded')
+            .map((face) => face.family),
+          // Electron no publica Resource Timing para file://. Las reglas CSS
+          // conservan el origen real; document.fonts confirma la carga arriba.
+          urls: [...document.styleSheets].flatMap((sheet) =>
+            [...sheet.cssRules]
+              .filter((rule): rule is CSSFontFaceRule => rule instanceof CSSFontFaceRule)
+              .map((rule) => {
+                const source = rule.style
+                  .getPropertyValue('src')
+                  .match(/url\(["']?([^"')]+)["']?\)/)?.[1];
+                return new URL(source!, sheet.href ?? document.baseURI).href;
+              }),
+          ),
+          interface: getComputedStyle(document.body).fontFamily,
+        };
+      });
+      expect(fonts.loaded).toContain('Sora');
+      expect(fonts.loaded).toContain('IBM Plex Mono');
+      expect(fonts.interface).toMatch(/^Sora,/);
+      expect(fonts.urls).toHaveLength(4);
+      for (const url of fonts.urls) {
+        expect(new URL(url).protocol).toBe(new URL(page.url()).protocol);
+        expect(new URL(url).origin).toBe(new URL(page.url()).origin);
+      }
       for (const width of [1280, 760, 640]) {
         await page.setViewportSize({ width, height: 800 });
         expect(await page.locator('html').evaluate((node) => getComputedStyle(node).fontSize)).toBe(
@@ -48,11 +90,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
             }),
           ).toMatchObject({
             visible: true,
-            width: '3px',
-            offset: '2px',
-            style: 'solid',
-            color: colorScheme === 'light' ? 'rgb(245, 243, 237)' : 'rgb(244, 245, 247)',
-            expectedColor: colorScheme === 'light' ? 'rgb(245, 243, 237)' : 'rgb(244, 245, 247)',
+            width: base.focus.width,
+            offset: base.focus.offset,
+            style: base.focus.style,
+            color: rgb(base.color[colorScheme].focus.value),
+            expectedColor: rgb(base.color[colorScheme].sidebarText.value),
             controlHeight: true,
             controlWidth: true,
             insideWindow: true,

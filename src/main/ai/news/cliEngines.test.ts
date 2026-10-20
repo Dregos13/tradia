@@ -152,7 +152,9 @@ function makeAnalyzer(
   } = {},
 ): CliEngineAnalyzer {
   const cliPath =
-    options.cliPath === undefined ? join(binDir, ENGINE_NAMES[engine]) : options.cliPath;
+    options.cliPath === undefined
+      ? join(binDir, `${ENGINE_NAMES[engine]}${process.platform === 'win32' ? '.cmd' : ''}`)
+      : options.cliPath;
   return createCliEngineAnalyzer(CLI_ENGINE_SPECS[engine], {
     cliPath: () => cliPath,
     // Entorno controlado: el PATH solo contiene el directorio de la CLI

@@ -1,141 +1,315 @@
 {
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
-    "name": "Tradia — Cuaderno cuantitativo · Mercado",
-    "version": "1.2.0",
+    "name": "Tradia — Telemetría de box · Mercado",
+    "version": "7.0.0",
     "extends": "../fase-0-1/tokens.json",
     "contrastStandard": "WCAG 2.2 AA",
     "baseUnit": "4px"
   },
   "color": {
     "light": {
-      "canvas": { "value": "#F5F3ED", "name": "Lienzo" },
-      "surface": { "value": "#FFFEFA", "name": "Superficie" },
-      "surfaceSubtle": { "value": "#ECE9E1", "name": "Superficie tenue" },
-      "surfaceStrong": { "value": "#DCD8CE", "name": "Superficie marcada" },
-      "text": { "value": "#17233A", "name": "Tinta" },
-      "textMuted": { "value": "#566174", "name": "Tinta secundaria" },
-      "textFaint": { "value": "#6A7280", "name": "Tinta terciaria" },
-      "border": { "value": "#CBC7BD", "name": "Línea" },
-      "borderStrong": { "value": "#8D94A0", "name": "Línea marcada" },
-      "accent": { "value": "#1746C6", "name": "Cobalto" },
-      "accentHover": { "value": "#10369E", "name": "Cobalto activo" },
-      "accentSoft": { "value": "#E5EBFF", "name": "Cobalto tenue" },
-      "focus": { "value": "#0C60E8", "name": "Foco" },
-      "inverse": { "value": "#FFFFFF", "name": "Texto inverso" }
+      "canvas": {
+        "value": "#EEF2F5",
+        "name": "Lienzo · aluminio frío"
+      },
+      "surface": {
+        "value": "#FFFFFF",
+        "name": "Superficie"
+      },
+      "surfaceSubtle": {
+        "value": "#E7ECF0",
+        "name": "Superficie tenue · carril"
+      },
+      "surfaceStrong": {
+        "value": "#DDE3E9",
+        "name": "Superficie marcada"
+      },
+      "text": {
+        "value": "#0C1218",
+        "name": "Tinta"
+      },
+      "textMuted": {
+        "value": "#475563",
+        "name": "Tinta secundaria"
+      },
+      "textFaint": {
+        "value": "#525F6C",
+        "name": "Tinta terciaria"
+      },
+      "border": {
+        "value": "#CBD3DA",
+        "name": "Línea de reparto"
+      },
+      "borderStrong": {
+        "value": "#738392",
+        "name": "Línea de control"
+      },
+      "accent": {
+        "value": "#4A6500",
+        "name": "Tinta lima"
+      },
+      "accentHover": {
+        "value": "#3A5000",
+        "name": "Tinta lima activa"
+      },
+      "accentSoft": {
+        "value": "#EDF7CF",
+        "name": "Lima tenue"
+      },
+      "focus": {
+        "value": "#4A6500",
+        "name": "Foco"
+      },
+      "inverse": {
+        "value": "#FFFFFF",
+        "name": "Texto sobre lima"
+      }
     },
     "dark": {
-      "canvas": { "value": "#0E1522", "name": "Lienzo" },
-      "surface": { "value": "#151F30", "name": "Superficie" },
-      "surfaceSubtle": { "value": "#1D293B", "name": "Superficie tenue" },
-      "surfaceStrong": { "value": "#2B384C", "name": "Superficie marcada" },
-      "text": { "value": "#F4F5F7", "name": "Tinta" },
-      "textMuted": { "value": "#B8C1CE", "name": "Tinta secundaria" },
-      "textFaint": { "value": "#98A5B7", "name": "Tinta terciaria" },
-      "border": { "value": "#3B485C", "name": "Línea" },
-      "borderStrong": { "value": "#718096", "name": "Línea marcada" },
-      "accent": { "value": "#7EA2FF", "name": "Cobalto" },
-      "accentHover": { "value": "#A9C0FF", "name": "Cobalto activo" },
-      "accentSoft": { "value": "#1B3265", "name": "Cobalto tenue" },
-      "focus": { "value": "#9DB8FF", "name": "Foco" },
-      "inverse": { "value": "#0E1522", "name": "Texto inverso" }
+      "canvas": {
+        "value": "#0A0E12",
+        "name": "Lienzo · acero pavonado"
+      },
+      "surface": {
+        "value": "#10161C",
+        "name": "Superficie"
+      },
+      "surfaceSubtle": {
+        "value": "#151C23",
+        "name": "Superficie tenue · carril"
+      },
+      "surfaceStrong": {
+        "value": "#1C252E",
+        "name": "Superficie marcada"
+      },
+      "text": {
+        "value": "#E4EAF0",
+        "name": "Tinta"
+      },
+      "textMuted": {
+        "value": "#9AA8B6",
+        "name": "Tinta secundaria"
+      },
+      "textFaint": {
+        "value": "#8796A5",
+        "name": "Tinta terciaria"
+      },
+      "border": {
+        "value": "#252F39",
+        "name": "Línea de reparto"
+      },
+      "borderStrong": {
+        "value": "#66747F",
+        "name": "Línea de control"
+      },
+      "accent": {
+        "value": "#C6F432",
+        "name": "Lima"
+      },
+      "accentHover": {
+        "value": "#D7FB66",
+        "name": "Lima activa"
+      },
+      "accentSoft": {
+        "value": "#1D2610",
+        "name": "Lima tenue"
+      },
+      "focus": {
+        "value": "#C6F432",
+        "name": "Foco"
+      },
+      "inverse": {
+        "value": "#0A0E12",
+        "name": "Texto sobre lima"
+      }
     },
     "candle": {
       "up": {
-        "light": "#087A55",
-        "dark": "#55D6A0",
+        "light": "#0B7548",
+        "dark": "#3CCB8A",
         "name": "Vela alcista",
         "secondaryCue": "cuerpo vacío y cierre arriba"
       },
       "down": {
-        "light": "#B53A36",
-        "dark": "#FF8E88",
+        "light": "#C0282B",
+        "dark": "#FF6B6B",
         "name": "Vela bajista",
         "secondaryCue": "cuerpo sólido y cierre abajo"
       },
-      "wick": { "light": "#45536A", "dark": "#AEB9C9", "name": "Mecha" },
-      "grid": { "light": "#DDD9D0", "dark": "#2E3B50", "name": "Rejilla de gráfico" },
-      "crosshair": { "light": "#566174", "dark": "#B8C1CE", "name": "Cursor de gráfico" }
+      "wick": {
+        "light": "#5B6B7A",
+        "dark": "#93A1AF",
+        "name": "Mecha"
+      },
+      "grid": {
+        "light": "#D3DAE0",
+        "dark": "#1B232C",
+        "name": "Rejilla de gráfico"
+      },
+      "crosshair": {
+        "light": "#475563",
+        "dark": "#9AA8B6",
+        "name": "Cursor de gráfico"
+      }
     },
     "dataStatus": {
       "reliable": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Fiable",
         "icon": "check-circle"
       },
       "updating": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "Actualizando",
         "icon": "progress-ring"
       },
       "stale": {
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "label": "Desactualizado",
         "icon": "clock"
       },
       "unreliable": {
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "label": "No fiable",
         "icon": "diamond-alert"
       },
       "simulated": {
-        "light": "#5B3B91",
-        "lightSurface": "#EEE6FA",
-        "dark": "#D0B4FF",
-        "darkSurface": "#35244F",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "Datos simulados",
         "icon": "flask"
       }
     },
     "series": {
-      "price": { "light": "#17233A", "dark": "#F4F5F7", "name": "Precio" },
-      "sma20": { "light": "#1746C6", "dark": "#8EACFF", "name": "Media 20" },
-      "sma50": { "light": "#8A4B08", "dark": "#F2B866", "name": "Media 50" },
-      "sma200": { "light": "#6A3F8C", "dark": "#C6A0E8", "name": "Media 200" },
-      "dff": { "light": "#1746C6", "dark": "#8EACFF", "name": "DFF" },
-      "cpi": { "light": "#9B4A16", "dark": "#FFB07A", "name": "IPC" },
-      "yield2y": { "light": "#087A55", "dark": "#65D6A4", "name": "Treasury 2 años" },
-      "yield10y": { "light": "#5B3B91", "dark": "#D0B4FF", "name": "Treasury 10 años" },
-      "spread": { "light": "#566174", "dark": "#B8C1CE", "name": "Diferencial 10–2" },
-      "vix": { "light": "#A12232", "dark": "#FF8D9B", "name": "VIX" },
-      "rsi": { "light": "#1746C6", "dark": "#8EACFF", "name": "RSI 14" },
-      "atr": { "light": "#6A3F8C", "dark": "#C6A0E8", "name": "ATR 14" }
+      "price": {
+        "light": "#0C1218",
+        "dark": "#E4EAF0",
+        "name": "Precio"
+      },
+      "sma20": {
+        "light": "#0A6390",
+        "dark": "#6CC6F2",
+        "name": "Media 20"
+      },
+      "sma50": {
+        "light": "#7F5E00",
+        "dark": "#FFD23F",
+        "name": "Media 50"
+      },
+      "sma200": {
+        "light": "#475563",
+        "dark": "#9AA8B6",
+        "name": "Media 200"
+      },
+      "dff": {
+        "light": "#0A6390",
+        "dark": "#6CC6F2",
+        "name": "DFF"
+      },
+      "cpi": {
+        "light": "#A3460E",
+        "dark": "#FF9A5C",
+        "name": "IPC"
+      },
+      "yield2y": {
+        "light": "#0B7548",
+        "dark": "#3CCB8A",
+        "name": "Treasury 2 años"
+      },
+      "yield10y": {
+        "light": "#475563",
+        "dark": "#9AA8B6",
+        "name": "Treasury 10 años"
+      },
+      "spread": {
+        "light": "#475563",
+        "dark": "#9AA8B6",
+        "name": "Diferencial 10–2"
+      },
+      "vix": {
+        "light": "#B0202E",
+        "dark": "#FF7D87",
+        "name": "VIX"
+      },
+      "rsi": {
+        "light": "#0A6390",
+        "dark": "#6CC6F2",
+        "name": "RSI 14"
+      },
+      "atr": {
+        "light": "#7F5E00",
+        "dark": "#FFD23F",
+        "name": "ATR 14"
+      }
     }
   },
   "typography": {
     "family": {
       "interface": {
-        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "name": "Interfaz"
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz · Sora"
       },
-      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "editorial": {
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Titulares · Sora"
+      },
       "numeric": {
-        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
-        "name": "Datos"
+        "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos · IBM Plex Mono"
       }
     },
     "size": {
-      "xs": { "value": "12px", "lineHeight": "16px" },
-      "sm": { "value": "14px", "lineHeight": "20px" },
-      "md": { "value": "16px", "lineHeight": "24px" },
-      "lg": { "value": "18px", "lineHeight": "26px" },
-      "xl": { "value": "24px", "lineHeight": "32px" },
-      "2xl": { "value": "34px", "lineHeight": "40px" }
+      "xs": {
+        "value": "13px",
+        "lineHeight": "18px"
+      },
+      "sm": {
+        "value": "14px",
+        "lineHeight": "21px"
+      },
+      "md": {
+        "value": "16px",
+        "lineHeight": "24px"
+      },
+      "lg": {
+        "value": "18px",
+        "lineHeight": "26px"
+      },
+      "xl": {
+        "value": "24px",
+        "lineHeight": "30px"
+      },
+      "2xl": {
+        "value": "36px",
+        "lineHeight": "40px"
+      }
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
-    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "tracking": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.08em"
+    }
   },
   "spacing": {
     "0": "0",
@@ -164,25 +338,37 @@
     "label-control-gap": "8px",
     "table-row-block": "12px"
   },
-  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "radius": {
+    "xs": "2px",
+    "sm": "4px",
+    "md": "6px",
+    "lg": "8px",
+    "pill": "999px"
+  },
   "shadow": {
-    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
-    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" }
+    "raised": {
+      "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+      "name": "Elevado (solo menús y popovers)"
+    },
+    "floating": {
+      "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+      "name": "Flotante (diálogos)"
+    }
   },
   "size": {
     "controlMin": "44px",
     "sidebar": "228px",
     "watchlist": "252px",
-    "contentMax": "1440px",
+    "contentMax": "1120px",
     "statusBar": "48px",
     "chartMinHeight": "360px",
     "readingMax": "72ch"
   },
   "motion": {
-    "fast": "120ms",
-    "normal": "200ms",
-    "slow": "320ms",
-    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "fast": "100ms",
+    "normal": "160ms",
+    "slow": "240ms",
+    "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
     "reduced": "0ms"
   }
 }

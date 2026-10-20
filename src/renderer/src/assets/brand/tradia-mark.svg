@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
-  <title>Tradia</title>
-  <g stroke="#557BE8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 12C9 12 11 9 16 9S23 7.5 28 4" />
-    <path d="M16 9V28" />
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><title>Tradia</title><path fill="currentColor" d="M4 14.8Q19 6.2 44 4.2Q35 8.6 26.6 11.6L24 43L21.4 12.4Q12 14 4 16.4Z"/></svg>

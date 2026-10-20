@@ -1,6 +1,7 @@
 .market-data-page {
   display: grid;
-  gap: var(--page-section-gap);
+  /* 24 px es el mínimo entre bloques; en Mercado deja el gráfico en el primer pliegue. */
+  gap: var(--space-6);
   min-width: 0;
 }
 .market-data-page > * {
@@ -9,9 +10,10 @@
 }
 .market-workspace {
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
-  column-gap: var(--space-4);
-  row-gap: var(--space-section-gap);
+  /* La lista crece lo justo para que ticker e insignias quepan en una línea por activo. */
+  grid-template-columns: clamp(var(--size-watchlist), 24vw, 300px) minmax(0, 1fr);
+  column-gap: var(--space-6);
+  row-gap: var(--space-6);
   align-items: start;
 }
 .market-toolbar {
@@ -21,52 +23,67 @@
   gap: var(--space-4);
   align-items: end;
 }
-/* Badges por clase de activo */
-:root {
-  --badge-stock-text: #1e40af;
-  --badge-stock-bg: #dbeafe;
-  --badge-etf-text: #6b21a8;
-  --badge-etf-bg: #f3e8ff;
-  --badge-forex-text: #065f46;
-  --badge-forex-bg: #d1fae5;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --badge-stock-text: #93c5fd;
-    --badge-stock-bg: #1e293b;
-    --badge-etf-text: #d8b4fe;
-    --badge-etf-bg: #2e1065;
-    --badge-forex-text: #6ee7b7;
-    --badge-forex-bg: #064e3b;
+/* Con espacio: el campo con su ayuda debajo, y «Añadir universo inicial» y el aviso
+   en la misma línea que el campo, no en filas propias. */
+@media (min-width: 1201px) {
+  .market-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 580px) auto minmax(0, 1fr);
+    column-gap: var(--space-4);
+    row-gap: 0;
+    align-items: end;
+  }
+  .market-toolbar > .market-add {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+  }
+  .market-toolbar > .market-ticker-help {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .market-toolbar > .button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .market-toolbar > .market-announcement {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: end;
+    margin: 0;
+    padding-bottom: var(--space-3);
+  }
+  .market-toolbar > .market-add-feedback {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: var(--space-4);
   }
 }
-
 .asset-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: var(--type-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.4;
 }
 
 .asset-badge.stock {
-  background: var(--badge-stock-bg);
-  color: var(--badge-stock-text);
+  background: var(--dataStatus-updating-surface);
+  color: var(--dataStatus-updating);
 }
 
 .asset-badge.etf {
-  background: var(--badge-etf-bg);
-  color: var(--badge-etf-text);
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
 }
 
 .asset-badge.forex {
-  background: var(--badge-forex-bg);
-  color: var(--badge-forex-text);
+  background: var(--dataStatus-simulated-surface);
+  color: var(--dataStatus-simulated);
 }
 
 .market-asset-badge {
@@ -74,7 +91,8 @@
 }
 
 .market-add {
-  flex: 1;
+  flex: 1 1 580px;
+  min-width: 0;
   max-width: 580px;
 }
 .market-search-container {
@@ -95,6 +113,7 @@
 }
 .market-search-input-inner {
   position: relative;
+  min-width: 0;
   flex: 1;
   display: flex;
   align-items: center;
@@ -119,7 +138,7 @@
 .market-search-input:focus-visible,
 .market-add input:focus-visible,
 .market-legend input:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .market-search-input[aria-invalid='true'],
@@ -161,9 +180,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.3),
-    0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-floating);
   max-height: 380px;
   overflow-y: auto;
   list-style: none;
@@ -218,8 +235,8 @@
   white-space: nowrap;
 }
 .market-search-extra {
-  font-size: 11px;
-  color: var(--badge-forex-text);
+  font-size: var(--type-xs);
+  color: var(--dataStatus-simulated);
 }
 .market-search-empty {
   padding: var(--space-5);
@@ -230,7 +247,7 @@
 .market-search-item-btn {
   white-space: nowrap;
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: var(--size-controlMin);
   padding: var(--space-1) var(--space-3);
 }
 .market-error {
@@ -284,7 +301,7 @@
 .market-asset {
   width: 100%;
   min-height: var(--size-controlMin);
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-4);
   text-align: left;
   border: 0;
   border-bottom: 1px solid var(--color-border);
@@ -296,15 +313,34 @@
   align-items: center;
   justify-content: space-between;
 }
-/* Cada fila agrupa el activo y sus insignias; el divisor separa filas, no el botón del estado. */
+/* Cada fila es un carril compacto: el activo a la izquierda y sus insignias a la derecha,
+   en la misma línea siempre que quepan. El divisor separa filas, no el botón del estado. */
 .market-watch li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   border-bottom: 1px solid var(--color-border);
 }
+.market-watch li:hover {
+  background: var(--color-surfaceSubtle);
+}
+.market-watch li:has(> .market-asset[aria-pressed='true']) {
+  background: var(--color-accentSoft);
+  box-shadow: inset 4px 0 var(--color-accent);
+}
 .market-watch li .market-asset {
+  width: auto;
+  padding-right: var(--space-1);
   border-bottom: 0;
+  background: transparent;
 }
 .market-watch li .market-status {
-  padding: 0 var(--space-4) var(--space-3);
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+.market-watch li .market-badge {
+  padding: 2px var(--space-2);
+  white-space: nowrap;
 }
 .market-asset:hover {
   background: var(--color-surfaceSubtle);
@@ -312,6 +348,10 @@
 .market-asset[aria-pressed='true'] {
   background: var(--color-accentSoft);
   box-shadow: inset 4px 0 var(--color-accent);
+}
+.market-watch li .market-asset[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
 }
 .market-remove {
   margin: var(--space-4);
@@ -339,13 +379,24 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: var(--space-4);
-  padding: var(--space-card-padding);
+  padding: var(--space-4) var(--space-card-padding);
   border-bottom: 1px solid var(--color-border);
 }
+/* Activo, fuente y precio en menos líneas: la fuente comparte línea con la descripción
+   y el lienzo del gráfico queda más arriba. */
 .ticker-main-group {
+  flex: 1 1 320px;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-4);
+  row-gap: 0;
+}
+.ticker-main-group > .market-chart-title-row,
+.ticker-main-group > .market-fx-calendar,
+.ticker-main-group > .quote-display {
+  flex-basis: 100%;
 }
 .market-chart-title-row {
   display: flex;
@@ -358,17 +409,17 @@
   font-family: var(--font-numeric);
 }
 .asset-class-pill {
-  font-size: 11px;
+  font-size: var(--type-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.4;
 }
 .asset-class-pill.forex {
-  background: var(--candle-up-surface, rgba(16, 185, 129, 0.15));
-  color: var(--candle-up, #087a55);
+  background: var(--dataStatus-reliable-surface);
+  color: var(--candle-up);
   border: 1px solid currentColor;
 }
 .asset-class-pill.stock {
@@ -402,11 +453,11 @@
 }
 .quote-change.bull,
 .cell-bull {
-  color: var(--candle-up, #087a55);
+  color: var(--candle-up);
 }
 .quote-change.bear,
 .cell-bear {
-  color: var(--candle-down, #b53a36);
+  color: var(--candle-down);
 }
 .market-chart-controls {
   display: flex;
@@ -459,22 +510,22 @@
   border-color: var(--color-accent);
 }
 .range-btn {
-  min-height: 36px;
+  min-height: var(--size-controlMin);
   cursor: pointer;
 }
 .range-btn:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .chart-toolbar {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   background: var(--color-surfaceSubtle);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: 0 var(--space-3);
   font-size: var(--type-xs);
 }
 .toolbar-group {
@@ -521,13 +572,16 @@
   font-weight: var(--weight-bold);
   cursor: pointer;
   user-select: none;
-  transition: all 0.15s ease;
+  transition:
+    background var(--motion-fast) var(--motion-easeOut),
+    border-color var(--motion-fast) var(--motion-easeOut),
+    color var(--motion-fast) var(--motion-easeOut);
 }
 .toggle-chip:hover {
   border-color: var(--color-accent);
 }
 .toggle-chip:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .toggle-chip.active {
@@ -538,11 +592,17 @@
 .candle-legend {
   color: var(--color-textMuted);
   font-size: var(--type-xs);
+  margin-left: auto;
 }
 .market-chart {
   height: 600px;
   width: 100%;
   min-height: 480px;
+}
+/* El aviso y el estado ya explican la falta de fiabilidad. Atenuar todo el
+   lienzo también atenúa ejes, velas y curvas y destruye su contraste. */
+.market-chart-card.data-unreliable .market-chart {
+  opacity: 1;
 }
 @media (max-width: 1100px) {
   .market-chart {
@@ -552,7 +612,7 @@
 .market-chart-note,
 .market-attribution {
   padding: 0 var(--space-card-padding);
-  margin: var(--space-title-content-gap) 0;
+  margin: var(--space-2) 0;
   overflow-wrap: anywhere;
   color: var(--color-textMuted);
   font-size: var(--type-xs);
@@ -578,15 +638,15 @@
   font-weight: var(--weight-bold);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--type-xs);
 }
 .ohlcv-pill.bull {
-  background: var(--candle-up-surface, rgba(16, 185, 129, 0.15));
-  color: var(--candle-up, #087a55);
+  background: var(--dataStatus-reliable-surface);
+  color: var(--candle-up);
 }
 .ohlcv-pill.bear {
-  background: var(--candle-down-surface, rgba(220, 38, 38, 0.15));
-  color: var(--candle-down, #b53a36);
+  background: var(--dataStatus-unreliable-surface);
+  color: var(--candle-down);
 }
 .ohlcv-val {
   color: var(--color-text);
@@ -620,7 +680,7 @@
   cursor: pointer;
 }
 .market-table summary:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .market-table div {
@@ -643,9 +703,9 @@
 .market-table th:first-child {
   text-align: left;
 }
-@media (min-width: 721px) and (max-width: 979px) {
+@media (max-width: 1050px) {
   .market-workspace {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .market-chart-heading {
     flex-direction: column;
@@ -664,6 +724,8 @@
     align-items: stretch;
   }
   .market-add {
+    /* En columna la base flex mide altura, no el ancho del buscador. */
+    flex-basis: auto;
     max-width: none;
   }
   .market-chart-heading {
@@ -692,7 +754,10 @@
   line-height: var(--data-clarity-leading-caption);
 }
 .market-add-feedback {
-  margin-top: var(--space-4);
+  flex-basis: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin-top: 0;
   padding: var(--space-4);
   border-radius: var(--radius-sm);
   background: var(--data-clarity-critical-surface);
@@ -733,14 +798,19 @@
   overflow-wrap: anywhere;
 }
 .market-asset-coverage {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  min-width: 0;
 }
 .market-asset-class {
   display: block;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  text-align: right;
   color: var(--color-text);
   font-size: var(--data-clarity-type-caption);
   line-height: var(--data-clarity-leading-caption);
+}
+.market-asset-class-name {
+  font-weight: var(--weight-semibold);
 }
 .market-chart-heading .market-fx-calendar {
   max-width: 70ch;
@@ -769,4 +839,27 @@
   .market-add-alternatives .button {
     width: 100%;
   }
+}
+
+/* Las muestras de trazo coinciden con las series históricas del lienzo. */
+.sma-label::after {
+  content: '';
+  width: var(--space-6);
+  border-top: 2px solid currentColor;
+}
+.market-sma-50::after {
+  border-top-style: dashed;
+}
+.market-sma-200::after {
+  border-top-style: dotted;
+}
+.sma-label {
+  font-family: var(--font-numeric);
+}
+.asset-badge,
+.asset-class-pill,
+.market-badge,
+.ohlcv-pill {
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
 }

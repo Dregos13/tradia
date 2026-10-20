@@ -1,127 +1,127 @@
 {
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
-    "name": "Tradia — Cuaderno cuantitativo · Broker paper",
-    "version": "5.0.0",
+    "name": "Tradia — Telemetría de box · Broker paper",
+    "version": "7.0.0",
     "extends": ["./base.tokens.json", "./risk.tokens.json"],
     "contrastStandard": "WCAG 2.2 AA",
     "baseUnit": "4px"
   },
   "color": {
     "paper": {
-      "light": "#5B3B91",
-      "lightSurface": "#EEE6FA",
-      "dark": "#D0B4FF",
-      "darkSurface": "#35244F",
+      "light": "#0A6390",
+      "lightSurface": "#DDEFF8",
+      "dark": "#6CC6F2",
+      "darkSurface": "#0E2431",
       "label": "Solo paper · sin dinero real",
       "icon": "flask-conical"
     },
     "orderStatus": {
       "pending": {
-        "light": "#765500",
-        "lightSurface": "#FFF0BF",
-        "dark": "#FFD166",
-        "darkSurface": "#45320D",
+        "light": "#7A5900",
+        "lightSurface": "#FFF2BF",
+        "dark": "#FFD23F",
+        "darkSurface": "#302709",
         "label": "Pendiente",
         "icon": "clock-3"
       },
       "sent": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "Enviada",
         "icon": "send"
       },
       "partial": {
-        "light": "#765500",
-        "lightSurface": "#FFF0BF",
-        "dark": "#FFD166",
-        "darkSurface": "#45320D",
+        "light": "#7A5900",
+        "lightSurface": "#FFF2BF",
+        "dark": "#FFD23F",
+        "darkSurface": "#302709",
         "label": "Ejecución parcial",
         "icon": "circle-dashed"
       },
       "filled": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Ejecutada",
         "icon": "circle-check"
       },
       "cancelled": {
-        "light": "#566174",
-        "lightSurface": "#ECE9E1",
-        "dark": "#B8C1CE",
-        "darkSurface": "#2B384C",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "label": "Cancelada",
         "icon": "circle-slash-2"
       },
       "rejected": {
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "label": "Rechazada",
         "icon": "circle-x"
       },
       "orphaned": {
-        "light": "#A33B18",
-        "lightSurface": "#FCE7DC",
-        "dark": "#FF9B73",
-        "darkSurface": "#4A2419",
+        "light": "#A3460E",
+        "lightSurface": "#FBE6D8",
+        "dark": "#FF9A5C",
+        "darkSurface": "#33200F",
         "label": "Huérfana",
         "icon": "unlink"
       }
     },
     "reconciliation": {
       "matched": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Sin diferencias",
         "icon": "equal"
       },
       "running": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "Conciliando",
         "icon": "loader"
       },
       "mismatch": {
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "label": "Descuadre",
         "icon": "triangle-alert"
       },
       "unknown": {
-        "light": "#566174",
-        "lightSurface": "#ECE9E1",
-        "dark": "#B8C1CE",
-        "darkSurface": "#2B384C",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "label": "Sin comprobar",
         "icon": "circle-help"
       }
     },
     "deviation": {
       "within": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Dentro del margen",
         "icon": "check"
       },
       "outside": {
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "label": "Fuera de margen",
         "icon": "triangle-alert"
       }
@@ -130,26 +130,59 @@
   "typography": {
     "family": {
       "interface": {
-        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "name": "Interfaz"
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz · Sora"
       },
-      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "editorial": {
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Titulares · Sora"
+      },
       "numeric": {
-        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
-        "name": "Datos"
+        "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos · IBM Plex Mono"
       }
     },
-    "numeric": { "fontVariantNumeric": "tabular-nums", "slashedZero": true },
-    "size": {
-      "xs": { "value": "12px", "lineHeight": "16px" },
-      "sm": { "value": "14px", "lineHeight": "20px" },
-      "md": { "value": "16px", "lineHeight": "24px" },
-      "lg": { "value": "18px", "lineHeight": "26px" },
-      "xl": { "value": "24px", "lineHeight": "32px" },
-      "2xl": { "value": "34px", "lineHeight": "40px" }
+    "numeric": {
+      "fontVariantNumeric": "tabular-nums",
+      "slashedZero": true
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
-    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+    "size": {
+      "xs": {
+        "value": "13px",
+        "lineHeight": "18px"
+      },
+      "sm": {
+        "value": "14px",
+        "lineHeight": "21px"
+      },
+      "md": {
+        "value": "16px",
+        "lineHeight": "24px"
+      },
+      "lg": {
+        "value": "18px",
+        "lineHeight": "26px"
+      },
+      "xl": {
+        "value": "24px",
+        "lineHeight": "30px"
+      },
+      "2xl": {
+        "value": "36px",
+        "lineHeight": "40px"
+      }
+    },
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "tracking": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.08em"
+    }
   },
   "spacing": {
     "0": "0",
@@ -164,15 +197,27 @@
     "12": "48px",
     "16": "64px"
   },
-  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "radius": {
+    "xs": "2px",
+    "sm": "4px",
+    "md": "6px",
+    "lg": "8px",
+    "pill": "999px"
+  },
   "shadow": {
-    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
-    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" }
+    "raised": {
+      "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+      "name": "Elevado (solo menús y popovers)"
+    },
+    "floating": {
+      "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+      "name": "Flotante (diálogos)"
+    }
   },
   "size": {
     "controlMin": "44px",
     "sidebar": "228px",
-    "contentMax": "1440px",
+    "contentMax": "1120px",
     "statusBar": "48px",
     "ordersTableMin": "1180px",
     "deviationTableMin": "1040px",
@@ -180,10 +225,10 @@
     "ocoRail": "2px"
   },
   "motion": {
-    "fast": "120ms",
-    "normal": "200ms",
-    "slow": "320ms",
-    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "fast": "100ms",
+    "normal": "160ms",
+    "slow": "240ms",
+    "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
     "reduced": "0ms"
   }
 }

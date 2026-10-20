@@ -69,7 +69,7 @@ test('aviso por activo: lectura, ventanas estrechas, teclado, retirada y cambio 
     await page.emulateMedia({ colorScheme: theme });
     await expect
       .poll(() => banner.evaluate((element) => getComputedStyle(element).backgroundColor))
-      .toBe(theme === 'dark' ? 'rgb(62, 50, 20)' : 'rgb(245, 234, 194)');
+      .toBe(theme === 'dark' ? 'rgb(46, 38, 16)' : 'rgb(245, 236, 203)');
     await expect(banner.getByRole('button', { name: 'Quitar EUR de la lista' })).toBeVisible();
     const metrics = await banner.evaluate((element) => {
       const rect = element.getBoundingClientRect();

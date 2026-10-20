@@ -14,7 +14,7 @@
   background: var(--live-live-bannerHover);
 }
 .live-surface :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .live-surface ::selection {
@@ -242,4 +242,13 @@
   .live-scaling .live-result-facts {
     grid-template-columns: 1fr;
   }
+}
+
+.live-banner-limits,
+.live-smoke-step time {
+  font-family: var(--font-numeric);
+}
+.live-smoke-step {
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
 }

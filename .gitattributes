@@ -1,0 +1,2 @@
+# Los SVG maestros y los rasters derivados se comparan byte a byte: LF en todos los SO.
+*.svg text eol=lf
