@@ -77,6 +77,7 @@ export function AiSettings() {
   const [subscriptionEngine, setSubscriptionEngine] =
     useState<Exclude<NewsEngine, 'local'>>('suscripcion-claude');
   const [cliPath, setCliPath] = useState('');
+  const draftPaths = useRef<Partial<Record<NewsEngine, string>>>({});
   const testAfterSave = useRef(false);
   const enabled = engine !== 'local';
   const provider: NewsProvider = engine === 'local' ? 'local' : 'suscripcion';
@@ -118,17 +119,21 @@ export function AiSettings() {
         : ((detected as Exclude<NewsEngine, 'local'> | undefined) ?? 'suscripcion-claude'),
     );
     setCliPath(value.cliPath ?? '');
+    draftPaths.current = { [resolvedEngine]: value.cliPath ?? '' };
     setCap(String(value.dailyCap));
   }
 
   function handleEngineChange(nextEngine: NewsEngine) {
+    draftPaths.current[engine] = cliPath;
     setEngine(nextEngine);
     if (nextEngine !== 'local') setSubscriptionEngine(nextEngine);
     setError('');
     setMessage('');
     setNoticeRetryActive(false);
     const engineEntry = settings?.engines?.find((e) => e.id === nextEngine);
-    if (engineEntry?.configuredPath !== undefined && engineEntry.configuredPath !== null) {
+    if (draftPaths.current[nextEngine] !== undefined) {
+      setCliPath(draftPaths.current[nextEngine]);
+    } else if (engineEntry?.configuredPath !== undefined && engineEntry.configuredPath !== null) {
       setCliPath(engineEntry.configuredPath);
     } else if (nextEngine === settings?.engine) {
       setCliPath(settings?.cliPath ?? '');

@@ -453,3 +453,13 @@
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
+
+/* Los requisitos pendientes no deben parecer una activación disponible. */
+.live-checklist-page .live-primary:disabled,
+.live-dialog .live-primary:disabled,
+.live-surface .live-primary:disabled {
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
+  border-color: var(--color-borderStrong);
+  border-style: dashed;
+}

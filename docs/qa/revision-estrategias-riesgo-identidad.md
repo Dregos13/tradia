@@ -24,14 +24,20 @@ Los formularios mantienen validación, mensajes de error y bloqueo de acciones. 
 
 Las capturas de comprobación se generan en `test-results/identidad-*.png`; la spec global de identidad mantiene las capturas antes/después requeridas en `docs/qa/capturas/identidad/`.
 
+## Revisión adicional del estado deshabilitado
+
+La revisión actual detectó el mismo problema de especificidad en Dinero real: `.live-primary` prevalecía sobre `.button:disabled`. `live/checklist.css` aplica ahora superficie marcada, texto secundario y borde discontinuo a las acciones principales deshabilitadas de la lista, los diálogos y los ajustes. No cambia la disponibilidad de ninguna acción ni sus guardas.
+
+`e2e/identidad-dominio.spec.ts` comprueba en ambos temas el fondo y el texto contra los tokens reales, el borde discontinuo y la opacidad completa del botón de activación bloqueado, también al pasar el ratón. Se han inspeccionado capturas actuales de Órdenes y Dinero real y las capturas versionadas de Estrategias y Riesgo. Las evidencias de los recorridos de activación y prueba de humo se han actualizado con la ejecución dirigida.
+
 ## Verificación final
 
-- `npm install`: correcto.
-- `npm run typecheck`, `npm run lint`, `npm run format:check`: correctos tras estabilizar las ediciones concurrentes.
-- Prueba de contraste de dominio: 146/146 correctas.
-- `identidad-dominio.spec.ts`: 2/2 correctas, temas claro y oscuro.
-- `live-gate.spec.ts`: 2/2 correctas en repetición aislada, incluido activar y completar la prueba de humo.
-- `ChecklistPage.test.tsx`, `StrategyAi.test.tsx` y `JournalPage.test.tsx`: 56/56 correctas en repetición aislada; `StrategiesPage.test.tsx`: 13/13 correctas.
-- Búsqueda de geometría y colores de marca anterior en `src`, `build`, `resources` y `scripts`: sin coincidencias.
-- Primera ejecución completa de `npm test`: 3289/3290 correctas; timeout de 120 s en `src/main/backtest/service.test.ts`, siembra de backtests. La segunda, simultánea a otras suites del equipo, acumuló 46 fallos de 3898 pruebas, principalmente plazos agotados. Las repeticiones aisladas anteriores comprueban los casos de interfaz de esta tarea que fallaron bajo esa carga.
-- La pasada completa de E2E detectó un fallo en la medición de la barra de estado y uno en `live-gate`; este último pasó aislado. Se detuvieron las ejecuciones globales antiguas a petición de `audit-fix-2`, para permitir una única validación consolidada sobre el código estable, sin cambiar configuración, expectativas ni plazos. El cierre global se completará con sus resultados.
+Pasada del 20 de octubre de 2026, posterior a la entrega provisional:
+
+- Los cuatro objetos de dominio coinciden exactamente con `docs/diseno/dominio.tokens.json`.
+- Búsqueda de geometría y colores anteriores en `src`, `build`, `resources` y `scripts`: sin coincidencias.
+- `npm run typecheck`, `npm run lint`, `npm run format:check` y `npm run build`: correctos.
+- `npx playwright test e2e/identidad-dominio.spec.ts e2e/live-gate.spec.ts`: **4/4 correctas**. Comprueba ambos temas y ventanas estrechas, bloqueo de activación por interfaz e IPC, confirmación escrita, activación y prueba de humo con fixtures.
+- `npm test` completo: **3895/3898**, 215 archivos correctos y dos con fallos, en 41,52 s. Ningún fallo en Estrategias, Riesgo, Órdenes, Dinero real ni contraste de dominio. Log: `/tmp/tradia-domain-final-unit.log`.
+- Los tres fallos ajenos al alcance están en `cliEngines.test.ts:293` (Codex y Copilot: se registra una llamada en vez de dos tras el timeout) y `AiSettings.test.tsx:87` (la ruta de Codex aparece vacía). Hay cambios concurrentes del equipo en Ajustes y la configuración de Vitest, que esta revisión no modifica. No se declara el cierre global en verde ni se recortan pruebas.
+- No se reinstalaron dependencias porque no se cambiaron. No se repitió la suite E2E global: su consolidación corresponde a `audit-fix-2`, según la coordinación del inbox. Se requiere que esa tarea cierre los fallos externos y publique la validación global definitiva.

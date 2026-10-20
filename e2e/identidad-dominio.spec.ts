@@ -22,6 +22,22 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(
         page.getByRole('button', { name: 'Activar dinero real', exact: true }),
       ).toBeDisabled();
+      const activate = page.getByRole('button', { name: 'Activar dinero real', exact: true });
+      const inactive = await activate.evaluate((node) => {
+        const probe = document.createElement('span');
+        probe.style.background = 'var(--color-surfaceStrong)';
+        probe.style.color = 'var(--color-textMuted)';
+        document.body.append(probe);
+        const expected = getComputedStyle(probe);
+        const colors = { background: expected.backgroundColor, color: expected.color };
+        probe.remove();
+        return { ...colors, opacity: getComputedStyle(node).opacity };
+      });
+      await activate.hover();
+      await expect(activate).toHaveCSS('background-color', inactive.background);
+      await expect(activate).toHaveCSS('color', inactive.color);
+      await expect(activate).toHaveCSS('border-top-style', 'dashed');
+      expect(inactive.opacity).toBe('1');
       await page.evaluate(() =>
         window.tradia.risk.submitSignal({
           ticker: 'AAPL',
