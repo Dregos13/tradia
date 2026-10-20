@@ -58,9 +58,29 @@ it('muestra el selector desplegable con los 5 motores, uso diario y sin API de p
     screen.getByRole('option', { name: /Analizador local \(Sin suscripción/ }),
   ).toBeInTheDocument();
 
-  expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  // Solo los dos orígenes sin API de pago: la suscripción de la CLI y el analizador local.
+  expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('name'))).toEqual([
+    'news-origin',
+    'news-origin',
+  ]);
+  expect(screen.getByRole('radio', { name: 'Suscripción (Claude Code)' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Analizador local' })).not.toBeChecked();
   expect(screen.queryByLabelText(/Clave de API/)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Tope mensual/)).not.toBeInTheDocument();
+});
+
+it('IDV-E2E-5: los dos radios cambian el origen y recuerdan la CLI elegida', async () => {
+  await mount();
+  const select = screen.getByRole('combobox', { name: 'Motor de análisis de noticias' });
+  fireEvent.change(select, { target: { value: 'suscripcion-codex' } });
+  expect(screen.getByRole('radio', { name: 'Suscripción (OpenAI Codex)' })).toBeChecked();
+  await userEvent.click(screen.getByRole('radio', { name: 'Analizador local' }));
+  expect(select).toHaveValue('local');
+  expect(screen.getByRole('radio', { name: 'Analizador local' })).toBeChecked();
+  expect(screen.queryByLabelText(/Ruta de/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('radio', { name: 'Suscripción (OpenAI Codex)' }));
+  expect(select).toHaveValue('suscripcion-codex');
+  expect(screen.getByLabelText('Ruta de OpenAI Codex (opcional)')).toBeInTheDocument();
 });
 
 it('permite cambiar entre cada uno de los motores del desplegable y actualiza descripciones y rutas', async () => {

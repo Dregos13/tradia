@@ -799,6 +799,9 @@
   font-size: var(--data-clarity-type-caption);
   line-height: var(--data-clarity-leading-caption);
 }
+.market-asset-class-name {
+  font-weight: var(--weight-semibold);
+}
 .market-chart-heading .market-fx-calendar {
   max-width: 70ch;
   color: var(--color-text);

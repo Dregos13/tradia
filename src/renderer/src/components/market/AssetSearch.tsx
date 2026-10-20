@@ -74,6 +74,10 @@ export function AssetSearch({
 
   const optionsMountedPosRef = useRef<{ x: number; y: number } | null>(null);
   const mouseMovedAfterMountRef = useRef(false);
+  // Texto cuyo desplegable se cerró al enviarlo: no se reabre (al volver el foco o al
+  // llegar los resultados) hasta que la persona escriba otra cosa. Así el desplegable
+  // no tapa el aviso con las alternativas («Añadir EUR/USD (divisa)»).
+  const dismissedQueryRef = useRef<string | null>(null);
 
   // Combine matches and directTicker into a single list of options
   const options: SearchOption[] = [...matches];
@@ -90,6 +94,7 @@ export function AssetSearch({
   useEffect(() => {
     if (queryRequest && queryRequest.nonce > 0) {
       setQuery(queryRequest.value);
+      dismissedQueryRef.current = queryRequest.value.trim();
       setIsOpen(false);
     }
   }, [queryRequest]);
@@ -124,7 +129,7 @@ export function AssetSearch({
           setMatches(result?.matches ?? []);
           setDirectTicker(result?.directTicker ?? null);
           setLoading(false);
-          setIsOpen(true);
+          setIsOpen(dismissedQueryRef.current !== trimmed);
         })
         .catch(() => {
           if (!active) return;
@@ -164,6 +169,9 @@ export function AssetSearch({
   }, [focusedIndex, options]);
 
   const handleAdd = async (rawTicker: string) => {
+    dismissedQueryRef.current = rawTicker.trim();
+    setIsOpen(false);
+    setFocusedIndex(-1);
     const result = await onAdd(rawTicker);
     // If onAdd returns false, it indicates validation/mutation failed -> keep query so user can fix
     if (result !== false) {
@@ -186,6 +194,7 @@ export function AssetSearch({
       e.preventDefault();
       mouseMovedAfterMountRef.current = false;
       if (!isOpen && query.trim()) {
+        dismissedQueryRef.current = null;
         setIsOpen(true);
         setFocusedIndex(0);
         return;
@@ -196,6 +205,7 @@ export function AssetSearch({
       e.preventDefault();
       mouseMovedAfterMountRef.current = false;
       if (!isOpen && query.trim()) {
+        dismissedQueryRef.current = null;
         setIsOpen(true);
         setFocusedIndex(options.length - 1);
         return;
@@ -284,13 +294,18 @@ export function AssetSearch({
               className="market-search-input"
               value={query}
               onChange={(e) => {
+                dismissedQueryRef.current = null;
                 setQuery(e.target.value);
                 setFocusedIndex(-1);
                 onClearError?.();
               }}
               onKeyDown={handleKeyDown}
               onFocus={() => {
-                if (query.trim() && options.length > 0) {
+                if (
+                  query.trim() &&
+                  options.length > 0 &&
+                  dismissedQueryRef.current !== query.trim()
+                ) {
                   setIsOpen(true);
                 }
               }}

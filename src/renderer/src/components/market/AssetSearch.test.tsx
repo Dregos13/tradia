@@ -19,6 +19,29 @@ afterEach(() => {
 });
 
 describe('AssetSearch', () => {
+  it('IDV-E2E-1: tras un envío rechazado el desplegable no se reabre sobre el aviso', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn().mockResolvedValue(false);
+    const { rerender } = render(<AssetSearch items={[]} onAdd={onAdd} />);
+    const input = screen.getByLabelText('Buscar activo o divisa');
+    await user.type(input, 'EUR');
+    await screen.findByRole('listbox');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('EUR'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // El foco vuelve al campo (como hace la lista) y los resultados no lo reabren.
+    input.blur();
+    input.focus();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // La lista pide reponer «EUR» tras el rechazo: los resultados llegan con el desplegable cerrado.
+    rerender(<AssetSearch items={[]} onAdd={onAdd} queryRequest={{ value: 'EUR', nonce: 1 }} />);
+    await waitFor(() => expect(input).toHaveValue('EUR'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    // Escribir de nuevo o ArrowDown lo vuelven a abrir.
+    await user.type(input, '/');
+    expect(await screen.findByRole('listbox')).toBeDefined();
+  });
+
   it('tiene la estructura y roles ARIA de combobox accesibles', () => {
     render(<AssetSearch items={[]} onAdd={vi.fn()} />);
 

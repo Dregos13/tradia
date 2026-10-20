@@ -45,12 +45,11 @@ export function AiPage({ onOpenStrategy, onOpenMarketSources }: AiPageProps = {}
           </button>
         </div>
       </header>
-      <div data-layout-block="frescura">
-        <DataFreshness
-          offline={state.offline}
-          snapshotSessionDate={state.overview?.market?.sessionDate}
-        />
-      </div>
+      <DataFreshness
+        layoutBlock="frescura"
+        offline={state.offline}
+        snapshotSessionDate={state.overview?.market?.sessionDate}
+      />
       <p className="ai-notice" data-layout-block="aviso">
         Son estimaciones, no certezas. Los modelos no crean señales por sí solos y nunca evitan el
         motor de riesgo.

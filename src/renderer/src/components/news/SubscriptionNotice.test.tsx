@@ -92,6 +92,20 @@ it('el evento push prevalece sobre una lectura inicial atrasada', async () => {
   expect(screen.getByRole('status')).toHaveTextContent('No hay una sesión iniciada');
 });
 
+it('IDV-E2E-4: el título de «sin sesión» es el texto contractual y el detalle va aparte', async () => {
+  const simulation = createSimulatedAdapter();
+  window.tradia = simulation.api;
+  render(<NewsSubscriptionNotice />);
+  act(() => simulation.forceNewsStatus('sin-sesion'));
+  const notice = await screen.findByRole('status', { name: 'Estado de la suscripción' });
+  expect(notice.querySelector('strong')).toHaveTextContent(
+    /^Suscripción no disponible · sesión no iniciada$/,
+  );
+  expect(notice.querySelector('p')).toHaveTextContent(
+    'No hay una sesión iniciada en Claude Code. Abre un terminal, ejecuta claude y después /login. Vuelve aquí y prueba de nuevo.',
+  );
+});
+
 it('permite reintentar si falla la lectura del estado', async () => {
   const simulation = createSimulatedAdapter();
   window.tradia = simulation.api;

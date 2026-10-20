@@ -73,6 +73,9 @@ export const ENGINE_SPECS: Record<NewsEngine, EngineSpec> = {
 export function AiSettings() {
   const [settings, setSettings] = useState<NewsLlmSettings | null>(null);
   const [engine, setEngine] = useState<NewsEngine>('local');
+  // CLI que activa el radio «Suscripción» cuando el motor actual es el analizador local.
+  const [subscriptionEngine, setSubscriptionEngine] =
+    useState<Exclude<NewsEngine, 'local'>>('suscripcion-claude');
   const [cliPath, setCliPath] = useState('');
   const testAfterSave = useRef(false);
   const enabled = engine !== 'local';
@@ -108,12 +111,19 @@ export function AiSettings() {
           ? value.engine
           : 'suscripcion-claude';
     setEngine(resolvedEngine);
+    const detected = value.engines?.find((entry) => entry.id !== 'local' && entry.available)?.id;
+    setSubscriptionEngine(
+      resolvedEngine !== 'local'
+        ? resolvedEngine
+        : ((detected as Exclude<NewsEngine, 'local'> | undefined) ?? 'suscripcion-claude'),
+    );
     setCliPath(value.cliPath ?? '');
     setCap(String(value.dailyCap));
   }
 
   function handleEngineChange(nextEngine: NewsEngine) {
     setEngine(nextEngine);
+    if (nextEngine !== 'local') setSubscriptionEngine(nextEngine);
     setError('');
     setMessage('');
     setNoticeRetryActive(false);
@@ -250,6 +260,36 @@ export function AiSettings() {
               }}
             >
               <fieldset className="channel-fields">
+                <fieldset
+                  className="channel-events news-origin"
+                  aria-describedby="news-origin-help"
+                >
+                  <legend>Origen del análisis</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="news-origin"
+                      disabled={busy}
+                      checked={engine !== 'local'}
+                      onChange={() => handleEngineChange(subscriptionEngine)}
+                    />
+                    {`Suscripción (${ENGINE_SPECS[subscriptionEngine].name})`}
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="news-origin"
+                      disabled={busy}
+                      checked={engine === 'local'}
+                      onChange={() => handleEngineChange('local')}
+                    />
+                    Analizador local
+                  </label>
+                  <p id="news-origin-help" className="help-text news-origin-help">
+                    La suscripción usa la sesión de tu CLI, sin API de pago; el analizador local
+                    queda siempre como respaldo.
+                  </p>
+                </fieldset>
                 <div className="channel-field">
                   <label htmlFor="news-provider-select">Motor de análisis de noticias</label>
                   <select
