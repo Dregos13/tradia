@@ -1,6 +1,6 @@
 # Incidencia funcional separada: registro IPC del buscador de Mercado
 
-**Estado: abierta. No está resuelta por la misión de identidad visual.**
+**Estado: resuelta.** `registerMarketSearch(ipcMain)` vuelve a registrarse en `registerMarket` (`src/main/market/ingestion.ts`), con prueba de regresión en `src/main/market/registro-busqueda.test.ts`. El texto siguiente es el historial de la incidencia.
 
 - La misión de identidad había añadido a `src/main/market/ingestion.ts` la importación y la llamada `registerMarketSearch(ipcMain)` (commit `ac07a2f9`). Es un cambio de proceso principal, ajeno a una renovación visual, y se ha retirado.
 - No se ha tocado `src/main/market/search.ts` ni `search.test.ts`: la implementación previa del buscador sigue en el repositorio, sin registrar en `registerMarket`.
