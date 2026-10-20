@@ -16,6 +16,8 @@ Los formularios mantienen validación, mensajes de error y bloqueo de acciones. 
 - **Texto de exportación del Diario:** usaba `--color-surface` sobre el acento. Se sustituye por `--color-inverse`, el token que expresa texto sobre una acción principal en los dos temas, sin acoplar el texto al color del panel.
 - **Cobertura de contraste de dominio incompleta:** la prueba de base no recorría los estados de estas cuatro familias. `domain-identity.test.ts` descubre recursivamente los estados de los cuatro JSON y verifica texto sobre relleno y superficies de uso; también comprueba curvas, fases, mapas de calor, selección y franja de dinero real. Son 146 comprobaciones en claro y oscuro. La rejilla es decorativa; el velo modal no es texto ni gráfico informativo.
 
+- **Coste del recorrido de versiones en pruebas:** la pasada consolidada dejó un único timeout en `StrategiesPage.test.tsx`. El alta ya pegaba los textos; la edición aún tecleaba el nombre y la nota carácter por carácter. Ambas entradas usan ahora pegado por `userEvent`, con los mismos valores, eventos de formulario y todas las comprobaciones de nota obligatoria, versiones, histórico y registro. Se mantienen los trece casos, las expectativas y el plazo original; la aislada final pasa en 2,84 s.
+
 ## Pruebas añadidas
 
 `e2e/identidad-dominio.spec.ts` verifica las cuatro pantallas en claro y oscuro, Sora aplicada, ausencia de desbordamiento de página a 700 px y bloqueo de activación real. Cubre además el color de exportación con una entrada de diario producida por una señal vetada y el hover de la acción de creación tanto con `disabled` como con `aria-disabled`. Usa la aplicación Electron y los contratos existentes; no inventa endpoints ni conecta dinero real.
