@@ -379,6 +379,10 @@ h3 {
 /* Por debajo de 1200 px las etiquetas cortas dejan la barra en una línea; las largas siguen
    en el árbol accesible y en el title. */
 @media (max-width: 1200px) {
+  .statusbar,
+  .statusbar [role='status'] {
+    column-gap: var(--space-2);
+  }
   .statusbar-label {
     position: absolute;
     width: 1px;

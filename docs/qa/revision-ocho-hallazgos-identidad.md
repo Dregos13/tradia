@@ -8,6 +8,10 @@ Las correcciones originales de cierre del buscador, caja de conciliación, etiqu
 
 Se encontró un defecto adicional en los radios: escribir una ruta personalizada, seleccionar «Analizador local» y regresar a la suscripción perdía la ruta aún sin guardar. `AiSettings.tsx` conserva ahora los borradores por motor durante la edición. Una carga o guardado correcto recupera como referencia los ajustes persistidos. Se amplía `AiSettings.test.tsx` para exigir que la ruta sobreviva al cambio de origen y llegue al guardado con el motor correcto.
 
+La ejecución completa detectó además que «Comprobando conexión» hacía crecer la barra a 71 px a 1024 px de ancho. `styles.css` reduce la separación horizontal mediante el token de espaciado compacto bajo 1200 px, sin reducir la letra ni recortar estados. `identidad-correcciones-r2.spec.ts` retiene la sonda HTTP real para medir ese estado transitorio a 1024 × 700 y exige altura de 48 px y ausencia de recortes, en ambos temas.
+
+También se corrige `e2e/phase-6-7.helpers.ts`: el servicio de conectividad requiere dos URL válidas, pero el helper solo aportaba una y caía en los destinos públicos de respaldo. Se aportan dos URL atendidas por el mismo servidor local, sin modificar el servicio de producción. La regresión comprueba que ambas sondas quedan pendientes antes de medir el estado «Comprobando conexión».
+
 `vitest.config.ts` limita la ejecución a dos workers simultáneos. Las ejecuciones anteriores del checkout habían registrado tiempos de espera bajo carga, incluidos los de ingesta y las semillas de backtest. Se conservan todos los casos, expectativas, aislamiento y plazos; únicamente se acota la concurrencia. El comando exacto `npm test` pasa con esta configuración.
 
 ## Cobertura de los ocho hallazgos
@@ -21,7 +25,7 @@ Se encontró un defecto adicional en los radios: escribir una ruta personalizada
 | IDV-E2E-5 | `news-sentiment.spec.ts`, `identidad-correcciones-r2.spec.ts` y `AiSettings.test.tsx`: radios, motor, autodetección y guardado de ruta. |
 | IDV-E2E-6 | `stale-data.spec.ts`: desconexión, fecha y recuperación del aviso de IA. |
 | IDV-E2E-7 | `identidad-correcciones-r2.spec.ts` y `identidad-legibilidad.spec.ts`: columnas de Estrategias a 1120 px. |
-| IDV-E2E-8 | Las mismas specs: barra a 1120 y 1100 px; medición de texto visible y estados conectado/desconectado. |
+| IDV-E2E-8 | Las mismas specs: barra a 1120 y 1100 px; medición de texto visible, estados conectado/desconectado y comprobación pendiente a 1024 px. |
 
 Se han inspeccionado las capturas de Estrategias oscuro y de los controles de IA claro en `capturas/identidad-correcciones-r2/`; los textos y controles corresponden al código revisado. La suite completa regenera las evidencias de los recorridos.
 
@@ -31,6 +35,8 @@ Se han inspeccionado las capturas de Estrategias oscuro y de los controles de IA
 - `npm install && npm run typecheck && npm test`: correcto; 217 archivos, 3898/3898 pruebas (81,75 s). Sin cambios de dependencias ni lockfile.
 - `npm run lint` y `npm run format:check`: correctos.
 - Marca anterior: búsqueda solicitada sin coincidencias en `src`, `build`, `resources` y `scripts`.
-- E2E completo: pendiente de terminar la ejecución consolidada sobre compilación nueva.
+- Barra y aplicación: 35/35 pruebas unitarias; estado de comprobación a 1024 px: E2E 2/2 en claro y oscuro.
+- Primera ejecución E2E: 129/130 correctos; el único fallo fue la altura de barra a 1024 px descrita arriba. El caso de las 15 secciones pasa tras corregirla (1/1), además de la regresión específica del estado transitorio (2/2).
+- `npm run test:e2e` final: 130/130 correctos (12,3 min), sobre compilación nueva y con las sondas locales corregidas. Los ocho hallazgos quedan verificados. Log: `/tmp/tradia-fix2-e2e-final.log`.
 
 No se realizan commits, cambios de rama ni publicación. La comprobación de instalación e integración nativa en Windows y Linux queda fuera de esta revisión de interfaz.

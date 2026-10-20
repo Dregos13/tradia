@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { ServerResponse } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
 import { closePhaseApp, launchPhaseApp, openPage, type PhaseApp } from './phase-6-7.helpers';
 
@@ -17,10 +18,21 @@ for (const colorScheme of THEMES) {
   test.describe(`identidad: correcciones E2E, ronda 2 · ${THEME_NAME[colorScheme]}`, () => {
     let context: PhaseApp;
     let page: Page;
+    let holdHealth = false;
+    const pendingHealth: ServerResponse[] = [];
 
     test.beforeAll(async () => {
       mkdirSync(evidenceDir, { recursive: true });
-      context = await launchPhaseApp('tradia-identidad-r2-');
+      context = await launchPhaseApp('tradia-identidad-r2-', {
+        route(request, response) {
+          const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+          if (holdHealth && path === '/health') {
+            pendingHealth.push(response);
+            return true;
+          }
+          return false;
+        },
+      });
       page = context.page;
       await page.emulateMedia({ colorScheme });
     });
@@ -129,6 +141,35 @@ for (const colorScheme of THEMES) {
       await page.screenshot({
         path: resolve(evidenceDir, `barra-estado-1120-${THEME_NAME[colorScheme]}.png`),
       });
+      // El estado transitorio tiene una etiqueta más larga que «En línea».
+      // Se retiene la sonda real para medirla sin depender de una carrera de red.
+      await page.setViewportSize({ width: 1024, height: 700 });
+      holdHealth = true;
+      try {
+        await page.evaluate(() => {
+          void window.tradia.connectivity.checkNow();
+        });
+        await expect.poll(() => pendingHealth.length).toBe(2);
+        const bar = page.locator('footer.statusbar');
+        await expect(bar).toContainText('Comprobando conexión');
+        await expect(bar).toHaveCSS('height', '48px');
+        const reading = await bar.evaluate((el) => ({
+          text: el.textContent,
+          clipped: [el, ...el.querySelectorAll('*')]
+            .filter((node) => node.getBoundingClientRect().width > 1)
+            .filter((node) => node.scrollWidth > node.clientWidth + 1)
+            .map((node) => (node as HTMLElement).innerText.trim()),
+        }));
+        expect(reading.text).toContain('Comprobando conexión');
+        expect(reading.clipped).toEqual([]);
+        await page.screenshot({
+          path: resolve(evidenceDir, `barra-comprobando-1024-${THEME_NAME[colorScheme]}.png`),
+        });
+      } finally {
+        holdHealth = false;
+        for (const response of pendingHealth.splice(0)) response.writeHead(204).end();
+      }
+      await expect(page.locator('footer.statusbar')).toContainText('En línea');
     });
   });
 }

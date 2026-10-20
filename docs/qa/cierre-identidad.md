@@ -62,3 +62,21 @@ Limitación: la sonda de regresión anterior anotó que las etiquetas largas de 
 | 5   | Capturas antes y después de las siete pantallas en claro y oscuro, y cierre con esta sección              | **Cumplido** | 28 archivos en `docs/qa/capturas/identidad/` (14 `antes-*`, 14 `despues-*` regeneradas hoy tras las correcciones); cada hallazgo figura en la tabla de estado, sin ninguno abierto                                       |
 
 Quedan fuera de esta verificación, por ser del usuario: icono en Dock, Launchpad y Cmd+Tab, bandeja en sus cuatro estados con barra clara y oscura, instalación en Windows y Linux, y valorar la comodidad en sesiones largas.
+
+
+### Revisión consolidada de Codex · 20 de octubre de 2026
+
+La revisión del trabajo provisional y las correcciones adicionales se documentan en [revision-ocho-hallazgos-identidad.md](revision-ocho-hallazgos-identidad.md). La ejecución final sobre la versión revisada pasa `npm install`, `npm run typecheck`, `npm test` (217 archivos, 3898 pruebas), `npm run lint`, `npm run format:check` y `npm run test:e2e` (130 pruebas, 12,3 min). Vitest conserva todos los casos y plazos y limita a dos sus workers simultáneos. Las capturas de los recorridos se han regenerado; se añaden `identidad-correcciones-r2/barra-comprobando-1024-{claro,oscuro}.png`.
+
+| Hallazgo | Verificación final de la revisión |
+| --- | --- |
+| IDV-E2E-1 | Resuelto: alta EUR/USD y buscador con clic y teclado, sin desplegable sobre el aviso. |
+| IDV-E2E-2 | Resuelto: conciliación con caja a 1280 y 1024 px, en ambos temas. |
+| IDV-E2E-3 | Resuelto: etiqueta «Divisa» y descripción accesible completas. |
+| IDV-E2E-4 | Resuelto: aviso contractual de sesión no iniciada y recuperación. |
+| IDV-E2E-5 | Resuelto: dos radios sincronizados con el motor; además se conserva y guarda la ruta CLI al alternarlos. |
+| IDV-E2E-6 | Resuelto: aviso de datos de IA tras desconexión y reconexión. |
+| IDV-E2E-7 | Resuelto: columnas legibles a 1120 px, en ambos temas. |
+| IDV-E2E-8 | Resuelto: estados completos a 1100/1120 px y altura de 48 px a 1024 px durante la comprobación de conexión. |
+
+La primera ejecución de esta revisión registró únicamente el fallo de altura de barra a 1024 px (129/130). Tras corregirlo y comprobar el estado transitorio mediante dos sondas HTTP locales pendientes, la ejecución completa final pasa 130/130. No se han omitido pruebas ni reducido expectativas o plazos. Los resultados finales sustituyen las comprobaciones provisionales anteriores.
