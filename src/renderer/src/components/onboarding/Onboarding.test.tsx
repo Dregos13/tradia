@@ -239,8 +239,8 @@ it('genera CSS válido desde los tokens con ambos temas y el halo', () => {
   style.textContent = onboardingTokenStylesheet();
   document.head.append(style);
   expect(style.sheet?.cssRules.length).toBe(3);
-  expect(style.textContent).toContain('--onboarding-halo:#FFFEFA');
-  expect(style.textContent).toContain('--onboarding-halo:#151F30');
+  expect(style.textContent).toContain('--onboarding-halo:#FFFFFF');
+  expect(style.textContent).toContain('--onboarding-halo:#10161C');
   style.remove();
 });
 
