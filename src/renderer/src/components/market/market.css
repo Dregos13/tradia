@@ -572,7 +572,10 @@
   font-weight: var(--weight-bold);
   cursor: pointer;
   user-select: none;
-  transition: all 0.15s ease;
+  transition:
+    background var(--motion-fast) var(--motion-easeOut),
+    border-color var(--motion-fast) var(--motion-easeOut),
+    color var(--motion-fast) var(--motion-easeOut);
 }
 .toggle-chip:hover {
   border-color: var(--color-accent);
@@ -595,6 +598,11 @@
   height: 600px;
   width: 100%;
   min-height: 480px;
+}
+/* El aviso y el estado ya explican la falta de fiabilidad. Atenuar todo el
+   lienzo también atenúa ejes, velas y curvas y destruye su contraste. */
+.market-chart-card.data-unreliable .market-chart {
+  opacity: 1;
 }
 @media (max-width: 1100px) {
   .market-chart {
@@ -716,6 +724,8 @@
     align-items: stretch;
   }
   .market-add {
+    /* En columna la base flex mide altura, no el ancho del buscador. */
+    flex-basis: auto;
     max-width: none;
   }
   .market-chart-heading {

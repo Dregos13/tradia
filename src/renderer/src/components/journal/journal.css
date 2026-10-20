@@ -35,7 +35,7 @@
 }
 .journal-heading > button {
   background: var(--color-accent);
-  color: var(--color-surface);
+  color: var(--color-inverse);
 }
 /* Sin entradas, el botón se lee como cualquier acción deshabilitada (UXP-11). */
 .journal-heading > button:disabled {

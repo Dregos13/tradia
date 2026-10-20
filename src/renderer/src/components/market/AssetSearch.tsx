@@ -169,7 +169,9 @@ export function AssetSearch({
   }, [focusedIndex, options]);
 
   const handleAdd = async (rawTicker: string) => {
-    dismissedQueryRef.current = rawTicker.trim();
+    // Una sugerencia puede tener otro símbolo que el texto buscado («Euro» → EURUSD).
+    // Se cierra la consulta del campo, también si su respuesta sigue pendiente.
+    dismissedQueryRef.current = query.trim();
     setIsOpen(false);
     setFocusedIndex(-1);
     const result = await onAdd(rawTicker);

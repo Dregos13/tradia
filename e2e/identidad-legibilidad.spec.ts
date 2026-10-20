@@ -51,6 +51,14 @@ for (const colorScheme of THEMES) {
       await page.setViewportSize({ width: 1440, height: 900 });
     });
 
+    test.beforeEach(async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      await page.locator('.main').evaluate((el) => {
+        el.scrollTop = 0;
+      });
+    });
+
     test.afterAll(async () => {
       await closePhaseApp(context);
     });
@@ -79,6 +87,14 @@ for (const colorScheme of THEMES) {
         expect(h2.length, link).toBeGreaterThan(0);
         expect(h1, link).toBe(24);
         for (const size of h2) expect(size, `${link}: h2`).toBeLessThan(h1);
+        if (link === 'Inicio') {
+          const lane = await page.locator('.dashboard-block').first().boundingBox();
+          const main = await page.locator('.main').boundingBox();
+          expect(lane).not.toBeNull();
+          expect(main).not.toBeNull();
+          // Primeros pasos deja visibles el título y los datos del primer carril.
+          expect(lane!.y + 120).toBeLessThanOrEqual(main!.y + main!.height);
+        }
         await page.screenshot({
           path: resolve(evidenceDir, `${link.toLowerCase()}-${THEME_NAME[colorScheme]}.png`),
         });
@@ -97,13 +113,16 @@ for (const colorScheme of THEMES) {
           (row) => row.getBoundingClientRect().height,
         );
         const chart = box('.market-chart');
+        const main = box('.main');
+        const visibleTop = Math.max(chart.top, main.top, 0);
+        const visibleBottom = Math.min(chart.bottom, main.bottom, innerHeight);
         const input = box('.market-search-input');
         const help = box('.market-ticker-help');
         return {
           rows,
           viewport: innerHeight,
           chartTop: chart.top,
-          chartVisible: Math.min(chart.bottom, innerHeight) - chart.top,
+          chartVisible: Math.max(0, visibleBottom - visibleTop),
           input: { left: input.left, bottom: input.bottom },
           help: { left: help.left, top: help.top },
         };
@@ -127,7 +146,16 @@ for (const colorScheme of THEMES) {
 
     test('IDV-UXP-4 e IDV-E2E-8: a 1100 × 760 la barra de estado se lee completa y sin solapamientos', async () => {
       await page.setViewportSize({ width: 1100, height: 760 });
-      for (const link of ['Inicio', 'Riesgo']) {
+      for (const [link, offline] of [
+        ['Inicio', false],
+        ['Riesgo', false],
+        ['Inicio', true],
+        ['Riesgo', true],
+      ] as const) {
+        await page.evaluate((value) => window.tradia.testing!.simulateOffline(value), offline);
+        await expect(page.locator('footer.statusbar')).toContainText(
+          offline ? 'Sin conexión' : 'En línea',
+        );
         await openPage(page, link, link === 'Inicio' ? 'Estado del sistema' : link);
         const reading = await page.evaluate(() => {
           const bar = document.querySelector('footer.statusbar')!;
@@ -136,8 +164,24 @@ for (const colorScheme of THEMES) {
             ...bar.querySelectorAll('.statusbar-time'),
           ].map((el) => {
             const box = el.getBoundingClientRect();
+            const range = document.createRange();
+            // Omite las etiquetas largas de 1 px, ocultas solo visualmente.
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            const textRects: DOMRect[] = [];
+            let node: Node | null;
+            while ((node = walker.nextNode())) {
+              const parentBox = node.parentElement!.getBoundingClientRect();
+              if (!node.textContent?.trim() || parentBox.width <= 1 || parentBox.height <= 1)
+                continue;
+              range.selectNodeContents(node);
+              textRects.push(...range.getClientRects());
+            }
             return {
               text: (el as HTMLElement).innerText.trim(),
+              textBounds: textRects.map((rect) => ({ left: rect.left, right: rect.right })),
+              textInside: textRects.every(
+                (rect) => rect.left >= box.left - 1 && rect.right <= box.right + 1,
+              ),
               clipped: el.scrollWidth > el.clientWidth + 1,
               left: box.left,
               right: box.right,
@@ -146,12 +190,36 @@ for (const colorScheme of THEMES) {
             };
           });
           const barBox = bar.getBoundingClientRect();
-          return { items, barRight: barBox.right, barLeft: barBox.left };
+          return {
+            items,
+            barRight: barBox.right,
+            barLeft: barBox.left,
+            barTop: barBox.top,
+            barBottom: barBox.bottom,
+            viewportBottom: innerHeight,
+          };
         });
+        expect(
+          reading.barBottom,
+          'la barra completa está dentro de la ventana',
+        ).toBeLessThanOrEqual(reading.viewportBottom + 1);
         const texts = reading.items.map((item) => item.text).join(' | ');
-        expect(texts, link).toContain('En línea');
-        expect(texts, link).toContain('Agentes activos');
+        expect(texts, link).toContain(offline ? 'Sin conexión' : 'En línea');
+        expect(texts, link).toContain(offline ? 'Agentes en pausa' : 'Agentes activos');
         for (const item of reading.items) {
+          expect(item.top, `${link}: «${item.text}» fuera por arriba`).toBeGreaterThanOrEqual(
+            reading.barTop - 1,
+          );
+          expect(item.bottom, `${link}: «${item.text}» fuera por abajo`).toBeLessThanOrEqual(
+            reading.barBottom + 1,
+          );
+          expect(item.textInside, `${link}: «${item.text}» desborda ${JSON.stringify(item)}`).toBe(
+            true,
+          );
+          expect(
+            item.left,
+            `${link}: «${item.text}» fuera por la izquierda`,
+          ).toBeGreaterThanOrEqual(reading.barLeft - 1);
           expect(item.clipped, `${link}: «${item.text}» recortado`).toBe(false);
           expect(item.right, `${link}: «${item.text}» fuera de la barra`).toBeLessThanOrEqual(
             reading.barRight + 1,
@@ -168,6 +236,8 @@ for (const colorScheme of THEMES) {
           }
         }
       }
+      await page.evaluate(() => window.tradia.testing!.simulateOffline(false));
+      await expect(page.locator('footer.statusbar')).toContainText('En línea');
       // Las etiquetas largas siguen en el árbol accesible aunque se vean las cortas.
       await expect(page.locator('footer.statusbar [title^="Último latido"]')).toBeVisible();
       await expect(page.locator('footer.statusbar .statusbar-label').first()).toHaveText(

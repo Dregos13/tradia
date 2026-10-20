@@ -83,6 +83,42 @@ it('IDV-E2E-5: los dos radios cambian el origen y recuerdan la CLI elegida', asy
   expect(screen.getByLabelText('Ruta de OpenAI Codex (opcional)')).toBeInTheDocument();
 });
 
+it('el radio de suscripción usa el primer CLI instalado al partir del analizador local', async () => {
+  const settings = await window.tradia.ai.getLlmSettings();
+  vi.spyOn(window.tradia.ai, 'getLlmSettings').mockResolvedValue({
+    ...settings,
+    provider: 'local',
+    engine: 'local',
+    enabled: false,
+    engines: (['suscripcion-claude', 'suscripcion-codex', 'suscripcion-copilot'] as const).map(
+      (id) => ({
+        id,
+        label: id,
+        cliName: id,
+        available: id !== 'suscripcion-claude',
+        resolvedPath: null,
+        source: null,
+        configuredPath: null,
+        configuredInvalid: false,
+      }),
+    ),
+  });
+  const save = vi.spyOn(window.tradia.ai, 'setLlmSettings');
+  await mount();
+  expect(screen.getByRole('radio', { name: 'Analizador local' })).toBeChecked();
+  await userEvent.click(screen.getByRole('radio', { name: 'Suscripción (OpenAI Codex)' }));
+  expect(screen.getByLabelText('Motor de análisis de noticias')).toHaveValue('suscripcion-codex');
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar ajustes' }));
+  await screen.findByText('Ajustes de análisis guardados.');
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      engine: 'suscripcion-codex',
+      provider: 'suscripcion',
+      enabled: true,
+    }),
+  );
+});
+
 it('permite cambiar entre cada uno de los motores del desplegable y actualiza descripciones y rutas', async () => {
   await mount();
   const select = screen.getByRole('combobox', { name: 'Motor de análisis de noticias' });

@@ -176,6 +176,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await expect(providerBanner).toContainText(/Datos no fiables desde el/);
     await expect(providerBanner.getByRole('button', { name: 'Actualizar ahora' })).toBeVisible();
     await expect(page.locator('.market-chart-card')).toHaveClass(/data-unreliable/);
+    await expect(chart).toHaveCSS('opacity', '1');
     await expect
       .poll(() =>
         app.evaluate(() => {

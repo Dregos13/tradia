@@ -600,7 +600,7 @@
 .strategies-page .strategy-primary {
   border-color: var(--color-accent);
 }
-.strategies-page .strategy-primary:hover {
+.strategies-page .strategy-primary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-accentHover);
 }
 .strategies-page button:not(.strategy-primary):hover:enabled {
@@ -619,4 +619,12 @@
   .strategy-library-table td:nth-child(n + 4) {
     text-align: left;
   }
+}
+
+.strategies-page .strategy-primary:disabled,
+.strategies-page .strategy-primary[aria-disabled='true'] {
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
+  border-color: var(--color-borderStrong);
+  border-style: dashed;
 }

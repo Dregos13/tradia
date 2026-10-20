@@ -366,7 +366,8 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-6);
-  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 .statusbar-time {
   position: relative;
