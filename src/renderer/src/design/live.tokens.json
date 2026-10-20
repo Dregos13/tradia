@@ -1,7 +1,7 @@
 {
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
-    "name": "Tradia — Cuaderno cuantitativo · Dinero real",
+    "name": "Tradia — Telemetría de box · Dinero real",
     "version": "7.0.0",
     "extends": ["./base.tokens.json", "./risk.tokens.json", "./broker.tokens.json"],
     "contrastStandard": "WCAG 2.2 AA",
@@ -10,212 +10,253 @@
   "color": {
     "live": {
       "banner": {
-        "light": "#861F31",
+        "light": "#9F253D",
         "lightText": "#FFFFFF",
-        "dark": "#F2A7B2",
-        "darkText": "#2B0710",
+        "dark": "#FF9FAC",
+        "darkText": "#0A0E12",
         "label": "DINERO REAL",
         "icon": "shield-alert",
-        "contrastLight": "9.32:1",
-        "contrastDark": "9.60:1"
+        "contrastLight": "7.48:1",
+        "contrastDark": "9.97:1"
       },
-      "bannerHover": { "light": "#6E1727", "dark": "#FFC1C9", "name": "Acción sobre franja" },
-      "surface": { "light": "#FBE4E7", "dark": "#4B1C26", "name": "Superficie de dinero real" },
+      "bannerHover": {
+        "light": "#7E1830",
+        "dark": "#FFBBC5",
+        "name": "Acción sobre franja"
+      },
+      "surface": {
+        "light": "#F9E4EB",
+        "dark": "#341A23",
+        "name": "Superficie de dinero real"
+      },
       "text": {
-        "light": "#8B1E2D",
-        "dark": "#FFB2BD",
+        "light": "#9F253D",
+        "dark": "#FF9FAC",
         "name": "Texto de dinero real",
-        "contrastLightOnSurface": "7.48:1",
-        "contrastDarkOnSurface": "8.27:1"
+        "contrastLightOnSurface": "6.17:1",
+        "contrastDarkOnSurface": "8.20:1"
       }
     },
     "requirement": {
       "complete": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Cumplido",
         "icon": "circle-check",
-        "contrastLight": "5.59:1",
-        "contrastDark": "7.19:1"
+        "contrastLight": "4.90:1",
+        "contrastDark": "7.61:1"
       },
       "pending": {
-        "light": "#8B1E2D",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FFB2BD",
-        "darkSurface": "#4B1C26",
+        "light": "#9F253D",
+        "lightSurface": "#F9E4EB",
+        "dark": "#FF9FAC",
+        "darkSurface": "#341A23",
         "label": "Pendiente",
         "icon": "circle-x",
-        "contrastLight": "7.48:1",
-        "contrastDark": "8.27:1"
+        "contrastLight": "6.17:1",
+        "contrastDark": "8.20:1"
       },
       "review": {
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "label": "Revisar",
         "icon": "clock-3",
-        "contrastLight": "5.68:1",
-        "contrastDark": "8.12:1"
+        "contrastLight": "5.45:1",
+        "contrastDark": "8.72:1"
       },
       "locked": {
-        "light": "#4F5868",
-        "lightSurface": "#ECE9E1",
-        "dark": "#C4CBD5",
-        "darkSurface": "#2B384C",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "label": "Verificación automática",
         "icon": "lock",
-        "contrastLight": "5.91:1",
-        "contrastDark": "7.25:1"
+        "contrastLight": "6.43:1",
+        "contrastDark": "6.39:1"
       }
     },
     "liveMode": {
       "blocked": {
-        "light": "#8B1E2D",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FFB2BD",
-        "darkSurface": "#4B1C26",
+        "light": "#9F253D",
+        "lightSurface": "#F9E4EB",
+        "dark": "#FF9FAC",
+        "darkSurface": "#341A23",
         "label": "Dinero real bloqueado",
         "icon": "lock-keyhole",
-        "contrastLight": "7.48:1",
-        "contrastDark": "8.27:1"
+        "contrastLight": "6.17:1",
+        "contrastDark": "8.20:1"
       },
       "ready": {
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "label": "Listo para confirmar",
         "icon": "shield-check",
-        "contrastLight": "5.68:1",
-        "contrastDark": "8.12:1"
+        "contrastLight": "5.45:1",
+        "contrastDark": "8.72:1"
       },
       "active": {
-        "light": "#861F31",
-        "lightSurface": "#FBE4E7",
-        "dark": "#F2A7B2",
-        "darkSurface": "#4B1C26",
+        "light": "#9F253D",
+        "lightSurface": "#F9E4EB",
+        "dark": "#FF9FAC",
+        "darkSurface": "#341A23",
         "label": "Dinero real activo",
         "icon": "shield-alert",
-        "contrastLight": "7.70:1",
-        "contrastDark": "7.33:1"
+        "contrastLight": "6.17:1",
+        "contrastDark": "8.20:1"
       },
       "suspended": {
-        "light": "#8B1E2D",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FFB2BD",
-        "darkSurface": "#4B1C26",
+        "light": "#9F253D",
+        "lightSurface": "#F9E4EB",
+        "dark": "#FF9FAC",
+        "darkSurface": "#341A23",
         "label": "Dinero real suspendido",
         "icon": "octagon-pause",
-        "contrastLight": "7.48:1",
-        "contrastDark": "8.27:1"
+        "contrastLight": "6.17:1",
+        "contrastDark": "8.20:1"
       }
     },
     "smoke": {
       "notRun": {
-        "light": "#4F5868",
-        "lightSurface": "#ECE9E1",
-        "dark": "#C4CBD5",
-        "darkSurface": "#2B384C",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "label": "No ejecutada",
         "icon": "circle-dashed",
-        "contrastLight": "5.91:1",
-        "contrastDark": "7.25:1"
+        "contrastLight": "6.43:1",
+        "contrastDark": "6.39:1"
       },
       "running": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "En curso",
         "icon": "loader",
-        "contrastLight": "6.47:1",
-        "contrastDark": "5.62:1"
+        "contrastLight": "5.55:1",
+        "contrastDark": "8.36:1"
       },
       "reconciled": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Cerrada y conciliada",
         "icon": "badge-check",
-        "contrastLight": "5.59:1",
-        "contrastDark": "7.19:1"
+        "contrastLight": "4.90:1",
+        "contrastDark": "7.61:1"
       },
       "failed": {
-        "light": "#8B1E2D",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FFB2BD",
-        "darkSurface": "#4B1C26",
+        "light": "#9F253D",
+        "lightSurface": "#F9E4EB",
+        "dark": "#FF9FAC",
+        "darkSurface": "#341A23",
         "label": "Fallida",
         "icon": "triangle-alert",
-        "contrastLight": "7.48:1",
-        "contrastDark": "8.27:1"
+        "contrastLight": "6.17:1",
+        "contrastDark": "8.20:1"
       }
     },
     "scaling": {
       "locked": {
-        "light": "#4F5868",
-        "lightSurface": "#ECE9E1",
-        "dark": "#C4CBD5",
-        "darkSurface": "#2B384C",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "label": "Escalado bloqueado",
         "icon": "lock",
-        "contrastLight": "5.91:1",
-        "contrastDark": "7.25:1"
+        "contrastLight": "6.43:1",
+        "contrastDark": "6.39:1"
       },
       "evidence": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "label": "Evidencia en curso",
         "icon": "chart-no-axes-combined",
-        "contrastLight": "6.47:1",
-        "contrastDark": "5.62:1"
+        "contrastLight": "5.55:1",
+        "contrastDark": "8.36:1"
       },
       "eligible": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "label": "Elegible para evaluación en fase 8",
         "icon": "clipboard-check",
-        "contrastLight": "5.59:1",
-        "contrastDark": "7.19:1"
+        "contrastLight": "4.90:1",
+        "contrastDark": "7.61:1"
       }
     },
     "overlay": {
-      "light": "rgba(23, 35, 58, 0.62)",
-      "dark": "rgba(4, 9, 17, 0.78)",
+      "light": "rgba(10, 14, 18, 0.62)",
+      "dark": "rgba(10, 14, 18, 0.78)",
       "name": "Velo de confirmación crítica"
     }
   },
   "typography": {
     "family": {
       "interface": {
-        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "name": "Interfaz"
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz · Sora"
       },
-      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "editorial": {
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Titulares · Sora"
+      },
       "numeric": {
-        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
-        "name": "Datos"
+        "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos · IBM Plex Mono"
       }
     },
-    "numeric": { "fontVariantNumeric": "tabular-nums", "slashedZero": true },
-    "size": {
-      "xs": { "value": "12px", "lineHeight": "16px" },
-      "sm": { "value": "14px", "lineHeight": "20px" },
-      "md": { "value": "16px", "lineHeight": "24px" },
-      "lg": { "value": "18px", "lineHeight": "26px" },
-      "xl": { "value": "24px", "lineHeight": "32px" },
-      "2xl": { "value": "34px", "lineHeight": "40px" }
+    "numeric": {
+      "fontVariantNumeric": "tabular-nums",
+      "slashedZero": true
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
-    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+    "size": {
+      "xs": {
+        "value": "13px",
+        "lineHeight": "18px"
+      },
+      "sm": {
+        "value": "14px",
+        "lineHeight": "21px"
+      },
+      "md": {
+        "value": "16px",
+        "lineHeight": "24px"
+      },
+      "lg": {
+        "value": "18px",
+        "lineHeight": "26px"
+      },
+      "xl": {
+        "value": "24px",
+        "lineHeight": "30px"
+      },
+      "2xl": {
+        "value": "36px",
+        "lineHeight": "40px"
+      }
+    },
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "tracking": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.08em"
+    }
   },
   "spacing": {
     "0": "0",
@@ -230,15 +271,27 @@
     "12": "48px",
     "16": "64px"
   },
-  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "radius": {
+    "xs": "2px",
+    "sm": "4px",
+    "md": "6px",
+    "lg": "8px",
+    "pill": "999px"
+  },
   "shadow": {
-    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
-    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.24)", "name": "Flotante crítico" }
+    "raised": {
+      "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+      "name": "Elevado (solo menús y popovers)"
+    },
+    "floating": {
+      "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+      "name": "Flotante (diálogos)"
+    }
   },
   "size": {
     "controlMin": "44px",
     "sidebar": "228px",
-    "contentMax": "1440px",
+    "contentMax": "1120px",
     "statusBar": "48px",
     "liveBannerMin": "48px",
     "checklistLabel": "260px",
@@ -248,10 +301,10 @@
     "smokeTimelineRail": "2px"
   },
   "motion": {
-    "fast": "120ms",
-    "normal": "200ms",
-    "slow": "320ms",
-    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "fast": "100ms",
+    "normal": "160ms",
+    "slow": "240ms",
+    "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
     "reduced": "0ms"
   }
 }

@@ -64,7 +64,7 @@
   min-width: 0;
 }
 .journal :is(input, select, summary):focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .journal-table-scroll {
@@ -91,7 +91,7 @@
 }
 .journal tr[aria-selected='true'] {
   background: var(--color-accentSoft);
-  border-inline-start: var(--space-1) solid var(--color-accent);
+  border-inline-start: 1px solid var(--color-accent);
 }
 .journal time,
 .journal pre {
@@ -203,4 +203,19 @@
 }
 .journal-results > p {
   margin: 0;
+}
+
+.journal-filters {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+.journal thead {
+  background: var(--color-surfaceStrong);
+}
+.journal tbody tr:hover {
+  background: var(--color-surfaceSubtle);
 }

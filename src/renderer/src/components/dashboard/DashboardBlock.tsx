@@ -27,22 +27,24 @@ export function DashboardBlock({
         <h3 id={`dashboard-${id}`}>{title}</h3>
         {action}
       </header>
-      {snapshot.error && (
-        <div className="dashboard-error" role="alert">
-          <p>No se pudo actualizar este bloque. Se conservan los datos conocidos.</p>
-          <button onClick={reload}>Reintentar</button>
-        </div>
-      )}
-      {snapshot.loading ? (
-        <div role="status">
-          <p>Cargando…</p>
-          <div className="dashboard-skeleton" />
-          <div className="dashboard-skeleton" />
-          <div className="dashboard-skeleton" />
-        </div>
-      ) : (
-        children
-      )}
+      <div className="dashboard-block-body">
+        {snapshot.error && (
+          <div className="dashboard-error" role="alert">
+            <p>No se pudo actualizar este bloque. Se conservan los datos conocidos.</p>
+            <button onClick={reload}>Reintentar</button>
+          </div>
+        )}
+        {snapshot.loading ? (
+          <div role="status">
+            <p>Cargando…</p>
+            <div className="dashboard-skeleton" />
+            <div className="dashboard-skeleton" />
+            <div className="dashboard-skeleton" />
+          </div>
+        ) : (
+          children
+        )}
+      </div>
     </section>
   );
 }

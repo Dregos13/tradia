@@ -26,7 +26,7 @@
 }
 .orders-title h2 {
   margin: 0;
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
 }
 .orders-paper,
 .orders-status {
@@ -34,7 +34,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
 }
@@ -76,14 +76,14 @@
   width: 100%;
   min-height: var(--size-controlMin);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-borderStrong);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
 }
 .orders-filters select:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .orders-table-wrap {
@@ -106,14 +106,14 @@
   border-bottom: 1px solid var(--color-border);
 }
 .orders-table-wrap thead {
-  color: var(--color-muted);
+  color: var(--color-textMuted);
   background: var(--color-surfaceSubtle);
   font-size: var(--type-xs);
 }
 .orders-table-wrap small {
   display: block;
   margin-top: var(--space-1);
-  color: var(--color-muted);
+  color: var(--color-textMuted);
 }
 .orders-number,
 .orders-table-wrap time {
@@ -163,7 +163,7 @@
   padding-left: var(--space-8);
 }
 .orders-frozen {
-  opacity: 0.8;
+  border-inline-start: 1px dashed var(--color-borderStrong);
 }
 .orders-error,
 .orders-banner {
@@ -218,7 +218,7 @@
   color: inherit;
 }
 .orders-scroll-hint {
-  color: var(--color-muted);
+  color: var(--color-textMuted);
   font-size: var(--type-xs);
 }
 @media (max-width: 850px) {
@@ -247,7 +247,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
@@ -296,4 +296,25 @@
 .orders-page > p[role='status']:empty {
   position: absolute;
   padding: 0;
+}
+
+.orders-reconcile,
+.orders-confirm,
+.orders-create,
+.orders-empty {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+.orders-paper,
+.orders-status,
+.orders-mode {
+  border: 1px solid currentColor;
+  font-family: var(--font-numeric);
+}
+.orders-table-wrap thead {
+  background: var(--color-surfaceStrong);
 }

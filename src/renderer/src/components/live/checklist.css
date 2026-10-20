@@ -13,7 +13,7 @@
 }
 .live-page-head h2 {
   margin: 0;
-  font: var(--weight-regular) var(--type-2xl)/var(--type-2xl-line) var(--font-editorial);
+  font: var(--weight-semibold) var(--type-2xl)/var(--type-2xl-line) var(--font-interface);
 }
 .live-checklist-page h3 {
   margin: 0 0 var(--space-3);
@@ -101,7 +101,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
 }
@@ -237,7 +237,7 @@
 }
 .live-checklist-page :focus-visible,
 .live-dialog :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .live-checklist-page ::selection,
@@ -277,7 +277,7 @@
 }
 .live-dialog h2 {
   margin: 0;
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
   font-size: var(--type-xl);
 }
 .live-dialog label {
@@ -345,7 +345,7 @@
   resize: vertical;
 }
 .live-surface :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .live-limits-group {
@@ -430,4 +430,26 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-form-field-gap);
   }
+}
+
+.live-sheet {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+.live-badge {
+  border: 1px solid currentColor;
+  font-family: var(--font-numeric);
+}
+.live-alert,
+.live-short-status {
+  border: 1px solid currentColor;
+}
+.live-checklist-page .live-field input,
+.live-surface .live-field input {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
 }

@@ -9,8 +9,8 @@
 }
 .market-workspace {
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
-  column-gap: var(--space-4);
+  grid-template-columns: var(--size-watchlist) minmax(0, 1fr);
+  column-gap: var(--space-6);
   row-gap: var(--space-section-gap);
   align-items: start;
 }
@@ -21,52 +21,31 @@
   gap: var(--space-4);
   align-items: end;
 }
-/* Badges por clase de activo */
-:root {
-  --badge-stock-text: #1e40af;
-  --badge-stock-bg: #dbeafe;
-  --badge-etf-text: #6b21a8;
-  --badge-etf-bg: #f3e8ff;
-  --badge-forex-text: #065f46;
-  --badge-forex-bg: #d1fae5;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --badge-stock-text: #93c5fd;
-    --badge-stock-bg: #1e293b;
-    --badge-etf-text: #d8b4fe;
-    --badge-etf-bg: #2e1065;
-    --badge-forex-text: #6ee7b7;
-    --badge-forex-bg: #064e3b;
-  }
-}
-
 .asset-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: var(--type-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.4;
 }
 
 .asset-badge.stock {
-  background: var(--badge-stock-bg);
-  color: var(--badge-stock-text);
+  background: var(--dataStatus-updating-surface);
+  color: var(--dataStatus-updating);
 }
 
 .asset-badge.etf {
-  background: var(--badge-etf-bg);
-  color: var(--badge-etf-text);
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
 }
 
 .asset-badge.forex {
-  background: var(--badge-forex-bg);
-  color: var(--badge-forex-text);
+  background: var(--dataStatus-simulated-surface);
+  color: var(--dataStatus-simulated);
 }
 
 .market-asset-badge {
@@ -74,7 +53,8 @@
 }
 
 .market-add {
-  flex: 1;
+  flex: 1 1 580px;
+  min-width: 0;
   max-width: 580px;
 }
 .market-search-container {
@@ -95,6 +75,7 @@
 }
 .market-search-input-inner {
   position: relative;
+  min-width: 0;
   flex: 1;
   display: flex;
   align-items: center;
@@ -119,7 +100,7 @@
 .market-search-input:focus-visible,
 .market-add input:focus-visible,
 .market-legend input:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .market-search-input[aria-invalid='true'],
@@ -161,9 +142,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.3),
-    0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-floating);
   max-height: 380px;
   overflow-y: auto;
   list-style: none;
@@ -218,8 +197,8 @@
   white-space: nowrap;
 }
 .market-search-extra {
-  font-size: 11px;
-  color: var(--badge-forex-text);
+  font-size: var(--type-xs);
+  color: var(--dataStatus-simulated);
 }
 .market-search-empty {
   padding: var(--space-5);
@@ -230,7 +209,7 @@
 .market-search-item-btn {
   white-space: nowrap;
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: var(--size-controlMin);
   padding: var(--space-1) var(--space-3);
 }
 .market-error {
@@ -358,17 +337,17 @@
   font-family: var(--font-numeric);
 }
 .asset-class-pill {
-  font-size: 11px;
+  font-size: var(--type-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.4;
 }
 .asset-class-pill.forex {
-  background: var(--candle-up-surface, rgba(16, 185, 129, 0.15));
-  color: var(--candle-up, #087a55);
+  background: var(--dataStatus-reliable-surface);
+  color: var(--candle-up);
   border: 1px solid currentColor;
 }
 .asset-class-pill.stock {
@@ -402,11 +381,11 @@
 }
 .quote-change.bull,
 .cell-bull {
-  color: var(--candle-up, #087a55);
+  color: var(--candle-up);
 }
 .quote-change.bear,
 .cell-bear {
-  color: var(--candle-down, #b53a36);
+  color: var(--candle-down);
 }
 .market-chart-controls {
   display: flex;
@@ -459,11 +438,11 @@
   border-color: var(--color-accent);
 }
 .range-btn {
-  min-height: 36px;
+  min-height: var(--size-controlMin);
   cursor: pointer;
 }
 .range-btn:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .chart-toolbar {
@@ -527,7 +506,7 @@
   border-color: var(--color-accent);
 }
 .toggle-chip:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .toggle-chip.active {
@@ -578,15 +557,15 @@
   font-weight: var(--weight-bold);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--type-xs);
 }
 .ohlcv-pill.bull {
-  background: var(--candle-up-surface, rgba(16, 185, 129, 0.15));
-  color: var(--candle-up, #087a55);
+  background: var(--dataStatus-reliable-surface);
+  color: var(--candle-up);
 }
 .ohlcv-pill.bear {
-  background: var(--candle-down-surface, rgba(220, 38, 38, 0.15));
-  color: var(--candle-down, #b53a36);
+  background: var(--dataStatus-unreliable-surface);
+  color: var(--candle-down);
 }
 .ohlcv-val {
   color: var(--color-text);
@@ -620,7 +599,7 @@
   cursor: pointer;
 }
 .market-table summary:focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .market-table div {
@@ -643,9 +622,9 @@
 .market-table th:first-child {
   text-align: left;
 }
-@media (min-width: 721px) and (max-width: 979px) {
+@media (max-width: 1050px) {
   .market-workspace {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .market-chart-heading {
     flex-direction: column;
@@ -692,7 +671,10 @@
   line-height: var(--data-clarity-leading-caption);
 }
 .market-add-feedback {
-  margin-top: var(--space-4);
+  flex-basis: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin-top: 0;
   padding: var(--space-4);
   border-radius: var(--radius-sm);
   background: var(--data-clarity-critical-surface);
@@ -769,4 +751,27 @@
   .market-add-alternatives .button {
     width: 100%;
   }
+}
+
+/* Las muestras de trazo coinciden con las series históricas del lienzo. */
+.sma-label::after {
+  content: '';
+  width: var(--space-6);
+  border-top: 2px solid currentColor;
+}
+.market-sma-50::after {
+  border-top-style: dashed;
+}
+.market-sma-200::after {
+  border-top-style: dotted;
+}
+.sma-label {
+  font-family: var(--font-numeric);
+}
+.asset-badge,
+.asset-class-pill,
+.market-badge,
+.ohlcv-pill {
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
 }
