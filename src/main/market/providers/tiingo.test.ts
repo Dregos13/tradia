@@ -46,6 +46,9 @@ const make = (
   createTiingoProvider({
     fetch,
     getApiKey: async () => API_KEY,
+    // Reloj fijo junto a los fixtures grabados (octubre de 2026): la
+    // ventana reciente de getQuote/getTickerInfo no depende del día real.
+    now: () => Date.parse('2026-10-17T12:00:00.000Z'),
     ...extra,
   });
 

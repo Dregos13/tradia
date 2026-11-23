@@ -571,6 +571,38 @@ export const CLI_ENGINE_SPECS: Record<NewsCliEngine, CliEngineSpec> = {
 // Ejecución controlada de la CLI
 // ---------------------------------------------------------------------------
 
+/**
+ * Cita un argumento para la vía `shell: true` de Windows (cmd.exe → shim
+ * `.cmd` → `%*` → node.exe). Entre comillas dobles cmd.exe no interpreta
+ * `& | < > ^`; las comillas internas y las barras que las preceden se
+ * escapan con las reglas de la CRT de Microsoft, que son las que aplica
+ * node.exe al reconstruir `argv`. Un vacío queda como `""`. Los
+ * argumentos son siempre los fijos de la spec: `%` y `!` (que cmd.exe
+ * expandiría incluso entre comillas) se rechazan para no ocultar un fallo.
+ */
+export function quoteWindowsShellArg(arg: string, options: { path?: boolean } = {}): string {
+  // Una ruta de usuario puede traer `%` o `!` legítimos: se cita igual.
+  if (!options.path && /[%!\r\n]/.test(arg)) {
+    throw new Error(`argumento no admitido en la vía shell de Windows: ${JSON.stringify(arg)}`);
+  }
+  if (arg.length > 0 && /^[A-Za-z0-9_\-.,:=/\\+@]+$/.test(arg)) return arg;
+  let out = '"';
+  let backslashes = 0;
+  for (const ch of arg) {
+    if (ch === '\\') {
+      backslashes++;
+      continue;
+    }
+    if (ch === '"') {
+      out += `${'\\'.repeat(backslashes * 2 + 1)}"`;
+    } else {
+      out += `${'\\'.repeat(backslashes)}${ch}`;
+    }
+    backslashes = 0;
+  }
+  return `${out}${'\\'.repeat(backslashes * 2)}"`;
+}
+
 interface CliRunResult {
   stdout: string;
   stderr: string;
@@ -680,7 +712,15 @@ export function createCliEngineAnalyzer(
           };
         }
       }
-      return { command: cliPath, args: [...spec.args], options: { ...base, shell: true } };
+      // Con shell, Node une comando y argumentos con espacios sin
+      // citarlos: cmd.exe perdería los vacíos (`--tools ''`) y las
+      // comillas del JSON de `--mcp-config`. Se citan aquí con las
+      // reglas que usa node.exe al leer su línea de comandos.
+      return {
+        command: quoteWindowsShellArg(cliPath, { path: true }),
+        args: spec.args.map((arg) => quoteWindowsShellArg(arg)),
+        options: { ...base, shell: true },
+      };
     }
     return { command: cliPath, args: [...spec.args], options: base };
   };

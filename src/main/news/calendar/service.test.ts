@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { IPC_CHANNELS, IpcValidationError, type CalendarUpdatedEvent } from '../../../shared/ipc';
 import { openDatabase } from '../../db/database';
@@ -311,6 +311,12 @@ describe('registerCalendar (cableado IPC y servicios)', () => {
   };
 
   it('registra calendar:list, valida el rango y sirve la semana en curso', async () => {
+    // «La semana en curso» es la del 5 al 11 de octubre de 2026: el
+    // calendario se calcula desde hoy, así que se fija la fecha.
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.parse('2026-10-07T12:00:00.000Z') });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     env.isPackaged = true;
     const { ctx } = makeCtx(db());
     const service = registerCalendar(ctx);

@@ -38,9 +38,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Tradia nunca guarda claves sin cifrar: en Linux exige un llavero
+      # (safeStorage rechaza el backend 'basic_text'). El runner no trae
+      # ninguno, así que se arranca gnome-keyring desbloqueado en una sesión
+      # D-Bus y se le dice a Chromium que use libsecret.
+      - name: Llavero para las pruebas (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-1-0 dbus-x11
+
       - name: Pruebas de extremo a extremo (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: xvfb-run -a npm run test:e2e
+        env:
+          XDG_CURRENT_DESKTOP: GNOME
+        run: |
+          dbus-run-session -- bash -c '
+            echo -n "tradia-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+            xvfb-run -a npm run test:e2e
+          '
 
       - name: Empaquetar instaladores
         run: npm run dist

@@ -34,6 +34,7 @@ import { NEWS_CLI_ENGINES, type NewsCliEngine } from '../../../shared/ipc';
 import { FAKE_CLI_ENGINE_FIXTURE, installFakeCliEngine } from './__fixtures__/installFakeCli';
 import {
   CLI_ENGINE_SPECS,
+  quoteWindowsShellArg,
   createCliEngineAnalyzer,
   createCliEngineHandle,
   resolveCliExecutable,
@@ -508,5 +509,69 @@ describe('específicos por protocolo', () => {
     const calls = readCalls();
     expect(calls[0]!.argv).toEqual([...CLI_ENGINE_SPECS['suscripcion-copilot'].args]);
     expect(calls[0]!.stdin).toContain('‹/titular›');
+  });
+});
+
+describe('quoteWindowsShellArg (vía shell de Windows)', () => {
+  /** Lector de línea de comandos de la CRT de Microsoft (lo que hace node.exe). */
+  function parseMsvc(line: string): string[] {
+    const out: string[] = [];
+    let i = 0;
+    while (i < line.length) {
+      while (line[i] === ' ') i++;
+      if (i >= line.length) break;
+      let arg = '';
+      let quoted = false;
+      for (; i < line.length; i++) {
+        const ch = line[i]!;
+        if (ch === '\\') {
+          let n = 0;
+          while (line[i] === '\\') {
+            n++;
+            i++;
+          }
+          if (line[i] === '"') {
+            arg += '\\'.repeat(Math.floor(n / 2));
+            if (n % 2 === 1) arg += '"';
+            else quoted = !quoted;
+          } else {
+            arg += '\\'.repeat(n);
+            i--;
+          }
+          continue;
+        }
+        if (ch === '"') {
+          quoted = !quoted;
+          continue;
+        }
+        if (ch === ' ' && !quoted) break;
+        arg += ch;
+      }
+      out.push(arg);
+    }
+    return out;
+  }
+
+  it.each(NEWS_CLI_ENGINES)('los argumentos de %s llegan intactos a node.exe', (engine) => {
+    const args = CLI_ENGINE_SPECS[engine].args;
+    const line = args.map((arg) => quoteWindowsShellArg(arg)).join(' ');
+    expect(parseMsvc(line)).toEqual([...args]);
+  });
+
+  it('cita vacíos, JSON y barras finales', () => {
+    expect(quoteWindowsShellArg('')).toBe('""');
+    expect(quoteWindowsShellArg('{"mcpServers":{}}')).toBe('"{\\"mcpServers\\":{}}"');
+    expect(parseMsvc(quoteWindowsShellArg('a b\\'))).toEqual(['a b\\']);
+    expect(quoteWindowsShellArg('--output-format')).toBe('--output-format');
+  });
+
+  it('cita rutas con espacios y rechaza % o ! en argumentos fijos', () => {
+    expect(quoteWindowsShellArg('C:\\Program Files\\nodejs\\claude.cmd', { path: true })).toBe(
+      '"C:\\Program Files\\nodejs\\claude.cmd"',
+    );
+    expect(() => quoteWindowsShellArg('100%')).toThrow();
+    expect(quoteWindowsShellArg('C:\\100%\\claude.cmd', { path: true })).toBe(
+      '"C:\\100%\\claude.cmd"',
+    );
   });
 });

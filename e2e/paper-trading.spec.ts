@@ -413,7 +413,9 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     const monthlyData = await page.evaluate(() =>
       window.tradia.deviation.report({ period: 'mensual' }),
     );
-    expect(monthlyData.rows.length).toBeGreaterThanOrEqual(4);
+    // Ocho semanas cubren uno o dos meses cerrados según el día en que
+    // corre la prueba: al menos un mes cerrado por cada estrategia.
+    expect(monthlyData.rows.length).toBeGreaterThanOrEqual(2);
     expect(monthlyData.rows.some((row) => row.outOfMargin)).toBe(true);
     await captureEvidence('fase-5-perfil-b-real-vs-backtest-mensual.png');
   });
