@@ -1720,9 +1720,15 @@ export function registerBacktest(
   if (seed !== 'none') {
     service.seedFichas();
     if (seed === 'full') {
-      void service.seedResults().catch((error: unknown) => {
-        console.error('[backtest] la semilla de resultados falló', error);
-      });
+      // Los resultados de ejemplo solo se calculan con datos simulados: con
+      // la clave de Tiingo cada backtest de la semilla gasta peticiones del
+      // cupo horario del usuario (unas 50/h en el plan gratuito) en
+      // estrategias que no ha pedido, y se reintentaría en cada arranque.
+      void resolveStressSource({ secrets, simulated: { seed: e2e ? 'tradia-e2e' : 'tradia' } })
+        .then((source) => (source.kind === 'simulated' ? service.seedResults() : undefined))
+        .catch((error: unknown) => {
+          console.error('[backtest] la semilla de resultados falló', error);
+        });
     }
   }
 
