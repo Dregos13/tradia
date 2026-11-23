@@ -21,6 +21,7 @@ import raw017 from './017_requisitos_corto.sql?raw';
 import raw018 from './018_data_status_sin_cobertura.sql?raw';
 import raw019 from './019_watchlist_asset_class.sql?raw';
 import raw020 from './020_forward_tests.sql?raw';
+import raw021 from './021_fx_broker_orders.sql?raw';
 
 /**
  * Registro de migraciones en orden de versión. Cada archivo `.sql` usa el
@@ -69,4 +70,5 @@ export const MIGRATIONS: Migration[] = [
   parseSqlMigration(18, 'data-status-sin-cobertura', raw018),
   parseSqlMigration(19, 'watchlist-asset-class', raw019),
   parseSqlMigration(20, 'forward-tests', raw020),
+  parseSqlMigration(21, 'fx-broker-orders', raw021),
 ];

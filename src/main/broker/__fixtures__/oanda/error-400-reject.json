@@ -1,0 +1,15 @@
+{
+  "orderRejectTransaction": {
+    "type": "MARKET_ORDER_REJECT",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "rejectReason": "STOP_LOSS_ON_FILL_LOSS",
+    "id": "17",
+    "accountID": "101-004-1234567-001",
+    "time": "2026-11-23T15:01:00.000000000Z"
+  },
+  "relatedTransactionIDs": ["17"],
+  "lastTransactionID": "17",
+  "errorCode": "STOP_LOSS_ON_FILL_LOSS",
+  "errorMessage": "The Stop Loss on fill specified would cause the triggering of the Stop Loss"
+}

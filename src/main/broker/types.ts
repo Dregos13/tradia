@@ -80,6 +80,14 @@ export interface BrokerOrderRequest {
   stopPrice?: number | null;
   /** 'day' por defecto cuando el adaptador lo admite. */
   timeInForce?: BrokerTimeInForce;
+  /**
+   * Stop de protección adjunto a la ejecución de una orden de mercado
+   * (OANDA `stopLossOnFill`): nace con la posición, así nunca queda
+   * abierta sin stop. Los adaptadores que no lo admiten lo ignoran.
+   */
+  stopLossOnFill?: number | null;
+  /** Objetivo adjunto a la ejecución (OANDA `takeProfitOnFill`). */
+  takeProfitOnFill?: number | null;
 }
 
 /** Filtro de `listOrders`. */

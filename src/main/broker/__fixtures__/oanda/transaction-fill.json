@@ -1,0 +1,16 @@
+{
+  "transaction": {
+    "type": "ORDER_FILL",
+    "orderID": "7",
+    "clientOrderID": "tradia-prueba-1",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "price": "1.08462",
+    "reason": "MARKET_ORDER",
+    "pl": "0.0000",
+    "id": "8",
+    "accountID": "101-004-1234567-001",
+    "time": "2026-11-23T15:00:02.118340923Z"
+  },
+  "lastTransactionID": "10"
+}

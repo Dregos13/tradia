@@ -210,6 +210,22 @@ import type {
 } from './ai';
 import { LIVE_ALL_DECLARATION_REQUIREMENTS, LIVE_FIXED_CAPS, LIVE_REQUIREMENTS } from './live';
 import { normalizeFxPair } from './fx';
+import {
+  FX_BROKER_ENVIRONMENTS,
+  FX_BROKER_INSTRUMENTS,
+  type FxBrokerConnectRequest,
+  type FxBrokerEnvironment,
+  type FxBrokerStatus,
+  type FxCloseRequest,
+  type FxConfirmLiveRequest,
+  type FxLimits,
+  type FxOrderRequest,
+  type FxReconcileSummary,
+  type FxSimulatedBrokerRequest,
+  type FxTestOrderRequest,
+  type FxTestOrderResult,
+  type FxOrderResult,
+} from './fxBroker';
 import type {
   LiveActivateRequest,
   LiveActivateResult,
@@ -697,6 +713,31 @@ export const IPC_CHANNELS = {
     seedProgress: 'live:seed-progress',
     /** Solo desarrollo: conmuta el adaptador live al broker real simulado. */
     useSimulatedBroker: 'live:use-simulated-broker',
+  },
+  /** Bróker de divisas y oro (OANDA): práctica y cuenta real. */
+  fxBroker: {
+    /** Estado de las dos cuentas, límites y techos (relee saldo y posiciones). */
+    status: 'fx-broker:status',
+    /** Token y cuenta a la ranura cifrada del entorno, tras verificarlos con OANDA. */
+    connect: 'fx-broker:connect',
+    /** Borra el token y la cuenta del entorno. */
+    disconnect: 'fx-broker:disconnect',
+    /** Guarda los límites en euros (dentro de los techos fijos). */
+    setLimits: 'fx-broker:set-limits',
+    /** Confirma los límites con la frase escrita para la cuenta real. */
+    confirmLive: 'fx-broker:confirm-live',
+    /** Orden a mercado con stop y objetivo (motor de riesgo + techos). */
+    placeOrder: 'fx-broker:place-order',
+    /** Cierra la posición de un instrumento (nunca se bloquea). */
+    closePosition: 'fx-broker:close-position',
+    /** Orden mínima de prueba: 1 unidad de EUR/USD, abre, cierra y concilia. */
+    testOrder: 'fx-broker:test-order',
+    /** Concilia las órdenes registradas con lo que reporta OANDA. */
+    reconcile: 'fx-broker:reconcile',
+    /** Evento main → renderer: cambió el estado de las cuentas OANDA. */
+    changed: 'fx-broker:changed',
+    /** Solo desarrollo: sustituye OANDA por el bróker simulado sin red. */
+    useSimulated: 'fx-broker:use-simulated',
   },
 } as const;
 
@@ -2045,6 +2086,19 @@ export interface TradiaApi {
     /** Cambió el modo real (activado, suspendido, vuelta a paper). */
     onChanged(listener: (state: LiveState) => void): () => void;
   };
+  /** Bróker de divisas y oro (OANDA): práctica primero, luego dinero real. */
+  fxBroker: {
+    status(): Promise<FxBrokerStatus>;
+    connect(request: FxBrokerConnectRequest): Promise<FxBrokerStatus>;
+    disconnect(environment: FxBrokerEnvironment): Promise<FxBrokerStatus>;
+    setLimits(limits: FxLimits): Promise<FxBrokerStatus>;
+    confirmLive(request: FxConfirmLiveRequest): Promise<FxBrokerStatus>;
+    placeOrder(request: FxOrderRequest): Promise<FxOrderResult>;
+    closePosition(request: FxCloseRequest): Promise<FxBrokerStatus>;
+    testOrder(request: FxTestOrderRequest): Promise<FxTestOrderResult>;
+    reconcile(environment: FxBrokerEnvironment): Promise<FxReconcileSummary>;
+    onChanged(listener: (status: FxBrokerStatus) => void): () => void;
+  };
   /** Herramientas de simulación; solo presentes si `isE2eEnabled` (ver abajo). */
   testing?: {
     simulateOffline(offline: boolean): Promise<ConnectivityState>;
@@ -2103,6 +2157,11 @@ export interface TradiaApi {
       seedProgress(request?: LiveSeedProgressRequest): Promise<LiveChecklist>;
       /** Conmuta el adaptador live al broker real simulado. */
       useSimulatedBroker(request: LiveSimulatedBrokerRequest): Promise<LiveState>;
+    };
+    /** Ganchos del bróker de divisas (OANDA). */
+    fxBroker: {
+      /** Sustituye OANDA por el bróker simulado sin red (los dos entornos). */
+      useSimulated(request: FxSimulatedBrokerRequest): Promise<FxBrokerStatus>;
     };
   };
 }
@@ -3993,4 +4052,109 @@ export function allIpcChannels(): string[] {
     }
   }
   return channels;
+}
+
+// ---------------------------------------------------------------------------
+// Bróker de divisas y oro (OANDA)
+// ---------------------------------------------------------------------------
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean =>
+  Object.keys(v).every((k) => keys.includes(k));
+
+const isFinitePositive = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+/** 'practice' o 'live'. */
+export function isFxEnvironment(value: unknown): value is FxBrokerEnvironment {
+  return typeof value === 'string' && (FX_BROKER_ENVIRONMENTS as readonly string[]).includes(value);
+}
+
+/** Petición de `fx-broker:connect`: entorno, token y cuenta (la forma fina la valida main). */
+export function isFxBrokerConnectRequest(value: unknown): value is FxBrokerConnectRequest {
+  if (!isPlainRecord(value) || !onlyKeys(value, ['environment', 'token', 'accountId']))
+    return false;
+  return (
+    isFxEnvironment(value.environment) &&
+    typeof value.token === 'string' &&
+    value.token.length > 0 &&
+    value.token.length <= 256 &&
+    typeof value.accountId === 'string' &&
+    value.accountId.length > 0 &&
+    value.accountId.length <= 64
+  );
+}
+
+/** Límites en euros de `fx-broker:set-limits` (los márgenes los comprueba el servicio). */
+export function isFxLimits(value: unknown): value is FxLimits {
+  if (
+    !isPlainRecord(value) ||
+    !onlyKeys(value, ['capitalEur', 'riskPerOrderEur', 'dailyLossEur', 'openPositions'])
+  ) {
+    return false;
+  }
+  return (
+    isFinitePositive(value.capitalEur) &&
+    isFinitePositive(value.riskPerOrderEur) &&
+    isFinitePositive(value.dailyLossEur) &&
+    isFinitePositive(value.openPositions)
+  );
+}
+
+export function isFxConfirmLiveRequest(value: unknown): value is FxConfirmLiveRequest {
+  return (
+    isPlainRecord(value) &&
+    onlyKeys(value, ['phrase']) &&
+    typeof value.phrase === 'string' &&
+    value.phrase.length <= 300
+  );
+}
+
+const isFxInstrument = (value: unknown): boolean =>
+  typeof value === 'string' && (FX_BROKER_INSTRUMENTS as readonly string[]).includes(value);
+
+export function isFxOrderRequest(value: unknown): value is FxOrderRequest {
+  if (
+    !isPlainRecord(value) ||
+    !onlyKeys(value, ['environment', 'instrument', 'side', 'size', 'stopPrice', 'targetPrice'])
+  ) {
+    return false;
+  }
+  const size = value.size;
+  const sizeOk =
+    isPlainRecord(size) &&
+    ((onlyKeys(size, ['units']) && isFinitePositive(size.units)) ||
+      (onlyKeys(size, ['riskEur']) && isFinitePositive(size.riskEur)));
+  return (
+    isFxEnvironment(value.environment) &&
+    isFxInstrument(value.instrument) &&
+    (value.side === 'buy' || value.side === 'sell') &&
+    sizeOk &&
+    isFinitePositive(value.stopPrice) &&
+    isFinitePositive(value.targetPrice)
+  );
+}
+
+export function isFxCloseRequest(value: unknown): value is FxCloseRequest {
+  return (
+    isPlainRecord(value) &&
+    onlyKeys(value, ['environment', 'instrument']) &&
+    isFxEnvironment(value.environment) &&
+    isFxInstrument(value.instrument)
+  );
+}
+
+export function isFxTestOrderRequest(value: unknown): value is FxTestOrderRequest {
+  return (
+    isPlainRecord(value) &&
+    onlyKeys(value, ['environment', 'confirm']) &&
+    isFxEnvironment(value.environment) &&
+    value.confirm === true
+  );
+}
+
+export function isFxSimulatedBrokerRequest(value: unknown): value is FxSimulatedBrokerRequest {
+  return isPlainRecord(value) && onlyKeys(value, ['enabled']) && typeof value.enabled === 'boolean';
 }

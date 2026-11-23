@@ -1,0 +1,27 @@
+{
+  "orderCreateTransaction": {
+    "type": "MARKET_ORDER",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "timeInForce": "FOK",
+    "positionFill": "DEFAULT",
+    "reason": "CLIENT_ORDER",
+    "clientExtensions": { "id": "tradia-prueba-2", "tag": "tradia" },
+    "id": "11",
+    "accountID": "101-004-1234567-001",
+    "batchID": "11",
+    "time": "2026-11-22T21:30:00.000000000Z"
+  },
+  "orderCancelTransaction": {
+    "type": "ORDER_CANCEL",
+    "orderID": "11",
+    "clientOrderID": "tradia-prueba-2",
+    "reason": "MARKET_HALTED",
+    "id": "12",
+    "accountID": "101-004-1234567-001",
+    "batchID": "11",
+    "time": "2026-11-22T21:30:00.000000000Z"
+  },
+  "relatedTransactionIDs": ["11", "12"],
+  "lastTransactionID": "12"
+}

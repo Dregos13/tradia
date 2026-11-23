@@ -38,6 +38,7 @@ import { registerBackup, type BackupService } from '../backup';
 import { registerBroker, type BrokerService } from '../broker';
 import { registerLive, type LiveServices } from '../live';
 import { registerLab, type LabServices } from '../lab';
+import { registerFxBroker, type FxBrokerService } from '../fxbroker';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -96,6 +97,8 @@ export interface MainServices {
   live: LiveServices;
   /** Laboratorio: generador de estrategias con IA y pruebas en vivo. */
   lab: LabServices;
+  /** Bróker de divisas y oro (OANDA): práctica y cuenta real con techos en euros. */
+  fxBroker: FxBrokerService;
 }
 
 export interface ServiceContext {
@@ -211,5 +214,9 @@ export function initServices(ctx: ServiceContext): MainServices {
   services.live = registerLive(ctx, { marketNow: marketClock.now });
   // Laboratorio: consume strategies, newsAi (motor de texto) y secrets.
   services.lab = registerLab(ctx, { now: marketClock.now });
+  // Divisas y oro con OANDA: tras risk (pasarela única), killSwitch,
+  // connectivity, secrets y live (la puerta de la cuenta real); envuelve
+  // ctx.broadcast para cerrar posiciones al saltar la parada.
+  services.fxBroker = registerFxBroker(ctx);
   return services as MainServices;
 }

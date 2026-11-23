@@ -463,3 +463,38 @@
   border-color: var(--color-borderStrong);
   border-style: dashed;
 }
+
+/* Divisas y oro con OANDA (FxBrokerPanel). */
+.fx-broker h4 {
+  margin: var(--space-6) 0 var(--space-2);
+}
+.fx-broker .live-field-hint {
+  font-size: var(--type-sm);
+  opacity: 0.8;
+}
+.fx-account {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.fx-account dt {
+  font-size: var(--type-sm);
+  opacity: 0.8;
+}
+.fx-account dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.fx-positions {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+.fx-positions th,
+.fx-positions td {
+  text-align: left;
+  padding: var(--space-2);
+}

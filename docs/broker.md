@@ -255,3 +255,102 @@ El script lee la cuenta, envía y cancela una orden limitada lejana y un
 OCO de compra, e imprime el resultado para cotejarlo con el panel web de
 Alpaca paper. Sin claves sale con el uso (exit 2). Nunca apunta a la URL
 live: el adaptador la rechazaría.
+
+## Divisas y oro con OANDA
+
+Alpaca solo opera acciones de EE. UU., así que **EUR/USD, USD/JPY,
+GBP/USD y oro (XAU/USD)** van por un segundo bróker: **OANDA** (API REST
+v20), que acepta órdenes desde **1 unidad** (1 € en EUR/USD). Se usa
+desde «Dinero real» → «Divisas y oro con OANDA».
+
+Piezas: `src/main/broker/oanda.ts` (adaptador con el mismo contrato
+`BrokerAdapter` que Alpaca, más precios, cierre de posición y resumen de
+margen), `src/main/fxbroker/guard.ts` (techos en euros, función pura),
+`src/main/fxbroker/service.ts` (conexión, órdenes, orden de prueba,
+conciliación y parada) e `index.ts` (IPC `fx-broker:*`). Contrato
+compartido en `src/shared/fxBroker.ts`. Órdenes en
+`broker_orders_fx_practice` y `broker_orders_fx_live` (migración 021).
+
+### Dos entornos, dos ranuras
+
+| Entorno  | URL fija                          | Cuenta empieza por | Ranura en `secrets`                         |
+| -------- | --------------------------------- | ------------------ | ------------------------------------------- |
+| Práctica | `https://api-fxpractice.oanda.com` | `101-`             | `broker-oanda-practice-token` / `-account`  |
+| Real     | `https://api-fxtrade.oanda.com`    | `001-`             | `broker-oanda-live-token` / `-account`      |
+
+- El token y el número de cuenta se guardan **cifrados** y nunca vuelven
+  al renderer (el estado solo lleva la cuenta enmascarada, `•••-001`).
+- Una cuenta de práctica en la ranura real (o al revés) se rechaza por
+  el prefijo antes de tocar la red; y aunque el prefijo cuadrara, el
+  servidor de cada entorno responde 401 a un token del otro: nada se
+  guarda hasta que OANDA acepta token y cuenta en **ese** entorno.
+- La cuenta real solo se conecta con la lista de comprobación del modo
+  real completa, y solo opera tras escribir la frase con los límites
+  exactos (`fxLiveConfirmationPhrase`); cambiar un límite la invalida.
+
+### Techos para empezar con poco (en euros)
+
+`FX_FIXED_CAPS`: capital (garantía máxima retenida) **de 50 a 500 €**,
+riesgo por orden **hasta 5 €**, pérdida diaria **hasta 10 €**, **2**
+posiciones a la vez y unidades máximas por orden (5 000 en los pares,
+2 onzas de oro). Los límites del usuario (por defecto 50 € / 1 € / 3 € /
+1 posición) van siempre dentro. Una orden se pide en **unidades** o en
+**euros de riesgo**: el proceso principal calcula las unidades con la
+distancia al stop. Con muy poco capital el oro puede no caber: 1 onza
+retiene unos 130 € de garantía.
+
+### Una sola pasarela
+
+Toda orden que abre riesgo pasa por `risk.submitSignal` (motor de
+riesgo) y después por `checkFxOrder`. Del motor se respetan los vetos
+cualitativos (parada, stop, ratio beneficio/riesgo, cautela, pérdidas y
+drawdown, señal inválida) y la reducción por cautela como factor sobre
+las unidades; los que dependen del tamaño que el motor calcula con el
+capital de la cartera simulada (exposición, correlación,
+apalancamiento, liquidez, nº de posiciones, «solo análisis» de USD/JPY)
+no aplican: el tamaño lo fijan los techos en euros, mucho más
+estrictos. Las órdenes salen a mercado (FOK) con **stop y objetivo
+adjuntos** (`stopLossOnFill`/`takeProfitOnFill`), así ninguna posición
+nace sin stop. Cerrar nunca se bloquea y la **parada de emergencia
+cierra todas las posiciones de OANDA** de los dos entornos.
+
+### Conciliación
+
+`fx-broker:reconcile` compara las órdenes registradas con las posiciones
+y órdenes abiertas de OANDA (`reconcileBrokerState`, tolerancia de
+precio 0,001). El stop y el objetivo adjuntos son órdenes dependientes
+de la operación y no cuentan como órdenes de la app. Una posición que
+OANDA cerró por su stop u objetivo aparece como descuadre hasta que se
+registre ese cierre (pendiente: leer esas ejecuciones del historial).
+
+### Crear la cuenta de práctica y el token
+
+1. Abre una cuenta **fxTrade Practice** gratuita en la web de OANDA
+   (OANDA Europe para residentes en la UE). No pide dinero.
+2. En el área de cliente, entra en **Manage API Access** («Gestionar
+   acceso a la API») y pulsa **Generate**: obtienes un token de dos
+   bloques de 32 caracteres separados por un guion. Guárdalo: OANDA no
+   vuelve a mostrarlo (puedes revocarlo y generar otro).
+3. Copia el **número de cuenta v20** de práctica (empieza por `101-`).
+   Usa una subcuenta en **EUR** o **USD**: Tradia no admite otras.
+4. En Tradia, «Dinero real» → «Divisas y oro con OANDA» → «Cuenta de
+   práctica»: pega número y token y pulsa **Conectar**. Verás saldo,
+   valor y garantía retenida.
+5. Pulsa **Hacer orden de prueba en práctica**: compra 1 unidad de
+   EUR/USD con stop y objetivo, la cierra y concilia. Debe terminar en
+   «Orden de prueba correcta». Hazla en horario de mercado (el forex
+   cierra del viernes por la noche al domingo por la noche).
+
+Para la cuenta real el proceso es el mismo con una cuenta `001-` y un
+token generado **desde la cuenta real** (el de práctica no sirve), una
+vez completada la lista de comprobación. Desactiva en OANDA cualquier
+permiso que no necesites; el token de la API no permite retirar fondos.
+
+### Pruebas
+
+`oanda.test.ts` usa respuestas grabadas (`__fixtures__/oanda/*.json`) y
+el servidor falso con estado `__fixtures__/oanda-fake-server.ts`;
+`fxbroker/*.test.ts` prueban techos, pasarela, conexión y orden de
+prueba sin red; `e2e/fx-broker-oanda.spec.ts` recorre la interfaz con
+el gancho `fx-broker:use-simulated` (solo `TRADIA_E2E` sin empaquetar).
+Ninguna prueba llama a OANDA.

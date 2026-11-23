@@ -1,0 +1,17 @@
+{
+  "order": {
+    "id": "7",
+    "createTime": "2026-11-23T15:00:02.118340923Z",
+    "type": "MARKET",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "timeInForce": "FOK",
+    "positionFill": "DEFAULT",
+    "state": "FILLED",
+    "clientExtensions": { "id": "tradia-prueba-1", "tag": "tradia" },
+    "fillingTransactionID": "8",
+    "filledTime": "2026-11-23T15:00:02.118340923Z",
+    "tradeOpenedID": "8"
+  },
+  "lastTransactionID": "10"
+}
