@@ -148,7 +148,7 @@ export function ForwardDetailView({ id }: { id: number }) {
           <p className="lab-stat-sub">
             {edge === null || !started
               ? 'Sin comparación aún'
-              : `${signedPct(edge)} frente a ${test.benchmark}`}
+              : `${signedPct(edge)} frente a comprar y esperar`}
           </p>
         </div>
         <div>

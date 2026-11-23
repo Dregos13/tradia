@@ -124,7 +124,7 @@ for (const colorScheme of THEMES) {
 
     test('IDV-E2E-8: a 1120 px la barra de estado muestra «En línea» y «Agentes activos» enteros', async () => {
       await page.setViewportSize({ width: 1120, height: 688 });
-      for (const link of ['Estado del sistema', 'Mercado', 'Riesgo']) {
+      for (const link of ['Estado del sistema', 'Lista de activos', 'Riesgo']) {
         await openPage(page, link, link);
         const status = page.locator('footer.statusbar [role="status"]');
         await expect(status).toContainText('En línea');

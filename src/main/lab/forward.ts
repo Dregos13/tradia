@@ -459,7 +459,8 @@ export function createForwardService(deps: ForwardServiceDeps): ForwardService {
         version: strategy.version,
         start_date: forwardStartDate(now()),
         initial_cash: request.initialCash ?? FORWARD_DEFAULT_CASH,
-        benchmark: 'SPY',
+        // Referencia: comprar y mantener el primer activo de la estrategia.
+        benchmark: executableMarkets(strategy.markets)[0] ?? 'SPY',
       });
       return toTest(row, strategy);
     },

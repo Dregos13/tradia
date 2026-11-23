@@ -1,5 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 
+import { formatFxPair } from '../../../../shared/fx';
+import { isFxSymbol } from '../../../../shared/fxTrading';
 import type { ForwardCurvePoint } from '../../../../shared/lab';
 import { money, shortDate, signedPct } from './format';
 
@@ -21,6 +23,7 @@ interface Props {
  * cursor del final marca el último cierre medido.
  */
 export function EquityChart({ curve, initialCash, benchmark, nowLabel }: Props) {
+  const pretty = isFxSymbol(benchmark) ? formatFxPair(benchmark) : benchmark;
   const titleId = useId();
   const [hover, setHover] = useState<number | null>(null);
 
@@ -84,7 +87,7 @@ export function EquityChart({ curve, initialCash, benchmark, nowLabel }: Props) 
         }}
       >
         <title id={titleId}>
-          {`Capital de la estrategia frente a ${benchmark}: ${money(last.equity)} al ${shortDate(last.date)}`}
+          {`Capital de la estrategia frente a comprar ${pretty} y esperar: ${money(last.equity)} al ${shortDate(last.date)}`}
         </title>
         {model.ticks.map((v) => (
           <g key={v} className="lab-chart-grid">
@@ -138,12 +141,12 @@ export function EquityChart({ curve, initialCash, benchmark, nowLabel }: Props) 
             {shortDate(active.date)} · <b>{money(active.equity)}</b>{' '}
             {signedPct(active.equity / initialCash - 1)}
             {active.benchmark !== null &&
-              ` · ${benchmark} ${signedPct(active.benchmark / initialCash - 1)}`}
+              ` · comprar y esperar ${signedPct(active.benchmark / initialCash - 1)}`}
           </span>
         ) : (
           <>
             <span className="lab-key lab-key-strategy">Tu estrategia</span>
-            <span className="lab-key lab-key-bench">{benchmark} comprado el mismo día</span>
+            <span className="lab-key lab-key-bench">Comprar {pretty} y esperar</span>
             <span className="lab-key lab-key-base">Capital inicial</span>
           </>
         )}

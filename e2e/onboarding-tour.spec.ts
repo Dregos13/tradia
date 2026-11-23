@@ -246,7 +246,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     // Reinicio: ni aviso de riesgo (ya aceptado) ni tour (ya saltado).
     await relaunchPhaseApp(context!);
     const next = context!.page;
-    await expect(next.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
+    await expect(next.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expect(next.getByRole('region', { name: 'Primeros pasos' })).toBeVisible();

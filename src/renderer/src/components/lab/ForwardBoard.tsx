@@ -60,7 +60,7 @@ export function ForwardBoard({
                 Resultado
               </th>
               <th scope="col" className="num">
-                Mercado
+                Comprar y esperar
               </th>
               <th scope="col" className="num">
                 Peor caída

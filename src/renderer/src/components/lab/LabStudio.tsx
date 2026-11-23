@@ -10,12 +10,16 @@ import {
   type GeneratedStrategy,
   type LabEngineStatus,
 } from '../../../../shared/lab';
+import { formatFxPair } from '../../../../shared/fx';
+import { isFxSymbol } from '../../../../shared/fxTrading';
 import { pct, signedPct, tone } from './format';
 
+const prettyTicker = (t: string) => (isFxSymbol(t) ? formatFxPair(t) : t);
+
 const EXAMPLES = [
-  'Comprar el SPY cuando cae fuerte varios días seguidos pero sigue en tendencia alcista, y vender en el rebote',
-  'Seguir la tendencia en los ETF de sectores: entrar cuando la media de 50 cruza por encima de la de 200',
-  'Comprar rupturas de máximos de 20 días en Nvidia, AMD y Microsoft con un stop ajustado a la volatilidad',
+  'Comprar EUR/USD cuando rompa el máximo de las últimas 20 sesiones con tendencia alcista y salir si pierde la media de 50',
+  'Comprar dólar/yen cuando el RSI de 14 baje de 30 si sigue por encima de su media de 200, y vender cuando supere 55',
+  'Comprar oro cuando la media de 20 cruce por encima de la de 50 y salir con un stop ajustado a la volatilidad',
 ];
 
 type Step =
@@ -128,6 +132,8 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
       });
       const report = await window.tradia.backtest.run({
         strategyId: strategy.id,
+        // Se compara con comprar y mantener el propio activo, no con el SPY.
+        benchmark: d.markets[0],
         walkForward: false,
         sensitivity: false,
         monteCarlo: false,
@@ -410,7 +416,7 @@ function BacktestVerdict({
           <dd data-tone={tone(m.annualizedReturn)}>{signedPct(m.annualizedReturn)}</dd>
         </div>
         <div>
-          <dt>Frente a {report.benchmark?.ticker ?? 'SPY'}</dt>
+          <dt>Frente a comprar y esperar</dt>
           <dd data-tone={tone(beat)}>{beat === null ? '—' : `${signedPct(beat)} total`}</dd>
         </div>
         <div>
@@ -430,7 +436,7 @@ function BacktestVerdict({
       {(few || (beat !== null && beat < 0)) && (
         <p className="lab-caution">
           {beat !== null && beat < 0
-            ? `En este periodo rinde menos que comprar ${report.benchmark?.ticker ?? 'SPY'} y esperar. Ajusta la idea o lánzala para ver si en el mercado actual se comporta distinto.`
+            ? `En este periodo rinde menos que comprar ${prettyTicker(report.benchmark?.ticker ?? '')} y esperar. Ajusta la idea o lánzala para ver si en el mercado actual se comporta distinto.`
             : 'Con menos de 30 operaciones el resultado puede ser suerte. La prueba en vivo es la forma de saberlo.'}
         </p>
       )}

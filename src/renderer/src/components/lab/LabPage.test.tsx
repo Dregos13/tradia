@@ -55,7 +55,7 @@ describe('Laboratorio', () => {
     await vi.waitFor(() => expect(window.location.hash).toMatch(/^#laboratorio\/prueba\/\d+$/));
   });
 
-  it('muestra el detalle de una prueba con su curva frente al SPY y permite detenerla', async () => {
+  it('muestra el detalle de una prueba con su curva frente a comprar y esperar y permite detenerla', async () => {
     const user = userEvent.setup();
     const strategy = await window.tradia.strategies.create({
       name: 'Cruce rápido',
@@ -77,7 +77,7 @@ describe('Laboratorio', () => {
     render(<LabPage />);
     expect(await screen.findByRole('heading', { name: 'Cruce rápido' })).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: /Capital de la estrategia frente a SPY/ }),
+      screen.getByRole('img', { name: /Capital de la estrategia frente a comprar QQQ y esperar/ }),
     ).toBeInTheDocument();
     expect(screen.getByText('Tu estrategia')).toBeInTheDocument();
 

@@ -47,14 +47,16 @@ const VIEWPORTS = [
   { width: 1024, height: 700, inline: 24 },
 ] as const;
 
-/** Las 17 entradas del menú lateral en el orden del DOM, con su título h1. */
+/** Las 18 entradas del menú lateral en el orden del DOM, con su título h1. */
 const ROUTES = [
-  { route: 'mesa', link: 'Mesa', heading: 'Mesa' },
-  { route: 'laboratorio', link: 'Laboratorio', heading: 'Laboratorio' },
-  { route: 'mercado', link: 'Mercado', heading: 'Mercado' },
-  { route: 'noticias', link: 'Noticias', heading: 'Noticias' },
+  { route: 'resumen', link: 'Resumen', heading: 'Resumen' },
+  { route: 'mesa', link: 'Mercado', heading: 'Mercado' },
+  { route: 'laboratorio', link: 'Crear', heading: 'Crear' },
+  { route: 'dinero-real', link: 'Dinero real', heading: 'Dinero real' },
   { route: 'ajustes', link: 'Ajustes', heading: 'Ajustes' },
-  // «Avanzado», plegable:
+  // «Herramientas avanzadas», plegable:
+  { route: 'mercado', link: 'Lista de activos', heading: 'Lista de activos' },
+  { route: 'noticias', link: 'Noticias', heading: 'Noticias' },
   { route: 'inicio', link: 'Estado del sistema', heading: 'Estado del sistema' },
   { route: 'estrategias', link: 'Estrategias', heading: 'Estrategias' },
   { route: 'ia', link: 'IA', heading: 'IA' },
@@ -66,7 +68,6 @@ const ROUTES = [
   { route: 'diario', link: 'Diario', heading: 'Diario' },
   { route: 'ordenes', link: 'Órdenes', heading: 'Órdenes' },
   { route: 'real-vs-backtest', link: 'Real vs backtest', heading: 'Real vs backtest' },
-  { route: 'dinero-real', link: 'Dinero real', heading: 'Dinero real' },
 ] as const;
 const MAIN_ROUTES = ROUTES.slice(0, 5);
 
@@ -598,7 +599,7 @@ test.afterEach(async () => {
 });
 
 for (const viewport of VIEWPORTS) {
-  test(`las 17 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
+  test(`las 18 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
     test.setTimeout(240_000);
     context = await launchPhaseApp('tradia-layout-e2e');
     const { page } = context;
@@ -664,7 +665,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await tour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
     await openAdvancedNav(page);
     await expect(tour).toHaveCount(0, { timeout: 5_000 });
-    await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expectBrand(page, page.locator('aside.side'));
@@ -840,7 +841,7 @@ test('el menú lateral: cinco entradas a la vista y «Avanzado» desplaza con in
   const { page } = context;
   await page.setViewportSize({ width: 1024, height: 700 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   const nav = page.getByRole('navigation', { name: 'Principal' });
@@ -865,7 +866,7 @@ test('el menú lateral: cinco entradas a la vista y «Avanzado» desplaza con in
   await expect.poll(async () => (await readNav(page)).hint).toBe(true);
   const narrow = await readNav(page);
   expect(narrow.overflow).toBeGreaterThan(0);
-  expect(narrow.hidden).toContain('Dinero real');
+  expect(narrow.hidden).toContain('Real vs backtest');
   await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(1);
   // La marca no se desplaza con la lista.
   await expect(page.locator('aside.side').getByRole('img', { name: 'Tradia' })).toBeInViewport({
@@ -873,18 +874,18 @@ test('el menú lateral: cinco entradas a la vista y «Avanzado» desplaza con in
   });
   await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-indicio.png') });
 
-  // Con rueda: al llegar al final, «Dinero real» se ve y el indicio desaparece.
+  // Con rueda: al llegar al final, «Real vs backtest» se ve y el indicio desaparece.
   await nav.hover();
   await page.mouse.wheel(0, 800);
   await expect.poll(async () => (await readNav(page)).hint).toBe(false);
-  expect((await readNav(page)).hidden).not.toContain('Dinero real');
+  expect((await readNav(page)).hidden).not.toContain('Real vs backtest');
   await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(0);
   await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-final.png') });
 
-  // Con Tab: desde «Mesa», arriba del todo, hasta «Dinero real» (pasando por «Avanzado»).
+  // Con Tab: desde «Resumen», arriba del todo, hasta el final (pasando por el desplegable).
   await nav.evaluate((element) => element.scrollTo({ top: 0 }));
   await expect.poll(async () => (await readNav(page)).hint).toBe(true);
-  await nav.getByRole('link', { name: 'Mesa', exact: true }).focus();
+  await nav.getByRole('link', { name: 'Resumen', exact: true }).focus();
   for (let index = 1; index < ROUTES.length; index++) {
     await page.keyboard.press('Tab');
     if (index === MAIN_ROUTES.length) {
@@ -982,7 +983,7 @@ test('casillas, selectores y enlaces en línea alcanzan el área mínima de cont
   const { page } = context;
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   const failures: string[] = [];

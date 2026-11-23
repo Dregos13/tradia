@@ -29,7 +29,7 @@ async function acceptRisk(page: Page): Promise<void> {
   await page.getByLabel('He le√≠do y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await skipGuidedTour(page);
-  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 }
 
 async function captureNotifications(app: ElectronApplication): Promise<void> {
@@ -206,7 +206,7 @@ test('Profesional independiente: una vela cerrada en segundo plano actualiza se√
 
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.show());
     const visiblePage = await app.firstWindow();
-    await expect(visiblePage.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+    await expect(visiblePage.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
     await visiblePage.getByRole('link', { name: 'Estado del sistema', exact: true }).click();
     await expect(visiblePage.getByText(/Confianza \d/).first()).toBeVisible();
     await visiblePage.getByRole('link', { name: 'Diario', exact: true }).click();

@@ -27,7 +27,7 @@ test.afterEach(async () => {
 test('de una idea a una prueba en vivo', async () => {
   test.setTimeout(240_000);
   const { page } = context!;
-  await openPage(page, 'Laboratorio');
+  await openPage(page, 'Crear');
   await expect(page.getByText('IA simulada')).toBeVisible();
 
   await page
@@ -52,17 +52,19 @@ test('de una idea a una prueba en vivo', async () => {
   await expect(page.getByText(/v1 congelada/)).toBeVisible();
   await capturePhaseScreenshot(page, 'laboratorio-prueba.png');
 
-  await page.getByRole('link', { name: 'Laboratorio' }).first().click();
+  await page.getByRole('link', { name: 'Crear', exact: true }).click();
   const board = page.getByRole('region', { name: 'Pruebas en vivo' });
   await expect(board.getByRole('link', { name: 'Cruce de medias' })).toBeVisible({
     timeout: 60_000,
   });
 });
 
-test('la Mesa abre por defecto, sigue los activos clave y lleva una idea al Laboratorio', async () => {
+test('abre en Resumen; Mercado sigue divisas y oro y lleva una idea a Crear', async () => {
   test.setTimeout(240_000);
   const { page } = context!;
-  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Empieza en tres pasos' })).toBeVisible();
+  await openPage(page, 'Mercado');
   for (const city of ['Tokio', 'Londres', 'Nueva York']) {
     await expect(page.getByText(city, { exact: true })).toBeVisible();
   }
@@ -75,7 +77,7 @@ test('la Mesa abre por defecto, sigue los activos clave y lleva una idea al Labo
   });
   await capturePhaseScreenshot(page, 'mesa-oro.png');
   await page.getByRole('button', { name: 'Escribir mi propia idea sobre Oro' }).click();
-  await expect(page.getByRole('heading', { name: 'Laboratorio', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Crear', level: 1 })).toBeVisible();
   await expect(page.getByLabel('Tu idea', { exact: true })).toHaveValue(
     'Estrategia sobre Oro (GLD): ',
   );

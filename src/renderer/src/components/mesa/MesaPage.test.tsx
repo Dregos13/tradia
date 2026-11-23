@@ -32,7 +32,8 @@ describe('Mesa', () => {
     expect(await window.tradia.watchlist.list()).toEqual([]);
     await user.click(await screen.findByRole('button', { name: 'Seguir estos activos' }));
     const tickers = (await window.tradia.watchlist.list()).map((item) => item.ticker);
-    expect(tickers).toEqual(expect.arrayContaining(['SPY', 'GLD', 'USO', 'EURUSD', 'EWJ']));
+    expect(tickers).toEqual(expect.arrayContaining(['EURUSD', 'USDJPY', 'GBPUSD', 'GLD']));
+    expect(tickers).not.toContain('SPY');
 
     const assets = screen.getByRole('region', { name: 'Activos' });
     await user.click(within(assets).getByRole('button', { name: /Oro/ }));

@@ -44,7 +44,7 @@ test.beforeEach(async () => {
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByRole('button', { name: 'Saltar tour', exact: true }).click();
   await openAdvancedNav(page);
-  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 });
 
 test.afterEach(async () => {

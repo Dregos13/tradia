@@ -3,6 +3,7 @@ import { FirstStepsCard } from './components/onboarding/FirstStepsCard';
 import { AiPage } from './components/ai/AiPage';
 import { LabPage } from './components/lab/LabPage';
 import { MesaPage } from './components/mesa/MesaPage';
+import { SummaryPage } from './components/summary/SummaryPage';
 import { ModelHealthPage } from './components/model-health/ModelHealthPage';
 import { ChecklistPage } from './components/live/ChecklistPage';
 import { LiveBanner } from './components/live/LiveBanner';
@@ -35,6 +36,7 @@ import { useSystemState } from './hooks/useSystemState';
 import { useScrollHint } from './hooks/useScrollHint';
 
 type Page =
+  | 'resumen'
   | 'mesa'
   | 'laboratorio'
   | 'ia'
@@ -56,7 +58,8 @@ const currentPage = (): Page => {
   const hash = window.location.hash.slice(1).split('?')[0] ?? '';
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
   if (hash === 'laboratorio' || hash.startsWith('laboratorio/')) return 'laboratorio';
-  return hash === 'inicio' ||
+  return hash === 'mesa' ||
+    hash === 'inicio' ||
     hash === 'ia' ||
     hash === 'salud-modelos' ||
     hash === 'dinero-real' ||
@@ -71,18 +74,20 @@ const currentPage = (): Page => {
     hash === 'fuentes' ||
     hash === 'ajustes'
     ? hash
-    : 'mesa';
+    : 'resumen';
 };
 
-/** Lo que usa quien opera; el resto vive plegado en «Avanzado». */
+/** Lo que usa quien opera; el resto vive plegado en «Herramientas avanzadas». */
 const MAIN_LINKS: { page: Page; label: string }[] = [
-  { page: 'mesa', label: 'Mesa' },
-  { page: 'laboratorio', label: 'Laboratorio' },
-  { page: 'mercado', label: 'Mercado' },
-  { page: 'noticias', label: 'Noticias' },
+  { page: 'resumen', label: 'Resumen' },
+  { page: 'mesa', label: 'Mercado' },
+  { page: 'laboratorio', label: 'Crear' },
+  { page: 'dinero-real', label: 'Dinero real' },
   { page: 'ajustes', label: 'Ajustes' },
 ];
 const ADVANCED_LINKS: { page: Page; label: string }[] = [
+  { page: 'mercado', label: 'Lista de activos' },
+  { page: 'noticias', label: 'Noticias' },
   { page: 'inicio', label: 'Estado del sistema' },
   { page: 'estrategias', label: 'Estrategias' },
   { page: 'ia', label: 'IA' },
@@ -94,7 +99,6 @@ const ADVANCED_LINKS: { page: Page; label: string }[] = [
   { page: 'diario', label: 'Diario' },
   { page: 'ordenes', label: 'Órdenes' },
   { page: 'real-vs-backtest', label: 'Real vs backtest' },
-  { page: 'dinero-real', label: 'Dinero real' },
 ];
 const ADVANCED_KEY = 'tradia.nav.advanced';
 const readAdvanced = (): boolean => {
@@ -183,7 +187,7 @@ function AppShell() {
               }
             }}
           >
-            <summary>Avanzado</summary>
+            <summary>Herramientas avanzadas</summary>
             {ADVANCED_LINKS.map((link) => (
               <a
                 key={link.page}
@@ -200,8 +204,9 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
-              mesa: 'Mesa',
-              laboratorio: 'Laboratorio',
+              resumen: 'Resumen',
+              mesa: 'Mercado',
+              laboratorio: 'Crear',
               ia: 'IA',
               'salud-modelos': 'Salud de modelos',
               'dinero-real': 'Dinero real',
@@ -210,7 +215,7 @@ function AppShell() {
               diario: 'Diario',
               riesgo: 'Riesgo',
               inicio: 'Estado del sistema',
-              mercado: 'Mercado',
+              mercado: 'Lista de activos',
               macro: 'Contexto macro',
               noticias: 'Noticias',
               calendario: 'Calendario',
@@ -274,11 +279,13 @@ function AppShell() {
                 requestAnimationFrame(() => legalButton.current?.focus());
               }}
             />
-          ) : page === 'mesa' ? (
+          ) : page === 'resumen' ? (
             <>
               <FirstStepsCard />
-              <MesaPage />
+              <SummaryPage />
             </>
+          ) : page === 'mesa' ? (
+            <MesaPage />
           ) : page === 'laboratorio' ? (
             <LabPage />
           ) : page === 'ia' ? (

@@ -84,7 +84,7 @@ async function startApp(
       await page.getByLabel('He leído y acepto').check();
       await page.getByRole('button', { name: 'Continuar', exact: true }).click();
       await skipGuidedTour(page);
-      await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
         timeout: 30_000,
       });
     }

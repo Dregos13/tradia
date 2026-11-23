@@ -78,7 +78,7 @@ for (const colorScheme of THEMES) {
     test('IDV-UXP-2: el h1 de la barra es el único título dominante en Inicio, Mercado, Estrategias y Ajustes', async () => {
       for (const [link, heading] of [
         ['Estado del sistema', 'Estado del sistema'],
-        ['Mercado', 'Mercado'],
+        ['Lista de activos', 'Lista de activos'],
         ['Estrategias', 'Estrategias'],
         ['Ajustes', 'Ajustes'],
       ] as const) {
@@ -102,7 +102,7 @@ for (const colorScheme of THEMES) {
     });
 
     test('IDV-UXP-3 e IDV-UXP-6: con 25 activos y SPY, filas compactas, gráfico a la vista y ayuda alineada', async () => {
-      await openPage(page, 'Mercado');
+      await openPage(page, 'Lista de activos');
       await page.getByRole('button', { name: /Añadir universo inicial/ }).click();
       await expect(page.locator('.market-watch li')).toHaveCount(25, { timeout: 30_000 });
       await page.locator('button.market-asset[aria-label="SPY"]').click();

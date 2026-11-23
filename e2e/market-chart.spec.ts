@@ -39,7 +39,7 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     await page.getByLabel('He leído y acepto').check();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
     await skipGuidedTour(page);
-    await page.getByRole('link', { name: 'Mercado', exact: true }).click();
+    await page.getByRole('link', { name: 'Lista de activos', exact: true }).click();
     await expect(page.getByText('Tu lista está vacía.')).toBeVisible();
     const tickerInput = page.getByLabel('Ticker', { exact: true });
     await tickerInput.fill('NASDAQ-TOO-LONG');

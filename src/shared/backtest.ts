@@ -132,6 +132,11 @@ export interface BacktestRunRequest {
    * (regresión idéntica a ejecuciones anteriores).
    */
   regimeFilter?: boolean;
+  /**
+   * Referencia de comprar y mantener del informe (def. SPY). El laboratorio
+   * pasa el propio activo de la estrategia («comprar y mantener EUR/USD»).
+   */
+  benchmark?: string;
 }
 
 /** Filtros de `backtest:list`; sin `strategyId` lista todas las ejecuciones. */

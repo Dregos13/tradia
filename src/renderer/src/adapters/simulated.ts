@@ -716,8 +716,9 @@ export function createSimulatedAdapter() {
     initialCash: number,
     desde: string,
     hasta: string,
+    ticker = 'SPY',
   ): BacktestReport['benchmark'] => {
-    const inside = fakeBars('SPY', desde, hasta);
+    const inside = fakeBars(ticker, desde, hasta);
     if (inside.length === 0 || inside[0]!.close <= 0) return null;
     const first = inside[0]!.close;
     const curve: EquityPointDto[] = inside.map((b) => ({
@@ -726,7 +727,7 @@ export function createSimulatedAdapter() {
       equity: (initialCash * b.close) / first,
       positions: 1,
     }));
-    return { ticker: 'SPY', totalReturn: inside.at(-1)!.close / first - 1, curve };
+    return { ticker, totalReturn: inside.at(-1)!.close / first - 1, curve };
   };
 
   const fakeWarnings = (tradeCount: number) => [
@@ -760,7 +761,7 @@ export function createSimulatedAdapter() {
   /** Run del motor real sobre datos simulados; devuelve el informe persistido. */
   const runFakeBacktest = (
     strategy: Strategy,
-    request: { params?: Record<string, number>; initialCash?: number },
+    request: { params?: Record<string, number>; initialCash?: number; benchmark?: string },
     range: { desde: string; hasta: string },
     kind: 'completo' | 'prueba-final',
     progress: { ticket: string; percentBase: number },
@@ -851,7 +852,7 @@ export function createSimulatedAdapter() {
       sensitivity: null,
       monteCarlo,
       warnings: fakeWarnings(metrics.tradeCount),
-      benchmark: fakeBenchmark(initialCash, range.desde, range.hasta),
+      benchmark: fakeBenchmark(initialCash, range.desde, range.hasta, request.benchmark),
       finalTest: {
         status: finalTestRunByKey.has(key) ? 'ejecutada' : 'disponible',
         runId: finalTestRunByKey.get(key) ?? null,
@@ -1999,7 +2000,7 @@ export function createSimulatedAdapter() {
       version: row.version,
       startDate: row.startDate,
       initialCash: row.initialCash,
-      benchmark: 'SPY',
+      benchmark: (strategy ? executableMarkets(strategy.markets)[0] : undefined) ?? 'SPY',
       markets: strategy ? executableMarkets(strategy.markets) : [],
       status: row.status,
       stoppedAt: row.stoppedAt,

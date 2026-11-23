@@ -19,7 +19,7 @@ const THEMES = ['light', 'dark'] as const;
 const THEME_NAME = { light: 'claro', dark: 'oscuro' } as const;
 const SCREENS = [
   { link: 'Estado del sistema', heading: 'Estado del sistema', slug: 'inicio' },
-  { link: 'Mercado', heading: 'Mercado', slug: 'mercado' },
+  { link: 'Lista de activos', heading: 'Lista de activos', slug: 'mercado' },
   { link: 'Estrategias', heading: 'Estrategias', slug: 'estrategias' },
   { link: 'Riesgo', heading: 'Riesgo', slug: 'riesgo' },
   { link: 'Noticias', heading: 'Noticias', slug: 'noticias' },
@@ -178,7 +178,7 @@ for (const colorScheme of THEMES) {
       await tour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
       await openAdvancedNav(page);
       await expect(tour).toHaveCount(0, { timeout: 5_000 });
-      await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
     });
 
     test('logo nuevo en la barra lateral', async () => {

@@ -2834,9 +2834,16 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     'sensitivity',
     'monteCarlo',
     'regimeFilter',
+    'benchmark',
   ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isStrategyId(v.strategyId)) return false;
+  if (
+    'benchmark' in v &&
+    !(typeof v.benchmark === 'string' && /^[A-Z0-9.]{1,12}$/.test(v.benchmark))
+  ) {
+    return false;
+  }
   if ('version' in v && !isStrategyId(v.version)) return false;
   if ('desde' in v && !isIsoDate(v.desde)) return false;
   if ('hasta' in v && !isIsoDate(v.hasta)) return false;

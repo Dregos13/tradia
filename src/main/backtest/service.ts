@@ -263,6 +263,8 @@ interface ResolvedRunConfig {
   monteCarlo: false | { seed: number; simulations: number; method: 'permutation' | 'bootstrap' };
   /** Filtro de régimen activo (fase 6): las entradas se gobiernan por la ficha. */
   regimeFilter: boolean;
+  /** Referencia del informe pedida en la ejecución; null = la del servicio. */
+  benchmark: string | null;
 }
 
 /** Mismo día del mes hace `years` años (29 de febrero → 28). */
@@ -510,6 +512,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
               method: request.monteCarlo?.method ?? 'permutation',
             },
       regimeFilter: request.regimeFilter === true,
+      benchmark: request.benchmark?.toUpperCase() ?? null,
     };
   };
 
@@ -807,7 +810,8 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     desde: SessionDate,
     hasta: SessionDate,
   ): Promise<BenchmarkDto | null> => {
-    const bars = existing[benchmarkTicker] ?? (await source.getBars(benchmarkTicker, desde, hasta));
+    const ticker = cfg.benchmark ?? benchmarkTicker;
+    const bars = existing[ticker] ?? (await source.getBars(ticker, desde, hasta));
     const inside = bars.filter((b) => b.date >= desde && b.date <= hasta);
     if (inside.length === 0) return null;
     const first = inside[0]!.close;
@@ -819,7 +823,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
       positions: 1,
     }));
     return {
-      ticker: benchmarkTicker,
+      ticker,
       totalReturn: inside.at(-1)!.close / first - 1,
       curve,
     };
@@ -1231,6 +1235,7 @@ export function createBacktestService(deps: BacktestServiceDeps): BacktestServic
     sensitivity: false,
     monteCarlo: false,
     regimeFilter: false,
+    benchmark: base.benchmark?.ticker ?? null,
   });
 
   /**

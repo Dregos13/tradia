@@ -11,7 +11,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await openPage(page, 'Estado del sistema');
       await expect(page.locator('.dashboard')).toHaveCSS('font-family', /^Sora,/);
       await page.screenshot({ path: `test-results/inicio-identidad-${colorScheme}.png` });
-      await openPage(page, 'Mercado');
+      await openPage(page, 'Lista de activos');
       await page.getByLabel('Ticker', { exact: true }).fill('AAPL');
       await page.getByRole('button', { name: 'Añadir', exact: true }).click();
       const chart = page.getByRole('img', { name: /Velas diarias ajustadas de AAPL/ });

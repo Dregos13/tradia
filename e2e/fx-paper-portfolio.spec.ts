@@ -85,7 +85,7 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
   });
 
   await test.step('escribir EUR: rechazo en español con las dos alternativas y la lista intacta', async () => {
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     const input = page.getByLabel('Ticker', { exact: true });
     await input.fill('EUR');
     await input.press('Enter');
@@ -248,7 +248,7 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
   });
 
   await test.step('el resto de activos sigue al día, sin avisos de cobertura', async () => {
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     const spy = page.getByRole('button', { name: 'SPY', exact: true });
     await expect(spy).toHaveAccessibleDescription(/Fiable/);
     const eur = page.getByRole('button', { name: 'EUR/USD', exact: true });

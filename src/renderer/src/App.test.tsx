@@ -48,10 +48,10 @@ describe('Estructura de Tradia', () => {
     expect(skip).toHaveAttribute('href', '#contenido');
     skip.focus();
     await user.tab();
-    expect(screen.getByRole('link', { name: 'Mesa' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Resumen' })).toHaveFocus();
     expect(
       within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link'),
-    ).toHaveLength(17);
+    ).toHaveLength(18);
   });
 
   it('navega entre Inicio y Ajustes con teclado y conserva la barra de estado', async () => {
@@ -187,7 +187,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     render(<App />);
   });
   for (const [name, heading] of [
-    ['Mercado', 'Mercado'],
+    ['Lista de activos', 'Lista de activos'],
     ['Macro', 'Contexto macro'],
   ]) {
     const link = screen.getByRole('link', { name });
@@ -422,14 +422,14 @@ it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', a
   const nav = within(screen.getByRole('navigation', { name: 'Principal' }));
   const routes = nav.getAllByRole('link').map((link) => link.getAttribute('href'));
   expect(routes.slice(0, 5)).toEqual([
+    '#resumen',
     '#mesa',
     '#laboratorio',
-    '#mercado',
-    '#noticias',
+    '#dinero-real',
     '#ajustes',
   ]);
-  expect(routes.slice(5, 9)).toEqual(['#inicio', '#estrategias', '#ia', '#salud-modelos']);
-  expect(routes.at(-1)).toBe('#dinero-real');
+  expect(routes.slice(5, 8)).toEqual(['#mercado', '#noticias', '#inicio']);
+  expect(routes.at(-1)).toBe('#real-vs-backtest');
   for (const name of ['IA', 'Salud de modelos', 'Dinero real']) {
     const link = nav.getByRole('link', { name });
     link.focus();

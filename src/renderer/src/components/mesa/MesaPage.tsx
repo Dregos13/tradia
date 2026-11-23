@@ -7,19 +7,18 @@ import {
   type MarketReading,
   type PatternCandle,
 } from '../../../../shared/patterns';
+import { formatFxPair } from '../../../../shared/fx';
+import { isFxSymbol } from '../../../../shared/fxTrading';
 import { MesaChart } from './MesaChart';
 import { SessionsTimeline } from './SessionsTimeline';
 import './mesa.css';
 
 /** Activos que importan, en el orden en que se leen. */
 export const MESA_ASSETS = [
-  { ticker: 'SPY', name: 'S&P 500', note: 'Las 500 mayores de EE. UU.' },
-  { ticker: 'QQQ', name: 'Nasdaq 100', note: 'Tecnología de EE. UU.' },
-  { ticker: 'NVDA', name: 'Nvidia', note: 'Chips de IA' },
-  { ticker: 'GLD', name: 'Oro', note: 'Oro físico, en dólares' },
-  { ticker: 'USO', name: 'Petróleo', note: 'Crudo WTI' },
-  { ticker: 'EURUSD', name: 'Euro / dólar', note: 'Divisas, 24 h' },
-  { ticker: 'EWJ', name: 'Japón', note: 'Bolsa japonesa, en dólares' },
+  { ticker: 'EURUSD', name: 'Euro / dólar', note: 'El par más negociado del mundo' },
+  { ticker: 'USDJPY', name: 'Dólar / yen', note: 'Se mueve sobre todo en la sesión de Tokio' },
+  { ticker: 'GBPUSD', name: 'Libra / dólar', note: 'Muy activo en la sesión de Londres' },
+  { ticker: 'GLD', name: 'Oro', note: 'Oro físico, en dólares (fondo cotizado)' },
 ] as const;
 
 type Asset = (typeof MESA_ASSETS)[number];
@@ -59,7 +58,7 @@ const toneOf = (value: number | null) =>
  */
 export function MesaPage() {
   const [data, setData] = useState<Record<string, AssetData>>({});
-  const [selected, setSelected] = useState<Asset['ticker']>('SPY');
+  const [selected, setSelected] = useState<Asset['ticker']>('EURUSD');
   const [missing, setMissing] = useState<string[]>([]);
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -119,7 +118,7 @@ export function MesaPage() {
 
   const asset = MESA_ASSETS.find((a) => a.ticker === selected)!;
   const current = data[selected];
-  const fx = selected === 'EURUSD';
+  const fx = isFxSymbol(selected);
   const last = current?.candles.at(-1);
   const allPatterns = useMemo(
     () =>
@@ -178,11 +177,11 @@ export function MesaPage() {
                   >
                     <span className="mesa-asset-name">
                       <strong>{a.name}</strong>
-                      <span>{a.ticker === 'EURUSD' ? 'EUR/USD' : a.ticker}</span>
+                      <span>{isFxSymbol(a.ticker) ? formatFxPair(a.ticker) : a.ticker}</span>
                     </span>
                     <span className="mesa-asset-figures">
                       <span className="mesa-price">
-                        {c ? priceFmt(a.ticker === 'EURUSD').format(c.close) : loading ? '…' : '—'}
+                        {c ? priceFmt(isFxSymbol(a.ticker)).format(c.close) : loading ? '…' : '—'}
                       </span>
                       <span className="mesa-change" data-tone={toneOf(change)}>
                         {formatChange(change)}
@@ -279,7 +278,9 @@ export function MesaPage() {
         <section className="mesa-today" aria-labelledby="mesa-today-title">
           <header className="mesa-section-head">
             <h2 id="mesa-today-title">Lo que ha pasado hoy</h2>
-            <p className="mesa-meta">{allPatterns.length} patrones en 7 activos</p>
+            <p className="mesa-meta">
+              {allPatterns.length} patrones en {MESA_ASSETS.length} activos
+            </p>
           </header>
           <ul>
             {allPatterns.map(({ asset: a, pattern: p }) => (
