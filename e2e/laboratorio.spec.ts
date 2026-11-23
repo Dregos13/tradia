@@ -66,7 +66,9 @@ test('abre en Resumen; Mercado sigue divisas y oro y lleva una idea a Crear', as
   await expect(page.getByRole('heading', { name: 'Empieza en tres pasos' })).toBeVisible();
   await openPage(page, 'Mercado');
   for (const city of ['Tokio', 'Londres', 'Nueva York']) {
-    await expect(page.getByText(city, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Sesiones' }).getByText(city, { exact: true }),
+    ).toBeVisible();
   }
   await page.getByRole('button', { name: 'Seguir estos activos' }).click();
   const assets = page.getByRole('region', { name: 'Activos' });
