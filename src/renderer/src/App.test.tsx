@@ -10,6 +10,12 @@ import { ONBOARDING_TOUR_VERSION } from '../../shared/ipc';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { createSimulatedAdapter } from './adapters/simulated';
 
+// El gráfico de velas de Mercado (lightweight-charts) necesita canvas y
+// matchMedia reales; en jsdom basta con un gráfico mudo.
+vi.mock('./components/mesa/MesaChart', () => ({
+  MesaChart: ({ label }: { label: string }) => <div role="img" aria-label={`Velas de ${label}`} />,
+}));
+
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 beforeEach(async () => {
   // «Estado del sistema» (antes Inicio) vive en «Avanzado»; abrir en él
