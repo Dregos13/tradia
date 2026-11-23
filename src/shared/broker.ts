@@ -435,9 +435,16 @@ export interface DeviationAlert {
 /**
  * Adaptadores posibles: 'alpaca' contra paper-api; 'alpaca-live' contra
  * api.alpaca.markets (solo con la lista del modo real cumplida, fase 7);
- * 'simulado' en E2E.
+ * 'oanda-practice' y 'oanda-live' para divisas y oro (ver
+ * `src/shared/fxBroker.ts`); 'simulado' en E2E.
  */
-export const BROKER_ADAPTER_IDS = ['alpaca', 'alpaca-live', 'simulado'] as const;
+export const BROKER_ADAPTER_IDS = [
+  'alpaca',
+  'alpaca-live',
+  'oanda-practice',
+  'oanda-live',
+  'simulado',
+] as const;
 export type BrokerAdapterId = (typeof BROKER_ADAPTER_IDS)[number];
 
 /** Estados de la conexión con la cuenta paper. */

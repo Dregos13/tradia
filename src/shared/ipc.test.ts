@@ -151,6 +151,7 @@ describe('contrato IPC', () => {
       'delivery',
       'deviation',
       'forward',
+      'fxBroker',
       'journal',
       'lab',
       'live',

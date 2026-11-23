@@ -402,7 +402,13 @@ const ALERT_COLUMNS = `id, estrategia_id, estrategia_nombre, periodo, inicio, fi
  * 012, mismo esquema). Es la lista blanca que se interpola en el SQL —
  * nunca un texto externo.
  */
-export const BROKER_ORDERS_TABLES = ['broker_orders', 'broker_orders_live'] as const;
+export const BROKER_ORDERS_TABLES = [
+  'broker_orders',
+  'broker_orders_live',
+  // Divisas y oro con OANDA (migración 022): práctica y cuenta real.
+  'broker_orders_fx_practice',
+  'broker_orders_fx_live',
+] as const;
 export type BrokerOrdersTable = (typeof BROKER_ORDERS_TABLES)[number];
 
 export interface BrokerRepositoryOptions {
@@ -420,7 +426,7 @@ export function createBrokerRepository(
     throw new Error(`tabla de órdenes desconocida: ${String(ordersTable)}`);
   }
   /** Modo de las órdenes de esta tabla: fijo desde la migración 012. */
-  const orderMode: BrokerOrderMode = ordersTable === 'broker_orders_live' ? 'live' : 'paper';
+  const orderMode: BrokerOrderMode = ordersTable.endsWith('_live') ? 'live' : 'paper';
   const toOrder = (row: BrokerOrderRow): BrokerOrder => toBrokerOrder(row, orderMode);
   const insertOrderStmt = db.prepare(
     `INSERT INTO ${ordersTable} (

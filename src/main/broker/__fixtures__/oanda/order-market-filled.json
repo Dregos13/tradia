@@ -1,0 +1,40 @@
+{
+  "orderCreateTransaction": {
+    "type": "MARKET_ORDER",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "timeInForce": "FOK",
+    "positionFill": "DEFAULT",
+    "reason": "CLIENT_ORDER",
+    "clientExtensions": { "id": "tradia-prueba-1", "tag": "tradia" },
+    "stopLossOnFill": { "price": "1.08245", "timeInForce": "GTC" },
+    "takeProfitOnFill": { "price": "1.08896", "timeInForce": "GTC" },
+    "id": "7",
+    "accountID": "101-004-1234567-001",
+    "userID": 1234567,
+    "batchID": "7",
+    "requestID": "61083712345678901",
+    "time": "2026-11-23T15:00:02.118340923Z"
+  },
+  "orderFillTransaction": {
+    "type": "ORDER_FILL",
+    "orderID": "7",
+    "clientOrderID": "tradia-prueba-1",
+    "instrument": "EUR_USD",
+    "units": "1",
+    "price": "1.08462",
+    "fullVWAP": "1.08462",
+    "reason": "MARKET_ORDER",
+    "pl": "0.0000",
+    "financing": "0.0000",
+    "commission": "0.0000",
+    "accountBalance": "100.0000",
+    "tradeOpened": { "tradeID": "8", "units": "1", "price": "1.08462" },
+    "id": "8",
+    "accountID": "101-004-1234567-001",
+    "batchID": "7",
+    "time": "2026-11-23T15:00:02.118340923Z"
+  },
+  "relatedTransactionIDs": ["7", "8", "9", "10"],
+  "lastTransactionID": "10"
+}

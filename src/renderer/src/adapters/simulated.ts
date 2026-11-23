@@ -200,6 +200,7 @@ import {
   type ForwardTest,
 } from '../../../shared/lab';
 import { computeMetrics, type BacktestMetrics } from '../../../main/backtest/metrics';
+import { createSimulatedFxBroker } from './simulatedFxBroker';
 import { CLASSIC_STRATEGIES } from '../../../main/backtest/strategies';
 import { runMonteCarlo, splitTimeline } from '../../../main/backtest/validation';
 import type { EngineBar } from '../../../main/backtest/types';
@@ -3290,6 +3291,7 @@ export function createSimulatedAdapter() {
       newsStatus: async () => newsStatusNow(),
       onNewsStatusChanged: (listener) => subscribe(newsStatusListeners, listener),
     },
+    fxBroker: createSimulatedFxBroker(),
     live: {
       checklist: async () => buildLiveChecklist(),
       state: async () => buildLiveState(),

@@ -50,6 +50,9 @@ it('muestra las seis series en E2E sin una clave FRED guardada', async () => {
         seedProgress: vi.fn(),
         useSimulatedBroker: vi.fn(),
       },
+      fxBroker: {
+        useSimulated: vi.fn(),
+      },
     },
   };
   render(<MarketDataPage kind="macro" />);

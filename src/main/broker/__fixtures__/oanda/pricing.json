@@ -1,0 +1,25 @@
+{
+  "time": "2026-11-23T15:00:01.204712316Z",
+  "prices": [
+    {
+      "type": "PRICE",
+      "instrument": "EUR_USD",
+      "time": "2026-11-23T15:00:00.981205136Z",
+      "tradeable": true,
+      "bids": [{ "price": "1.08450", "liquidity": 1000000 }],
+      "asks": [{ "price": "1.08462", "liquidity": 1000000 }],
+      "closeoutBid": "1.08450",
+      "closeoutAsk": "1.08462"
+    },
+    {
+      "type": "PRICE",
+      "instrument": "USD_JPY",
+      "time": "2026-11-23T15:00:00.874531002Z",
+      "tradeable": true,
+      "bids": [{ "price": "151.200", "liquidity": 1000000 }],
+      "asks": [{ "price": "151.214", "liquidity": 1000000 }],
+      "closeoutBid": "151.200",
+      "closeoutAsk": "151.214"
+    }
+  ]
+}

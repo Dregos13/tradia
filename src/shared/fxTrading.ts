@@ -4,9 +4,10 @@
  * Solo funciones puras y constantes, compartidas por main y renderer.
  *
  * Reglas (ver docs/senales.md, «Divisas»):
- * - Las divisas se operan solo en la cartera simulada interna de la app.
- *   Ninguna orden de divisas llega al bróker, ni en paper ni con dinero
- *   real: el bróker conectado (Alpaca) no opera divisas.
+ * - Las señales de divisas se operan en la cartera simulada interna de
+ *   la app. Ninguna orden de divisas llega a Alpaca, que no opera
+ *   divisas. Las órdenes manuales y la orden de prueba de divisas y oro
+ *   van por OANDA (`src/shared/fxBroker.ts`, docs/broker.md).
  * - Solo se operan los pares cotizados en USD (EURUSD, GBPUSD): el
  *   tamaño va en unidades de la moneda base y el precio en dólares, así
  *   que exposición y P&L salen directamente en la divisa de la cuenta

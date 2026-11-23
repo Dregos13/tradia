@@ -1,0 +1,21 @@
+{
+  "account": {
+    "id": "101-004-1234567-001",
+    "alias": "Primary",
+    "currency": "EUR",
+    "balance": "100.0000",
+    "NAV": "100.0000",
+    "unrealizedPL": "0.0000",
+    "pl": "0.0000",
+    "marginUsed": "0.0000",
+    "marginAvailable": "100.0000",
+    "marginRate": "0.0333",
+    "openTradeCount": 0,
+    "openPositionCount": 0,
+    "pendingOrderCount": 0,
+    "hedgingEnabled": false,
+    "createdTime": "2026-11-02T09:12:41.000000000Z",
+    "lastTransactionID": "6"
+  },
+  "lastTransactionID": "6"
+}

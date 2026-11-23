@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { DeliveryTestableChannel } from '../../../../shared/journal';
 import { liveConfirmationPhrase, type LiveLimits } from '../../../../shared/live';
 import { ChecklistRow } from './ChecklistRow';
+import { FxBrokerPanel } from './FxBrokerPanel';
 import { ShortReadiness, shortLimitsBlockReason } from './ShortReadiness';
 import { LimitsForm } from './LimitsForm';
 import { LiveDeactivationButton } from './LiveDeactivationButton';
@@ -134,6 +135,7 @@ export function ChecklistPage({
           requisito y confirma límites bajos antes de activar.
         </p>
       </div>
+      <FxBrokerPanel />
       {(active || suspended) && (
         <LiveDeactivationButton
           label="Volver a paper (desactivar dinero real)"

@@ -1,0 +1,31 @@
+{
+  "longOrderCreateTransaction": {
+    "type": "MARKET_ORDER",
+    "instrument": "EUR_USD",
+    "units": "-1",
+    "timeInForce": "FOK",
+    "positionFill": "REDUCE_ONLY",
+    "reason": "POSITION_CLOSEOUT",
+    "longPositionCloseout": { "instrument": "EUR_USD", "units": "ALL" },
+    "id": "13",
+    "accountID": "101-004-1234567-001",
+    "time": "2026-11-23T15:00:05.000000000Z"
+  },
+  "longOrderFillTransaction": {
+    "type": "ORDER_FILL",
+    "orderID": "13",
+    "instrument": "EUR_USD",
+    "units": "-1",
+    "price": "1.08450",
+    "reason": "MARKET_ORDER_POSITION_CLOSEOUT",
+    "pl": "-0.0001",
+    "tradesClosed": [
+      { "tradeID": "8", "units": "-1", "price": "1.08450", "realizedPL": "-0.0001" }
+    ],
+    "id": "14",
+    "accountID": "101-004-1234567-001",
+    "time": "2026-11-23T15:00:05.000000000Z"
+  },
+  "relatedTransactionIDs": ["13", "14", "15", "16"],
+  "lastTransactionID": "16"
+}

@@ -1,0 +1,45 @@
+{
+  "positions": [
+    {
+      "instrument": "EUR_USD",
+      "pl": "0.0000",
+      "unrealizedPL": "-0.0011",
+      "marginUsed": "33.3800",
+      "long": {
+        "units": "1000",
+        "averagePrice": "1.08462",
+        "tradeIDs": ["7"],
+        "pl": "0.0000",
+        "unrealizedPL": "-0.0011"
+      },
+      "short": { "units": "0", "pl": "0.0000", "unrealizedPL": "0.0000" }
+    },
+    {
+      "instrument": "XAU_USD",
+      "pl": "0.0000",
+      "unrealizedPL": "0.3700",
+      "marginUsed": "122.1800",
+      "long": { "units": "0", "pl": "0.0000", "unrealizedPL": "0.0000" },
+      "short": {
+        "units": "-1",
+        "averagePrice": "2650.900",
+        "tradeIDs": ["9"],
+        "pl": "0.0000",
+        "unrealizedPL": "0.3700"
+      }
+    },
+    {
+      "instrument": "AUD_CAD",
+      "pl": "0.0000",
+      "unrealizedPL": "0.0100",
+      "long": {
+        "units": "10",
+        "averagePrice": "0.91000",
+        "pl": "0.0000",
+        "unrealizedPL": "0.0100"
+      },
+      "short": { "units": "0", "pl": "0.0000", "unrealizedPL": "0.0000" }
+    }
+  ],
+  "lastTransactionID": "12"
+}

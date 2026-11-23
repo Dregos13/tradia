@@ -2,6 +2,20 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import { E2E_FLAG_ARG, IPC_CHANNELS, isNotificationRoute } from '../shared/ipc';
 import type {
+  FxBrokerConnectRequest,
+  FxBrokerEnvironment,
+  FxBrokerStatus,
+  FxCloseRequest,
+  FxConfirmLiveRequest,
+  FxLimits,
+  FxOrderRequest,
+  FxOrderResult,
+  FxReconcileSummary,
+  FxSimulatedBrokerRequest,
+  FxTestOrderRequest,
+  FxTestOrderResult,
+} from '../shared/fxBroker';
+import type {
   AddSourceRequest,
   AgentsState,
   AiChangedEvent,
@@ -391,6 +405,27 @@ const api: TradiaApi = {
     onChanged: (listener: (state: LiveState) => void) =>
       subscribe<LiveState>(IPC_CHANNELS.live.changed, listener),
   },
+  fxBroker: {
+    status: (): Promise<FxBrokerStatus> => ipcRenderer.invoke(IPC_CHANNELS.fxBroker.status),
+    connect: (request: FxBrokerConnectRequest): Promise<FxBrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.connect, request),
+    disconnect: (environment: FxBrokerEnvironment): Promise<FxBrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.disconnect, environment),
+    setLimits: (limits: FxLimits): Promise<FxBrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.setLimits, limits),
+    confirmLive: (request: FxConfirmLiveRequest): Promise<FxBrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.confirmLive, request),
+    placeOrder: (request: FxOrderRequest): Promise<FxOrderResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.placeOrder, request),
+    closePosition: (request: FxCloseRequest): Promise<FxBrokerStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.closePosition, request),
+    testOrder: (request: FxTestOrderRequest): Promise<FxTestOrderResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.testOrder, request),
+    reconcile: (environment: FxBrokerEnvironment): Promise<FxReconcileSummary> =>
+      ipcRenderer.invoke(IPC_CHANNELS.fxBroker.reconcile, environment),
+    onChanged: (listener: (status: FxBrokerStatus) => void) =>
+      subscribe<FxBrokerStatus>(IPC_CHANNELS.fxBroker.changed, listener),
+  },
   // El proceso principal solo pasa E2E_FLAG_ARG cuando no está empaquetada
   // y TRADIA_E2E=1: una variable de entorno no basta para exponer api.testing.
   ...(process.argv.includes(E2E_FLAG_ARG)
@@ -444,6 +479,10 @@ const api: TradiaApi = {
               ipcRenderer.invoke(IPC_CHANNELS.live.seedProgress, request),
             useSimulatedBroker: (request: LiveSimulatedBrokerRequest): Promise<LiveState> =>
               ipcRenderer.invoke(IPC_CHANNELS.live.useSimulatedBroker, request),
+          },
+          fxBroker: {
+            useSimulated: (request: FxSimulatedBrokerRequest): Promise<FxBrokerStatus> =>
+              ipcRenderer.invoke(IPC_CHANNELS.fxBroker.useSimulated, request),
           },
         },
       }
