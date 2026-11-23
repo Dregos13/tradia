@@ -22,6 +22,8 @@ const electron = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({
+  // App empaquetada: registerSecrets nunca habilita la vía de E2E de Linux.
+  app: { isPackaged: true, whenReady: () => Promise.resolve() },
   ipcMain: {
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
       electron.handlers.set(channel, handler),
