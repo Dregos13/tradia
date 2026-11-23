@@ -89,6 +89,11 @@ const BASE_AUTH_PATTERN =
  */
 const CHILD_ENV_ALLOWLIST = [
   'HOME',
+  // Identidad del usuario (no son secretos): en macOS Claude Code busca su
+  // sesión en el Llavero por usuario y sin USER responde «Not logged in».
+  'USER',
+  'LOGNAME',
+  'USERNAME',
   'USERPROFILE',
   'HOMEDRIVE',
   'HOMEPATH',

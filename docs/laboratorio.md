@@ -65,6 +65,11 @@ arranca hace 60 días para que haya sesiones que ver).
 
 - Velas diarias: la prueba avanza una vez al día, al cierre. El intradía
   es el siguiente paso del plan.
-- El universo de la IA es el inicial (25 acciones/ETF de EE. UU. y EUR/USD).
+- El universo de la IA es el inicial (25 acciones/ETF de EE. UU.), más los
+  temáticos EWJ y DXJ (Japón), USO y XOP (petróleo), SMH (semiconductores)
+  y EUR/USD. La bolsa de Tokio directamente no está cubierta.
+- Las reglas solo ven precios diarios: una idea que nace de una noticia se
+  traduce a condiciones de precio, y la IA avisa de que la noticia puede
+  estar ya descontada.
 - El lenguaje de reglas no tiene MACD, bandas, volumen medio ni datos
   fundamentales; la IA lo sabe y lo anota en «Dónde puede fallar».

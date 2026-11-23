@@ -178,7 +178,9 @@ export function createStrategyGenerator(deps: StrategyGeneratorDeps): StrategyGe
           ok: false,
           reason: 'motor-error',
           engine: engine.label,
-          message: (error as Error)?.message ?? String(error),
+          // Los errores de la CLI vienen del adaptador de noticias con su
+          // prefijo; aquí sobra.
+          message: ((error as Error)?.message ?? String(error)).replace(/^LLM de noticias: /, ''),
         };
       }
       let raw: unknown;

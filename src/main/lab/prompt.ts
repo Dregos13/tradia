@@ -36,8 +36,22 @@ export const LAB_UNIVERSE = [
   'KO',
   'AVGO',
   'AMD',
+  // Temáticos que cotizan en NYSE/Nasdaq (mismo calendario y proveedor):
+  // Japón, petróleo y semiconductores. La bolsa de Tokio directamente no
+  // está cubierta: su exposición entra por estos ETF en dólares.
+  'EWJ',
+  'DXJ',
+  'USO',
+  'XOP',
+  'SMH',
   'EURUSD',
 ] as const;
+
+/** Qué es cada ticker temático, para que la IA lo elija con criterio. */
+export const LAB_UNIVERSE_NOTES =
+  'EWJ = acciones de Japón (MSCI Japan, en USD); DXJ = Japón con la divisa cubierta; ' +
+  'USO = petróleo WTI (futuros); XOP = productoras de petróleo y gas; XLE = energía del S&P 500; ' +
+  'SMH = semiconductores (NVDA, TSM, AVGO…); QQQ = Nasdaq 100; EURUSD = euro/dólar.';
 
 export const LAB_SYSTEM_PROMPT = `Eres un ingeniero cuantitativo. Conviertes ideas de trading en estrategias sistemáticas que se puedan backtestear con velas DIARIAS. No das asesoramiento financiero: diseñas reglas comprobables.
 
@@ -75,7 +89,8 @@ Reglas de diseño:
 - Siempre stop (nunca "ninguno" en stop salvo que la idea lo exija explícitamente). Prefiere stops por ATR.
 - entryShort y exitShort solo si la idea pide operar en corto; si no, déjalos como cadena vacía "".
 - Declara cada parámetro que uses en "parameters" con su valor y en "parameterRanges" con {min, max, step} razonables (al menos dos parámetros con rango).
-- "markets": entre 1 y 12 tickers, solo de esta lista: ${LAB_UNIVERSE.join(', ')}.
+- "markets": entre 1 y 12 tickers, solo de esta lista: ${LAB_UNIVERSE.join(', ')}. ${LAB_UNIVERSE_NOTES}
+- Las reglas solo ven precios diarios: no leen noticias. Si la idea nace de una noticia, tradúcela a una condición de precio (tendencia, ruptura, fuerza relativa) y explica en "risks" que la noticia ya puede estar descontada.
 - Escribe todo en español claro, sin jerga innecesaria.
 
 Responde SOLO con un objeto JSON, sin texto alrededor ni bloques de código, con esta forma exacta:
