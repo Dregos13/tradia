@@ -18,6 +18,9 @@ jobs:
     env:
       # Los instaladores salen sin firmar: no se buscan certificados en el runner.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # La app usa los binarios de CPU que trae onnxruntime-node; sin esto su
+      # instalación descarga los de CUDA en Linux y un corte de red tumba npm ci.
+      ONNXRUNTIME_NODE_INSTALL: skip
     steps:
       - uses: actions/checkout@v4
 

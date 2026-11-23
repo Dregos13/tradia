@@ -117,14 +117,12 @@ describe('Biblioteca y ficha versionada', () => {
     expect(await screen.findByRole('heading', { name: 'Mi estrategia' })).toBeInTheDocument();
     await navigate('#estrategias/1/editar');
     await user.clear(screen.getByLabelText('Nombre'));
-    await user.type(screen.getByLabelText('Nombre'), 'Mi estrategia revisada');
+    await user.paste('Mi estrategia revisada');
     await user.click(screen.getByRole('button', { name: 'Guardar nueva versión' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Explica qué cambió y por qué');
     expect((await window.tradia.strategies.get({ id: 1 }))?.version).toBe(1);
-    await user.type(
-      screen.getByLabelText('Nota del cambio'),
-      'Actualizo el nombre para identificar la hipótesis',
-    );
+    await user.click(screen.getByLabelText('Nota del cambio'));
+    await user.paste('Actualizo el nombre para identificar la hipótesis');
     await user.click(screen.getByRole('button', { name: 'Guardar nueva versión' }));
     expect(
       await screen.findByRole('heading', { name: 'Mi estrategia revisada' }),

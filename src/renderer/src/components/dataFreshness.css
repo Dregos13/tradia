@@ -221,3 +221,17 @@
     width: 100%;
   }
 }
+
+.data-freshness-inline,
+.data-freshness-banner {
+  border-radius: var(--radius-xs);
+}
+.data-freshness-current time,
+.data-freshness-content time,
+.data-uncovered-count {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.data-uncovered .button {
+  border-color: var(--color-borderStrong);
+}

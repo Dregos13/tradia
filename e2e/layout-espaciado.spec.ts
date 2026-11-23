@@ -906,7 +906,10 @@ async function readTargets(page: Page, selector: string): Promise<TargetReading[
   for (let index = 0; index < count; index++) {
     const target = targets.nth(index);
     if (!(await target.isVisible())) continue;
-    await target.scrollIntoViewIfNeeded();
+    // Centrado, no «si hace falta»: con alturas de línea fraccionarias
+    // (Linux, Windows) el borde inferior podía quedar 0,2 px bajo la barra
+    // de estado y el clic de prueba caía fuera del control.
+    await target.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     readings.push(
       await target.evaluate((element) => {
         // Un enlace en línea puede partirse en varias líneas: se mide el primer fragmento.

@@ -1,0 +1,302 @@
+{
+ "profile": "B",
+ "theme": "dark",
+ "size": "1100x760",
+ "screens": {
+  "aviso": {
+   "winBg": "rgba(0, 0, 0, 0)",
+   "continuarDisabled": true,
+   "checked": false,
+   "scan": {
+    "total": 14,
+    "minFont": 13,
+    "fails": [],
+    "nFails": 0,
+    "docOverflow": false,
+    "monoSamples": [],
+    "h1": "Antes de empezar"
+   },
+   "continuarTrasCheck": true
+  },
+  "inicio": {
+   "total": 144,
+   "minFont": 13,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "36,20 puntos",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "▼ -0,17 puntos respe",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "6 oct 2026",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "DGS10",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    }
+   ],
+   "h1": "Estado del sistema",
+   "active": "Inicio",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  },
+  "mercado": {
+   "total": 43,
+   "minFont": 13,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "0 / 25",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "normal",
+     "ta": "start"
+    },
+    {
+     "t": "08:38:06",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "08:38:13",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    }
+   ],
+   "h1": "Mercado",
+   "active": "Mercado",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  },
+  "estrategias": {
+   "total": 83,
+   "minFont": 10.8333,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "21,78%",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "right"
+    },
+    {
+     "t": "3,7%",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "right"
+    },
+    {
+     "t": "0,59",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "right"
+    },
+    {
+     "t": "59",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "right"
+    }
+   ],
+   "h1": "Estrategias",
+   "active": "Estrategias",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  },
+  "riesgo": {
+   "total": 88,
+   "minFont": 11.6667,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "08:38:06",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "08:38:16",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    }
+   ],
+   "h1": "Riesgo",
+   "active": "Riesgo",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  },
+  "noticias": {
+   "total": 1668,
+   "minFont": 13,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "lunes, 19 de octubre",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "normal",
+     "ta": "start"
+    },
+    {
+     "t": "08:00 CEST",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "sábado, 17 de octubr",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "normal",
+     "ta": "start"
+    },
+    {
+     "t": "07:00 CEST",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    }
+   ],
+   "h1": "Noticias",
+   "active": "Noticias",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  },
+  "ajustes": {
+   "total": 250,
+   "minFont": 11.6667,
+   "fails": [],
+   "nFails": 0,
+   "docOverflow": false,
+   "monoSamples": [
+    {
+     "t": "Hoy: 0 de 200 titula",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "Capital leído: no di",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "20 oct 2026, 8:38",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    },
+    {
+     "t": "20 oct 2026, 8:38 (h",
+     "fam": "\"IBM Plex Mono\", ui-monospace,",
+     "tnum": "tabular-nums",
+     "ta": "start"
+    }
+   ],
+   "h1": "Ajustes",
+   "active": "Ajustes",
+   "focusStyle": {
+    "outline": "rgb(198, 244, 50) solid 2px",
+    "bg": "rgb(16, 22, 28)",
+    "color": "rgb(228, 234, 240)"
+   }
+  }
+ },
+ "console": [
+  "error: The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+  "warning: MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 ai:changed listeners added. Use emitter.setMaxListeners() to increase limit\n    at _"
+ ],
+ "requests": [],
+ "tourScan": {
+  "total": 150,
+  "minFont": 13,
+  "fails": [],
+  "nFails": 0,
+  "docOverflow": false,
+  "monoSamples": [
+   {
+    "t": "36,20 puntos",
+    "fam": "\"IBM Plex Mono\", ui-monospace,",
+    "tnum": "tabular-nums",
+    "ta": "start"
+   },
+   {
+    "t": "▼ -0,17 puntos respe",
+    "fam": "\"IBM Plex Mono\", ui-monospace,",
+    "tnum": "tabular-nums",
+    "ta": "start"
+   },
+   {
+    "t": "6 oct 2026",
+    "fam": "\"IBM Plex Mono\", ui-monospace,",
+    "tnum": "tabular-nums",
+    "ta": "start"
+   },
+   {
+    "t": "DGS10",
+    "fam": "\"IBM Plex Mono\", ui-monospace,",
+    "tnum": "tabular-nums",
+    "ta": "start"
+   }
+  ],
+  "h1": "Estado del sistema",
+  "active": "Inicio"
+ },
+ "logo": {
+  "img": "012.4Q12%2014%204%2016.4Z'/%3e%3c/svg%3e",
+  "w": 24,
+  "h": 24,
+  "nat": 150,
+  "word": "Sora, ui-sans-serif,",
+  "wordWeight": "600",
+  "fonts": [
+   "Sora 100 800",
+   "IBM Plex Mono 400",
+   "IBM Plex Mono 500",
+   "IBM Plex Mono 600"
+  ]
+ },
+ "docH": {
+  "sh": 760,
+  "ch": 760
+ }
+}

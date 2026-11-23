@@ -67,7 +67,9 @@ async function startApp(
         ...process.env,
         TRADIA_E2E: '1',
         TRADIA_E2E_USER_DATA: userData,
-        TRADIA_CONNECTIVITY_URLS: JSON.stringify([url('/health')]),
+        // El servicio exige dos URL: con una sola descartaba la configuración
+        // y sondeaba los hosts públicos por defecto durante los E2E.
+        TRADIA_CONNECTIVITY_URLS: JSON.stringify([url('/health'), url('/health?probe=secondary')]),
         // Reloj de mercado anclado: la cautela y las sesiones no dependen
         // del día real en que se ejecute la batería.
         TRADIA_E2E_MARKET_NOW: PINNED_MARKET_NOW,

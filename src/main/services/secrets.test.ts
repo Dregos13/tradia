@@ -22,6 +22,8 @@ const electron = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({
+  // App empaquetada: registerSecrets nunca habilita la vía de E2E de Linux.
+  app: { isPackaged: true, whenReady: () => Promise.resolve() },
   ipcMain: {
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
       electron.handlers.set(channel, handler),
@@ -134,6 +136,24 @@ describe('servicio de claves cifradas', () => {
     await expect(secrets.setKey('proveedor', SAMPLE_KEY)).rejects.toBeInstanceOf(SecretsError);
     // No se guardó nada: basic_text es en la práctica texto plano.
     expect(await secrets.hasKey('proveedor')).toBe(false);
+  });
+
+  it('solo con la opción de E2E acepta basic_text, y sin ella lo sigue rechazando', async () => {
+    const { db } = fileDb();
+    const basicText: SafeStorageLike = {
+      ...fakeSafeStorage(),
+      // Con --password-store=basic y sin setUsePlainTextEncryption, Electron
+      // dice que no hay cifrado: la opción de E2E no depende de este valor.
+      isEncryptionAvailable: () => false,
+      getSelectedStorageBackend: () => 'basic_text',
+    };
+    const e2e = createSecretsService(db, basicText, { allowBasicTextForE2e: true });
+    await e2e.setKey('proveedor', SAMPLE_KEY);
+    expect(await e2e.getKey('proveedor')).toBe(SAMPLE_KEY);
+
+    await expect(createSecretsService(db, basicText).getKey('proveedor')).rejects.toThrowError(
+      ERR_ENCRYPTION_UNAVAILABLE,
+    );
   });
 
   it('también rechaza basic_text al leer una clave ya guardada (solo main)', async () => {

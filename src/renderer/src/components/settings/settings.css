@@ -1,3 +1,13 @@
+/* Ajustes: la pila de dinero real separa sus tarjetas a 24 px y «Legal» no suma
+   su margen al intervalo de la página (32 px entre secciones). */
+.settings-stack {
+  display: grid;
+  gap: var(--space-card-padding);
+  min-width: 0;
+}
+.app-page > .settings-section {
+  margin-top: 0;
+}
 .operational-form {
   padding: var(--space-5);
 }
@@ -50,6 +60,9 @@
   min-height: 0;
   accent-color: var(--color-accent);
   flex-shrink: 0;
+}
+.channel-events.news-origin > .news-origin-help {
+  grid-column: 1 / -1;
 }
 .operational-form input:focus-visible,
 .operational-form select:focus-visible {

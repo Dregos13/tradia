@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   IPC_CHANNELS,
@@ -464,6 +464,13 @@ describe('live:set-limits', () => {
 
 describe('live:test-kill-switch', () => {
   it('activa y reanuda la parada, deja sello y Diario, y marca el requisito', async () => {
+    // La parada sella con el reloj del test; la lista evalúa con el del
+    // sistema. Los dos en la misma fecha para que el plazo de 30 días no
+    // dependa del día en que corre la prueba.
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     makeCtx();
     const result = (await invoke(IPC_CHANNELS.live.testKillSwitch)) as {
       ok: boolean;

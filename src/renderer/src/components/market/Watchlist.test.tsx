@@ -203,6 +203,11 @@ it('añade EUR/USD en un paso desde el rechazo de EUR y lo muestra como divisa d
   await waitFor(() =>
     expect(row).toHaveAccessibleDescription(/^Divisa · 24\/5 · cartera simulada/),
   );
+  // IDV-E2E-3: «Divisa» es una etiqueta propia; el 24/5 y la cartera simulada la acompañan.
+  expect(screen.getByText('Divisa', { exact: true })).toHaveClass('market-asset-class-name');
+  expect(
+    screen.getByText(/24\/5 · cartera simulada/, { selector: '.market-asset-class' }),
+  ).toBeTruthy();
   expect(screen.getByRole('status')).toHaveTextContent(
     'EUR/USD se ha añadido a tu lista: divisa · 24/5 · cartera simulada.',
   );

@@ -18,8 +18,8 @@
   min-width: 0;
   padding: var(--space-card-padding);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
 }
 .macro-card-head,
 .macro-meta {
@@ -56,7 +56,8 @@
 }
 .macro-badge {
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
   color: var(--color-textMuted);
   background: var(--color-surfaceSubtle);
@@ -148,4 +149,18 @@
   .macro-card {
     padding: var(--space-card-padding-compact);
   }
+}
+
+.macro-change,
+.macro-meta {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.macro-series-cpi .macro-spark polyline,
+.macro-series-yield10y .macro-spark polyline {
+  stroke-dasharray: 7 4;
+}
+.macro-series-spread .macro-spark polyline,
+.macro-series-vix .macro-spark polyline {
+  stroke-dasharray: 2 4;
 }

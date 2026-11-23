@@ -15,6 +15,7 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'Tradia',
+    backgroundColor: '#0A0E12',
     // Icono de la ventana (Linux/Windows); en macOS manda el .icns del bundle.
     icon: resourcePath('icon.png'),
     webPreferences: buildWebPreferences(

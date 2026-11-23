@@ -10,33 +10,40 @@
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--space-4);
-  row-gap: var(--space-section-gap);
+  row-gap: 0;
 }
 .dashboard-block {
-  grid-column: span 4;
+  grid-column: span 12;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-6);
   min-width: 0;
-  padding: var(--space-card-padding);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--color-border);
+  background: transparent;
 }
 .dashboard-wide {
-  grid-column: span 8;
+  grid-column: span 12;
 }
 .dashboard-block > header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: start;
   gap: var(--space-3);
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+}
+.dashboard-block-body {
+  min-width: 0;
+}
+.dashboard-block-body > :first-child {
+  margin-top: 0;
+}
+.dashboard-block-body > :last-child {
+  margin-bottom: 0;
 }
 .dashboard-block h3 {
   margin: 0;
-  font-size: var(--type-lg);
-  line-height: var(--type-lg-line);
+  font-size: var(--type-md);
+  line-height: var(--type-md-line);
 }
 .dashboard-block p,
 .dashboard-block a,
@@ -116,7 +123,8 @@
 .dashboard-badge {
   display: inline-flex;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
 }
@@ -184,7 +192,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface);
   color: var(--color-accent);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-borderStrong);
   border-radius: var(--radius-sm);
   font: inherit;
   cursor: pointer;
@@ -264,13 +272,16 @@
 
 /* Primeros pasos pertenece a Inicio; el tour conserva sus reglas propias. */
 .app-page .first-steps {
-  padding: var(--space-card-padding);
+  padding: var(--space-4) var(--space-card-padding);
 }
 .app-page .first-steps-header {
-  margin-bottom: var(--space-title-content-gap);
+  margin-bottom: var(--space-2);
 }
 .app-page .first-steps-row {
-  padding-block: var(--space-4);
+  padding-block: var(--space-3);
+}
+.app-page .first-steps-footer {
+  margin-top: 0;
 }
 @media (max-width: 760px) {
   .app-page .first-steps,
@@ -278,6 +289,35 @@
     padding: var(--space-card-padding-compact);
   }
   .dashboard-grid {
-    row-gap: var(--space-section-gap-compact);
+    row-gap: 0;
+  }
+}
+
+.dashboard-row > span,
+.dashboard-signal-summary > strong,
+.dashboard-list .dashboard-row,
+.dashboard-signals progress + p {
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-row > span,
+.dashboard-signal-summary > strong {
+  font-family: var(--font-numeric);
+}
+@media (max-width: 1050px) {
+  .dashboard-block {
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+}
+@media (max-width: 760px) {
+  .dashboard-block {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-6) 0;
+  }
+  .dashboard-block > header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
   }
 }

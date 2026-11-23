@@ -13,7 +13,7 @@
   margin-bottom: 0;
 }
 .source-heading h2 {
-  font: var(--weight-semibold) var(--type-xl)/var(--type-xl-line) var(--font-editorial);
+  font: var(--weight-semibold) var(--type-lg)/var(--type-lg-line) var(--font-editorial);
   margin: 0 0 var(--space-2);
 }
 .source-heading a {

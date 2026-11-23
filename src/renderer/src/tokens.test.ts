@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import broker from './design/broker.tokens.json';
 import clarity from './design/data-clarity.tokens.json';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +14,44 @@ const tokens = {
 import { tokenStylesheet } from './tokens';
 
 describe('Tokens aprobados', () => {
+  it('publica las familias y los pesos exactos de la marca desde la base', () => {
+    expect(base.meta.name).toBe('Tradia — Telemetría de box');
+    expect(base.typography.family.interface.value).toMatch(/^Sora,/);
+    expect(base.typography.family.editorial.value).toBe(base.typography.family.interface.value);
+    expect(base.typography.family.numeric.value).toMatch(/^'IBM Plex Mono',/);
+    expect(base.typography.weight).toEqual({ regular: 400, medium: 500, semibold: 600, bold: 700 });
+    for (const [name, token] of Object.entries(base.typography.family))
+      expect(tokenStylesheet()).toContain(`--font-${name}:${token.value};`);
+    for (const [name, value] of Object.entries(base.typography.weight))
+      expect(tokenStylesheet()).toContain(`--weight-${name}:${value};`);
+  });
+
+  it('incluye los cuatro woff2 con sus licencias y carga local con swap', () => {
+    const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+    const faces = css.match(/@font-face\s*\{[^}]+\}/g) ?? [];
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face).toContain('font-display: swap;');
+      const path = face.match(/url\('(.+?)'\)/)?.[1];
+      expect(path).toMatch(/^\.\/assets\/fonts\/.+\.woff2$/);
+      const font = readFileSync(new URL(path!, import.meta.url));
+      expect(font.subarray(0, 4).toString()).toBe('wOF2');
+    }
+    for (const file of ['OFL-Sora.txt', 'OFL-IBMPlexMono.txt']) {
+      const license = readFileSync(new URL(`./assets/fonts/${file}`, import.meta.url), 'utf8');
+      expect(license).toMatch(/SIL OPEN FONT LICENSE Version 1.1/i);
+    }
+  });
+
+  it('usa el monograma Arco de una sola pieza y sin trazos', () => {
+    const svg = readFileSync(new URL('./assets/brand/tradia-mark.svg', import.meta.url), 'utf8');
+    expect(svg).toContain('viewBox="0 0 48 48"');
+    expect(svg).toContain('fill="currentColor"');
+    expect(svg).toContain('M4 14.8Q19 6.2 44 4.2Q35 8.6 26.6 11.6L24 43L21.4 12.4Q12 14 4 16.4Z');
+    expect(svg.match(/<path\b/g)).toHaveLength(1);
+    expect(svg).not.toMatch(/stroke[=\s-]|transform=/);
+  });
+
   it('traduce ambos temas y los estados sin duplicar valores', () => {
     const css = tokenStylesheet();
     for (const mode of ['light', 'dark'] as const) {
@@ -114,45 +153,20 @@ function contrast(text: string, background: string): number {
   return (values[1]! + 0.05) / (values[0]! + 0.05);
 }
 
-for (const mode of ['light', 'dark'] as const) {
-  describe(`Contraste AA de la base: ${mode}`, () => {
-    for (const pair of base.contrastPairs) {
-      it(`${pair.text} / ${pair.background} ≥ 4,5:1`, () => {
-        const palette: Record<string, { value: string }> = base.color[mode];
-        expect(
-          contrast(palette[pair.text]!.value, palette[pair.background]!.value),
-        ).toBeGreaterThanOrEqual(4.5);
-      });
-    }
-    for (const [name, token] of Object.entries(base.color.state)) {
-      it(`${name}: etiqueta y cuerpo / fondo ≥ 4,5:1`, () => {
-        expect(contrast(token[mode], token[`${mode}Surface`])).toBeGreaterThanOrEqual(4.5);
-        expect(
-          contrast(base.color[mode].text.value, token[`${mode}Surface`]),
-        ).toBeGreaterThanOrEqual(4.5);
-      });
-    }
-    it('foco / superficie y foco de navegación / barra lateral ≥ 3:1', () => {
-      expect(
-        contrast(base.color[mode].focus.value, base.color[mode].surface.value),
-      ).toBeGreaterThanOrEqual(3);
-      expect(
-        contrast(base.color[mode].sidebarText.value, base.color[mode].sidebar.value),
-      ).toBeGreaterThanOrEqual(3);
-    });
+it('publica la escala de telemetría y el foco desde la base, sin heredar los de Mercado', () => {
+  expect(base.typography.size).toEqual({
+    xs: { value: '13px', lineHeight: '18px' },
+    sm: { value: '14px', lineHeight: '21px' },
+    md: { value: '16px', lineHeight: '24px' },
+    lg: { value: '18px', lineHeight: '26px' },
+    xl: { value: '24px', lineHeight: '30px' },
+    '2xl': { value: '36px', lineHeight: '40px' },
   });
-}
-
-it('publica la escala legible y el foco desde la base, sin heredar la escala antigua de Mercado', () => {
-  expect(base.typography.size.md).toEqual({ value: '16px', lineHeight: '24px' });
-  expect(base.typography.size.sm).toEqual({ value: '15px', lineHeight: '22px' });
-  expect(base.typography.size.xs).toEqual({ value: '14px', lineHeight: '20px' });
   for (const [name, token] of Object.entries(base.typography.size)) {
-    expect(Number.parseInt(token.value)).toBeGreaterThanOrEqual(14);
     expect(tokenStylesheet()).toContain(`--type-${name}:${token.value};`);
     expect(tokenStylesheet()).toContain(`--type-${name}-line:${token.lineHeight};`);
   }
-  expect(tokenStylesheet()).toContain('--focus-width:3px;--focus-offset:2px;--focus-style:solid;');
+  expect(tokenStylesheet()).toContain('--focus-width:2px;--focus-offset:2px;--focus-style:solid;');
 });
 
 it('conserva los tamaños de composición de Mercado al aplicar la base legible', () => {

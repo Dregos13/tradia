@@ -25,7 +25,7 @@
 }
 .risk-stop.is-active {
   background: var(--riskStatus-stopped);
-  color: var(--color-inverse);
+  color: var(--color-canvas);
 }
 .risk-stop.is-resuming {
   background: var(--riskStatus-resuming-surface);
@@ -78,7 +78,7 @@
 }
 .risk-resume-dialog h2 {
   margin: 0 0 var(--space-2);
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
 }
 .risk-stop-summary {
   padding: var(--space-3);
@@ -114,7 +114,7 @@
   }
 }
 .risk-page-head h2 {
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
 }
 .risk-muted,
 .risk-field small {
@@ -122,7 +122,7 @@
 }
 .risk-grid {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
   margin-top: 0;
@@ -130,11 +130,11 @@
 .risk-paper {
   min-width: 0;
   background: var(--color-surface);
-  border-top: 3px solid var(--color-text);
+  border-top: 1px solid var(--color-border);
   padding: var(--space-card-padding);
 }
 .risk-paper h3 {
-  font-family: var(--font-editorial);
+  font-family: var(--font-interface);
   margin: 0 0 var(--space-3);
 }
 .risk-group {
@@ -150,7 +150,7 @@
 }
 .risk-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 100px;
+  grid-template-columns: minmax(0, var(--size-limitsLabel, 220px)) minmax(100px, 180px);
   gap: var(--space-2) var(--space-4);
   margin: var(--space-4) 0;
 }
@@ -162,7 +162,7 @@
   width: 100%;
   min-height: var(--size-controlMin);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-borderStrong);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   background: var(--color-surface);
@@ -241,7 +241,7 @@
 .risk-simulation {
   display: inline-flex;
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   color: var(--riskStatus-simulation);
   background: var(--riskStatus-simulation-surface);
   margin-bottom: var(--space-3);
@@ -300,11 +300,11 @@
   clip-path: inset(50%);
 }
 .risk-page h3 {
-  font-size: var(--type-xl);
-  line-height: var(--type-xl-line);
+  font-size: var(--type-md);
+  line-height: var(--type-md-line);
 }
 .risk-page :is(input, select, button, [tabindex]):focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .risk-page button:disabled {
@@ -378,4 +378,32 @@
   .risk-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.risk-paper {
+  background: transparent;
+  padding-inline: 0;
+}
+.risk-page-head h2 {
+  margin: 0;
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+.risk-field {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+}
+.risk-simulation {
+  border: 1px solid currentColor;
+  font-family: var(--font-numeric);
+}
+.risk-table-wrap {
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+}
+.risk-page thead th {
+  background: var(--color-surfaceStrong);
 }

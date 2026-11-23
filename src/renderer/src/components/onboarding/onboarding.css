@@ -144,7 +144,8 @@
 .first-steps h2 {
   margin: 0 0 var(--space-2);
   font-family: var(--font-editorial);
-  font-size: var(--type-xl);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
 }
 .first-steps-header > span {
   font-variant-numeric: tabular-nums;

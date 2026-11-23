@@ -81,6 +81,7 @@ import {
   type MarketRepository,
   type StoredBar,
 } from './repository';
+import { registerMarketSearch } from './search';
 import { plainStatusReason } from './statusReason';
 
 // ---------------------------------------------------------------------------
@@ -1318,6 +1319,7 @@ export function registerMarket(
   });
   ipcMain.handle(IPC_CHANNELS.watchlist.coverage, () => service.watchlistCoverage());
   ipcMain.handle(IPC_CHANNELS.watchlist.addUniverse, () => service.addUniverse());
+  registerMarketSearch(ipcMain);
   ipcMain.handle(IPC_CHANNELS.market.getBars, (_event, request: unknown) => {
     if (!isGetBarsRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.market.getBars, 'petición inválida');

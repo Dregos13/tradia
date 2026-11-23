@@ -1,8 +1,8 @@
 {
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
-    "name": "Tradia — Cuaderno cuantitativo · Panel, diario y operaciones",
-    "version": "4.0.0",
+    "name": "Tradia — Telemetría de box · Panel, diario y operaciones",
+    "version": "7.0.0",
     "extends": ["./base.tokens.json", "./risk.tokens.json"],
     "contrastStandard": "WCAG 2.2 AA",
     "baseUnit": "4px"
@@ -10,115 +10,171 @@
   "color": {
     "signal": {
       "approved": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "name": "Señal aprobada",
         "symbol": "✓",
-        "contrastLight": "5.59:1",
-        "contrastDark": "7.19:1"
+        "contrastLight": "4.90:1",
+        "contrastDark": "7.61:1"
       },
       "vetoed": {
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "name": "Señal vetada",
         "symbol": "×",
-        "contrastLight": "6.22:1",
-        "contrastDark": "6.39:1"
+        "contrastLight": "5.57:1",
+        "contrastDark": "6.56:1"
       },
       "conflict": {
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "name": "Contradicción",
         "symbol": "↔",
-        "contrastLight": "6.32:1",
-        "contrastDark": "8.61:1"
+        "contrastLight": "5.45:1",
+        "contrastDark": "8.72:1"
       },
       "informative": {
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "name": "Informativa",
         "symbol": "i",
-        "contrastLight": "7.14:1",
-        "contrastDark": "6.82:1"
+        "contrastLight": "5.55:1",
+        "contrastDark": "8.36:1"
       }
     },
     "strategy": {
       "active": {
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "name": "Activa",
         "symbol": "●"
       },
       "paper": {
-        "light": "#5B3B91",
-        "lightSurface": "#EEE6FA",
-        "dark": "#D0B4FF",
-        "darkSurface": "#35244F",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "name": "Paper",
         "symbol": "◇"
       },
       "degraded": {
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "name": "Degradada",
         "symbol": "△"
       },
       "paused": {
-        "light": "#566174",
-        "lightSurface": "#ECE9E1",
-        "dark": "#B8C1CE",
-        "darkSurface": "#1D293B",
+        "light": "#475563",
+        "lightSurface": "#E7ECF0",
+        "dark": "#9AA8B6",
+        "darkSurface": "#1C252E",
         "name": "En pausa",
         "symbol": "Ⅱ"
       }
     },
     "chart": {
-      "positive": { "light": "#126B4B", "dark": "#65D6A4", "name": "Positivo" },
-      "negative": { "light": "#A12232", "dark": "#FF8D9B", "name": "Negativo" },
-      "threshold": { "light": "#765500", "dark": "#F4CB62", "name": "Límite" },
-      "grid": { "light": "#DCD8CE", "dark": "#2B384C", "name": "Rejilla" },
-      "neutral": { "light": "#566174", "dark": "#B8C1CE", "name": "Neutral" }
+      "positive": {
+        "light": "#0B7548",
+        "dark": "#3CCB8A",
+        "name": "Positivo"
+      },
+      "negative": {
+        "light": "#B0202E",
+        "dark": "#FF7D87",
+        "name": "Negativo"
+      },
+      "threshold": {
+        "light": "#7A5900",
+        "dark": "#EBC05A",
+        "name": "Límite"
+      },
+      "grid": {
+        "light": "#D3DAE0",
+        "dark": "#1C252E",
+        "name": "Rejilla"
+      },
+      "neutral": {
+        "light": "#475563",
+        "dark": "#9AA8B6",
+        "name": "Neutral"
+      }
     },
     "overlay": {
-      "light": "rgba(23, 35, 58, 0.54)",
-      "dark": "rgba(4, 9, 17, 0.72)",
+      "light": "rgba(10, 14, 18, 0.54)",
+      "dark": "rgba(10, 14, 18, 0.72)",
       "name": "Velo de diálogo"
     }
   },
   "typography": {
     "family": {
       "interface": {
-        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "name": "Interfaz"
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Interfaz · Sora"
       },
-      "editorial": { "value": "Iowan Old Style, Charter, Georgia, serif", "name": "Editorial" },
+      "editorial": {
+        "value": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "name": "Titulares · Sora"
+      },
       "numeric": {
-        "value": "SFMono-Regular, Consolas, 'Liberation Mono', monospace",
-        "name": "Datos"
+        "value": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+        "name": "Datos · IBM Plex Mono"
       }
     },
     "size": {
-      "xs": { "value": "12px", "lineHeight": "16px", "name": "Metadato" },
-      "sm": { "value": "14px", "lineHeight": "20px", "name": "Interfaz compacta" },
-      "md": { "value": "16px", "lineHeight": "24px", "name": "Cuerpo" },
-      "lg": { "value": "18px", "lineHeight": "26px", "name": "Título de bloque" },
-      "xl": { "value": "24px", "lineHeight": "32px", "name": "Indicador" },
-      "2xl": { "value": "34px", "lineHeight": "40px", "name": "Título de página" }
+      "xs": {
+        "value": "13px",
+        "lineHeight": "18px",
+        "name": "Metadato"
+      },
+      "sm": {
+        "value": "14px",
+        "lineHeight": "21px",
+        "name": "Interfaz compacta"
+      },
+      "md": {
+        "value": "16px",
+        "lineHeight": "24px",
+        "name": "Cuerpo"
+      },
+      "lg": {
+        "value": "18px",
+        "lineHeight": "26px",
+        "name": "Título de bloque"
+      },
+      "xl": {
+        "value": "24px",
+        "lineHeight": "30px",
+        "name": "Indicador"
+      },
+      "2xl": {
+        "value": "36px",
+        "lineHeight": "40px",
+        "name": "Título de página"
+      }
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
-    "tracking": { "tight": "-0.02em", "normal": "0", "wide": "0.04em" }
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "tracking": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.08em"
+    }
   },
   "spacing": {
     "0": "0",
@@ -133,19 +189,31 @@
     "12": "48px",
     "16": "64px"
   },
-  "radius": { "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "radius": {
+    "xs": "2px",
+    "sm": "4px",
+    "md": "6px",
+    "lg": "8px",
+    "pill": "999px"
+  },
   "shadow": {
-    "raised": { "value": "0 10px 28px rgba(23, 35, 58, 0.10)", "name": "Elevado" },
-    "floating": { "value": "0 18px 48px rgba(8, 18, 35, 0.18)", "name": "Flotante" },
+    "raised": {
+      "value": "0 1px 0 rgba(10, 14, 18, 0.06), 0 6px 16px rgba(10, 14, 18, 0.08)",
+      "name": "Elevado (solo menús y popovers)"
+    },
+    "floating": {
+      "value": "0 16px 40px rgba(3, 5, 8, 0.32)",
+      "name": "Flotante (diálogos)"
+    },
     "scrollEdge": {
-      "value": "inset -12px 0 12px -14px rgba(23, 35, 58, 0.32)",
+      "value": "inset -12px 0 12px -14px rgba(10, 14, 18, 0.32)",
       "name": "Continuidad horizontal"
     }
   },
   "size": {
     "controlMin": "44px",
     "sidebar": "228px",
-    "contentMax": "1440px",
+    "contentMax": "1120px",
     "statusBar": "48px",
     "dashboardGap": "16px",
     "panelMin": "280px",
@@ -154,23 +222,31 @@
     "dialogMax": "520px"
   },
   "layout": {
-    "wide": { "breakpoint": "1100px", "columns": 12, "pagePadding": "32px" },
-    "compact": { "breakpoint": "700px", "columns": 1, "pagePadding": "20px" },
+    "wide": {
+      "breakpoint": "1100px",
+      "columns": 12,
+      "pagePadding": "32px"
+    },
+    "compact": {
+      "breakpoint": "700px",
+      "columns": 1,
+      "pagePadding": "20px"
+    },
     "dashboard": {
-      "connection": "span 4",
-      "macro": "span 8",
-      "signals": "span 8",
-      "positions": "span 4",
-      "drawdown": "span 4",
-      "exposure": "span 4",
-      "strategies": "span 4"
+      "connection": "span 12",
+      "macro": "span 12",
+      "signals": "span 12",
+      "positions": "span 12",
+      "drawdown": "span 12",
+      "exposure": "span 12",
+      "strategies": "span 12"
     }
   },
   "motion": {
-    "fast": "120ms",
-    "normal": "200ms",
-    "slow": "320ms",
-    "easeOut": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "fast": "100ms",
+    "normal": "160ms",
+    "slow": "240ms",
+    "easeOut": "cubic-bezier(0.2, 0.9, 0.1, 1)",
     "reduced": "0ms"
   }
 }

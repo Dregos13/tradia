@@ -2,10 +2,14 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createChart } from 'lightweight-charts';
+import base from '../../design/base.tokens.json';
+import market from '../../design/market.tokens.json';
 import { createSimulatedAdapter } from '../../adapters/simulated';
 import { sma, rsi, atr } from '../../../../shared/indicators';
 import { adjustedCandles, chartData, rangeStart } from './chartData';
 import { MarketWorkspace } from './MarketWorkspace';
+import { PriceChart } from './PriceChart';
 import { ProviderBanner } from '../ProviderBanner';
 import type { DataFreshnessSummary } from '../../../../shared/ipc';
 
@@ -25,7 +29,7 @@ vi.mock('lightweight-charts', () => ({
   CandlestickSeries: 'candles',
   LineSeries: 'line',
   ColorType: { Solid: 'solid' },
-  LineStyle: { Dashed: 2 },
+  LineStyle: { Solid: 0, Dashed: 2, Dotted: 1 },
   createChart: vi.fn(() => {
     const instance = {
       series: [] as (typeof charts.instances)[number]['series'],
@@ -389,4 +393,102 @@ it('el gráfico de EUR/USD conserva cinco decimales en las velas y el eje de pre
       expect.objectContaining({ priceFormat: { type: 'price', precision: 5, minMove: 0.00001 } }),
     );
   });
+});
+
+it('aplica los tokens y trazos de la identidad y conserva las SMA ocultas al cambiar de tema', async () => {
+  const applyTheme = (mode: 'light' | 'dark') => {
+    for (const [name, token] of Object.entries(base.color[mode]))
+      document.documentElement.style.setProperty(`--color-${name}`, token.value);
+    for (const group of ['candle', 'series'] as const)
+      for (const [name, token] of Object.entries(market.color[group]))
+        document.documentElement.style.setProperty(`--${group}-${name}`, token[mode]);
+    document.documentElement.style.setProperty(
+      '--font-numeric',
+      base.typography.family.numeric.value,
+    );
+  };
+  let changeTheme = () => {};
+  const removeListener = vi.fn();
+  vi.stubGlobal('matchMedia', () => ({
+    addEventListener: (_event: string, listener: () => void) => {
+      changeTheme = listener;
+    },
+    removeEventListener: removeListener,
+  }));
+  const result = await simulation.api.market.getBars({ ticker: 'AAPL' });
+  applyTheme('light');
+  const { unmount } = render(<PriceChart result={result} loading={false} />);
+  try {
+    const user = userEvent.setup();
+    for (const mode of ['light', 'dark'] as const) {
+      if (mode === 'dark') {
+        await user.click(screen.getByRole('checkbox', { name: 'SMA 50' }));
+        applyTheme(mode);
+        act(() => changeTheme());
+      }
+      expect(createChart).toHaveBeenLastCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          layout: expect.objectContaining({
+            background: { type: 'solid', color: base.color[mode].surface.value },
+            textColor: base.color[mode].textMuted.value,
+            fontFamily: base.typography.family.numeric.value,
+          }),
+          grid: {
+            vertLines: { color: market.color.candle.grid[mode] },
+            horzLines: { color: market.color.candle.grid[mode] },
+          },
+        }),
+      );
+      const chart = charts.instances.at(-1)!;
+      expect(chart.addSeries).toHaveBeenCalledWith(
+        'candles',
+        expect.objectContaining({
+          upColor: base.color[mode].surface.value,
+          downColor: market.color.candle.down[mode],
+          borderUpColor: market.color.candle.up[mode],
+          wickUpColor: market.color.candle.wick[mode],
+          wickDownColor: market.color.candle.wick[mode],
+        }),
+      );
+      for (const [index, series] of (['sma20', 'sma50', 'sma200'] as const).entries()) {
+        expect(chart.addSeries.mock.calls[index + 1]).toEqual([
+          'line',
+          expect.objectContaining({
+            color: market.color.series[series][mode],
+            lineStyle: [0, 2, 1][index],
+          }),
+        ]);
+      }
+      for (const indicator of ['rsi', 'atr'] as const)
+        expect(chart.addSeries).toHaveBeenCalledWith(
+          'line',
+          expect.objectContaining({
+            color: market.color.series[indicator][mode],
+          }),
+          expect.any(Number),
+        );
+      expect(chart.series[2]!.applyOptions).toHaveBeenLastCalledWith({ visible: mode === 'light' });
+    }
+    expect(charts.instances[0]!.remove).toHaveBeenCalledOnce();
+  } finally {
+    unmount();
+    document.documentElement.removeAttribute('style');
+  }
+  expect(removeListener).toHaveBeenCalledWith('change', changeTheme);
+});
+
+it('si falla el lienzo ofrece las mismas velas ajustadas en una tabla accesible', async () => {
+  const historical = await simulation.api.market.getBars({ ticker: 'AAPL' });
+  const result = { ...historical, bars: historical.bars.slice(-30) };
+  vi.mocked(createChart).mockImplementationOnce(() => {
+    throw new Error('Canvas unavailable');
+  });
+  const user = userEvent.setup();
+  render(<PriceChart result={result} loading={false} />);
+  expect(screen.getByRole('alert')).toHaveTextContent('Puedes consultar las velas en la tabla');
+  await user.click(screen.getByText(/Ver tabla de datos/));
+  fireEvent(screen.getByText(/Ver tabla de datos/).closest('details')!, new Event('toggle'));
+  const table = await screen.findByRole('table', { name: /AAPL · OHLCV ajustado/ });
+  expect(within(table).getAllByRole('row')).toHaveLength(chartData(result.bars).candles.length + 1);
 });

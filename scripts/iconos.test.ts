@@ -6,8 +6,19 @@ import { describe, expect, it } from 'vitest';
 
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const appSource = 'build/icon.svg';
+const master = readFileSync(appSource, 'utf8');
 
-function checkPng(bytes: Buffer, size: number, source: string, template = false): void {
+function variant(id: string): string {
+  const svg = master.match(new RegExp(`<svg id="${id}"[\\s\\S]*?</svg>`))?.[0];
+  expect(svg, `El maestro debe incluir ${id}`).toBeDefined();
+  return svg!.replace(` id="${id}"`, '') + '\n';
+}
+
+function rasterSource(source: string, size: number): string {
+  return source === appSource && size <= 32 ? variant('app-small') : readFileSync(source, 'utf8');
+}
+
+function checkPng(bytes: Buffer, size: number, source: string, template = false): Buffer {
   expect(bytes.subarray(0, 8)).toEqual(signature);
   const compressed: Buffer[] = [];
   let sourceHash = '';
@@ -30,17 +41,19 @@ function checkPng(bytes: Buffer, size: number, source: string, template = false)
   expect(offset).toBe(bytes.length);
   // A stale raster from an older SVG fails even when dimensions and transparency still match.
   expect(sourceHash).toBe(
-    `Source-SHA256\0${createHash('sha256').update(readFileSync(source)).digest('hex')}`,
+    `Source-SHA256\0${createHash('sha256').update(master).update('\0').update(rasterSource(source, size)).digest('hex')}`,
   );
   const rows = inflateSync(Buffer.concat(compressed));
   const stride = size * 4 + 1;
   expect(rows.length).toBe(size * stride);
   let visible = 0;
+  const alpha = Buffer.alloc(size * size);
   for (let y = 0; y < size; y++) {
     // The generator deliberately uses filter 0; no platform PNG decoder needed in npm test.
     expect(rows[y * stride]).toBe(0);
     for (let x = 0; x < size; x++) {
       const pixel = y * stride + 1 + x * 4;
+      alpha[y * size + x] = rows[pixel + 3]!;
       if (rows[pixel + 3]) {
         visible++;
         if (template) expect([...rows.subarray(pixel, pixel + 3)]).toEqual([0, 0, 0]);
@@ -56,9 +69,19 @@ function checkPng(bytes: Buffer, size: number, source: string, template = false)
   ]) {
     expect(rows[y! * stride + 1 + x! * 4 + 3]).toBe(0);
   }
+  return alpha;
 }
 
 describe('Iconos instalables de Tradia', () => {
+  it('las variantes ópticas y de bandeja pertenecen al único maestro', () => {
+    expect(variant('app-small')).toContain('viewBox="0 0 32 32"');
+    for (const state of ['online', 'offline', 'paused', 'stopped']) {
+      for (const suffix of ['', '-Template']) {
+        const id = `tray-${state}${suffix}`;
+        expect(readFileSync(`resources/tray/${id}.svg`, 'utf8')).toBe(variant(id));
+      }
+    }
+  });
   it.each([
     ['build/icon.png', 1024],
     ['resources/icon.png', 512],
@@ -130,20 +153,18 @@ describe('Iconos instalables de Tradia', () => {
         for (const state of ['online', 'offline', 'paused', 'stopped']) {
           const base = `resources/tray/tray-${state}${variant}`;
           const bytes = readFileSync(`${base}${suffix}.png`);
-          checkPng(bytes, size, `${base}.svg`, variant === '-Template');
-          // Compare the image payload, not metadata: states must differ visually.
-          let offset = 8;
-          while (offset < bytes.length) {
-            const length = bytes.readUInt32BE(offset);
-            if (bytes.toString('ascii', offset + 4, offset + 8) === 'IDAT') {
-              hashes.add(
-                createHash('sha256')
-                  .update(bytes.subarray(offset + 8, offset + 8 + length))
-                  .digest('hex'),
-              );
-            }
-            offset += length + 12;
-          }
+          const alpha = checkPng(bytes, size, `${base}.svg`, variant === '-Template');
+          // Silhouettes must distinguish states independently of RGB and PNG metadata.
+          hashes.add(createHash('sha256').update(alpha).digest('hex'));
+          const counterpart = `resources/tray/tray-${state}${variant ? '' : '-Template'}`;
+          expect(alpha).toEqual(
+            checkPng(
+              readFileSync(`${counterpart}${suffix}.png`),
+              size,
+              `${counterpart}.svg`,
+              !variant,
+            ),
+          );
         }
         expect(hashes.size).toBe(4);
       });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DataStateIcon } from '../DataStateIcon';
 import { normalizeFxPair } from '../../../../shared/fx';
-import { assetSymbol, fxLabel } from '../assetPresentation';
+import { assetSymbol, FX_CLASS_LABEL, fxDetail, fxLabel } from '../assetPresentation';
 import { isFxSymbol } from '../../../../shared/fxTrading';
 import { HistoricalProgress, MarketStatus } from './MarketStatus';
 import { AssetSearch } from './AssetSearch';
@@ -280,7 +280,10 @@ export function Watchlist({
                   </button>
                   <div id={`market-coverage-${item.ticker}`} className="market-asset-coverage">
                     {item.assetClass === 'fx' && (
-                      <span className="market-asset-class">{fxLabel(item.ticker)}</span>
+                      <span className="market-asset-class">
+                        <span className="market-asset-class-name">{FX_CLASS_LABEL}</span>
+                        {` · ${fxDetail(item.ticker)}`}
+                      </span>
                     )}
                     {statuses.find((entry) => entry.key === `ticker:${item.ticker}`)?.state ===
                       'sin-cobertura' ||

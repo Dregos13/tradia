@@ -271,7 +271,7 @@ test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mo
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect
     .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
-    .toBe('rgb(75, 28, 38)');
+    .toBe('rgb(58, 21, 25)'); // state.critical.darkSurface (#3A1519) de la identidad «Telemetría de box»
   await page.screenshot({ path: join(tmpdir(), 'tradia-news-notice-dark-700.png') });
   await force('ok');
   await expect(notice).toHaveCount(0);
@@ -297,7 +297,7 @@ test('la caída de suscripción se ve en Noticias y Ajustes y se recupera sin mo
   await page.emulateMedia({ colorScheme: 'light' });
   await expect
     .poll(() => notice.evaluate((element) => getComputedStyle(element).backgroundColor))
-    .toBe('rgb(251, 228, 231)');
+    .toBe('rgb(251, 227, 229)'); // state.critical.lightSurface (#FBE3E5)
   await page
     .getByRole('region', { name: 'Análisis de noticias', exact: true })
     .screenshot({ path: join(tmpdir(), 'tradia-settings-notice-desktop.png') });

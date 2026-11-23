@@ -2,7 +2,7 @@
   "$schema": "https://tradia.local/schemas/design-tokens.v1.json",
   "meta": {
     "name": "Tradia — Claridad de datos y conectores",
-    "version": "1.0.0",
+    "version": "7.0.0",
     "extends": [
       "src/renderer/src/design/base.tokens.json",
       "src/renderer/src/design/market.tokens.json",
@@ -15,78 +15,78 @@
   },
   "color": {
     "light": {
-      "canvas": "#F5F3ED",
-      "surface": "#FFFEFA",
-      "surfaceSubtle": "#ECE9E1",
-      "sidebar": "#17233A",
-      "sidebarText": "#F5F3ED",
-      "text": "#17233A",
-      "textMuted": "#566174",
-      "accent": "#1746C6",
-      "accentHover": "#10369E",
+      "canvas": "#EEF2F5",
+      "surface": "#FFFFFF",
+      "surfaceSubtle": "#E7ECF0",
+      "sidebar": "#E3E9EE",
+      "sidebarText": "#0C1218",
+      "text": "#0C1218",
+      "textMuted": "#475563",
+      "accent": "#4A6500",
+      "accentHover": "#3A5000",
       "inverse": "#FFFFFF",
-      "focus": "#0C60E8"
+      "focus": "#4A6500"
     },
     "dark": {
-      "canvas": "#0E1522",
-      "surface": "#151F30",
-      "surfaceSubtle": "#1D293B",
-      "sidebar": "#090F19",
-      "sidebarText": "#F4F5F7",
-      "text": "#F4F5F7",
-      "textMuted": "#B8C1CE",
-      "accent": "#7EA2FF",
-      "accentHover": "#A9C0FF",
-      "inverse": "#0E1522",
-      "focus": "#9DB8FF"
+      "canvas": "#0A0E12",
+      "surface": "#10161C",
+      "surfaceSubtle": "#151C23",
+      "sidebar": "#07090C",
+      "sidebarText": "#E4EAF0",
+      "text": "#E4EAF0",
+      "textMuted": "#9AA8B6",
+      "accent": "#C6F432",
+      "accentHover": "#D7FB66",
+      "inverse": "#0A0E12",
+      "focus": "#C6F432"
     },
     "semantic": {
       "covered": {
         "label": "Al día",
-        "light": "#126B4B",
-        "lightSurface": "#DDF3E9",
-        "dark": "#65D6A4",
-        "darkSurface": "#12382C",
+        "light": "#0B7548",
+        "lightSurface": "#DCF2E7",
+        "dark": "#3CCB8A",
+        "darkSurface": "#0E271D",
         "secondaryCue": "icono circle-check + texto"
       },
       "uncovered": {
         "label": "Sin cobertura",
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "secondaryCue": "icono circle-slash + texto; nunca tratar como caída del proveedor"
       },
       "partial": {
         "label": "Actualización parcial",
-        "light": "#765500",
-        "lightSurface": "#F5EAC2",
-        "dark": "#F4CB62",
-        "darkSurface": "#3E3214",
+        "light": "#7A5900",
+        "lightSurface": "#F5ECCB",
+        "dark": "#EBC05A",
+        "darkSurface": "#2E2610",
         "secondaryCue": "recuento actualizado/total + lista de excepciones"
       },
       "critical": {
         "label": "Necesita atención",
-        "light": "#A12232",
-        "lightSurface": "#FBE4E7",
-        "dark": "#FF8D9B",
-        "darkSurface": "#4B1C26",
+        "light": "#B0202E",
+        "lightSurface": "#FBE3E5",
+        "dark": "#FF7D87",
+        "darkSurface": "#3A1519",
         "secondaryCue": "icono circle-alert + texto"
       },
       "offline": {
         "label": "Sin conexión",
-        "light": "#A33B18",
-        "lightSurface": "#FCE7DC",
-        "dark": "#FF9B73",
-        "darkSurface": "#4A2419",
+        "light": "#A3460E",
+        "lightSurface": "#FBE6D8",
+        "dark": "#FF9A5C",
+        "darkSurface": "#33200F",
         "secondaryCue": "icono wifi-off + texto"
       },
       "info": {
         "label": "Comprobando",
-        "light": "#1746C6",
-        "lightSurface": "#E5EBFF",
-        "dark": "#8EACFF",
-        "darkSurface": "#1B3265",
+        "light": "#0A6390",
+        "lightSurface": "#DDEFF8",
+        "dark": "#6CC6F2",
+        "darkSurface": "#0E2431",
         "secondaryCue": "icono loader + texto"
       }
     }
@@ -94,158 +94,319 @@
   "contrastPairs": [
     {
       "name": "Texto principal / lienzo",
-      "light": { "text": "#17233A", "background": "#F5F3ED", "ratio": "14.15:1" },
-      "dark": { "text": "#F4F5F7", "background": "#0E1522", "ratio": "16.75:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#EEF2F5",
+        "ratio": "16.73:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#0A0E12",
+        "ratio": "15.98:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Texto principal / superficie",
-      "light": { "text": "#17233A", "background": "#FFFEFA", "ratio": "15.55:1" },
-      "dark": { "text": "#F4F5F7", "background": "#151F30", "ratio": "15.15:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#FFFFFF",
+        "ratio": "18.83:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#10161C",
+        "ratio": "15.02:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Texto de navegación / barra lateral",
-      "light": { "text": "#F5F3ED", "background": "#17233A", "ratio": "14.15:1" },
-      "dark": { "text": "#F4F5F7", "background": "#090F19", "ratio": "17.60:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#E3E9EE",
+        "ratio": "15.38:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#07090C",
+        "ratio": "16.45:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Texto secundario / lienzo",
-      "light": { "text": "#566174", "background": "#F5F3ED", "ratio": "5.64:1" },
-      "dark": { "text": "#B8C1CE", "background": "#0E1522", "ratio": "10.06:1" },
+      "light": {
+        "text": "#475563",
+        "background": "#EEF2F5",
+        "ratio": "6.79:1"
+      },
+      "dark": {
+        "text": "#9AA8B6",
+        "background": "#0A0E12",
+        "ratio": "7.98:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Texto secundario / superficie",
-      "light": { "text": "#566174", "background": "#FFFEFA", "ratio": "6.20:1" },
-      "dark": { "text": "#B8C1CE", "background": "#151F30", "ratio": "9.10:1" },
+      "light": {
+        "text": "#475563",
+        "background": "#FFFFFF",
+        "ratio": "7.64:1"
+      },
+      "dark": {
+        "text": "#9AA8B6",
+        "background": "#10161C",
+        "ratio": "7.50:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Texto de acción primaria / acento",
-      "light": { "text": "#FFFFFF", "background": "#1746C6", "ratio": "7.70:1" },
-      "dark": { "text": "#0E1522", "background": "#7EA2FF", "ratio": "7.40:1" },
+      "light": {
+        "text": "#FFFFFF",
+        "background": "#4A6500",
+        "ratio": "6.66:1"
+      },
+      "dark": {
+        "text": "#0A0E12",
+        "background": "#C6F432",
+        "ratio": "15.11:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Enlace / superficie",
-      "light": { "text": "#1746C6", "background": "#FFFEFA", "ratio": "7.63:1" },
-      "dark": { "text": "#7EA2FF", "background": "#151F30", "ratio": "6.69:1" },
+      "light": {
+        "text": "#4A6500",
+        "background": "#FFFFFF",
+        "ratio": "6.66:1"
+      },
+      "dark": {
+        "text": "#C6F432",
+        "background": "#10161C",
+        "ratio": "14.21:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Foco / superficie",
-      "light": { "text": "#0C60E8", "background": "#FFFEFA", "ratio": "5.40:1" },
-      "dark": { "text": "#9DB8FF", "background": "#151F30", "ratio": "8.45:1" },
+      "light": {
+        "text": "#4A6500",
+        "background": "#FFFFFF",
+        "ratio": "6.66:1"
+      },
+      "dark": {
+        "text": "#C6F432",
+        "background": "#10161C",
+        "ratio": "14.21:1"
+      },
       "minimum": "3:1 no textual; se exige 4.5:1 por esta guía",
       "pass": true
     },
     {
       "name": "Etiqueta sin cobertura o parcial / fondo de estado",
-      "light": { "text": "#765500", "background": "#F5EAC2", "ratio": "5.68:1" },
-      "dark": { "text": "#F4CB62", "background": "#3E3214", "ratio": "8.12:1" },
+      "light": {
+        "text": "#7A5900",
+        "background": "#F5ECCB",
+        "ratio": "5.45:1"
+      },
+      "dark": {
+        "text": "#EBC05A",
+        "background": "#2E2610",
+        "ratio": "8.72:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Cuerpo / fondo sin cobertura o parcial",
-      "light": { "text": "#17233A", "background": "#F5EAC2", "ratio": "13.03:1" },
-      "dark": { "text": "#F4F5F7", "background": "#3E3214", "ratio": "11.52:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#F5ECCB",
+        "ratio": "15.91:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#2E2610",
+        "ratio": "12.37:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Etiqueta crítica / fondo crítico",
-      "light": { "text": "#A12232", "background": "#FBE4E7", "ratio": "6.22:1" },
-      "dark": { "text": "#FF8D9B", "background": "#4B1C26", "ratio": "6.39:1" },
+      "light": {
+        "text": "#B0202E",
+        "background": "#FBE3E5",
+        "ratio": "5.57:1"
+      },
+      "dark": {
+        "text": "#FF7D87",
+        "background": "#3A1519",
+        "ratio": "6.56:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Cuerpo / fondo crítico",
-      "light": { "text": "#17233A", "background": "#FBE4E7", "ratio": "12.97:1" },
-      "dark": { "text": "#F4F5F7", "background": "#4B1C26", "ratio": "12.89:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#FBE3E5",
+        "ratio": "15.44:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#3A1519",
+        "ratio": "13.32:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Etiqueta correcta / fondo correcto",
-      "light": { "text": "#126B4B", "background": "#DDF3E9", "ratio": "5.59:1" },
-      "dark": { "text": "#65D6A4", "background": "#12382C", "ratio": "7.19:1" },
+      "light": {
+        "text": "#0B7548",
+        "background": "#DCF2E7",
+        "ratio": "4.90:1"
+      },
+      "dark": {
+        "text": "#3CCB8A",
+        "background": "#0E271D",
+        "ratio": "7.61:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Cuerpo / fondo correcto",
-      "light": { "text": "#17233A", "background": "#DDF3E9", "ratio": "13.51:1" },
-      "dark": { "text": "#F4F5F7", "background": "#12382C", "ratio": "11.83:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#DCF2E7",
+        "ratio": "16.05:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#0E271D",
+        "ratio": "13.06:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Etiqueta sin red / fondo sin red",
-      "light": { "text": "#A33B18", "background": "#FCE7DC", "ratio": "5.51:1" },
-      "dark": { "text": "#FF9B73", "background": "#4A2419", "ratio": "6.54:1" },
+      "light": {
+        "text": "#A3460E",
+        "background": "#FBE6D8",
+        "ratio": "5.06:1"
+      },
+      "dark": {
+        "text": "#FF9A5C",
+        "background": "#33200F",
+        "ratio": "7.41:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Cuerpo / fondo sin red",
-      "light": { "text": "#17233A", "background": "#FCE7DC", "ratio": "13.16:1" },
-      "dark": { "text": "#F4F5F7", "background": "#4A2419", "ratio": "12.36:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#FBE6D8",
+        "ratio": "15.61:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#33200F",
+        "ratio": "12.79:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Etiqueta informativa / fondo informativo",
-      "light": { "text": "#1746C6", "background": "#E5EBFF", "ratio": "6.47:1" },
-      "dark": { "text": "#8EACFF", "background": "#1B3265", "ratio": "5.62:1" },
+      "light": {
+        "text": "#0A6390",
+        "background": "#DDEFF8",
+        "ratio": "5.55:1"
+      },
+      "dark": {
+        "text": "#6CC6F2",
+        "background": "#0E2431",
+        "ratio": "8.36:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     },
     {
       "name": "Cuerpo / fondo informativo",
-      "light": { "text": "#17233A", "background": "#E5EBFF", "ratio": "13.20:1" },
-      "dark": { "text": "#F4F5F7", "background": "#1B3265", "ratio": "11.39:1" },
+      "light": {
+        "text": "#0C1218",
+        "background": "#DDEFF8",
+        "ratio": "15.94:1"
+      },
+      "dark": {
+        "text": "#E4EAF0",
+        "background": "#0E2431",
+        "ratio": "13.17:1"
+      },
       "minimum": "4.5:1",
       "pass": true
     }
   ],
   "typography": {
     "family": {
-      "interface": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      "editorial": "Iowan Old Style, Charter, Georgia, serif",
-      "numeric": "SFMono-Regular, Consolas, 'Liberation Mono', monospace"
+      "interface": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "editorial": "Sora, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "numeric": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace"
     },
     "size": {
       "caption": {
         "value": "14px",
-        "lineHeight": "20px",
+        "lineHeight": "21px",
         "use": "metadatos y ayudas; mínimo informativo"
       },
       "small": {
-        "value": "15px",
-        "lineHeight": "22px",
+        "value": "14px",
+        "lineHeight": "21px",
         "use": "texto secundario, insignias y etiquetas"
       },
-      "body": { "value": "16px", "lineHeight": "24px", "use": "base de la aplicación y controles" },
-      "titleSmall": { "value": "18px", "lineHeight": "26px", "use": "tarjetas y avisos" },
-      "title": { "value": "24px", "lineHeight": "32px", "use": "título de pantalla" },
+      "body": {
+        "value": "16px",
+        "lineHeight": "24px",
+        "use": "base de la aplicación y controles"
+      },
+      "titleSmall": {
+        "value": "18px",
+        "lineHeight": "26px",
+        "use": "tarjetas y avisos"
+      },
+      "title": {
+        "value": "24px",
+        "lineHeight": "30px",
+        "use": "título de pantalla"
+      },
       "display": {
-        "value": "32px",
+        "value": "36px",
         "lineHeight": "40px",
         "use": "encabezado principal cuando exista"
       }
     },
-    "weight": { "regular": 400, "medium": 560, "semibold": 650, "bold": 740 },
+    "weight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
     "rule": "No usar 12px en información, estados, fechas ni acciones. 12px queda reservado a marcas decorativas sin contenido decisivo."
   },
   "spacing": {
@@ -257,14 +418,30 @@
     "pagePaddingWide": "32px",
     "pagePaddingNarrow": "20px"
   },
-  "radius": { "control": "8px", "card": "12px", "panel": "16px", "pill": "999px" },
-  "shadow": { "floating": "0 18px 48px rgba(8, 18, 35, 0.18)" },
-  "focus": { "width": "3px", "offset": "2px", "style": "solid", "token": "color.*.focus" },
+  "radius": {
+    "control": "8px",
+    "card": "12px",
+    "panel": "16px",
+    "pill": "999px"
+  },
+  "shadow": {
+    "floating": "0 16px 40px rgba(3, 5, 8, 0.32)"
+  },
+  "focus": {
+    "width": "2px",
+    "offset": "2px",
+    "style": "solid",
+    "token": "color.*.focus"
+  },
   "size": {
     "controlMinHeight": "44px",
     "controlMinWidth": "44px",
     "copyMaxWidth": "70ch",
     "connectorCardMinWidth": "300px"
   },
-  "motion": { "fast": "120ms", "normal": "200ms", "reduced": "0ms" }
+  "motion": {
+    "fast": "100ms",
+    "normal": "160ms",
+    "reduced": "0ms"
+  }
 }

@@ -21,3 +21,12 @@
 .home-phase-notices p {
   max-width: var(--size-readingMax);
 }
+
+.home-phase-notices > :not(style) {
+  border-radius: var(--radius-xs);
+  box-shadow: none;
+}
+.home-phase-notices time {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}

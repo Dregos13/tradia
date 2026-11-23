@@ -1,25 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <title>Tradia</title>
-  <rect x="100" y="100" width="824" height="824" rx="184" fill="#101A2A" />
-  <rect
-    x="112"
-    y="112"
-    width="800"
-    height="800"
-    rx="172"
-    fill="none"
-    stroke="#31435F"
-    stroke-width="4"
-  />
-  <g
-    transform="translate(192 192) scale(20)"
-    fill="none"
-    stroke-width="5"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <path d="M4 12C9 12 11 9 16 9" stroke="#8EACFF" />
-    <path d="M16 9C21 9 23 7.5 28 4" stroke="#5ED7C0" />
-    <path d="M16 9V28" stroke="#8EACFF" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><title>Tradia</title><rect x="100" y="100" width="824" height="824" rx="184" fill="#0A0E12"/><rect x="102" y="102" width="820" height="820" rx="182" fill="none" stroke="#1F2932" stroke-width="4"/><path fill="#C6F432" d="M248 395.84Q446 282.32 776 255.92Q657.2 314 546.32 353.6L512 768.08L477.68 364.16Q353.6 385.28 248 416.96Z"/>
+  <!-- Optical and tray variants belong to this master; generated resources must not be edited. -->
+  <defs>
+    <svg id="app-small" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia</title><rect x="1" y="1" width="30" height="30" rx="7" fill="#0A0E12"/><path fill="#C6F432" d="M5 13Q13 7.4 28 6.4Q23.4 9.2 18.4 11L17.7 27.5L14.3 27.5L13.6 11.9Q9.6 12.9 5 16Z"/></svg>
+    <svg id="tray-offline-Template" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · offline</title><path fill="#000000" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><circle cx="26" cy="25" r="3.8" fill="none" stroke="#000000" stroke-width="2.4"/></svg>
+    <svg id="tray-offline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · offline</title><path fill="#6B7B8A" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><circle cx="26" cy="25" r="3.8" fill="none" stroke="#D2691E" stroke-width="2.4"/></svg>
+    <svg id="tray-online-Template" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · online</title><path fill="#000000" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><circle cx="26" cy="25" r="5" fill="#000000"/></svg>
+    <svg id="tray-online" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · online</title><path fill="#6B7B8A" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><circle cx="26" cy="25" r="5" fill="#1C9B63"/></svg>
+    <svg id="tray-paused-Template" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · paused</title><path fill="#000000" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><path fill="#000000" d="M21 20h3.6v10H21zM27.4 20H31v10h-3.6z"/></svg>
+    <svg id="tray-paused" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · paused</title><path fill="#6B7B8A" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><path fill="#B07A00" d="M21 20h3.6v10H21zM27.4 20H31v10h-3.6z"/></svg>
+    <svg id="tray-stopped-Template" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · stopped</title><path fill="#000000" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><path fill="#000000" d="M21.2 20.2h9.6v9.6h-9.6z"/></svg>
+    <svg id="tray-stopped" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><title>Tradia · stopped</title><path fill="#6B7B8A" d="M1 9.5Q9 3.4 24 2.4Q19 5.4 14.2 7.4L13.6 30L11.4 30L10.8 8.4Q6 9.6 1 13.4Z"/><path fill="#E0393E" d="M21.2 20.2h9.6v9.6h-9.6z"/></svg>
+  </defs>
 </svg>

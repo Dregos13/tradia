@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
-import { ipcMain, safeStorage } from 'electron';
+import { app, ipcMain, safeStorage } from 'electron';
 
-import { IPC_CHANNELS, IpcValidationError, isNonEmptyString } from '../../shared/ipc';
+import { IPC_CHANNELS, IpcValidationError, isE2eEnabled, isNonEmptyString } from '../../shared/ipc';
 import { InvalidStoredKeyError } from '../market/providers/types';
 import type { ServiceContext } from './index';
 
@@ -60,9 +60,21 @@ const isUnsafeKeyChar = (char: string): boolean => {
   return code <= 0x20 || (code >= 0x7f && code <= 0x9f);
 };
 
+export interface SecretsServiceOptions {
+  /**
+   * Solo pruebas E2E sin empaquetar: acepta el backend 'basic_text'.
+   * Playwright lanza Electron con `--password-store=basic` (su cargador
+   * añade los switches de Chromium para automatización), así que en Linux
+   * ningún E2E puede usar un llavero real. La app empaquetada ignora
+   * TRADIA_E2E, de modo que esta vía nunca existe para un usuario.
+   */
+  allowBasicTextForE2e?: boolean;
+}
+
 export function createSecretsService(
   db: Database.Database | null,
   crypto: SafeStorageLike,
+  options: SecretsServiceOptions = {},
 ): SecretsService {
   const requireDb = (): Database.Database => {
     if (!db) throw new SecretsError(ERR_STORAGE_UNAVAILABLE);
@@ -70,6 +82,9 @@ export function createSecretsService(
   };
 
   const requireRealEncryption = (): void => {
+    if (options.allowBasicTextForE2e && crypto.getSelectedStorageBackend?.() === 'basic_text') {
+      return;
+    }
     if (!crypto.isEncryptionAvailable()) {
       throw new SecretsError(ERR_ENCRYPTION_UNAVAILABLE);
     }
@@ -153,7 +168,24 @@ export function createSecretsService(
 }
 
 export function registerSecrets(ctx: ServiceContext): SecretsService {
-  const service = createSecretsService(ctx.services.storage?.getDb() ?? null, safeStorage);
+  // E2E en Linux: Playwright fuerza `--password-store=basic`; para que las
+  // pruebas puedan guardar claves se habilita el cifrado con clave fija
+  // (sigue sin escribirse texto plano en la base). Nunca en la app empaquetada.
+  const allowBasicTextForE2e =
+    process.platform === 'linux' && isE2eEnabled(app.isPackaged, process.env.TRADIA_E2E);
+  if (allowBasicTextForE2e) {
+    app.whenReady().then(
+      () => {
+        if (safeStorage.getSelectedStorageBackend() === 'basic_text') {
+          safeStorage.setUsePlainTextEncryption(true);
+        }
+      },
+      () => undefined,
+    );
+  }
+  const service = createSecretsService(ctx.services.storage?.getDb() ?? null, safeStorage, {
+    allowBasicTextForE2e,
+  });
 
   ipcMain.handle(IPC_CHANNELS.secrets.setKey, (_event, provider: unknown, apiKey: unknown) => {
     if (!isNonEmptyString(provider) || !isNonEmptyString(apiKey)) {

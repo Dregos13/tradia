@@ -79,29 +79,29 @@ export function PriceChart({
       chart = createChart(element, {
         autoSize: true,
         layout: {
-          background: { type: ColorType.Solid, color: color('color-surface') || '#17233A' },
-          textColor: color('color-textMuted') || '#94A3B8',
+          background: { type: ColorType.Solid, color: color('color-surface') },
+          textColor: color('color-textMuted'),
           fontFamily: style.getPropertyValue('--font-numeric').trim() || 'monospace',
           attributionLogo: true,
         },
         grid: {
-          vertLines: { color: color('candle-grid') || 'rgba(148, 163, 184, 0.15)' },
-          horzLines: { color: color('candle-grid') || 'rgba(148, 163, 184, 0.15)' },
+          vertLines: { color: color('candle-grid') },
+          horzLines: { color: color('candle-grid') },
         },
         crosshair: {
-          vertLine: { color: color('candle-crosshair') || '#94A3B8' },
-          horzLine: { color: color('candle-crosshair') || '#94A3B8' },
+          vertLine: { color: color('candle-crosshair') },
+          horzLine: { color: color('candle-crosshair') },
         },
         localization: { locale: 'es-ES' },
         timeScale: { timeVisible: false, lockVisibleTimeRangeOnResize: true },
       });
       const candles = chart.addSeries(CandlestickSeries, {
-        upColor: color('color-surface') || '#17233A',
-        downColor: color('candle-down') || '#DC2626',
-        borderUpColor: color('candle-up') || '#16A873',
-        borderDownColor: color('candle-down') || '#DC2626',
-        wickUpColor: color('candle-wick') || '#94A3B8',
-        wickDownColor: color('candle-wick') || '#94A3B8',
+        upColor: color('color-surface'),
+        downColor: color('candle-down'),
+        borderUpColor: color('candle-up'),
+        borderDownColor: color('candle-down'),
+        wickUpColor: color('candle-wick'),
+        wickDownColor: color('candle-wick'),
         lastValueVisible: true,
         priceFormat: {
           type: 'price',
@@ -113,6 +113,9 @@ export function PriceChart({
       averages.current = [20, 50, 200].map((period) =>
         chart!.addSeries(LineSeries, {
           color: color(`series-sma${period}`),
+          lineStyle: [LineStyle.Solid, LineStyle.Dashed, LineStyle.Dotted][
+            [20, 50, 200].indexOf(period)
+          ],
           lineWidth: 2,
           priceLineVisible: false,
           lastValueVisible: false,
@@ -128,7 +131,7 @@ export function PriceChart({
         const rsi = chart.addSeries(
           LineSeries,
           {
-            color: color('series-rsi') || color('series-sma20') || '#0284C7',
+            color: color('series-rsi') || color('series-sma20'),
             lineWidth: 2,
             title: 'RSI 14',
             priceLineVisible: false,
@@ -139,7 +142,7 @@ export function PriceChart({
         [30, 70].forEach((price) =>
           rsi.createPriceLine({
             price,
-            color: color('color-textMuted') || '#94A3B8',
+            color: color('color-textMuted'),
             lineStyle: LineStyle.Dashed,
             lineWidth: 1,
             axisLabelVisible: true,
@@ -152,7 +155,7 @@ export function PriceChart({
         const atr = chart.addSeries(
           LineSeries,
           {
-            color: color('series-atr') || color('series-sma200') || '#D97706',
+            color: color('series-atr') || color('series-sma200'),
             lineWidth: 2,
             title: isForex ? 'ATR 14 · Divisa' : 'ATR 14 · USD',
             priceLineVisible: false,
