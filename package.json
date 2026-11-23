@@ -5,6 +5,7 @@
   "description": "Tradia — app de escritorio de trading con agentes (señales y paper trading).",
   "license": "MIT",
   "author": "Tradia",
+  "homepage": "https://github.com/Dregos13/tradia",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

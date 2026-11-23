@@ -54,6 +54,9 @@ nsis:
 
 linux:
   icon: icon.png
+  # El .deb exige mantenedor con email. Marcador en el dominio reservado
+  # .invalid: cámbialo por una dirección de contacto real antes de publicar.
+  maintainer: Tradia <noreply@tradia.invalid>
   category: Office
   target:
     - AppImage

@@ -223,6 +223,14 @@ for (const colorScheme of THEMES) {
       test(`contraste y foco en ${screen.link}`, async () => {
         const { page } = context!;
         await openPage(page, screen.link, screen.heading);
+        // Algunas pantallas (Noticias) pintan sus botones al llegar los datos:
+        // se espera a que haya uno habilitado antes de medir.
+        await expect(
+          page
+            .locator('main')
+            .locator('button:not([disabled]), a[class*="button"], a[class*="primary"]')
+            .first(),
+        ).toBeVisible({ timeout: 15_000 });
         // Tras un clic, focus() no activa :focus-visible; una tecla fija la modalidad de teclado.
         await page.keyboard.press('Shift');
         const measured = await measureContrast(page);
