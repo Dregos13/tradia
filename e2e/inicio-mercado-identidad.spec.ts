@@ -8,7 +8,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     try {
       await page.emulateMedia({ colorScheme });
       await page.setViewportSize({ width: 1440, height: 1000 });
-      await openPage(page, 'Inicio', 'Estado del sistema');
+      await openPage(page, 'Estado del sistema');
       await expect(page.locator('.dashboard')).toHaveCSS('font-family', /^Sora,/);
       await page.screenshot({ path: `test-results/inicio-identidad-${colorScheme}.png` });
       await openPage(page, 'Mercado');

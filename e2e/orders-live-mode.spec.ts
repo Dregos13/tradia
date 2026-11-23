@@ -152,7 +152,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expect(
       page.getByRole('banner').getByText('Señales + paper trading', { exact: true }),
     ).toBeVisible();
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await openPage(page, 'Órdenes');
     for (const row of await liveRows.all()) await expect(row).toContainText('Dinero real');
     await expect(paperRow).toContainText('Paper · sin dinero real');

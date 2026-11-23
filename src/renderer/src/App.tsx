@@ -275,7 +275,10 @@ function AppShell() {
               }}
             />
           ) : page === 'mesa' ? (
-            <MesaPage />
+            <>
+              <FirstStepsCard />
+              <MesaPage />
+            </>
           ) : page === 'laboratorio' ? (
             <LabPage />
           ) : page === 'ia' ? (

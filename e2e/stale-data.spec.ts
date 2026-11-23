@@ -109,7 +109,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
 
     // Una sola franja global y el mismo texto en el chip de cada pantalla.
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
+      ['Estado del sistema', 'Estado del sistema'],
       ['Mercado', 'Mercado'],
       ['IA', 'IA'],
     ] as const) {
@@ -281,7 +281,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     const friday = new Date(Date.parse(PINNED_MARKET_NOW) + 3 * DAY_MS).toISOString();
     await relaunchPhaseApp(context!, { env: { TRADIA_E2E_MARKET_NOW: friday } });
     const next = context!.page;
-    await expect(next.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(next.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expect.poll(() => lastBar(next, 'SPY'), { timeout: 60_000 }).toBe('2026-10-09');

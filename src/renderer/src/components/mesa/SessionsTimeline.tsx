@@ -56,7 +56,7 @@ export function SessionsTimeline() {
               <strong>{session.name}</strong>
               <span>
                 {open
-                  ? `Abierta · cierra en ${formatDuration(nextChange - now)}`
+                  ? `Cierra en ${formatDuration(nextChange - now)}`
                   : `Abre en ${formatDuration(nextChange - now)}`}
               </span>
             </div>

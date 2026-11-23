@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { TOUR_STEPS } from '../src/renderer/src/components/onboarding/tourSteps';
-import { TOUR_TOTAL_STEPS, tourDialog } from './onboarding.helpers';
+import { TOUR_TOTAL_STEPS, tourDialog, openAdvancedNav } from './onboarding.helpers';
 import {
   closePhaseApp,
   launchPhaseApp,
@@ -25,7 +25,7 @@ import {
  * pasos 8 y 9 el globo no tapa el ancla y el foco del 9 no pasa de 400 px,
  * la barra de estado ocupa una línea de 48 px con «Último latido» a la vista
  * y el selector «Prioridad» de Noticias muestra su texto entero. Y (UXP-01 y
- * UXP-10): a 1280 × 800 caben las 16 entradas del menú lateral; a 1024 × 700
+ * UXP-10): con «Avanzado» plegado las cinco entradas principales caben sin desplazar; desplegado, a 1024 × 700
  * la lista desplaza dentro de la barra con un indicio inferior mientras queda
  * algo oculto, y «Ajustes» se alcanza con rueda y con Tab. Casillas (con su
  * etiqueta), selectores y enlaces en línea alcanzan el área mínima. Y (UXP-03,
@@ -47,25 +47,28 @@ const VIEWPORTS = [
   { width: 1024, height: 700, inline: 24 },
 ] as const;
 
-/** Las 16 entradas de la navegación lateral, en su orden, con su título h1. */
+/** Las 17 entradas del menú lateral en el orden del DOM, con su título h1. */
 const ROUTES = [
-  { route: 'inicio', link: 'Inicio', heading: 'Estado del sistema' },
+  { route: 'mesa', link: 'Mesa', heading: 'Mesa' },
   { route: 'laboratorio', link: 'Laboratorio', heading: 'Laboratorio' },
   { route: 'mercado', link: 'Mercado', heading: 'Mercado' },
+  { route: 'noticias', link: 'Noticias', heading: 'Noticias' },
+  { route: 'ajustes', link: 'Ajustes', heading: 'Ajustes' },
+  // «Avanzado», plegable:
+  { route: 'inicio', link: 'Estado del sistema', heading: 'Estado del sistema' },
+  { route: 'estrategias', link: 'Estrategias', heading: 'Estrategias' },
   { route: 'ia', link: 'IA', heading: 'IA' },
   { route: 'salud-modelos', link: 'Salud de modelos', heading: 'Salud de modelos' },
   { route: 'macro', link: 'Macro', heading: 'Contexto macro' },
-  { route: 'noticias', link: 'Noticias', heading: 'Noticias' },
   { route: 'calendario', link: 'Calendario', heading: 'Calendario' },
   { route: 'fuentes', link: 'Fuentes', heading: 'Fuentes' },
-  { route: 'estrategias', link: 'Estrategias', heading: 'Estrategias' },
   { route: 'riesgo', link: 'Riesgo', heading: 'Riesgo' },
   { route: 'diario', link: 'Diario', heading: 'Diario' },
   { route: 'ordenes', link: 'Órdenes', heading: 'Órdenes' },
   { route: 'real-vs-backtest', link: 'Real vs backtest', heading: 'Real vs backtest' },
   { route: 'dinero-real', link: 'Dinero real', heading: 'Dinero real' },
-  { route: 'ajustes', link: 'Ajustes', heading: 'Ajustes' },
 ] as const;
+const MAIN_ROUTES = ROUTES.slice(0, 5);
 
 interface Box {
   name: string;
@@ -595,7 +598,7 @@ test.afterEach(async () => {
 });
 
 for (const viewport of VIEWPORTS) {
-  test(`las 16 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
+  test(`las 17 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
     test.setTimeout(240_000);
     context = await launchPhaseApp('tradia-layout-e2e');
     const { page } = context;
@@ -659,8 +662,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const tour = tourDialog(page);
     await expect(tour).toBeVisible({ timeout: 15_000 });
     await tour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
+    await openAdvancedNav(page);
     await expect(tour).toHaveCount(0, { timeout: 5_000 });
-    await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expectBrand(page, page.locator('aside.side'));
@@ -831,31 +835,37 @@ function readNav(page: Page): Promise<NavReading> {
   });
 }
 
-test('el menú lateral: 16 entradas a la vista a 1280×800 y, a 1024×700, desplazamiento con indicio, rueda y Tab', async () => {
+test('el menú lateral: cinco entradas a la vista y «Avanzado» desplaza con indicio, rueda y Tab', async () => {
   context = await launchPhaseApp('tradia-nav-e2e');
   const { page } = context;
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 1024, height: 700 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   const nav = page.getByRole('navigation', { name: 'Principal' });
   await expect(nav.getByRole('link')).toHaveCount(ROUTES.length);
+  const advanced = nav.locator('details.nav-advanced');
+  const summary = advanced.locator('summary');
 
-  // 1280 × 800: todas a la vista, sin desplazar y sin indicio.
-  await expect.poll(() => readNav(page)).toMatchObject({ overflow: 0, hint: false, hidden: [] });
-  for (const { link } of ROUTES) {
+  // Plegado (lo que ve quien empieza): las cinco principales sin desplazar.
+  if ((await advanced.getAttribute('open')) !== null) await summary.click();
+  await expect(advanced).not.toHaveAttribute('open', '');
+  await expect.poll(() => readNav(page)).toMatchObject({ overflow: 0, hint: false });
+  for (const { link } of MAIN_ROUTES) {
     await expect(nav.getByRole('link', { name: link, exact: true })).toBeInViewport({ ratio: 1 });
   }
+  await expect(summary).toBeInViewport({ ratio: 1 });
   mkdirSync(evidenceDir, { recursive: true });
-  await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1280.png') });
+  await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-plegada-1024.png') });
 
-  // 1024 × 700: la lista desplaza dentro de la barra y avisa de que hay más.
-  await page.setViewportSize({ width: 1024, height: 700 });
+  // Desplegado a 1024 × 700: la lista desplaza dentro de la barra y avisa.
+  await summary.click();
+  await expect(advanced).toHaveAttribute('open', '');
   await expect.poll(async () => (await readNav(page)).hint).toBe(true);
   const narrow = await readNav(page);
   expect(narrow.overflow).toBeGreaterThan(0);
-  expect(narrow.hidden).toContain('Ajustes');
+  expect(narrow.hidden).toContain('Dinero real');
   await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(1);
   // La marca no se desplaza con la lista.
   await expect(page.locator('aside.side').getByRole('img', { name: 'Tradia' })).toBeInViewport({
@@ -863,23 +873,24 @@ test('el menú lateral: 16 entradas a la vista a 1280×800 y, a 1024×700, despl
   });
   await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-indicio.png') });
 
-  // Con rueda: al llegar al final, «Ajustes» se ve y el indicio desaparece.
+  // Con rueda: al llegar al final, «Dinero real» se ve y el indicio desaparece.
   await nav.hover();
-  await page.mouse.wheel(0, 600);
+  await page.mouse.wheel(0, 800);
   await expect.poll(async () => (await readNav(page)).hint).toBe(false);
-  expect((await readNav(page)).hidden).not.toContain('Ajustes');
+  expect((await readNav(page)).hidden).not.toContain('Dinero real');
   await expect.poll(async () => (await readNav(page)).hintOpacity).toBe(0);
-  await expect(nav.getByRole('link', { name: 'Ajustes', exact: true })).toBeInViewport({
-    ratio: 1,
-  });
   await page.screenshot({ path: resolve(evidenceDir, 'barra-lateral-1024-final.png') });
 
-  // Con Tab: desde «Inicio», arriba del todo, hasta «Ajustes».
+  // Con Tab: desde «Mesa», arriba del todo, hasta «Dinero real» (pasando por «Avanzado»).
   await nav.evaluate((element) => element.scrollTo({ top: 0 }));
   await expect.poll(async () => (await readNav(page)).hint).toBe(true);
-  await nav.getByRole('link', { name: 'Inicio', exact: true }).focus();
+  await nav.getByRole('link', { name: 'Mesa', exact: true }).focus();
   for (let index = 1; index < ROUTES.length; index++) {
     await page.keyboard.press('Tab');
+    if (index === MAIN_ROUTES.length) {
+      await expect(summary).toBeFocused();
+      await page.keyboard.press('Tab');
+    }
     const { link } = ROUTES[index]!;
     const focused = nav.getByRole('link', { name: link, exact: true });
     await expect(focused).toBeFocused();
@@ -971,7 +982,7 @@ test('casillas, selectores y enlaces en línea alcanzan el área mínima de cont
   const { page } = context;
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   const failures: string[] = [];

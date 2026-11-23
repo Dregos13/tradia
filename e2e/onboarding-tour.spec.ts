@@ -196,7 +196,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     expect((await tourSettings(page)).completedAt).toBeNull();
 
     // No se reabre solo en la misma sesión; «Primeros pasos» ofrece retomarlo.
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     const firstSteps = page.getByRole('region', { name: 'Primeros pasos' });
     await expect(firstSteps).toBeVisible();
     await expect(tourDialog(page)).toHaveCount(0);
@@ -246,7 +246,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     // Reinicio: ni aviso de riesgo (ya aceptado) ni tour (ya saltado).
     await relaunchPhaseApp(context!);
     const next = context!.page;
-    await expect(next.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(next.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expect(next.getByRole('region', { name: 'Primeros pasos' })).toBeVisible();

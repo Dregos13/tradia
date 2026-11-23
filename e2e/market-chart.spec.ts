@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 import { _electron as electron } from 'playwright';
-import { skipGuidedTour } from './onboarding.helpers';
+import { openAdvancedNav, skipGuidedTour } from './onboarding.helpers';
 
 test('añade un ticker, recibe histórico simulado con indicadores y confirma quitarlo', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'tradia-chart-'));
@@ -94,11 +94,10 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    const navigation = page.getByRole('navigation');
-    expect(await navigation.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
-      true,
-    );
-    const settingsLink = navigation.getByRole('link', { name: 'Ajustes', exact: true });
+    // Con el menú simplificado las secciones técnicas van plegadas en
+    // «Avanzado»; desplegado, se recorre con Tab y Mayús+Tab en orden.
+    const navigation = page.getByRole('navigation', { name: 'Principal' });
+    await openAdvancedNav(page);
     const liveLink = navigation.getByRole('link', { name: 'Dinero real', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
     const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
@@ -106,36 +105,17 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
       name: 'Real vs backtest',
       exact: true,
     });
-    const strategiesLink = navigation.getByRole('link', { name: 'Estrategias', exact: true });
     const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
-    await strategiesLink.focus();
-    await expect(strategiesLink).toBeFocused();
-    // La fase 4 inserta Diario entre Riesgo y Ajustes.
-    await page.keyboard.press('Tab');
+    await riskLink.focus();
     await expect(riskLink).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(journalLink).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(ordersLink).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(deviationLink).toBeFocused();
-    await page.keyboard.press('Tab');
-    // La fase 7 inserta «Dinero real» entre «Real vs backtest» y Ajustes.
-    await expect(liveLink).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(settingsLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(liveLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(deviationLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(ordersLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(journalLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(riskLink).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(strategiesLink).toBeFocused();
+    for (const link of [journalLink, ordersLink, deviationLink, liveLink]) {
+      await page.keyboard.press('Tab');
+      await expect(link).toBeFocused();
+    }
+    for (const link of [deviationLink, ordersLink, journalLink, riskLink]) {
+      await page.keyboard.press('Shift+Tab');
+      await expect(link).toBeFocused();
+    }
     await page.getByText(/Ver tabla de datos/).click();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),

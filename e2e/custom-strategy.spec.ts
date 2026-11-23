@@ -157,7 +157,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     expect(signalTicker, 'la propia en paper debe emitir al cierre de vela').not.toBeNull();
     expect(signalStop, 'la entrada propia lleva el stop de su ficha').not.toBeNull();
 
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     const panel = page.getByRole('region', { name: 'Señales vivas' });
     const own = panel
       .getByRole('listitem')

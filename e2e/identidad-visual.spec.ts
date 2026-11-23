@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { openAdvancedNav } from './onboarding.helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { closePhaseApp, launchPhaseApp, openPage, type PhaseApp } from './phase-6-7.helpers';
 
@@ -17,7 +18,7 @@ const evidenceDir = resolve('docs/qa/capturas/identidad');
 const THEMES = ['light', 'dark'] as const;
 const THEME_NAME = { light: 'claro', dark: 'oscuro' } as const;
 const SCREENS = [
-  { link: 'Inicio', heading: 'Estado del sistema', slug: 'inicio' },
+  { link: 'Estado del sistema', heading: 'Estado del sistema', slug: 'inicio' },
   { link: 'Mercado', heading: 'Mercado', slug: 'mercado' },
   { link: 'Estrategias', heading: 'Estrategias', slug: 'estrategias' },
   { link: 'Riesgo', heading: 'Riesgo', slug: 'riesgo' },
@@ -175,8 +176,9 @@ for (const colorScheme of THEMES) {
       const tour = page.getByRole('dialog', { name: /^Paso \d+ de 10\./ });
       await expect(tour).toBeVisible({ timeout: 15_000 });
       await tour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
+      await openAdvancedNav(page);
       await expect(tour).toHaveCount(0, { timeout: 5_000 });
-      await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
     });
 
     test('logo nuevo en la barra lateral', async () => {

@@ -58,3 +58,25 @@ test('de una idea a una prueba en vivo', async () => {
     timeout: 60_000,
   });
 });
+
+test('la Mesa abre por defecto, sigue los activos clave y lleva una idea al Laboratorio', async () => {
+  test.setTimeout(240_000);
+  const { page } = context!;
+  await expect(page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible();
+  for (const city of ['Tokio', 'Londres', 'Nueva York']) {
+    await expect(page.getByText(city, { exact: true })).toBeVisible();
+  }
+  await page.getByRole('button', { name: 'Seguir estos activos' }).click();
+  const assets = page.getByRole('region', { name: 'Activos' });
+  await expect(assets.getByRole('button', { name: /Oro/ })).toBeVisible();
+  await assets.getByRole('button', { name: /Oro/ }).click();
+  await expect(page.getByRole('img', { name: /Velas diarias de Oro/ })).toBeVisible({
+    timeout: 90_000,
+  });
+  await capturePhaseScreenshot(page, 'mesa-oro.png');
+  await page.getByRole('button', { name: 'Escribir mi propia idea sobre Oro' }).click();
+  await expect(page.getByRole('heading', { name: 'Laboratorio', level: 1 })).toBeVisible();
+  await expect(page.getByLabel('Tu idea', { exact: true })).toHaveValue(
+    'Estrategia sobre Oro (GLD): ',
+  );
+});

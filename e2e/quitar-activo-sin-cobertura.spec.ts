@@ -107,7 +107,7 @@ test('quitar un activo sin cobertura borra su aviso, también tras reiniciar la 
   // Tras reiniciar la app el aviso no vuelve: la fila ya no existe.
   await relaunchPhaseApp(context);
   const restarted = context.page;
-  await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(restarted.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   await expect

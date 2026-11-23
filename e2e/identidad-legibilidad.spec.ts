@@ -77,7 +77,7 @@ for (const colorScheme of THEMES) {
 
     test('IDV-UXP-2: el h1 de la barra es el único título dominante en Inicio, Mercado, Estrategias y Ajustes', async () => {
       for (const [link, heading] of [
-        ['Inicio', 'Estado del sistema'],
+        ['Estado del sistema', 'Estado del sistema'],
         ['Mercado', 'Mercado'],
         ['Estrategias', 'Estrategias'],
         ['Ajustes', 'Ajustes'],
@@ -87,7 +87,7 @@ for (const colorScheme of THEMES) {
         expect(h2.length, link).toBeGreaterThan(0);
         expect(h1, link).toBe(24);
         for (const size of h2) expect(size, `${link}: h2`).toBeLessThan(h1);
-        if (link === 'Inicio') {
+        if (link === 'Estado del sistema') {
           const lane = await page.locator('.dashboard-block').first().boundingBox();
           const main = await page.locator('.main').boundingBox();
           expect(lane).not.toBeNull();
@@ -150,16 +150,16 @@ for (const colorScheme of THEMES) {
     test('IDV-UXP-4 e IDV-E2E-8: a 1100 × 760 la barra de estado se lee completa y sin solapamientos', async () => {
       await page.setViewportSize({ width: 1100, height: 760 });
       for (const [link, offline] of [
-        ['Inicio', false],
+        ['Estado del sistema', false],
         ['Riesgo', false],
-        ['Inicio', true],
+        ['Estado del sistema', true],
         ['Riesgo', true],
       ] as const) {
         await page.evaluate((value) => window.tradia.testing!.simulateOffline(value), offline);
         await expect(page.locator('footer.statusbar')).toContainText(
           offline ? 'Sin conexión' : 'En línea',
         );
-        await openPage(page, link, link === 'Inicio' ? 'Estado del sistema' : link);
+        await openPage(page, link, link);
         const reading = await page.evaluate(() => {
           const bar = document.querySelector('footer.statusbar')!;
           const items = [

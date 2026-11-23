@@ -51,7 +51,7 @@ async function openWithLegacyEur(prefix: string): Promise<PhaseApp> {
   // El rearranque a veces tarda más de 30 s (traspaso del bloqueo de
   // instancia única y arranque pesado de servicios); no es un fallo del
   // producto, así que la espera de arranque es más amplia.
-  await expect(app.page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(app.page.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
     timeout: 60_000,
   });
   await app.page.evaluate((delta) => window.tradia.testing!.advanceMarketClock(delta), DAY_MS);
@@ -125,7 +125,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     test.setTimeout(240_000);
     const { page } = await openWithLegacyEur('tradia-ticker-legado');
     // Inicio: un solo aviso de EUR y «Precios» sigue «Disponible» (SPY está al día).
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await expect(
       page.getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
     ).toHaveCount(1);
@@ -315,7 +315,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     // Sin EUR en la lista, Conectores deja de nombrarlo.
     await page.evaluate(() => window.tradia.watchlist.remove('EUR'));
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await openPage(page, 'Ajustes');
     await expect(tiingo.getByText('Tiingo cubre todos los activos de tu lista.')).toBeVisible();
     await expect(tiingo).not.toContainText('EUR no está disponible en Tiingo');
@@ -353,7 +353,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0, { timeout: 10_000 });
     await expect(banner).toHaveCount(0);
     await expect(page.getByText('EUR se ha quitado de tu lista.')).toBeVisible();
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
     await expect(page.getByRole('button', { name: REMOVE_EUR })).toHaveCount(0);
     await expect(page.locator('.dashboard-row').filter({ hasText: /^Precios/ })).toContainText(
@@ -375,7 +375,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
     await relaunchPhaseApp(context!);
     const restarted = context!.page;
-    await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(restarted.getByRole('heading', { name: 'Mesa', level: 1 })).toBeVisible({
       timeout: 60_000,
     });
     await expect
@@ -391,7 +391,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     const { page } = await openWithLegacyEur('tradia-cierre-unico');
 
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
+      ['Estado del sistema', 'Estado del sistema'],
       ['Mercado', 'Mercado'],
     ] as const) {
       await openPage(page, link, heading);
@@ -438,7 +438,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
 
     const visibleText = async (): Promise<string> => page.locator('body').innerText();
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
+      ['Estado del sistema', 'Estado del sistema'],
       ['Mercado', 'Mercado'],
       ['IA', 'IA'],
     ] as const) {

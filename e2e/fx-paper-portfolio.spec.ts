@@ -154,7 +154,7 @@ test('EUR/USD: rechazo de EUR, alta, señal aprobada en la cartera simulada y ni
   });
 
   await test.step('Inicio: la señal dice que se opera en la cartera simulada y no ofrece bróker ni dinero real', async () => {
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     const signals = page.getByRole('region', { name: 'Señales vivas' });
     const card = signals.getByText('EUR/USD', { exact: true }).first();
     await expect(card).toBeVisible();
