@@ -47,6 +47,30 @@
 * {
   box-sizing: border-box;
 }
+/* Barras finas en Windows y Linux (ver main.tsx): mismo ancho útil que
+   en macOS salvo 8 px, sin el carril gris del sistema. Chromium ignora
+   ::-webkit-scrollbar si hay scrollbar-color, por eso se restablece. */
+:root[data-scrollbars='classic'] {
+  scrollbar-color: auto;
+}
+:root[data-scrollbars='classic'] ::-webkit-scrollbar {
+  width: var(--space-2);
+  height: var(--space-2);
+}
+:root[data-scrollbars='classic'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-borderStrong) padding-box;
+}
+:root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-textMuted);
+}
+:root[data-scrollbars='classic'] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
 body {
   margin: 0;
   font-size: var(--type-sm);

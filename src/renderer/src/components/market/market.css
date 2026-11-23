@@ -10,8 +10,9 @@
 }
 .market-workspace {
   display: grid;
-  /* La lista crece lo justo para que ticker e insignias quepan en una línea por activo. */
-  grid-template-columns: clamp(var(--size-watchlist), 24vw, 300px) minmax(0, 1fr);
+  /* La lista crece lo justo para que ticker e insignias quepan en una línea por activo;
+     el tope deja sitio a la barra de la lista en Windows y Linux. */
+  grid-template-columns: clamp(var(--size-watchlist), 25vw, 316px) minmax(0, 1fr);
   column-gap: var(--space-6);
   row-gap: var(--space-6);
   align-items: start;

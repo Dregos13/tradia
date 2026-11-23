@@ -106,7 +106,9 @@
 }
 .strategy-library-table th[scope='row'] {
   width: 100%;
-  min-width: calc(var(--space-16) * 2);
+  /* 112 px y no 128: deja holgura para las fuentes algo más anchas de
+     Linux y Windows, que no posicionan glifos a nivel de subpíxel. */
+  min-width: calc(var(--space-16) + var(--space-12));
   /* Nombre y descripción son prosa: van en Sora; la monoespaciada queda para las cifras
      (IDV-E2E-7: en mono ensanchaban la fila y empujaban las últimas columnas). */
   font-family: var(--font-interface);
