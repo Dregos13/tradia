@@ -135,8 +135,14 @@ export function createIntradayService(deps: IntradayServiceDeps): IntradayServic
           earliest = Date.parse(older[0]!.time);
         }
         lastAsked.set(key, now());
+        console.info(
+          `[market] ${ticker} 1h: ${requests} petición(es) a '${provider.id}', ${fresh.length} velas recientes`,
+        );
       } catch (cause) {
         error = plainError(cause);
+        console.warn(
+          `[market] ${ticker} 1h: fallo al descargar (${isMarketDataError(cause) ? cause.kind : 'desconocido'})`,
+        );
       }
     }
     return { ticker, source: provider.id, bars: read(ticker, provider.id, fromIso), error };
