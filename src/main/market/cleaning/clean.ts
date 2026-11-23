@@ -43,6 +43,13 @@ import { nextBatchVersion } from './version';
 
 /** Umbral por defecto del salto de rentabilidad, en desviaciones típicas. */
 export const DEFAULT_OUTLIER_SIGMA = 8;
+
+/**
+ * Sesiones finales del lote en las que un salto extremo conservado
+ * ('flagged') todavía deja el lote como no fiable. Más atrás es historia
+ * anotada en quality_flags, no una emergencia.
+ */
+export const RECENT_OUTLIER_SESSIONS = 5;
 /** Mínimo de rentabilidades diarias para que el contraste σ tenga sentido. */
 export const DEFAULT_MIN_OUTLIER_RETURNS = 10;
 /**
@@ -339,7 +346,15 @@ export function cleanBars(input: CleanBarsInput, options: CleanBarsOptions = {})
 
   report.anomalies.sort(sortAnomalies);
   report.kept = bars.length;
+  // Un salto extremo que se conserva ('flagged') puede ser real —el
+  // +10,5 % del SPY del 9 de abril de 2025—: en el histórico solo queda
+  // anotado. Deja el lote como no fiable (y puede activar la parada) solo
+  // si cae en las últimas sesiones, las que usan las decisiones de hoy.
+  const recentFrom = bars[Math.max(0, bars.length - RECENT_OUTLIER_SESSIONS)]?.date ?? '';
+  const blocking = report.anomalies.filter(
+    (anomaly) => anomaly.action === 'dropped' || anomaly.date >= recentFrom,
+  );
   report.reliable =
-    report.gaps.length === 0 && report.anomalies.length === 0 && report.warnings.length === 0;
+    report.gaps.length === 0 && blocking.length === 0 && report.warnings.length === 0;
   return { bars, report, batch };
 }
