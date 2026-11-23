@@ -178,6 +178,11 @@ import type {
 // ni Node (contrato de src/main/backtest/).
 import { runBacktest } from '../../../main/backtest/engine';
 import {
+  INTRADAY_DEFAULT_DAYS,
+  isIntradayRequest,
+  simulatedIntradayBars,
+} from '../../../shared/intraday';
+import {
   computeForward,
   emptyForwardDetail,
   executableMarkets,
@@ -2189,6 +2194,16 @@ export function createSimulatedAdapter() {
       },
     },
     market: {
+      getIntraday: async (request) => {
+        if (!isIntradayRequest(request)) throw new Error('Petición inválida.');
+        const end = Date.now();
+        const bars = simulatedIntradayBars(
+          request.ticker,
+          end - (request.days ?? INTRADAY_DEFAULT_DAYS) * 86_400_000,
+          end,
+        );
+        return { ticker: request.ticker, source: 'simulated', bars, error: null };
+      },
       getBars: async (request: GetBarsRequest) => {
         if (!isGetBarsRequest(request)) {
           throw new Error('Petición de velas inválida (ticker o rango de fechas).');

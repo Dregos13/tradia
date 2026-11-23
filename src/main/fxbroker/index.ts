@@ -1,7 +1,7 @@
 /**
  * Registro del bróker de divisas y oro (OANDA) en la app.
  *
- * Monta `createFxBrokerService` con las tablas de la migración 021, la
+ * Monta `createFxBrokerService` con las tablas de la migración 022, la
  * pasarela única del motor de riesgo (`services.risk.submitSignal`), la
  * puerta del modo real (`services.live.getChecklist().allComplete`), la
  * parada de emergencia y la conectividad; envuelve `ctx.broadcast` para

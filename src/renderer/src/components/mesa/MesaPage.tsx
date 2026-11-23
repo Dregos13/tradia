@@ -36,6 +36,12 @@ const priceFmt = (fx: boolean) =>
   });
 
 const dateFmt = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+const hourFmt = new Intl.DateTimeFormat('es-ES', {
+  weekday: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 function toCandles(bars: MarketBar[]): PatternCandle[] {
   return bars.map((b) => ({
@@ -62,6 +68,13 @@ export function MesaPage() {
   const [missing, setMissing] = useState<string[]>([]);
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [frame, setFrame] = useState<'1h' | '1d'>('1h');
+  const [hourly, setHourly] = useState<{
+    ticker: string;
+    data: AssetData | null;
+    error: string | null;
+    loading: boolean;
+  } | null>(null);
 
   const load = useCallback(async (tickers: readonly string[]) => {
     const entries = await Promise.all(
@@ -116,8 +129,55 @@ export function MesaPage() {
     }
   };
 
+  // Velas de 1 hora del activo elegido (solo ese, para cuidar el cupo).
+  useEffect(() => {
+    if (frame !== '1h') return;
+    let alive = true;
+    setHourly((h) => ({
+      ticker: selected,
+      data: h?.ticker === selected ? h.data : null,
+      error: null,
+      loading: true,
+    }));
+    const asset = MESA_ASSETS.find((a) => a.ticker === selected)!;
+    window.tradia.market
+      .getIntraday({ ticker: selected, days: 60 })
+      .then((result) => {
+        if (!alive) return;
+        const candles: PatternCandle[] = result.bars.map((b) => ({
+          date: b.time,
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+        }));
+        setHourly({
+          ticker: selected,
+          data:
+            candles.length > 0
+              ? { candles, reading: readMarket(candles, asset, { unit: 'hour' }) }
+              : null,
+          error: result.error,
+          loading: false,
+        });
+      })
+      .catch((cause: unknown) => {
+        if (!alive) return;
+        setHourly({
+          ticker: selected,
+          data: null,
+          error: (cause as Error)?.message ?? 'No se pudieron cargar las velas de 1 hora.',
+          loading: false,
+        });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [frame, selected]);
+
   const asset = MESA_ASSETS.find((a) => a.ticker === selected)!;
-  const current = data[selected];
+  const hourlyHere = hourly?.ticker === selected ? hourly : null;
+  const current = frame === '1h' ? (hourlyHere?.data ?? undefined) : data[selected];
   const fx = isFxSymbol(selected);
   const last = current?.candles.at(-1);
   const allPatterns = useMemo(
@@ -205,15 +265,28 @@ export function MesaPage() {
               <h2 id="mesa-focus-title">{asset.name}</h2>
               <p className="mesa-meta">
                 {asset.note}
-                {last && ` · cierre del ${dateFmt.format(new Date(`${last.date}T12:00:00Z`))}`}
+                {last &&
+                  (last.date.includes('T')
+                    ? ` · última vela ${hourFmt.format(new Date(last.date))}`
+                    : ` · cierre del ${dateFmt.format(new Date(`${last.date}T12:00:00Z`))}`)}
               </p>
+            </div>
+            <div className="mesa-frame" role="group" aria-label="Temporalidad">
+              <button type="button" aria-pressed={frame === '1h'} onClick={() => setFrame('1h')}>
+                1 hora
+              </button>
+              <button type="button" aria-pressed={frame === '1d'} onClick={() => setFrame('1d')}>
+                Diario
+              </button>
             </div>
             {current && last && (
               <div className="mesa-focus-figures">
                 <span className="mesa-focus-price">{priceFmt(fx).format(last.close)}</span>
                 <span data-tone={toneOf(current.reading.trend.change)}>
-                  {formatChange(current.reading.trend.change)} hoy ·{' '}
-                  {formatChange(current.reading.trend.change20)} en 20 sesiones
+                  {formatChange(current.reading.trend.change)}{' '}
+                  {frame === '1h' ? 'última hora' : 'hoy'} ·{' '}
+                  {formatChange(current.reading.trend.change20)}{' '}
+                  {frame === '1h' ? 'en 20 horas' : 'en 20 sesiones'}
                 </span>
               </div>
             )}
@@ -226,7 +299,7 @@ export function MesaPage() {
                 {current.reading.trend.rsi14 !== null &&
                   ` · RSI ${current.reading.trend.rsi14.toFixed(0)}`}
                 {current.reading.trend.atrPct !== null &&
-                  ` · se mueve ~${(current.reading.trend.atrPct * 100).toFixed(1).replace('.', ',')} % al día`}
+                  ` · se mueve ~${(current.reading.trend.atrPct * 100).toFixed(1).replace('.', ',')} % ${frame === '1h' ? 'por hora' : 'al día'}`}
               </p>
               <MesaChart
                 candles={current.candles}
@@ -236,6 +309,12 @@ export function MesaPage() {
               />
               <div className="mesa-patterns">
                 <h3>Patrones en la última vela</h3>
+                {frame === '1h' && (
+                  <p className="mesa-frame-note">
+                    Ojo: las pruebas de «Crear» todavía usan velas diarias; las pruebas con velas de
+                    1 hora llegan en la próxima versión.
+                  </p>
+                )}
                 {current.reading.patterns.length === 0 ? (
                   <p className="mesa-muted">
                     Ninguno claro hoy. Puedes estudiar tu propia idea sobre {asset.name}.
@@ -265,10 +344,22 @@ export function MesaPage() {
               </div>
             </>
           ) : (
-            <p className="mesa-empty">
-              {loading
-                ? 'Cargando velas…'
-                : `Aún no hay velas de ${asset.name}. Si acabas de abrir la app, llegan en unos segundos; si no, revisa la clave de datos en Ajustes.`}
+            <p
+              className="mesa-empty"
+              role={frame === '1h' && hourlyHere?.error ? 'alert' : undefined}
+            >
+              {frame === '1h'
+                ? hourlyHere?.loading !== false
+                  ? 'Descargando velas de 1 hora… La primera vez tarda unos segundos.'
+                  : (hourlyHere?.error ?? `No hay velas de 1 hora de ${asset.name}.`)
+                : loading
+                  ? 'Cargando velas…'
+                  : `Aún no hay velas diarias de ${asset.name}. Pulsa «Seguir estos activos» arriba o revisa la clave de datos en Ajustes.`}
+            </p>
+          )}
+          {frame === '1h' && current && hourlyHere?.error && (
+            <p className="mesa-frame-note" role="status">
+              {hourlyHere.error}
             </p>
           )}
         </section>

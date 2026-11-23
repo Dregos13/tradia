@@ -19,6 +19,7 @@
  *   `TIINGO_RATE_LIMITS`, sobre el nivel gratuito). Sin reintentos internos:
  *   quien llama decide con el error tipado.
  */
+import type { IntradayBar } from '../../../shared/intraday';
 import { isFxPair } from '../../../shared/fx';
 import { createRateLimiter, type RateLimiter } from './rateLimiter';
 import {
@@ -337,11 +338,48 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     );
   };
 
+  /**
+   * Velas de 1 hora: divisas por el endpoint FX y el resto por IEX (las
+   * acciones y ETF solo tienen horas de mercado de EE. UU.). Fechas en
+   * día UTC: Tiingo filtra por día, así que se recorta al rango pedido.
+   */
+  const getIntradayBars = async (
+    ticker: string,
+    fromMs: number,
+    toMs: number,
+  ): Promise<IntradayBar[]> => {
+    assertValidTicker(ticker, TIINGO_PROVIDER_ID);
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    const range = `startDate=${day(fromMs)}&endDate=${day(toMs)}&resampleFreq=1hour`;
+    const path = isFxPair(ticker)
+      ? `/tiingo/fx/${ticker.toLowerCase()}/prices?${range}`
+      : `/iex/${encodeURIComponent(ticker.toLowerCase())}/prices?${range}&columns=open,high,low,close`;
+    const payload = await request(path, ticker);
+    if (!Array.isArray(payload)) {
+      throw fail('bad-data', 'respuesta intradía sin lista de precios', ticker);
+    }
+    const out: IntradayBar[] = [];
+    for (const raw of payload) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const row = raw as Record<string, unknown>;
+      const ms = typeof row.date === 'string' ? Date.parse(row.date) : NaN;
+      const open = Number(row.open);
+      const high = Number(row.high);
+      const low = Number(row.low);
+      const close = Number(row.close);
+      if (![ms, open, high, low, close].every(Number.isFinite)) continue;
+      if (ms < fromMs || ms > toMs || high < low || close <= 0) continue;
+      out.push({ time: new Date(ms).toISOString(), open, high, low, close });
+    }
+    return out.sort((a, b) => a.time.localeCompare(b.time));
+  };
+
   const provider: MarketDataProvider = {
     id: TIINGO_PROVIDER_ID,
     rateLimits: TIINGO_RATE_LIMITS,
 
     getBars,
+    getIntradayBars,
 
     getTickerInfo: async (ticker) => {
       assertValidTicker(ticker, TIINGO_PROVIDER_ID);

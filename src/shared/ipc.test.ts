@@ -185,6 +185,7 @@ describe('contrato IPC', () => {
     });
     expect(IPC_CHANNELS.market).toEqual({
       getBars: 'market:get-bars',
+      getIntraday: 'market:get-intraday',
       refreshNow: 'market:refresh-now',
       search: 'market:search',
       updated: 'market:updated',

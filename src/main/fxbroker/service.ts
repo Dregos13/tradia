@@ -11,7 +11,7 @@
  * - Órdenes: toda orden que abre riesgo pasa por la pasarela única del
  *   motor de riesgo (`submitSignal`) y después por los techos en euros
  *   (`checkFxOrder`). Sale a mercado con stop y objetivo adjuntos y se
- *   registra en `broker_orders_fx_<entorno>` (migración 021) con el
+ *   registra en `broker_orders_fx_<entorno>` (migración 022) con el
  *   mismo ciclo que las de Alpaca (pendiente → ejecutada/rechazada;
  *   un tiempo agotado se resuelve buscando por `clientOrderId`).
  * - Cerrar posiciones nunca se bloquea. La parada de emergencia cierra

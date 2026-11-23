@@ -406,3 +406,81 @@
     --lane-label: 150px;
   }
 }
+
+/* -- Sesiones sobre el gráfico de 1 hora --------------------------------- */
+
+.mesa-chart-frame {
+  position: relative;
+}
+.mesa-chart-lanes {
+  position: absolute;
+  z-index: 3;
+  top: var(--space-1);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.mesa-chart-lane {
+  position: relative;
+  height: 4px;
+}
+.mesa-chart-lane span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: var(--session-color);
+  opacity: 0.85;
+}
+[data-session='tokio'] {
+  --session-color: var(--series-sma20);
+}
+[data-session='londres'] {
+  --session-color: var(--series-sma50);
+}
+[data-session='nueva-york'] {
+  --session-color: var(--color-accent);
+}
+.mesa-key-session {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mesa-key-session::before {
+  content: '';
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--session-color);
+}
+.mesa-frame {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.mesa-frame button {
+  white-space: nowrap;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-textMuted);
+  font: inherit;
+  font-size: var(--type-sm);
+  cursor: pointer;
+}
+.mesa-frame button[aria-pressed='true'] {
+  background: var(--color-surfaceStrong);
+  color: var(--color-text);
+}
+.mesa-frame-note {
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+}

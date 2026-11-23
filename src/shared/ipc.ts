@@ -253,6 +253,8 @@ import type {
 // viven en ./ai y ./live.
 export * from './strategy';
 export * from './lab';
+export * from './intraday';
+import type { IntradayRequest, IntradayResult } from './intraday';
 import type {
   ForwardDetail,
   ForwardStartRequest,
@@ -327,6 +329,8 @@ export const IPC_CHANNELS = {
   },
   market: {
     getBars: 'market:get-bars',
+    /** Velas de 1 hora bajo demanda (IntradayRequest → IntradayResult). */
+    getIntraday: 'market:get-intraday',
     /** Fuerza una actualización incremental fuera del horario programado. */
     refreshNow: 'market:refresh-now',
     /** Catálogo de activos: filtra por símbolo o nombre (acciones, ETF y divisas). */
@@ -1765,6 +1769,8 @@ export interface TradiaApi {
   };
   market: {
     getBars(request: GetBarsRequest): Promise<MarketBarsResult>;
+    /** Velas de 1 hora: guarda lo descargado y pide solo lo que falta. */
+    getIntraday(request: IntradayRequest): Promise<IntradayResult>;
     refreshNow(): Promise<MarketRefreshResult>;
     /** Catálogo de activos: coincidencias por símbolo o nombre + `directTicker`. */
     search(query: string): Promise<AssetSearchResult>;

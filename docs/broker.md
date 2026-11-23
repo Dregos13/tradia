@@ -269,7 +269,7 @@ margen), `src/main/fxbroker/guard.ts` (techos en euros, función pura),
 `src/main/fxbroker/service.ts` (conexión, órdenes, orden de prueba,
 conciliación y parada) e `index.ts` (IPC `fx-broker:*`). Contrato
 compartido en `src/shared/fxBroker.ts`. Órdenes en
-`broker_orders_fx_practice` y `broker_orders_fx_live` (migración 021).
+`broker_orders_fx_practice` y `broker_orders_fx_live` (migración 022).
 
 ### Dos entornos, dos ranuras
 

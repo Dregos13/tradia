@@ -1,3 +1,4 @@
+import type { IntradayBar } from '../../../shared/intraday';
 /**
  * Contrato de proveedores de datos de mercado — Fase 1.
  *
@@ -101,6 +102,11 @@ export interface MarketDataProvider {
     desde: SessionDate,
     hasta: SessionDate,
   ): Promise<CorporateAction[]>;
+  /**
+   * Velas de 1 hora entre dos instantes (ms UTC), ascendentes. Opcional:
+   * un proveedor sin intradía no lo implementa.
+   */
+  getIntradayBars?(ticker: string, fromMs: number, toMs: number): Promise<IntradayBar[]>;
 }
 
 // ---------------------------------------------------------------------------

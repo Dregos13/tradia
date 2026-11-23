@@ -405,7 +405,7 @@ const ALERT_COLUMNS = `id, estrategia_id, estrategia_nombre, periodo, inicio, fi
 export const BROKER_ORDERS_TABLES = [
   'broker_orders',
   'broker_orders_live',
-  // Divisas y oro con OANDA (migración 021): práctica y cuenta real.
+  // Divisas y oro con OANDA (migración 022): práctica y cuenta real.
   'broker_orders_fx_practice',
   'broker_orders_fx_live',
 ] as const;

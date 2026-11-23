@@ -32,6 +32,8 @@
  * Además, `TRADIA_E2E_MARKET_NOW` fija el instante de arranque del reloj
  * (ver `e2eMarketClockBase`).
  */
+import { isIntradayRequest } from '../../shared/intraday';
+import { createIntradayService } from './intraday';
 import { app, ipcMain, powerMonitor } from 'electron';
 
 import {
@@ -1327,6 +1329,13 @@ export function registerMarket(
     return service.getBars(request);
   });
   ipcMain.handle(IPC_CHANNELS.market.refreshNow, () => service.refreshNow());
+  const intraday = createIntradayService({ db, resolveProvider, now: () => clock.now() });
+  ipcMain.handle(IPC_CHANNELS.market.getIntraday, (_event, request: unknown) => {
+    if (!isIntradayRequest(request)) {
+      throw new IpcValidationError(IPC_CHANNELS.market.getIntraday, 'petición inválida');
+    }
+    return intraday.get(request);
+  });
 
   // Gancho de desarrollo: la app empaquetada no registra el canal.
   if (!app.isPackaged) {
