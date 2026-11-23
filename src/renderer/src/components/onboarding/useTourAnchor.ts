@@ -90,6 +90,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
     const settle = () => {
       observer.disconnect();
       window.clearTimeout(timeout);
+      window.clearTimeout(stopObserving);
     };
     const select = (next: HTMLElement) => {
       if (next === target) return;
@@ -149,10 +150,13 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
       attributes: true,
       attributeFilter: ['data-tour', 'hidden', 'class', 'aria-current'],
     });
+    // A los 1,5 s se decide con lo que haya (respaldo o nada), pero se sigue
+    // observando hasta 8 s: en un equipo lento el ancla llega después con
+    // los datos y el foco debe pasar a ella en cuanto aparezca.
     const timeout = window.setTimeout(() => {
-      observer.disconnect();
       if (!target) setAnchor({ step, rect: null, loading: false });
     }, 1500);
+    const stopObserving = window.setTimeout(() => observer.disconnect(), 8000);
     window.addEventListener('resize', measure);
     document.addEventListener('scroll', measure, true);
     find();
@@ -161,6 +165,7 @@ export function useTourAnchor(step: number, dialog: RefObject<HTMLDivElement | n
       resize?.disconnect();
       layout?.disconnect();
       window.clearTimeout(timeout);
+      window.clearTimeout(stopObserving);
       window.removeEventListener('resize', measure);
       document.removeEventListener('scroll', measure, true);
     };
