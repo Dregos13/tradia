@@ -49,7 +49,7 @@ describe('Estructura de Tradia', () => {
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveFocus();
     expect(
       within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link'),
-    ).toHaveLength(15);
+    ).toHaveLength(16);
   });
 
   it('navega entre Inicio y Ajustes con teclado y conserva la barra de estado', async () => {
@@ -416,7 +416,7 @@ it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', a
   });
   const nav = within(screen.getByRole('navigation', { name: 'Principal' }));
   const routes = nav.getAllByRole('link').map((link) => link.getAttribute('href'));
-  expect(routes.slice(1, 4)).toEqual(['#mercado', '#ia', '#salud-modelos']);
+  expect(routes.slice(1, 5)).toEqual(['#laboratorio', '#mercado', '#ia', '#salud-modelos']);
   expect(routes.slice(-2)).toEqual(['#dinero-real', '#ajustes']);
   for (const name of ['IA', 'Salud de modelos', 'Dinero real']) {
     const link = nav.getByRole('link', { name });

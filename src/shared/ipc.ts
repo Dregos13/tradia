@@ -236,6 +236,16 @@ import type {
 // ./broker. Los de la IA predictiva y del dinero real mínimo (fases 6-7)
 // viven en ./ai y ./live.
 export * from './strategy';
+export * from './lab';
+import type {
+  ForwardDetail,
+  ForwardStartRequest,
+  ForwardSummary,
+  ForwardTest,
+  LabEngineStatus,
+  LabGenerateRequest,
+  LabGenerateResult,
+} from './lab';
 export * from './backtest';
 export * from './risk';
 export * from './signals';
@@ -384,6 +394,23 @@ export const IPC_CHANNELS = {
     setStatus: 'strategies:set-status',
     /** Registro de cambios de una estrategia, más reciente primero. */
     history: 'strategies:history',
+  },
+  lab: {
+    /** Motor de IA que usará el generador (LabEngineStatus). */
+    engine: 'lab:engine',
+    /** Idea en lenguaje natural → borrador validado (LabGenerateResult). */
+    generate: 'lab:generate',
+  },
+  forward: {
+    /** Tablero de pruebas en vivo (ForwardSummary[]). */
+    list: 'forward:list',
+    /** Detalle de una prueba (ForwardDetail | null). */
+    get: 'forward:get',
+    /** Lanza una prueba con la versión vigente congelada. */
+    start: 'forward:start',
+    /** Detiene una prueba: su resultado queda fijo en esa fecha. */
+    stop: 'forward:stop',
+    remove: 'forward:remove',
   },
   backtest: {
     /** Lanza la ejecución completa (métricas, walk-forward, sensibilidad, MC). */
@@ -1749,6 +1776,18 @@ export interface TradiaApi {
     setStatus(request: SetStrategyStatusRequest): Promise<Strategy>;
     /** Registro de cambios, más reciente primero. */
     history(id: number): Promise<StrategyChangelogEntry[]>;
+  };
+  lab: {
+    engine(): Promise<LabEngineStatus>;
+    /** Traduce una idea a reglas válidas con la IA del usuario. */
+    generate(request: LabGenerateRequest): Promise<LabGenerateResult>;
+  };
+  forward: {
+    list(): Promise<ForwardSummary[]>;
+    get(id: number): Promise<ForwardDetail | null>;
+    start(request: ForwardStartRequest): Promise<ForwardTest>;
+    stop(id: number): Promise<ForwardTest>;
+    remove(id: number): Promise<void>;
   };
   backtest: {
     /**

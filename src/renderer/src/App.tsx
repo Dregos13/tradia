@@ -1,6 +1,7 @@
 import { OnboardingProvider, useOnboarding } from './components/onboarding/OnboardingProvider';
 import { FirstStepsCard } from './components/onboarding/FirstStepsCard';
 import { AiPage } from './components/ai/AiPage';
+import { LabPage } from './components/lab/LabPage';
 import { ModelHealthPage } from './components/model-health/ModelHealthPage';
 import { ChecklistPage } from './components/live/ChecklistPage';
 import { LiveBanner } from './components/live/LiveBanner';
@@ -33,6 +34,7 @@ import { useSystemState } from './hooks/useSystemState';
 import { useScrollHint } from './hooks/useScrollHint';
 
 type Page =
+  | 'laboratorio'
   | 'ia'
   | 'salud-modelos'
   | 'dinero-real'
@@ -51,6 +53,7 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1).split('?')[0] ?? '';
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
+  if (hash === 'laboratorio' || hash.startsWith('laboratorio/')) return 'laboratorio';
   return hash === 'ia' ||
     hash === 'salud-modelos' ||
     hash === 'dinero-real' ||
@@ -126,6 +129,9 @@ function AppShell() {
           <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
             Inicio
           </a>
+          <a href="#laboratorio" aria-current={page === 'laboratorio' ? 'page' : undefined}>
+            Laboratorio
+          </a>
           <a href="#mercado" aria-current={page === 'mercado' ? 'page' : undefined}>
             Mercado
           </a>
@@ -173,6 +179,7 @@ function AppShell() {
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              laboratorio: 'Laboratorio',
               ia: 'IA',
               'salud-modelos': 'Salud de modelos',
               'dinero-real': 'Dinero real',
@@ -245,6 +252,8 @@ function AppShell() {
                 requestAnimationFrame(() => legalButton.current?.focus());
               }}
             />
+          ) : page === 'laboratorio' ? (
+            <LabPage />
           ) : page === 'ia' ? (
             <AiPage
               onOpenStrategy={(id) => {

@@ -25,7 +25,7 @@ import {
  * pasos 8 y 9 el globo no tapa el ancla y el foco del 9 no pasa de 400 px,
  * la barra de estado ocupa una línea de 48 px con «Último latido» a la vista
  * y el selector «Prioridad» de Noticias muestra su texto entero. Y (UXP-01 y
- * UXP-10): a 1280 × 800 caben las 15 entradas del menú lateral; a 1024 × 700
+ * UXP-10): a 1280 × 800 caben las 16 entradas del menú lateral; a 1024 × 700
  * la lista desplaza dentro de la barra con un indicio inferior mientras queda
  * algo oculto, y «Ajustes» se alcanza con rueda y con Tab. Casillas (con su
  * etiqueta), selectores y enlaces en línea alcanzan el área mínima. Y (UXP-03,
@@ -47,9 +47,10 @@ const VIEWPORTS = [
   { width: 1024, height: 700, inline: 24 },
 ] as const;
 
-/** Las 15 entradas de la navegación lateral, en su orden, con su título h1. */
+/** Las 16 entradas de la navegación lateral, en su orden, con su título h1. */
 const ROUTES = [
   { route: 'inicio', link: 'Inicio', heading: 'Estado del sistema' },
+  { route: 'laboratorio', link: 'Laboratorio', heading: 'Laboratorio' },
   { route: 'mercado', link: 'Mercado', heading: 'Mercado' },
   { route: 'ia', link: 'IA', heading: 'IA' },
   { route: 'salud-modelos', link: 'Salud de modelos', heading: 'Salud de modelos' },
@@ -594,7 +595,7 @@ test.afterEach(async () => {
 });
 
 for (const viewport of VIEWPORTS) {
-  test(`las 15 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
+  test(`las 16 secciones respiran a ${viewport.width}×${viewport.height}: sin desbordamiento, sin solapes y ≥ ${GAP_MIN} px entre bloques`, async () => {
     test.setTimeout(240_000);
     context = await launchPhaseApp('tradia-layout-e2e');
     const { page } = context;
@@ -830,7 +831,7 @@ function readNav(page: Page): Promise<NavReading> {
   });
 }
 
-test('el menú lateral: 15 entradas a la vista a 1280×800 y, a 1024×700, desplazamiento con indicio, rueda y Tab', async () => {
+test('el menú lateral: 16 entradas a la vista a 1280×800 y, a 1024×700, desplazamiento con indicio, rueda y Tab', async () => {
   context = await launchPhaseApp('tradia-nav-e2e');
   const { page } = context;
   await page.setViewportSize({ width: 1280, height: 800 });

@@ -202,6 +202,12 @@ export interface NewsAiService {
    * `ai:news-status-changed` y UNA notificación del sistema.
    */
   start(): Promise<void>;
+  /**
+   * Motor de texto para el laboratorio de estrategias: el motor elegido
+   * en Ajustes si está instalado; si no, el primero que se encuentre.
+   * null si no hay ninguna CLI. Lo monta `registerNewsAi`.
+   */
+  textEngine?: () => { label: string; complete(prompt: string): Promise<string> } | null;
 }
 
 const memoryStore = (): KeyValueStore => {

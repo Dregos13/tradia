@@ -4,6 +4,11 @@ App de escritorio (macOS, Windows, Linux) para trading con agentes: vigilancia
 permanente del mercado, señales y paper trading. Construida con Electron +
 TypeScript + React sobre electron-vite.
 
+> Novedad: **Laboratorio** — describe una estrategia en lenguaje natural, la
+> IA de tu suscripción la traduce a reglas exactas, la pruebas con el
+> histórico y la dejas en prueba en vivo con dinero ficticio frente al SPY
+> (`docs/laboratorio.md`).
+>
 > Estado: fases 6-7. El motor evalúa estrategias al cierre de cada vela y
 > ejecuta las señales aprobadas en una cuenta paper de Alpaca; la capa de IA
 > clasifica el régimen de mercado, sirve un modelo ONNX con probabilidades
@@ -81,6 +86,8 @@ src/
                         y drift/ (salud y reentrenamiento)
     live/               Fase 7: lista de comprobación, broker real con
                         techos, prueba de humo y estado del escalado
+    lab/                Laboratorio: generador de estrategias con IA y
+                        pruebas en vivo (forward test)
   preload/
     index.ts            contextBridge: expone solo window.tradia
   renderer/             UI en React (src/renderer/index.html + src/)

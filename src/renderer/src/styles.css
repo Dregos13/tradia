@@ -117,8 +117,9 @@ summary:focus-visible,
 }
 .side {
   /* La marca queda fija y la lista desplaza dentro de la barra (UXP-01):
-     16 + 24 + 16 de marca, 15 × 44 + 14 × 4 + 8 de lista y 16 abajo = 796 px,
-     así que a 1280 × 800 caben las 15 entradas sin desplazar. */
+     16 + 24 + 16 de marca, 16 × 44 + 8 de lista y 16 abajo = 784 px, así
+     que a 1280 × 800 caben las 16 entradas sin desplazar. Las filas van
+     juntas (sin hueco): cada una ya tiene 44 px de área táctil. */
   position: relative;
   grid-row: 1 / 5;
   min-height: 0;
@@ -178,7 +179,7 @@ summary:focus-visible,
   overflow-y: auto;
   display: grid;
   align-content: start;
-  gap: var(--space-1);
+  gap: 0;
   /* El anillo separado 2 px queda dentro del área de recorte del scroll. */
   padding: var(--space-1);
   /* La entrada enfocada con teclado no queda bajo el degradado. */

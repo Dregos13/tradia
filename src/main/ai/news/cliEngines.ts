@@ -638,6 +638,12 @@ export interface CliEngineAnalyzer extends NewsHeadlineAnalyzer {
    * Falla con 'CLI no encontrada', 'sesión no iniciada' o el motivo.
    */
   ping(): Promise<number>;
+  /**
+   * Una pasada de texto libre (laboratorio de estrategias): mismo modo
+   * headless sin herramientas y misma cola en serie; no descuenta el tope
+   * diario de titulares. Devuelve el texto del modelo.
+   */
+  complete(prompt: string): Promise<string>;
 }
 
 export function createCliEngineAnalyzer(
@@ -908,12 +914,22 @@ export function createCliEngineAnalyzer(
       return Math.max(0, now() - started);
     });
 
+  const complete = (prompt: string): Promise<string> =>
+    enqueue(async () => {
+      const resolution = resolve();
+      if (!resolution.path) throw missingCliError(resolution);
+      const run = await runOnce(resolution.path, prompt);
+      if (run.code !== 0) throw classifyRunFailure(run);
+      return extractText(run.stdout);
+    });
+
   return {
     analyzer: 'suscripcion',
     model: spec.modelLabel,
     analyze,
     ping,
     available,
+    complete,
   };
 }
 

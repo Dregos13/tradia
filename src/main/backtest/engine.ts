@@ -61,6 +61,8 @@ import {
   type EngineBar,
   type EquityPoint,
   type ExitReason,
+  type OpenPositionSnapshot,
+  type PendingOrderSnapshot,
   type PositionSide,
   type PositionView,
   type ShortOptions,
@@ -831,6 +833,39 @@ export function runBacktest(input: BacktestInput): BacktestResult {
     context.cash = cash;
     context.equity = equity;
     input.strategy.onBar(context);
+  }
+
+  // Prueba en vivo: la cartera sigue viva; se devuelve tal cual.
+  if (input.keepOpenAtEnd === true) {
+    const openPositions: OpenPositionSnapshot[] = [...positions.values()].map((p) => {
+      const lastClose = lastCloseOf(p.ticker);
+      const sign = p.side === 'largo' ? 1 : -1;
+      return {
+        ticker: p.ticker,
+        side: p.side,
+        shares: p.shares,
+        entryPrice: p.entryPrice,
+        entryDate: p.entryDate,
+        stopPrice: p.stop,
+        targetPrice: p.target,
+        lastClose,
+        unrealizedPnl: sign * (lastClose - p.entryPrice) * p.shares,
+      };
+    });
+    const pendingOrders: PendingOrderSnapshot[] = [];
+    for (const [ticker, orders] of pending) {
+      for (const order of orders) {
+        pendingOrders.push({ ticker, kind: order.kind, signalDate: order.signalDate });
+      }
+    }
+    return {
+      trades,
+      equityCurve,
+      initialCash: config.initialCash,
+      finalEquity: equityCurve.length > 0 ? lastEquity : config.initialCash,
+      openPositions,
+      pendingOrders,
+    };
   }
 
   // Cierre forzoso de lo que siga abierto en la última vela de cada activo.

@@ -37,7 +37,7 @@ import {
 import { NEWS_CLI_ENGINES, type NewsCliEngine } from '../../../shared/ipc';
 import { openDatabase } from '../../db/database';
 import type { ServiceContext } from '../../services';
-import { createCliEngineHandle, type CliEngineHandle } from './cliEngines';
+import { CLI_ENGINE_SPECS, createCliEngineHandle, type CliEngineHandle } from './cliEngines';
 import { createLocalNewsAnalyzer } from './local';
 import { createNewsAnalysisRepository } from './repository';
 import {
@@ -153,6 +153,21 @@ export function registerNewsAi(ctx: ServiceContext): NewsAiService {
     broadcast: ctx.broadcast,
     logger: console,
   });
+
+  service.textEngine = () => {
+    const stored = store.getValue(NEWS_LLM_SETTINGS_KEYS.engine);
+    const order: NewsCliEngine[] = [
+      ...NEWS_CLI_ENGINES.filter((e) => e === stored),
+      ...NEWS_CLI_ENGINES.filter((e) => e !== stored),
+    ];
+    for (const engine of order) {
+      const handle = cliEngines[engine];
+      if (handle.available()) {
+        return { label: CLI_ENGINE_SPECS[engine].label, complete: handle.analyzer.complete };
+      }
+    }
+    return null;
+  };
 
   // Estado del arranque antes de registrar los canales: si la suscripción
   // guardada no encuentra la CLI, llega UNA notificación del sistema.

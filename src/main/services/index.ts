@@ -37,6 +37,7 @@ import { registerRoutine, type RoutineService } from '../routine';
 import { registerBackup, type BackupService } from '../backup';
 import { registerBroker, type BrokerService } from '../broker';
 import { registerLive, type LiveServices } from '../live';
+import { registerLab, type LabServices } from '../lab';
 
 /** Servicios del proceso principal, uno por archivo de `services/`. */
 export interface MainServices {
@@ -93,6 +94,8 @@ export interface MainServices {
   broker: BrokerService;
   /** Modo real mínimo (fase 7): lista, límites, claves live y broker real. */
   live: LiveServices;
+  /** Laboratorio: generador de estrategias con IA y pruebas en vivo. */
+  lab: LabServices;
 }
 
 export interface ServiceContext {
@@ -206,5 +209,7 @@ export function initServices(ctx: ServiceContext): MainServices {
   // mercado: la prueba de humo juzga la frescura de la referencia con el
   // mismo instante con el que se ingieren las velas.
   services.live = registerLive(ctx, { marketNow: marketClock.now });
+  // Laboratorio: consume strategies, newsAi (motor de texto) y secrets.
+  services.lab = registerLab(ctx, { now: marketClock.now });
   return services as MainServices;
 }

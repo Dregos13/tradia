@@ -28,6 +28,8 @@ import type {
   CalendarListQuery,
   CalendarUpdatedEvent,
   CancelOrderRequest,
+  ForwardStartRequest,
+  LabGenerateRequest,
   ConnectivityState,
   CreateOrderRequest,
   DataStatusEntry,
@@ -209,6 +211,19 @@ const api: TradiaApi = {
     getPrefs: () => ipcRenderer.invoke(IPC_CHANNELS.alerts.getPrefs),
     setPrefs: (prefs: AlertPrefs) => ipcRenderer.invoke(IPC_CHANNELS.alerts.setPrefs, prefs),
     onNavigate: (listener) => subscribe<NotificationRoute>(IPC_CHANNELS.alerts.navigate, listener),
+  },
+  lab: {
+    engine: () => ipcRenderer.invoke(IPC_CHANNELS.lab.engine),
+    generate: (request: LabGenerateRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.lab.generate, request),
+  },
+  forward: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.forward.list),
+    get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.get, id),
+    start: (request: ForwardStartRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.forward.start, request),
+    stop: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.stop, id),
+    remove: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.remove, id),
   },
   strategies: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.strategies.list),

@@ -177,6 +177,23 @@ import type {
 // El falso ejecuta el motor real: estos módulos son TS puro, sin Electron
 // ni Node (contrato de src/main/backtest/).
 import { runBacktest } from '../../../main/backtest/engine';
+import {
+  computeForward,
+  emptyForwardDetail,
+  executableMarkets,
+  forwardStartDate,
+  forwardSummaryOf,
+  nyParts,
+} from '../../../main/lab/forward';
+import { createStrategyGenerator } from '../../../main/lab/generator';
+import { createSimulatedLabEngine } from '../../../main/lab/simulated';
+import {
+  FORWARD_DEFAULT_CASH,
+  isForwardStartRequest,
+  isLabGenerateRequest,
+  type ForwardDetail,
+  type ForwardTest,
+} from '../../../shared/lab';
 import { computeMetrics, type BacktestMetrics } from '../../../main/backtest/metrics';
 import { CLASSIC_STRATEGIES } from '../../../main/backtest/strategies';
 import { runMonteCarlo, splitTimeline } from '../../../main/backtest/validation';
@@ -1958,6 +1975,79 @@ export function createSimulatedAdapter() {
 
   const regimeComparisons = new Map<string, RegimeComparison>();
 
+  // -- Laboratorio: generador simulado y pruebas en vivo en memoria --------
+  const labEngine = createSimulatedLabEngine();
+  const labGenerator = createStrategyGenerator({ engine: () => labEngine });
+  interface SimForwardRow {
+    id: number;
+    strategyId: number;
+    version: number;
+    startDate: string;
+    initialCash: number;
+    status: 'activa' | 'detenida';
+    stoppedAt: string | null;
+    createdAt: string;
+  }
+  let nextForwardId = 1;
+  const forwardRows: SimForwardRow[] = [];
+  const forwardTestOf = (row: SimForwardRow): ForwardTest => {
+    const strategy = findStrategyVersion(row.strategyId, row.version);
+    return {
+      id: row.id,
+      strategyId: row.strategyId,
+      strategyName: strategy?.name ?? `Estrategia ${row.strategyId}`,
+      version: row.version,
+      startDate: row.startDate,
+      initialCash: row.initialCash,
+      benchmark: 'SPY',
+      markets: strategy ? executableMarkets(strategy.markets) : [],
+      status: row.status,
+      stoppedAt: row.stoppedAt,
+      createdAt: row.createdAt,
+    };
+  };
+  const forwardDetail = async (row: SimForwardRow): Promise<ForwardDetail> => {
+    const test = forwardTestOf(row);
+    const strategy = findStrategyVersion(row.strategyId, row.version);
+    if (!strategy) return emptyForwardDetail(test, 'La estrategia ya no existe.', 'simulated');
+    let create: () => ReturnType<ReturnType<typeof implForStrategy>['create']>;
+    try {
+      create = implForStrategy(strategy).create;
+    } catch (error) {
+      return emptyForwardDetail(test, (error as Error).message, 'simulated');
+    }
+    const key = `${strategy.id}:${strategy.version}`;
+    const latest = [...backtestRuns.values()]
+      .filter((r) => `${r.strategyId}:${r.version}` === key)
+      .at(-1);
+    return computeForward({
+      test,
+      strategy,
+      create,
+      getBars: async (ticker, desde, hasta) => fakeBars(ticker, desde, hasta),
+      today: nyParts(Date.now()).date,
+      dataKind: 'simulated',
+      backtestAnnualPct: latest?.metrics.annualizedReturn ?? null,
+    });
+  };
+  // Demostración: la primera estrategia lleva unas semanas en prueba.
+  {
+    const first = strategyVersions[0];
+    if (first) {
+      const start = new Date(Date.now() - 70 * DAY_MS).toISOString().slice(0, 10);
+      forwardRows.push({
+        id: nextForwardId++,
+        strategyId: first.id,
+        version: first.version,
+        startDate: start,
+        initialCash: FORWARD_DEFAULT_CASH,
+        status: 'activa',
+        stoppedAt: null,
+        createdAt: `${start}T13:00:00.000Z`,
+      });
+    }
+  }
+
   const api: TradiaApi = {
     connectivity: {
       getState: async () => connectivity,
@@ -2311,6 +2401,55 @@ export function createSimulatedAdapter() {
         return alertPrefs;
       },
       onNavigate: (listener) => subscribe(alertNavigateListeners, listener),
+    },
+    lab: {
+      engine: async () => ({ available: true, label: labEngine.label, hint: null }),
+      generate: async (request) => {
+        if (!isLabGenerateRequest(request)) throw new Error('Idea inválida.');
+        return labGenerator.generate(request);
+      },
+    },
+    forward: {
+      list: async () => {
+        const out = [];
+        for (const row of forwardRows) out.push(forwardSummaryOf(await forwardDetail(row)));
+        return [...out].reverse();
+      },
+      get: async (id) => {
+        const row = forwardRows.find((r) => r.id === id);
+        return row ? forwardDetail(row) : null;
+      },
+      start: async (request) => {
+        if (!isForwardStartRequest(request)) throw new Error('Petición inválida.');
+        const strategy = latestStrategyVersion(request.strategyId);
+        if (!strategy) throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        implForStrategy(strategy);
+        const row: SimForwardRow = {
+          id: nextForwardId++,
+          strategyId: strategy.id,
+          version: strategy.version,
+          // Vista previa simulada: la prueba arranca hace 60 días para que
+          // haya sesiones que ver (en la app real empieza hoy).
+          startDate: forwardStartDate(Date.now() - 60 * DAY_MS),
+          initialCash: request.initialCash ?? FORWARD_DEFAULT_CASH,
+          status: 'activa',
+          stoppedAt: null,
+          createdAt: new Date().toISOString(),
+        };
+        forwardRows.push(row);
+        return forwardTestOf(row);
+      },
+      stop: async (id) => {
+        const row = forwardRows.find((r) => r.id === id);
+        if (!row) throw new Error(`No existe la prueba ${id}.`);
+        row.status = 'detenida';
+        row.stoppedAt = new Date().toISOString();
+        return forwardTestOf(row);
+      },
+      remove: async (id) => {
+        const index = forwardRows.findIndex((r) => r.id === id);
+        if (index !== -1) forwardRows.splice(index, 1);
+      },
     },
     strategies: {
       list: async () =>
