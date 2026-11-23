@@ -19,10 +19,10 @@ describe('ejecutor de migraciones', () => {
     const applied = migrate(db, MIGRATIONS);
 
     expect(applied).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     ]);
     expect(appliedMigrations(db).map((m) => m.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     ]);
     db.close();
   });
@@ -32,7 +32,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
 
     expect(migrate(db, MIGRATIONS)).toEqual([]);
-    expect(appliedMigrations(db)).toHaveLength(20);
+    expect(appliedMigrations(db)).toHaveLength(21);
     db.close();
   });
 
@@ -53,6 +53,7 @@ describe('ejecutor de migraciones', () => {
       'diario',
       'drift_checks',
       'forward_tests',
+      'intraday_bars',
       'journal_entries',
       'kill_switch_events',
       'live_checklist',
@@ -111,6 +112,8 @@ describe('ejecutor de migraciones', () => {
     const db = new Database(':memory:');
     migrate(db, MIGRATIONS);
 
+    expect(rollbackLast(db, MIGRATIONS)).toBe(21);
+    expect(tableNames(db)).not.toContain('intraday_bars');
     expect(rollbackLast(db, MIGRATIONS)).toBe(20);
     expect(tableNames(db)).not.toContain('forward_tests');
     expect(rollbackLast(db, MIGRATIONS)).toBe(19);
@@ -215,7 +218,7 @@ describe('ejecutor de migraciones', () => {
     migrate(db, MIGRATIONS);
     rollbackLast(db, MIGRATIONS);
 
-    expect(migrate(db, MIGRATIONS)).toEqual([20]);
+    expect(migrate(db, MIGRATIONS)).toEqual([21]);
     expect(tableNames(db)).toContain('forward_tests');
     expect(tableNames(db)).toContain('broker_orders_live');
     expect(tableNames(db)).toContain('regimes');
@@ -235,7 +238,7 @@ describe('ejecutor de migraciones', () => {
        VALUES (1, 500, 100, 10, 1, 1, '2026-10-01T00:00:00.000Z', '2026-10-01T00:01:00.000Z')`,
     ).run();
 
-    expect(migrate(db, MIGRATIONS)).toEqual([16, 17, 18, 19, 20]);
+    expect(migrate(db, MIGRATIONS)).toEqual([16, 17, 18, 19, 20, 21]);
 
     const row = db.prepare('SELECT * FROM live_limits WHERE id = 1').get() as Record<
       string,

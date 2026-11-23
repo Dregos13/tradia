@@ -29,6 +29,7 @@ import type {
   CalendarUpdatedEvent,
   CancelOrderRequest,
   ForwardStartRequest,
+  IntradayRequest,
   LabGenerateRequest,
   ConnectivityState,
   CreateOrderRequest,
@@ -176,6 +177,8 @@ const api: TradiaApi = {
   },
   market: {
     getBars: (request: GetBarsRequest) => ipcRenderer.invoke(IPC_CHANNELS.market.getBars, request),
+    getIntraday: (request: IntradayRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.market.getIntraday, request),
     refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.market.refreshNow),
     search: (query: string) => ipcRenderer.invoke(IPC_CHANNELS.market.search, query),
     onUpdated: (listener) => subscribe<MarketUpdatedEvent>(IPC_CHANNELS.market.updated, listener),

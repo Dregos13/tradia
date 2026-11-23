@@ -72,7 +72,7 @@ test('abre en Resumen; Mercado sigue divisas y oro y lleva una idea a Crear', as
   const assets = page.getByRole('region', { name: 'Activos' });
   await expect(assets.getByRole('button', { name: /Oro/ })).toBeVisible();
   await assets.getByRole('button', { name: /Oro/ }).click();
-  await expect(page.getByRole('img', { name: /Velas diarias de Oro/ })).toBeVisible({
+  await expect(page.getByRole('img', { name: /Velas de 1 hora de Oro/ })).toBeVisible({
     timeout: 90_000,
   });
   await capturePhaseScreenshot(page, 'mesa-oro.png');

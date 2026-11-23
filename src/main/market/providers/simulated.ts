@@ -20,6 +20,7 @@
  *   defectos de datos (hueco, duplicado, valor anómalo), más fallos
  *   programados del proveedor, para probar limpieza, ingesta y salud del dato.
  */
+import { simulatedIntradayBars } from '../../../shared/intraday';
 import { inferAssetClass, isFxPair } from '../../../shared/fx';
 import {
   fxLastExpectedSession,
@@ -370,6 +371,11 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
   const provider: SimulatedProvider = {
     id: SIMULATED_PROVIDER_ID,
     rateLimits: SIMULATED_RATE_LIMITS,
+
+    getIntradayBars: async (ticker, fromMs, toMs) => {
+      const key = validateCall(ticker);
+      return simulatedIntradayBars(key, fromMs, Math.min(toMs, now()), String(seed));
+    },
 
     getBars: async (ticker, desde, hasta) => {
       const key = validateCall(ticker);
