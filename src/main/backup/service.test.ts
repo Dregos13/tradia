@@ -147,7 +147,9 @@ describe('copias de seguridad', () => {
     expect(list).toHaveLength(BACKUP_RETENTION_COUNT);
     expect(listBackupFileNames(backupsDir)).toHaveLength(BACKUP_RETENTION_COUNT);
     expect(list.every((b: { integrityOk: boolean }) => b.integrityOk)).toBe(true);
-  });
+    // Nueve copias SQLite con comprobación de integridad: en el disco del
+    // runner de Windows tarda ~6 s, por encima de los 5 s por defecto.
+  }, 30_000);
 
   it('restaura en un userData limpio con los mismos datos y reinicia', async () => {
     // Origen: base con un dato reconocible del que se crea la copia.
