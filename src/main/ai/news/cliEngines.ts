@@ -302,26 +302,40 @@ export function resolveCliExecutable(
   const listDir = deps.listDir ?? defaultListDir;
 
   const configured = deps.configured?.trim();
-  if (configured) {
+  // Un nombre a secas («claude», «codex») es un comando, no una ruta: se
+  // busca en el PATH y en las ubicaciones habituales como si no hubiera
+  // ruta configurada (el nombre de la propia CLI) o con ese nombre.
+  const bareName = configured && !/[\\/]/.test(configured) ? configured : null;
+  if (configured && bareName === null) {
     return isExecutableFile(configured)
       ? { path: configured, source: 'config', configuredInvalid: false }
       : { path: null, source: null, configuredInvalid: true };
   }
+  const ownName =
+    bareName === null ||
+    bareName.replace(/\.(exe|cmd|bat)$/i, '').toLowerCase() === spec.cliName.toLowerCase();
+  const names = ownName
+    ? spec.fileNames(platform)
+    : platform === 'win32'
+      ? [bareName!, `${bareName}.exe`, `${bareName}.cmd`, `${bareName}.bat`]
+      : [bareName!];
 
   for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) {
-    for (const name of spec.fileNames(platform)) {
+    for (const name of names) {
       const candidate = join(dir, name);
       if (isExecutableFile(candidate)) {
         return { path: candidate, source: 'path', configuredInvalid: false };
       }
     }
   }
-  for (const candidate of spec.knownCandidates(env, platform, listDir)) {
-    if (isExecutableFile(candidate)) {
-      return { path: candidate, source: 'known', configuredInvalid: false };
+  if (ownName) {
+    for (const candidate of spec.knownCandidates(env, platform, listDir)) {
+      if (isExecutableFile(candidate)) {
+        return { path: candidate, source: 'known', configuredInvalid: false };
+      }
     }
   }
-  return { path: null, source: null, configuredInvalid: false };
+  return { path: null, source: null, configuredInvalid: bareName !== null && !ownName };
 }
 
 // ---------------------------------------------------------------------------
