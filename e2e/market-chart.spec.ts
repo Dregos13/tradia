@@ -98,7 +98,6 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     // «Avanzado»; desplegado, se recorre con Tab y Mayús+Tab en orden.
     const navigation = page.getByRole('navigation', { name: 'Principal' });
     await openAdvancedNav(page);
-    const liveLink = navigation.getByRole('link', { name: 'Dinero real', exact: true });
     const journalLink = navigation.getByRole('link', { name: 'Diario', exact: true });
     const ordersLink = navigation.getByRole('link', { name: 'Órdenes', exact: true });
     const deviationLink = navigation.getByRole('link', {
@@ -108,11 +107,11 @@ test('añade un ticker, recibe histórico simulado con indicadores y confirma qu
     const riskLink = navigation.getByRole('link', { name: 'Riesgo', exact: true });
     await riskLink.focus();
     await expect(riskLink).toBeFocused();
-    for (const link of [journalLink, ordersLink, deviationLink, liveLink]) {
+    for (const link of [journalLink, ordersLink, deviationLink]) {
       await page.keyboard.press('Tab');
       await expect(link).toBeFocused();
     }
-    for (const link of [deviationLink, ordersLink, journalLink, riskLink]) {
+    for (const link of [ordersLink, journalLink, riskLink]) {
       await page.keyboard.press('Shift+Tab');
       await expect(link).toBeFocused();
     }
