@@ -320,3 +320,17 @@ it('deriva executable del registro y lo conserva al consultar versiones', () => 
   expect(strategies.get(own.id, 1)?.executable).toBe(true);
   expect(strategies.create(BASE).executable).toBe(false);
 });
+
+describe('temporalidad', () => {
+  it('guarda y devuelve 1 hora al crear, leer, listar y versionar', () => {
+    const created = repo.create({ ...BASE, timeframe: '1h' });
+    expect(created.timeframe).toBe('1h');
+    expect(repo.get(created.id)?.timeframe).toBe('1h');
+    expect(repo.get(created.id, 1)?.timeframe).toBe('1h');
+    expect(repo.list().find((s) => s.id === created.id)?.timeframe).toBe('1h');
+    const v2 = repo.update({ id: created.id, note: 'Otra salida', name: 'Otra' });
+    expect(v2.timeframe).toBe('1h');
+    expect(repo.get(created.id)?.timeframe).toBe('1h');
+    expect(repo.get(repo.create(BASE).id)?.timeframe).toBe('1d');
+  });
+});

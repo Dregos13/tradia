@@ -112,7 +112,7 @@ const VERSION_COLUMNS =
   'parametros, rangos_parametros, mercados, ' +
   'entrenamiento_desde, entrenamiento_hasta, fuera_muestra_desde, ' +
   'fuera_muestra_hasta, metricas_resumen, regimen, ' +
-  'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en';
+  'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en, temporalidad';
 
 // ---------------------------------------------------------------------------
 // Conversión y JSON defensivo
