@@ -1,0 +1,403 @@
+/* Mesa — «Telemetría de box»: carriles con eje de tiempo común y cursor
+   «Ahora», una lista de activos sobria y un solo gráfico grande. */
+
+.mesa-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+  --lane-label: 240px;
+}
+.mesa-page h2,
+.mesa-page h3 {
+  margin: 0;
+  font-family: var(--font-editorial);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+.mesa-page h2 {
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-line);
+}
+.mesa-page h3 {
+  font-size: var(--type-md);
+  line-height: var(--type-md-line);
+}
+.mesa-page p {
+  margin: 0;
+}
+.mesa-meta,
+.mesa-muted {
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
+}
+.mesa-meta {
+  font-family: var(--font-numeric);
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
+}
+.mesa-page [data-tone='up'],
+.mesa-page [data-tone='alcista'] > div > strong,
+.mesa-trend[data-tone='alcista'] {
+  color: var(--candle-up);
+}
+.mesa-page [data-tone='down'],
+.mesa-page [data-tone='bajista'] > div > strong,
+.mesa-trend[data-tone='bajista'] {
+  color: var(--candle-down);
+}
+.mesa-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.mesa-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--type-sm);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  cursor: pointer;
+}
+.mesa-follow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+}
+.mesa-follow .button {
+  flex-shrink: 0;
+}
+
+/* -- Sesiones ----------------------------------------------------------- */
+
+.mesa-lanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-5) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  --track-left: calc(var(--space-5) + var(--lane-label));
+  --track-width: calc(100% - var(--track-left) - var(--space-5));
+}
+.mesa-axis span,
+.mesa-now {
+  position: absolute;
+  left: calc(var(--track-left) + var(--track-width) * var(--at) / 100);
+}
+.mesa-axis span {
+  top: var(--space-3);
+  transform: translateX(-50%);
+  color: var(--color-textFaint);
+  font-family: var(--font-numeric);
+  font-size: 11px;
+}
+.mesa-axis span:first-child {
+  transform: none;
+}
+.mesa-axis span:last-child {
+  transform: translateX(-100%);
+}
+.mesa-lane {
+  display: grid;
+  grid-template-columns: var(--lane-label) minmax(0, 1fr);
+  align-items: center;
+  min-height: 40px;
+}
+.mesa-lane-label {
+  display: flex;
+  flex-direction: column;
+  padding-right: var(--space-4);
+}
+.mesa-lane-label strong {
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+}
+.mesa-lane-label span {
+  color: var(--color-textMuted);
+  font-family: var(--font-numeric);
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
+}
+.mesa-lane[data-open] .mesa-lane-label span {
+  color: var(--state-online);
+}
+.mesa-lane-track {
+  position: relative;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surfaceSubtle);
+}
+.mesa-lane-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surfaceStrong);
+  color: var(--color-textMuted);
+  font-family: var(--font-numeric);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.mesa-lane[data-open] .mesa-lane-band {
+  background: var(--color-accentSoft);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.mesa-now {
+  top: var(--space-6);
+  bottom: var(--space-3);
+  width: 0;
+  border-left: 1px solid var(--color-accent);
+  pointer-events: none;
+}
+.mesa-now span {
+  position: absolute;
+  top: calc(var(--space-4) * -1);
+  left: var(--space-1);
+  color: var(--color-accent);
+  font-family: var(--font-numeric);
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+/* -- Mesa: activos + foco ----------------------------------------------- */
+
+.mesa-desk {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.mesa-assets ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+.mesa-asset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-easeOut);
+}
+.mesa-asset:hover {
+  background: var(--color-surfaceSubtle);
+}
+.mesa-asset[aria-pressed='true'] {
+  border-left-color: var(--color-accent);
+  background: var(--color-surface);
+}
+.mesa-asset-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mesa-asset-name strong {
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+}
+.mesa-asset-name span,
+.mesa-asset-patterns {
+  color: var(--color-textMuted);
+  font-family: var(--font-numeric);
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
+}
+.mesa-asset-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.mesa-price {
+  font-size: var(--type-sm);
+}
+.mesa-change {
+  font-size: var(--type-xs);
+}
+.mesa-asset-patterns {
+  grid-column: 1 / -1;
+  color: var(--color-accent);
+}
+
+.mesa-focus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.mesa-focus-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.mesa-focus-head h2 {
+  font-size: var(--type-xl);
+  line-height: var(--type-xl-line);
+}
+.mesa-focus-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--type-xs);
+}
+.mesa-focus-price {
+  color: var(--color-text);
+  font-size: var(--type-xl);
+  line-height: var(--type-xl-line);
+  font-weight: var(--weight-medium);
+}
+.mesa-trend {
+  font-size: var(--type-sm);
+  color: var(--color-textMuted);
+}
+.mesa-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.mesa-chart-canvas {
+  height: 320px;
+}
+.mesa-chart-legend {
+  display: flex;
+  gap: var(--space-5);
+  color: var(--color-textMuted);
+  font-family: var(--font-numeric);
+  font-size: var(--type-xs);
+}
+.mesa-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mesa-key::before {
+  content: '';
+  width: 16px;
+  border-top: 2px solid var(--color-accent);
+}
+.mesa-patterns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.mesa-patterns ul,
+.mesa-today ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+.mesa-patterns li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.mesa-patterns li strong {
+  font-size: var(--type-sm);
+}
+.mesa-patterns li p {
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+  line-height: var(--type-sm-line);
+  max-width: 60ch;
+}
+.mesa-patterns li .button {
+  flex-shrink: 0;
+}
+.mesa-own-idea {
+  align-self: flex-start;
+}
+.mesa-empty {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-textMuted);
+  text-align: center;
+}
+
+/* -- Lo que ha pasado hoy ----------------------------------------------- */
+
+.mesa-today li {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--type-sm);
+}
+.mesa-today-asset {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+.mesa-today li[data-tone='alcista'] > span {
+  color: var(--candle-up);
+}
+.mesa-today li[data-tone='bajista'] > span {
+  color: var(--candle-down);
+}
+
+@media (max-width: 1100px) {
+  .mesa-desk {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mesa-page {
+    --lane-label: 150px;
+  }
+}

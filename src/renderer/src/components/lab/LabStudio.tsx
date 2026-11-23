@@ -46,7 +46,11 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
   const feedbackId = useId();
   const cashId = useId();
   const [engine, setEngine] = useState<LabEngineStatus | null>(null);
-  const [idea, setIdea] = useState('');
+  // Una idea que llega desde la Mesa («Crear estrategia con esto»).
+  const [idea, setIdea] = useState(() => {
+    const query = window.location.hash.split('?')[1] ?? '';
+    return new URLSearchParams(query).get('idea') ?? '';
+  });
   const [feedback, setFeedback] = useState('');
   const [cash, setCash] = useState(String(FORWARD_DEFAULT_CASH));
   const [step, setStep] = useState<Step>({ kind: 'idle' });

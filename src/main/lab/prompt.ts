@@ -44,6 +44,7 @@ export const LAB_UNIVERSE = [
   'USO',
   'XOP',
   'SMH',
+  'GLD',
   'EURUSD',
 ] as const;
 
@@ -51,7 +52,7 @@ export const LAB_UNIVERSE = [
 export const LAB_UNIVERSE_NOTES =
   'EWJ = acciones de Japón (MSCI Japan, en USD); DXJ = Japón con la divisa cubierta; ' +
   'USO = petróleo WTI (futuros); XOP = productoras de petróleo y gas; XLE = energía del S&P 500; ' +
-  'SMH = semiconductores (NVDA, TSM, AVGO…); QQQ = Nasdaq 100; EURUSD = euro/dólar.';
+  'SMH = semiconductores (NVDA, TSM, AVGO…); GLD = oro físico; QQQ = Nasdaq 100; EURUSD = euro/dólar.';
 
 export const LAB_SYSTEM_PROMPT = `Eres un ingeniero cuantitativo. Conviertes ideas de trading en estrategias sistemáticas que se puedan backtestear con velas DIARIAS. No das asesoramiento financiero: diseñas reglas comprobables.
 
