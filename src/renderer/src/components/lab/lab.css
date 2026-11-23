@@ -739,3 +739,78 @@
     flex-direction: column;
   }
 }
+
+/* Velas y histórico: dos selectores pequeños bajo la idea. */
+.lab-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) 0 var(--space-5);
+}
+.lab-segmented {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.lab-segmented-label {
+  padding: 0 var(--space-2) 0 var(--space-2);
+  color: var(--color-textMuted);
+  font-size: var(--type-sm);
+}
+.lab-segmented button {
+  white-space: nowrap;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-textMuted);
+  font: inherit;
+  font-size: var(--type-sm);
+  cursor: pointer;
+}
+.lab-segmented button[aria-checked='true'] {
+  background: var(--color-surfaceStrong);
+  color: var(--color-text);
+}
+.lab-segmented button:disabled {
+  cursor: default;
+}
+.lab-segmented button:disabled:not([aria-checked='true']) {
+  opacity: 0.5;
+}
+
+/* Desglose por sesión de la prueba en 1 hora. */
+.lab-sessions {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-sm);
+}
+.lab-sessions caption {
+  padding-bottom: var(--space-2);
+  color: var(--color-textMuted);
+  text-align: left;
+}
+.lab-sessions th,
+.lab-sessions td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.lab-sessions th:first-child,
+.lab-sessions thead th:first-child {
+  text-align: left;
+  font-family: inherit;
+}
+.lab-sessions thead th {
+  color: var(--color-textMuted);
+  font-weight: 400;
+}
+.lab-sessions tr[data-best] th {
+  color: var(--color-accent);
+}

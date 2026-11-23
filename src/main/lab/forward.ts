@@ -28,7 +28,9 @@ import type { ClassicStrategyDefinition } from '../backtest/strategies';
 import { CLASSIC_STRATEGIES } from '../backtest/strategies';
 import { createCustomStrategy } from '../backtest/strategies/custom';
 import { costConfigFromAssumed, warmupStartDate, type StressDataSource } from '../backtest/stress';
-import type { EngineBar, Strategy as EngineStrategy } from '../backtest/types';
+import type { BacktestResult, EngineBar, Strategy as EngineStrategy } from '../backtest/types';
+import type { IntradayBar } from '../../shared/intraday';
+import { toEngineBars } from './hourly';
 import { warmupCalendarFor } from '../market/assetCalendar';
 import { TICKER_PATTERN, type SessionDate } from '../market/providers/types';
 import type { StrategiesRepository } from '../strategies/repository';
@@ -196,6 +198,59 @@ export interface ComputeForwardInput {
   today: SessionDate;
   dataKind: 'real' | 'simulated';
   backtestAnnualPct: number | null;
+  /** Velas de 1 hora (estrategias con temporalidad '1h'). */
+  getHourlyBars?(ticker: string, fromMs: number, toMs: number): Promise<IntradayBar[]>;
+  /** Instante actual (ms); necesario en 1 hora. */
+  nowMs?: number;
+}
+
+/** Inicio de una prueba en 1 hora: la siguiente hora en punto. */
+export function forwardHourlyStart(nowMs: number): string {
+  return new Date(Math.ceil(nowMs / 3_600_000) * 3_600_000).toISOString();
+}
+
+/** Prueba en vivo sobre velas de 1 hora del primer activo de la ficha. */
+async function computeForwardHourly(input: ComputeForwardInput): Promise<ForwardDetail> {
+  const { test, strategy, backtestAnnualPct } = input;
+  const kind = input.dataKind;
+  const ticker = test.markets[0];
+  if (!ticker || !input.getHourlyBars) {
+    return {
+      ...emptyForwardDetail(test, 'Sin velas de 1 hora para esta estrategia.', kind),
+      backtestAnnualPct,
+    };
+  }
+  const nowMs = input.nowMs ?? Date.now();
+  const startMs = Date.parse(test.startDate);
+  const endMs = test.status === 'detenida' && test.stoppedAt ? Date.parse(test.stoppedAt) : nowMs;
+  if (!Number.isFinite(startMs) || startMs > endMs) {
+    return { ...emptyForwardDetail(test, null, kind), backtestAnnualPct };
+  }
+  // 30 días de calentamiento: de sobra para 200 velas de divisas.
+  const raw = await input.getHourlyBars(ticker, startMs - 30 * 86_400_000, endMs);
+  const bars = toEngineBars(raw);
+  const startIso = new Date(startMs).toISOString();
+  if (bars.length === 0 || bars[bars.length - 1]!.date < startIso) {
+    return { ...emptyForwardDetail(test, null, kind), backtestAnnualPct };
+  }
+  const costs = { ...DEFAULT_STRATEGY_COSTS, ...strategy.assumedCosts };
+  const result = runBacktest({
+    strategy: input.create(),
+    params: strategy.parameters,
+    bars: { [ticker]: bars },
+    initialCash: test.initialCash,
+    costs: costConfigFromAssumed(costs),
+    startDate: bars.find((b) => b.date >= startIso)!.date,
+    keepOpenAtEnd: true,
+  });
+  const firstBench = bars.find((b) => b.date >= startIso)!.close;
+  const closeAt = new Map(bars.map((b) => [b.date, b.close]));
+  const curve = result.equityCurve.map((p) => ({
+    date: p.date,
+    equity: p.equity,
+    benchmark: (test.initialCash * (closeAt.get(p.date) ?? firstBench)) / firstBench,
+  }));
+  return finishForward(test, result, curve, kind, backtestAnnualPct);
 }
 
 /**
@@ -204,6 +259,7 @@ export interface ComputeForwardInput {
  * operaciones cerradas, cartera viva y órdenes para la próxima apertura.
  */
 export async function computeForward(input: ComputeForwardInput): Promise<ForwardDetail> {
+  if ((input.strategy.timeframe ?? '1d') === '1h') return computeForwardHourly(input);
   const { test, strategy, backtestAnnualPct } = input;
   const kind = input.dataKind;
   const markets = test.markets;
@@ -274,6 +330,17 @@ export async function computeForward(input: ComputeForwardInput): Promise<Forwar
           : null,
     };
   });
+  return finishForward(test, result, curve, kind, backtestAnnualPct);
+}
+
+/** Del resultado del motor y la curva al detalle de la prueba en vivo. */
+function finishForward(
+  test: ForwardTest,
+  result: BacktestResult,
+  curve: ForwardDetail['curve'],
+  kind: 'real' | 'simulated',
+  backtestAnnualPct: number | null,
+): ForwardDetail {
   const last = curve.at(-1);
   const equity = last?.equity ?? test.initialCash;
   const wins = result.trades.filter((t) => t.pnl > 0).length;
@@ -345,6 +412,8 @@ export interface ForwardServiceDeps {
   resolveSource: () => Promise<StressDataSource>;
   impls?: readonly ClassicStrategyDefinition[];
   now?: () => number;
+  /** Velas de 1 hora para las estrategias horarias. */
+  hourlyBars?: (ticker: string, fromMs: number, toMs: number) => Promise<IntradayBar[]>;
 }
 
 export interface ForwardService {
@@ -412,6 +481,8 @@ export function createForwardService(deps: ForwardServiceDeps): ForwardService {
       today: nyParts(now()).date,
       dataKind: source.kind === 'real' ? 'real' : 'simulated',
       backtestAnnualPct,
+      getHourlyBars: deps.hourlyBars,
+      nowMs: now(),
     });
   };
 
@@ -457,7 +528,10 @@ export function createForwardService(deps: ForwardServiceDeps): ForwardService {
       const row = deps.repo.insert({
         strategy_id: strategy.id,
         version: strategy.version,
-        start_date: forwardStartDate(now()),
+        start_date:
+          (strategy.timeframe ?? '1d') === '1h'
+            ? forwardHourlyStart(now())
+            : forwardStartDate(now()),
         initial_cash: request.initialCash ?? FORWARD_DEFAULT_CASH,
         // Referencia: comprar y mantener el primer activo de la estrategia.
         benchmark: executableMarkets(strategy.markets)[0] ?? 'SPY',

@@ -244,6 +244,8 @@ import type {
   ForwardStartRequest,
   ForwardSummary,
   ForwardTest,
+  LabBacktestRequest,
+  LabBacktestResult,
   LabEngineStatus,
   LabGenerateRequest,
   LabGenerateResult,
@@ -404,6 +406,8 @@ export const IPC_CHANNELS = {
     engine: 'lab:engine',
     /** Idea en lenguaje natural → borrador validado (LabGenerateResult). */
     generate: 'lab:generate',
+    /** Prueba histórica sobre velas de 1 hora (LabBacktestResult). */
+    backtest: 'lab:backtest',
   },
   forward: {
     /** Tablero de pruebas en vivo (ForwardSummary[]). */
@@ -1787,6 +1791,8 @@ export interface TradiaApi {
     engine(): Promise<LabEngineStatus>;
     /** Traduce una idea a reglas válidas con la IA del usuario. */
     generate(request: LabGenerateRequest): Promise<LabGenerateResult>;
+    /** Prueba histórica de una estrategia de 1 hora (1 o 2 años). */
+    backtest(request: LabBacktestRequest): Promise<LabBacktestResult>;
   };
   forward: {
     list(): Promise<ForwardSummary[]>;
@@ -2628,6 +2634,7 @@ const STRATEGY_DRAFT_KEYS = [
   'worksIn',
   'failsIn',
   'assumedCosts',
+  'timeframe',
 ] as const;
 
 /** Valida cada campo versionable presente en `v`. Devuelve los presentes. */
@@ -2667,6 +2674,7 @@ function checkStrategyDraftFields(
     return null;
   }
   if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  if ('timeframe' in v && v.timeframe !== '1d' && v.timeframe !== '1h') return null;
   // Etiquetas de régimen estructuradas (fase 6): arrays sin duplicados del
   // catálogo de cuatro etiquetas; una etiqueta no puede estar en ambos.
   if ('worksIn' in v && !isRegimeLabelList(v.worksIn)) return null;

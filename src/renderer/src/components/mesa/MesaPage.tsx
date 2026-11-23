@@ -207,7 +207,7 @@ export function MesaPage() {
   );
 
   const toLab = (idea: string) => {
-    window.location.hash = `laboratorio?idea=${encodeURIComponent(idea)}`;
+    window.location.hash = `laboratorio?idea=${encodeURIComponent(idea)}&tf=${frame}`;
   };
 
   return (
@@ -332,12 +332,6 @@ export function MesaPage() {
               />
               <div className="mesa-patterns">
                 <h3>Patrones en la última vela</h3>
-                {frame === '1h' && (
-                  <p className="mesa-frame-note">
-                    Ojo: las pruebas de «Crear» todavía usan velas diarias; las pruebas con velas de
-                    1 hora llegan en la próxima versión.
-                  </p>
-                )}
                 {current.reading.patterns.length === 0 ? (
                   <p className="mesa-muted">
                     Ninguno claro hoy. Puedes estudiar tu propia idea sobre {asset.name}.

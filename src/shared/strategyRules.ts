@@ -66,8 +66,28 @@ export interface StrategyRulesError {
   end: number;
 }
 
-/** Campos de precio utilizables en las expresiones. */
-export const CAMPOS_PRECIO = ['cierre', 'apertura', 'maximo', 'minimo', 'volumen'] as const;
+/**
+ * Campos de la vela utilizables en las expresiones: los de precio y los de
+ * tiempo. Los de tiempo solo tienen sentido con velas de 1 hora:
+ * - `hora`: hora de inicio de la vela en Madrid (0–23).
+ * - `sesion_tokio`, `sesion_londres`, `sesion_nueva_york`: 1 si la vela
+ *   empieza con esa bolsa abierta, 0 si no (horario regular, sin festivos).
+ * Con velas diarias valen 0.
+ */
+export const CAMPOS_TIEMPO = [
+  'hora',
+  'sesion_tokio',
+  'sesion_londres',
+  'sesion_nueva_york',
+] as const;
+export const CAMPOS_PRECIO = [
+  'cierre',
+  'apertura',
+  'maximo',
+  'minimo',
+  'volumen',
+  ...CAMPOS_TIEMPO,
+] as const;
 export type CampoPrecio = (typeof CAMPOS_PRECIO)[number];
 
 /** Indicadores con argumento de periodo (`maximo`/`minimo` son de canal: sin la vela actual). */

@@ -17,9 +17,41 @@ afterEach(() => {
 });
 
 describe('Laboratorio', () => {
-  it('lleva una idea a reglas, la prueba con el histórico y la lanza en vivo', async () => {
+  it('en velas de 1 hora prueba por sesiones con 1 o 2 años y la lanza en vivo', async () => {
     const user = userEvent.setup();
     render(<LabPage />);
+    expect(await screen.findByText('IA simulada')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '1 hora' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: '2 años' }));
+
+    await user.type(
+      screen.getByLabelText('Tu idea'),
+      'Comprar EUR/USD al abrir Londres si rompe el máximo de las últimas horas',
+    );
+    await user.click(screen.getByRole('button', { name: 'Generar estrategia' }));
+    const draft = await screen.findByRole('article', { name: /Ruptura en la sesión de Londres/ });
+    expect(
+      within(draft).getByText('sesion_londres = 1 y cierre > maximo(horas)'),
+    ).toBeInTheDocument();
+    expect(within(draft).getByText('EURUSD')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Probar con datos históricos' }));
+    expect(await screen.findByText(/velas de 1 hora/, {}, { timeout: 10_000 })).toBeInTheDocument();
+    const sessions = screen.getByRole('table', { name: 'Por sesión en la que entró' });
+    expect(within(sessions).getByRole('rowheader', { name: 'Londres' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Informe completo' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Lanzar prueba en vivo' }));
+    await vi.waitFor(() => expect(window.location.hash).toMatch(/^#laboratorio\/prueba\/\d+$/));
+    const strategies = await window.tradia.strategies.list();
+    expect(strategies.at(-1)?.timeframe).toBe('1h');
+  }, 20_000);
+
+  it('lleva una idea a reglas, la prueba con el histórico y la lanza en vivo', async () => {
+    window.location.hash = '#laboratorio?tf=1d';
+    const user = userEvent.setup();
+    render(<LabPage />);
+    expect(screen.getByRole('radio', { name: 'Diarias' })).toHaveAttribute('aria-checked', 'true');
     expect(await screen.findByText('IA simulada')).toBeInTheDocument();
     expect(screen.getByText(/Todavía no hay ninguna/)).toBeInTheDocument();
 

@@ -186,15 +186,18 @@ import {
   computeForward,
   emptyForwardDetail,
   executableMarkets,
+  forwardHourlyStart,
   forwardStartDate,
   forwardSummaryOf,
   nyParts,
 } from '../../../main/lab/forward';
 import { createStrategyGenerator } from '../../../main/lab/generator';
+import { runHourlyBacktest } from '../../../main/lab/hourly';
 import { createSimulatedLabEngine } from '../../../main/lab/simulated';
 import {
   FORWARD_DEFAULT_CASH,
   isForwardStartRequest,
+  isLabBacktestRequest,
   isLabGenerateRequest,
   type ForwardDetail,
   type ForwardTest,
@@ -2034,6 +2037,8 @@ export function createSimulatedAdapter() {
       today: nyParts(Date.now()).date,
       dataKind: 'simulated',
       backtestAnnualPct: latest?.metrics.annualizedReturn ?? null,
+      getHourlyBars: async (ticker, fromMs, toMs) => simulatedIntradayBars(ticker, fromMs, toMs),
+      nowMs: Date.now(),
     });
   };
   // Demostración: la primera estrategia lleva unas semanas en prueba.
@@ -2424,6 +2429,21 @@ export function createSimulatedAdapter() {
         if (!isLabGenerateRequest(request)) throw new Error('Idea inválida.');
         return labGenerator.generate(request);
       },
+      backtest: async (request) => {
+        if (!isLabBacktestRequest(request)) throw new Error('Petición inválida.');
+        const strategy = latestStrategyVersion(request.strategyId);
+        if (!strategy) throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        const ticker = executableMarkets(strategy.markets)[0];
+        if (!ticker) throw new Error('La estrategia no tiene un activo operable.');
+        const end = Date.now();
+        return runHourlyBacktest({
+          strategy,
+          create: implForStrategy(strategy).create,
+          bars: simulatedIntradayBars(ticker, end - request.days * DAY_MS, end),
+          ticker,
+          requestedDays: request.days,
+        });
+      },
     },
     forward: {
       list: async () => {
@@ -2446,7 +2466,10 @@ export function createSimulatedAdapter() {
           version: strategy.version,
           // Vista previa simulada: la prueba arranca hace 60 días para que
           // haya sesiones que ver (en la app real empieza hoy).
-          startDate: forwardStartDate(Date.now() - 60 * DAY_MS),
+          startDate:
+            strategy.timeframe === '1h'
+              ? forwardHourlyStart(Date.now() - 10 * DAY_MS)
+              : forwardStartDate(Date.now() - 60 * DAY_MS),
           initialCash: request.initialCash ?? FORWARD_DEFAULT_CASH,
           status: 'activa',
           stoppedAt: null,
@@ -2475,6 +2498,7 @@ export function createSimulatedAdapter() {
             id,
             name: latest.name,
             version: latest.version,
+            timeframe: latest.timeframe ?? '1d',
             status: latest.status,
             regime: latest.regime,
             worksIn: latest.worksIn,
@@ -2519,6 +2543,7 @@ export function createSimulatedAdapter() {
           worksIn: request.worksIn ?? [],
           failsIn: request.failsIn ?? [],
           assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          timeframe: request.timeframe ?? '1d',
           status: 'investigacion',
           changeNote: note,
           createdAt: now,
@@ -2558,6 +2583,7 @@ export function createSimulatedAdapter() {
           worksIn: merged.worksIn ?? [],
           failsIn: merged.failsIn ?? [],
           assumedCosts: merged.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          timeframe: merged.timeframe ?? current.timeframe ?? '1d',
           changeNote: note.trim(),
           updatedAt: now,
           versionCreatedAt: now,

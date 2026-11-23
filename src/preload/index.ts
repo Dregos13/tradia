@@ -31,6 +31,7 @@ import type {
   ForwardStartRequest,
   IntradayRequest,
   LabGenerateRequest,
+  LabBacktestRequest,
   ConnectivityState,
   CreateOrderRequest,
   DataStatusEntry,
@@ -219,6 +220,8 @@ const api: TradiaApi = {
     engine: () => ipcRenderer.invoke(IPC_CHANNELS.lab.engine),
     generate: (request: LabGenerateRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.lab.generate, request),
+    backtest: (request: LabBacktestRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.lab.backtest, request),
   },
   forward: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.forward.list),

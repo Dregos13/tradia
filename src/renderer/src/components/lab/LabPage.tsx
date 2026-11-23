@@ -56,8 +56,8 @@ function LabHome() {
         <h2>De una idea a una estrategia probada en el mercado</h2>
         <p>
           Escríbela como se la contarías a alguien. La IA la convierte en reglas exactas, la pruebas
-          con años de historia y, si te convence, la dejas operando con dinero ficticio sobre las
-          velas reales de cada día.
+          con uno o dos años de historia y, si te convence, la dejas operando con dinero ficticio
+          sobre las velas reales de cada hora.
         </p>
       </header>
       <LabStudio

@@ -20,9 +20,9 @@ import { isMarketDataError, type MarketDataProvider } from './providers/types';
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** Tramo por petición hacia atrás: Tiingo puede recortar rangos largos. */
-const CHUNK_DAYS = 30;
+const CHUNK_DAYS = 90;
 /** Peticiones máximas por consulta (primera descarga de 2 años incluida). */
-const MAX_REQUESTS = 8;
+const MAX_REQUESTS = 12;
 /** No se vuelve a preguntar al proveedor antes de este intervalo. */
 const FRESH_MS = 15 * 60_000;
 
@@ -112,15 +112,26 @@ export function createIntradayService(deps: IntradayServiceDeps): IntradayServic
       try {
         let requests = 0;
         const { first, last } = bounds(ticker, provider.id);
-        // 1) Hacia delante: desde la última vela guardada (o el inicio pedido).
-        const forwardFrom = last ? Date.parse(last) - HOUR : from;
-        const fresh = await provider.getIntradayBars(ticker, forwardFrom, end);
-        requests++;
-        store(ticker, provider.id, fresh);
+        // 1) Hacia delante: desde la última vela guardada (o el inicio
+        //    pedido) hasta ahora. Si el proveedor recorta la respuesta por el
+        //    final, se sigue pidiendo desde la última vela recibida.
+        let cursor = last ? Date.parse(last) - HOUR : from;
+        let fresh: IntradayBar[] = [];
+        let firstFetched: IntradayBar | undefined;
+        while (requests < MAX_REQUESTS) {
+          const batch = await provider.getIntradayBars(ticker, cursor, end);
+          requests++;
+          store(ticker, provider.id, batch);
+          fresh = fresh.concat(batch);
+          firstFetched ??= batch[0];
+          const lastMs = batch.length > 0 ? Date.parse(batch[batch.length - 1]!.time) : null;
+          if (lastMs === null || lastMs <= cursor || end - lastMs < 3 * DAY) break;
+          cursor = lastMs;
+        }
         // 2) Hacia atrás: si lo guardado empieza después de lo pedido.
         let earliest = Math.min(
           first ? Date.parse(first) : Infinity,
-          fresh[0] ? Date.parse(fresh[0].time) : Infinity,
+          firstFetched ? Date.parse(firstFetched.time) : Infinity,
         );
         while (earliest - from > 3 * DAY && requests < MAX_REQUESTS) {
           const chunkFrom = Math.max(from, earliest - CHUNK_DAYS * DAY);

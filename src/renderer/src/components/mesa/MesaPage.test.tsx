@@ -42,7 +42,7 @@ describe('Mesa', () => {
 
     await user.click(screen.getByRole('button', { name: 'Escribir mi propia idea sobre Oro' }));
     expect(decodeURIComponent(window.location.hash)).toBe(
-      '#laboratorio?idea=Estrategia sobre Oro (GLD): ',
+      '#laboratorio?idea=Estrategia sobre Oro (GLD): &tf=1h',
     );
   });
 });

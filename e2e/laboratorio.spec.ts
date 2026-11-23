@@ -29,6 +29,7 @@ test('de una idea a una prueba en vivo', async () => {
   const { page } = context!;
   await openPage(page, 'Crear');
   await expect(page.getByText('IA simulada')).toBeVisible();
+  await page.getByRole('radio', { name: 'Diarias' }).click();
 
   await page
     .getByLabel('Tu idea', { exact: true })
@@ -59,6 +60,35 @@ test('de una idea a una prueba en vivo', async () => {
   });
 });
 
+test('en velas de 1 hora prueba por sesiones y la lanza en vivo', async () => {
+  test.setTimeout(240_000);
+  const { page } = context!;
+  await openPage(page, 'Crear');
+  await expect(page.getByText('IA simulada')).toBeVisible();
+  await expect(page.getByRole('radio', { name: '1 hora' })).toHaveAttribute('aria-checked', 'true');
+
+  await page
+    .getByLabel('Tu idea', { exact: true })
+    .fill('Comprar EUR/USD al abrir Londres si rompe el máximo de las últimas horas');
+  await page.getByRole('button', { name: 'Generar estrategia' }).click();
+  const draft = page.getByRole('article', { name: /Ruptura en la sesión de Londres/ });
+  await expect(draft.getByText('sesion_londres = 1 y cierre > maximo(horas)')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Probar con datos históricos' }).click();
+  await expect(page.getByRole('heading', { name: /velas de 1 hora/ })).toBeVisible({
+    timeout: 120_000,
+  });
+  const sessions = page.getByRole('table', { name: 'Por sesión en la que entró' });
+  await expect(sessions.getByRole('rowheader', { name: 'Londres' })).toBeVisible();
+  await capturePhaseScreenshot(page, 'laboratorio-veredicto-1h.png');
+
+  await page.getByRole('button', { name: 'Lanzar prueba en vivo' }).click();
+  await expect(page).toHaveURL(/#laboratorio\/prueba\/\d+$/);
+  await expect(
+    page.getByRole('heading', { name: 'Ruptura en la sesión de Londres', level: 2 }),
+  ).toBeVisible({ timeout: 60_000 });
+});
+
 test('abre en Resumen; Mercado sigue divisas y oro y lleva una idea a Crear', async () => {
   test.setTimeout(240_000);
   const { page } = context!;
@@ -83,4 +113,5 @@ test('abre en Resumen; Mercado sigue divisas y oro y lleva una idea a Crear', as
   await expect(page.getByLabel('Tu idea', { exact: true })).toHaveValue(
     'Estrategia sobre Oro (GLD): ',
   );
+  await expect(page.getByRole('radio', { name: '1 hora' })).toHaveAttribute('aria-checked', 'true');
 });

@@ -33,7 +33,7 @@
  * (ver `e2eMarketClockBase`).
  */
 import { isIntradayRequest } from '../../shared/intraday';
-import { createIntradayService } from './intraday';
+import { createIntradayService, type IntradayService } from './intraday';
 import { app, ipcMain, powerMonitor } from 'electron';
 
 import {
@@ -221,6 +221,8 @@ export interface MarketIngestionDeps {
 }
 
 export interface MarketIngestionService {
+  /** Velas de 1 hora bajo demanda (lo monta `registerMarket`). */
+  intraday?: IntradayService;
   listWatchlist(): WatchlistItem[];
   /**
    * Comprueba la cobertura del ticker en el proveedor (`getTickerInfo`)
@@ -1330,6 +1332,7 @@ export function registerMarket(
   });
   ipcMain.handle(IPC_CHANNELS.market.refreshNow, () => service.refreshNow());
   const intraday = createIntradayService({ db, resolveProvider, now: () => clock.now() });
+  service.intraday = intraday;
   ipcMain.handle(IPC_CHANNELS.market.getIntraday, (_event, request: unknown) => {
     if (!isIntradayRequest(request)) {
       throw new IpcValidationError(IPC_CHANNELS.market.getIntraday, 'petición inválida');

@@ -85,7 +85,10 @@ interface NormalizedConfig {
   endDate: SessionDate | null;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// Sesión diaria ('YYYY-MM-DD') o inicio de vela intradía en UTC
+// ('YYYY-MM-DDTHH:MM:SS.sssZ'): ambas ordenan bien como texto, así que el
+// motor no distingue la temporalidad mientras no se mezclen en un run.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z)?$/;
 
 function assertFinite(value: number, field: string): void {
   if (typeof value !== 'number' || !Number.isFinite(value)) {

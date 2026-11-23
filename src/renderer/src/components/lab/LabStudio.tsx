@@ -8,19 +8,47 @@ import {
   LAB_IDEA_MAX_LENGTH,
   LAB_IDEA_MIN_LENGTH,
   type GeneratedStrategy,
+  type LabBacktestResult,
   type LabEngineStatus,
+  type LabHistoryDays,
+  type LabSessionId,
 } from '../../../../shared/lab';
+import type { StrategyTimeframe } from '../../../../shared/strategy';
+import { EquityChart } from './EquityChart';
 import { formatFxPair } from '../../../../shared/fx';
 import { isFxSymbol } from '../../../../shared/fxTrading';
-import { pct, signedPct, tone } from './format';
+import { longDate, pct, signedMoney, signedPct, tone } from './format';
 
 const prettyTicker = (t: string) => (isFxSymbol(t) ? formatFxPair(t) : t);
 
-const EXAMPLES = [
+const HOURLY_EXAMPLES = [
+  'Comprar EUR/USD al abrir Londres si rompe el máximo de las 6 horas anteriores y cerrar al acabar Nueva York',
+  'Comprar dólar/yen en la sesión de Tokio cuando el RSI de 14 baje de 30 y salir cuando supere 50',
+  'Comprar oro en la sesión de Nueva York si está por encima de su media de 50 horas, con stop ajustado a la volatilidad',
+];
+
+const DAILY_EXAMPLES = [
   'Comprar EUR/USD cuando rompa el máximo de las últimas 20 sesiones con tendencia alcista y salir si pierde la media de 50',
   'Comprar dólar/yen cuando el RSI de 14 baje de 30 si sigue por encima de su media de 200, y vender cuando supere 55',
   'Comprar oro cuando la media de 20 cruce por encima de la de 50 y salir con un stop ajustado a la volatilidad',
 ];
+
+/** Resultado de la prueba histórica: diaria (informe completo) o de 1 hora. */
+type Outcome =
+  { timeframe: '1d'; report: BacktestReport } | { timeframe: '1h'; result: LabBacktestResult };
+
+const SESSION_LABEL: Record<LabSessionId, string> = {
+  tokio: 'Tokio',
+  londres: 'Londres',
+  'nueva-york': 'Nueva York',
+  fuera: 'Fuera de sesión',
+};
+
+/** Velas pedidas desde la Mesa (`&tf=1d`); por defecto, 1 hora. */
+function initialTimeframe(): StrategyTimeframe {
+  const query = window.location.hash.split('?')[1] ?? '';
+  return new URLSearchParams(query).get('tf') === '1d' ? '1d' : '1h';
+}
 
 type Step =
   | { kind: 'idle' }
@@ -32,9 +60,9 @@ type Step =
       draft: GeneratedStrategy;
       engine: string;
       strategyId: number;
-      report: BacktestReport;
+      outcome: Outcome;
     }
-  | { kind: 'launching'; draft: GeneratedStrategy; strategyId: number; report: BacktestReport };
+  | { kind: 'launching'; draft: GeneratedStrategy; strategyId: number; outcome: Outcome };
 
 const RULE_ROWS: { key: keyof GeneratedStrategy['rules']; label: string }[] = [
   { key: 'entry', label: 'Entra' },
@@ -56,6 +84,8 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
     return new URLSearchParams(query).get('idea') ?? '';
   });
   const [feedback, setFeedback] = useState('');
+  const [timeframe, setTimeframe] = useState<StrategyTimeframe>(initialTimeframe);
+  const [days, setDays] = useState<LabHistoryDays>(365);
   const [cash, setCash] = useState(String(FORWARD_DEFAULT_CASH));
   const [step, setStep] = useState<Step>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +117,7 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
     try {
       const result = await window.tradia.lab.generate({
         idea: idea.trim(),
+        timeframe,
         ...(previous ? { previous, feedback: feedback.trim() } : {}),
       });
       if (result.ok) {
@@ -124,21 +155,31 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
         parameters: d.parameters,
         parameterRanges: d.parameterRanges,
         markets: d.markets,
+        timeframe,
         regime: d.regime || 'Sin régimen declarado',
         note: `Creada en el laboratorio${eng ? ` con ${eng}` : ''} a partir de la idea: ${idea.trim()}`.slice(
           0,
           1_000,
         ),
       });
-      const report = await window.tradia.backtest.run({
-        strategyId: strategy.id,
-        // Se compara con comprar y mantener el propio activo, no con el SPY.
-        benchmark: d.markets[0],
-        walkForward: false,
-        sensitivity: false,
-        monteCarlo: false,
-      });
-      setStep({ kind: 'tested', draft: d, engine: eng, strategyId: strategy.id, report });
+      const outcome: Outcome =
+        timeframe === '1h'
+          ? {
+              timeframe: '1h',
+              result: await window.tradia.lab.backtest({ strategyId: strategy.id, days }),
+            }
+          : {
+              timeframe: '1d',
+              report: await window.tradia.backtest.run({
+                strategyId: strategy.id,
+                // Se compara con comprar y mantener el propio activo.
+                benchmark: d.markets[0],
+                walkForward: false,
+                sensitivity: false,
+                monteCarlo: false,
+              }),
+            };
+      setStep({ kind: 'tested', draft: d, engine: eng, strategyId: strategy.id, outcome });
     } catch (cause) {
       setError(
         `No se pudo probar con datos históricos: ${(cause as Error)?.message ?? 'error desconocido'}`,
@@ -154,14 +195,14 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
   const launch = async () => {
     if (step.kind !== 'tested' || !cashValid) return;
     setError(null);
-    const { draft: d, strategyId, report } = step;
-    setStep({ kind: 'launching', draft: d, strategyId, report });
+    const { draft: d, strategyId, outcome } = step;
+    setStep({ kind: 'launching', draft: d, strategyId, outcome });
     try {
       const forward = await window.tradia.forward.start({ strategyId, initialCash: cashValue });
       onLaunched(forward.id);
     } catch (cause) {
       setError(`No se pudo lanzar la prueba: ${(cause as Error)?.message ?? 'error desconocido'}`);
-      setStep({ kind: 'tested', draft: d, engine: '', strategyId, report });
+      setStep({ kind: 'tested', draft: d, engine: '', strategyId, outcome });
     }
   };
 
@@ -209,10 +250,34 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
             }
           }}
         />
+        <div className="lab-options">
+          <Segmented
+            label="Velas"
+            value={timeframe}
+            disabled={busy || step.kind !== 'idle'}
+            options={[
+              { value: '1h', label: '1 hora' },
+              { value: '1d', label: 'Diarias' },
+            ]}
+            onChange={setTimeframe}
+          />
+          {timeframe === '1h' && (
+            <Segmented
+              label="Histórico"
+              value={days}
+              disabled={busy || step.kind === 'tested'}
+              options={[
+                { value: 365, label: '1 año' },
+                { value: 730, label: '2 años' },
+              ]}
+              onChange={setDays}
+            />
+          )}
+        </div>
         <div className="lab-composer-foot">
           {step.kind === 'idle' || step.kind === 'generating' ? (
             <ul className="lab-examples" aria-label="Ideas de ejemplo">
-              {EXAMPLES.map((example) => (
+              {(timeframe === '1h' ? HOURLY_EXAMPLES : DAILY_EXAMPLES).map((example) => (
                 <li key={example}>
                   <button
                     type="button"
@@ -358,7 +423,7 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
 
       {(step.kind === 'tested' || step.kind === 'launching') && (
         <BacktestVerdict
-          report={step.report}
+          outcome={step.outcome}
           strategyId={step.strategyId}
           cashId={cashId}
           cash={cash}
@@ -373,8 +438,71 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
   );
 }
 
+function Segmented<T extends string | number>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  disabled: boolean;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="lab-segmented" role="radiogroup" aria-label={label}>
+      <span className="lab-segmented-label" aria-hidden="true">
+        {label}
+      </span>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={option.value === value}
+          disabled={disabled}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Cifras comunes de las dos pruebas para el veredicto. */
+function summarize(outcome: Outcome) {
+  if (outcome.timeframe === '1h') {
+    const r = outcome.result;
+    return {
+      annual: r.annualizedReturn,
+      total: r.totalReturn,
+      bench: r.buyAndHold,
+      drawdown: r.maxDrawdown,
+      trades: r.tradeCount,
+      winRate: r.winRate,
+      ticker: r.ticker,
+      period: `${longDate(r.desde)} – ${longDate(r.hasta)} · velas de 1 hora`,
+    };
+  }
+  const { report } = outcome;
+  const m = report.metrics;
+  return {
+    annual: m.annualizedReturn,
+    total: m.totalReturn,
+    bench: report.benchmark?.totalReturn ?? null,
+    drawdown: m.maxDrawdown?.pct ?? null,
+    trades: m.tradeCount,
+    winRate: m.winRate,
+    ticker: report.benchmark?.ticker ?? '',
+    period: `${report.config.desde.slice(0, 4)}–${(report.config.ejecutadoHasta ?? report.config.hasta).slice(0, 4)}`,
+  };
+}
+
 function BacktestVerdict({
-  report,
+  outcome,
   strategyId,
   cashId,
   cash,
@@ -384,7 +512,7 @@ function BacktestVerdict({
   onLaunch,
   sectionRef,
 }: {
-  report: BacktestReport;
+  outcome: Outcome;
   strategyId: number;
   cashId: string;
   cash: string;
@@ -394,11 +522,16 @@ function BacktestVerdict({
   onLaunch: () => void;
   sectionRef: React.RefObject<HTMLElement | null>;
 }) {
-  const m = report.metrics;
-  const bench = report.benchmark?.totalReturn ?? null;
-  const beat = m.totalReturn !== null && bench !== null ? m.totalReturn - bench : null;
-  const few = m.tradeCount < 30;
-  const period = `${report.config.desde.slice(0, 4)}–${(report.config.ejecutadoHasta ?? report.config.hasta).slice(0, 4)}`;
+  const v = summarize(outcome);
+  const beat = v.total !== null && v.bench !== null ? v.total - v.bench : null;
+  const few = v.trades < 30;
+  const hourly = outcome.timeframe === '1h' ? outcome.result : null;
+  // Solo se destaca una sesión que haya ganado dinero.
+  const sessions = hourly?.bySession.filter((s) => s.trades > 0 && s.pnl > 0) ?? [];
+  const best = sessions.reduce<(typeof sessions)[number] | null>(
+    (top, s) => (top === null || s.pnl > top.pnl ? s : top),
+    null,
+  );
   return (
     <section
       className="lab-verdict"
@@ -407,13 +540,17 @@ function BacktestVerdict({
       tabIndex={-1}
     >
       <header>
-        <h3 id={`${cashId}-verdict`}>Así le habría ido · {period}</h3>
-        <a href={`#estrategias/${strategyId}/backtest/${report.id}`}>Informe completo</a>
+        <h3 id={`${cashId}-verdict`}>Así le habría ido · {v.period}</h3>
+        {outcome.timeframe === '1d' && (
+          <a href={`#estrategias/${strategyId}/backtest/${outcome.report.id}`}>Informe completo</a>
+        )}
       </header>
       <dl className="lab-stats">
         <div>
-          <dt>Rentabilidad anual</dt>
-          <dd data-tone={tone(m.annualizedReturn)}>{signedPct(m.annualizedReturn)}</dd>
+          <dt>{hourly ? 'Resultado total' : 'Rentabilidad anual'}</dt>
+          <dd data-tone={tone(hourly ? v.total : v.annual)}>
+            {signedPct(hourly ? v.total : v.annual)}
+          </dd>
         </div>
         <div>
           <dt>Frente a comprar y esperar</dt>
@@ -421,31 +558,73 @@ function BacktestVerdict({
         </div>
         <div>
           <dt>Peor caída</dt>
-          <dd>{pct(m.maxDrawdown?.pct ?? null)}</dd>
+          <dd>{pct(v.drawdown)}</dd>
         </div>
         <div>
           <dt>Operaciones</dt>
           <dd>
-            {m.tradeCount}
-            {m.winRate !== null && (
-              <span className="lab-stat-sub"> · {pct(m.winRate)} aciertos</span>
+            {v.trades}
+            {v.winRate !== null && (
+              <span className="lab-stat-sub"> · {pct(v.winRate)} aciertos</span>
             )}
           </dd>
         </div>
       </dl>
-      {(few || (beat !== null && beat < 0)) && (
-        <p className="lab-caution">
-          {beat !== null && beat < 0
-            ? `En este periodo rinde menos que comprar ${prettyTicker(report.benchmark?.ticker ?? '')} y esperar. Ajusta la idea o lánzala para ver si en el mercado actual se comporta distinto.`
-            : 'Con menos de 30 operaciones el resultado puede ser suerte. La prueba en vivo es la forma de saberlo.'}
-        </p>
+      {hourly && hourly.curve.length > 1 && (
+        <EquityChart
+          curve={hourly.curve}
+          initialCash={hourly.initialCash}
+          benchmark={hourly.ticker}
+          nowLabel={longDate(hourly.hasta)}
+        />
       )}
+      {hourly && (
+        <table className="lab-sessions">
+          <caption>Por sesión en la que entró</caption>
+          <thead>
+            <tr>
+              <th scope="col">Sesión</th>
+              <th scope="col">Operaciones</th>
+              <th scope="col">Aciertos</th>
+              <th scope="col">Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hourly.bySession
+              .filter((s) => s.trades > 0 || s.session !== 'fuera')
+              .map((s) => (
+                <tr key={s.session} data-best={best?.session === s.session || undefined}>
+                  <th scope="row">{SESSION_LABEL[s.session]}</th>
+                  <td>{s.trades}</td>
+                  <td>{s.winRate === null ? '—' : pct(s.winRate)}</td>
+                  <td data-tone={tone(s.pnl / hourly.initialCash)}>
+                    {s.trades === 0 ? '—' : signedMoney(s.pnl)}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      )}
+      {hourly
+        ? hourly.warnings.map((w) => (
+            <p key={w} className="lab-caution">
+              {w}
+            </p>
+          ))
+        : (few || (beat !== null && beat < 0)) && (
+            <p className="lab-caution">
+              {beat !== null && beat < 0
+                ? `En este periodo rinde menos que comprar ${prettyTicker(v.ticker)} y esperar. Ajusta la idea o lánzala para ver si en el mercado actual se comporta distinto.`
+                : 'Con menos de 30 operaciones el resultado puede ser suerte. La prueba en vivo es la forma de saberlo.'}
+            </p>
+          )}
       <div className="lab-launch">
         <div>
           <h4>Pruébala en el mercado real con dinero ficticio</h4>
           <p>
-            Las reglas quedan congeladas y la estrategia opera cada cierre desde hoy. Nada de lo que
-            pase después puede cambiar su resultado.
+            {hourly
+              ? 'Las reglas quedan congeladas y la estrategia opera cada hora desde la próxima hora en punto. Nada de lo que pase después puede cambiar su resultado.'
+              : 'Las reglas quedan congeladas y la estrategia opera cada cierre desde hoy. Nada de lo que pase después puede cambiar su resultado.'}
           </p>
         </div>
         <div className="lab-launch-row">

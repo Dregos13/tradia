@@ -17,7 +17,7 @@ import {
 import { normalizeFxPair } from '../../shared/fx';
 import { parseStrategyRules } from '../../shared/strategyRules';
 import type { StrategyParameterRange } from '../../shared/strategy';
-import { buildLabPrompt, LAB_UNIVERSE } from './prompt';
+import { buildLabPrompt, LAB_HOURLY_UNIVERSE, LAB_UNIVERSE } from './prompt';
 
 /** Motor de texto: una CLI de IA en modo de una sola pasada. */
 export interface LabTextEngine {
@@ -39,6 +39,7 @@ export interface StrategyGenerator {
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const UNIVERSE = new Set<string>(LAB_UNIVERSE);
+const HOURLY = new Set<string>(LAB_HOURLY_UNIVERSE);
 
 /** Saca el primer objeto JSON del texto (tolera bloques ``` y texto alrededor). */
 export function extractJsonObject(text: string): unknown {
@@ -168,6 +169,7 @@ export function createStrategyGenerator(deps: StrategyGeneratorDeps): StrategyGe
         text = await engine.complete(
           buildLabPrompt({
             idea: request.idea,
+            timeframe: request.timeframe,
             previous: request.previous,
             feedback: request.feedback,
             errors,
@@ -192,6 +194,12 @@ export function createStrategyGenerator(deps: StrategyGeneratorDeps): StrategyGe
       }
       const normalized = normalizeDraft(raw);
       errors = [...normalized.errors, ...validateDraft(normalized.draft)];
+      if (request.timeframe === '1h') {
+        const hourly = normalized.draft.markets.filter((m) => HOURLY.has(m));
+        if (hourly.length === 0) {
+          errors.push(`markets: en velas de 1 hora usa uno de ${LAB_HOURLY_UNIVERSE.join(', ')}`);
+        } else normalized.draft.markets = hourly.slice(0, 1);
+      }
       if (errors.length === 0) {
         return { ok: true, draft: normalized.draft, engine: engine.label, attempts: attempt };
       }

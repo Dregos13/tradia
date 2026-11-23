@@ -45,6 +45,8 @@ export interface GeneratedStrategy {
 export interface LabGenerateRequest {
   /** La idea del usuario en lenguaje natural. */
   idea: string;
+  /** Velas con que operará: '1h' admite reglas por sesión. Por defecto '1d'. */
+  timeframe?: '1d' | '1h';
   /** Borrador anterior cuando se pide una iteración. */
   previous?: GeneratedStrategy;
   /** Lo que el usuario quiere cambiar del borrador anterior. */
@@ -77,6 +79,64 @@ export interface LabEngineStatus {
   label: string | null;
   /** Qué hacer si no hay motor. */
   hint: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Prueba histórica de 1 hora
+// ---------------------------------------------------------------------------
+
+export const LAB_HISTORY_DAYS = [365, 730] as const;
+export type LabHistoryDays = (typeof LAB_HISTORY_DAYS)[number];
+
+export interface LabBacktestRequest {
+  strategyId: number;
+  /** Histórico en días (1 o 2 años). */
+  days: LabHistoryDays;
+}
+
+export type LabSessionId = 'tokio' | 'londres' | 'nueva-york' | 'fuera';
+
+export interface LabSessionStats {
+  session: LabSessionId;
+  trades: number;
+  /** Resultado sumado de las operaciones que entraron en esa sesión. */
+  pnl: number;
+  winRate: number | null;
+}
+
+export interface LabBacktestResult {
+  timeframe: '1h';
+  ticker: string;
+  /** Primera y última vela operables (ISO UTC). */
+  desde: string;
+  hasta: string;
+  bars: number;
+  initialCash: number;
+  totalReturn: number;
+  annualizedReturn: number | null;
+  /** Peor caída desde máximos, en fracción positiva. */
+  maxDrawdown: number;
+  tradeCount: number;
+  winRate: number | null;
+  /** Comprar y mantener el mismo activo en el mismo periodo. */
+  buyAndHold: number | null;
+  bySession: LabSessionStats[];
+  /** Curva muestreada para dibujar (capital y comprar y esperar). */
+  curve: { date: string; equity: number; benchmark: number | null }[];
+  /** Avisos honestos (pocas operaciones, poco histórico…). */
+  warnings: string[];
+}
+
+export function isLabBacktestRequest(v: unknown): v is LabBacktestRequest {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
+  const o = v as Record<string, unknown>;
+  if (Object.keys(o).some((k) => k !== 'strategyId' && k !== 'days')) return false;
+  return (
+    typeof o.strategyId === 'number' &&
+    Number.isInteger(o.strategyId) &&
+    o.strategyId > 0 &&
+    (o.days === 365 || o.days === 730)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -220,9 +280,14 @@ export function isGeneratedStrategy(v: unknown): v is GeneratedStrategy {
 
 export function isLabGenerateRequest(v: unknown): v is LabGenerateRequest {
   if (!isRecord(v)) return false;
-  if (Object.keys(v).some((k) => k !== 'idea' && k !== 'previous' && k !== 'feedback')) {
+  if (
+    Object.keys(v).some(
+      (k) => k !== 'idea' && k !== 'previous' && k !== 'feedback' && k !== 'timeframe',
+    )
+  ) {
     return false;
   }
+  if (v.timeframe !== undefined && v.timeframe !== '1d' && v.timeframe !== '1h') return false;
   if (!isText(v.idea, LAB_IDEA_MIN_LENGTH, LAB_IDEA_MAX_LENGTH)) return false;
   if (v.previous !== undefined && !isGeneratedStrategy(v.previous)) return false;
   if (v.feedback !== undefined && !isText(v.feedback, 1, LAB_FEEDBACK_MAX_LENGTH)) return false;
