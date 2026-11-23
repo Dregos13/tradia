@@ -200,6 +200,9 @@ function parsePriceRow(raw: unknown, ticker: string): Bar {
   };
 }
 
+/** Metales al contado que se piden como un par de divisas. */
+const SPOT_METALS = new Set(['XAUUSD', 'XAGUSD']);
+
 export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvider {
   const baseUrl = (deps.baseUrl ?? TIINGO_BASE_URL).replace(/\/+$/, '');
   const timeoutMs = deps.timeoutMs ?? TIINGO_TIMEOUT_MS;
@@ -351,7 +354,9 @@ export function createTiingoProvider(deps: TiingoProviderDeps): MarketDataProvid
     assertValidTicker(ticker, TIINGO_PROVIDER_ID);
     const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
     const range = `startDate=${day(fromMs)}&endDate=${day(toMs)}&resampleFreq=1hour`;
-    const path = isFxPair(ticker)
+    // Metales al contado (XAU/USD, XAG/USD) van por el endpoint de divisas.
+    const viaFx = isFxPair(ticker) || SPOT_METALS.has(ticker);
+    const path = viaFx
       ? `/tiingo/fx/${ticker.toLowerCase()}/prices?${range}`
       : `/iex/${encodeURIComponent(ticker.toLowerCase())}/prices?${range}&columns=open,high,low,close`;
     const payload = await request(path, ticker);

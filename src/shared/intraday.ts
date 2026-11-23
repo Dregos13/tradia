@@ -77,6 +77,7 @@ const ANCHORS: Record<string, number> = {
   USDJPY: 150,
   USDCHF: 0.88,
   GLD: 240,
+  XAUUSD: 2600,
 };
 
 /** ¿Cotiza esa hora? Divisas 24/5 (dom 22:00 – vie 22:00 UTC); el resto, horario de NY aprox. */
@@ -103,7 +104,7 @@ export function simulatedIntradayBars(
   fromMs: number,
   toMs: number,
   seed = 'tradia',
-  fx = isFxPair(ticker),
+  fx = isFxPair(ticker) || ticker === 'XAUUSD',
 ): IntradayBar[] {
   // Origen fijo para que cada hora tenga siempre el mismo precio.
   const genesis = Date.UTC(2023, 0, 1);

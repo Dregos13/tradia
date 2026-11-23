@@ -18,7 +18,14 @@ export const MESA_ASSETS = [
   { ticker: 'EURUSD', name: 'Euro / dólar', note: 'El par más negociado del mundo' },
   { ticker: 'USDJPY', name: 'Dólar / yen', note: 'Se mueve sobre todo en la sesión de Tokio' },
   { ticker: 'GBPUSD', name: 'Libra / dólar', note: 'Muy activo en la sesión de Londres' },
-  { ticker: 'GLD', name: 'Oro', note: 'Oro físico, en dólares (fondo cotizado)' },
+  {
+    ticker: 'GLD',
+    name: 'Oro',
+    note: 'Oro en dólares',
+    // En 1 hora, el oro al contado (24 h, como en MetaTrader); si el
+    // proveedor no lo tiene, el fondo GLD (solo horario de Nueva York).
+    intraday: ['XAUUSD', 'GLD'],
+  },
 ] as const;
 
 type Asset = (typeof MESA_ASSETS)[number];
@@ -74,6 +81,8 @@ export function MesaPage() {
     data: AssetData | null;
     error: string | null;
     loading: boolean;
+    /** Ticker del que salieron las velas de 1 hora (XAUUSD o GLD para el oro). */
+    source?: string;
   } | null>(null);
 
   const load = useCallback(async (tickers: readonly string[]) => {
@@ -140,8 +149,16 @@ export function MesaPage() {
       loading: true,
     }));
     const asset = MESA_ASSETS.find((a) => a.ticker === selected)!;
-    window.tradia.market
-      .getIntraday({ ticker: selected, days: 60 })
+    const sources: readonly string[] = 'intraday' in asset ? asset.intraday : [selected];
+    const fetchFirst = async () => {
+      let last = null as Awaited<ReturnType<typeof window.tradia.market.getIntraday>> | null;
+      for (const ticker of sources) {
+        last = await window.tradia.market.getIntraday({ ticker, days: 60 });
+        if (last.bars.length > 0) return last;
+      }
+      return last!;
+    };
+    fetchFirst()
       .then((result) => {
         if (!alive) return;
         const candles: PatternCandle[] = result.bars.map((b) => ({
@@ -159,6 +176,7 @@ export function MesaPage() {
               : null,
           error: result.error,
           loading: false,
+          source: result.ticker,
         });
       })
       .catch((cause: unknown) => {
@@ -265,6 +283,11 @@ export function MesaPage() {
               <h2 id="mesa-focus-title">{asset.name}</h2>
               <p className="mesa-meta">
                 {asset.note}
+                {frame === '1h' && hourlyHere?.source === 'XAUUSD' && ' · al contado (XAU/USD)'}
+                {frame === '1h' &&
+                  selected === 'GLD' &&
+                  hourlyHere?.source === 'GLD' &&
+                  ' · fondo GLD, solo horario de Nueva York'}
                 {last &&
                   (last.date.includes('T')
                     ? ` · última vela ${hourFmt.format(new Date(last.date))}`
