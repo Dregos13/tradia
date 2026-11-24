@@ -13,7 +13,9 @@ export const statusTokens = {
   degradada: 'degraded',
   retirada: 'retired',
 };
-export const metrics: [keyof StrategyMetricsSummary, string, string][] = [
+type NumericMetric = Exclude<keyof StrategyMetricsSummary, 'timeframe' | 'desde' | 'hasta'>;
+
+export const metrics: [NumericMetric, string, string][] = [
   ['totalReturnPct', 'Rentabilidad', '%'],
   ['maxDrawdownPct', 'Drawdown máximo', '%'],
   ['sharpe', 'Sharpe', ''],

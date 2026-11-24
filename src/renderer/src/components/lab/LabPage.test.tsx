@@ -37,14 +37,26 @@ describe('Laboratorio', () => {
 
     await user.click(screen.getByRole('button', { name: 'Probar con datos históricos' }));
     expect(await screen.findByText(/velas de 1 hora/, {}, { timeout: 10_000 })).toBeInTheDocument();
+    // Veredicto en una frase antes que las cifras.
+    expect(
+      screen.getByText(
+        /^(No ha hecho ninguna operación|Esta idea pierde dinero|Gana, pero menos que no hacer nada|Gana, pero puede ser suerte|Esta idea gana)$/,
+      ),
+    ).toBeInTheDocument();
     const sessions = screen.getByRole('table', { name: 'Por sesión en la que entró' });
     expect(within(sessions).getByRole('rowheader', { name: 'Londres' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Informe completo' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Lanzar prueba en vivo' }));
+    await user.click(screen.getByRole('button', { name: /^Lanzar (prueba en vivo|igualmente)$/ }));
     await vi.waitFor(() => expect(window.location.hash).toMatch(/^#laboratorio\/prueba\/\d+$/));
     const strategies = await window.tradia.strategies.list();
     expect(strategies.at(-1)?.timeframe).toBe('1h');
+    // El resultado queda guardado en la ficha.
+    const saved = await window.tradia.strategies.get({ id: strategies.at(-1)!.id });
+    expect(saved?.metricsSummary?.timeframe).toBe('1h');
+    expect(
+      await screen.findByText(/horas mirando el mercado real|Empieza a las/),
+    ).toBeInTheDocument();
   }, 20_000);
 
   it('lleva una idea a reglas, la prueba con el histórico y la lanza en vivo', async () => {
@@ -80,10 +92,12 @@ describe('Laboratorio', () => {
     const cash = screen.getByLabelText('Capital ficticio (USD)');
     await user.clear(cash);
     await user.type(cash, '500');
-    expect(screen.getByRole('button', { name: 'Lanzar prueba en vivo' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /^Lanzar (prueba en vivo|igualmente)$/ }),
+    ).toBeDisabled();
     await user.clear(cash);
     await user.type(cash, '25000');
-    await user.click(screen.getByRole('button', { name: 'Lanzar prueba en vivo' }));
+    await user.click(screen.getByRole('button', { name: /^Lanzar (prueba en vivo|igualmente)$/ }));
     await vi.waitFor(() => expect(window.location.hash).toMatch(/^#laboratorio\/prueba\/\d+$/));
   });
 

@@ -15,7 +15,7 @@
  *    retocar las reglas a posteriori.
  */
 type SessionDate = string;
-import type { StrategyParameterRange, StrategyRules } from './strategy';
+import type { StrategyMetricsSummary, StrategyParameterRange, StrategyRules } from './strategy';
 
 // ---------------------------------------------------------------------------
 // Generador con IA
@@ -125,6 +125,87 @@ export interface LabBacktestResult {
   curve: { date: string; equity: number; benchmark: number | null }[];
   /** Avisos honestos (pocas operaciones, poco histórico…). */
   warnings: string[];
+  /** Resumen que se guarda en la ficha de la estrategia. */
+  summary: StrategyMetricsSummary;
+}
+
+// ---------------------------------------------------------------------------
+// Veredicto en una frase
+// ---------------------------------------------------------------------------
+
+export type LabVerdictLevel = 'sin-operaciones' | 'pierde' | 'peor' | 'dudosa' | 'prometedora';
+
+export interface LabVerdict {
+  level: LabVerdictLevel;
+  /** 'bad' no conviene lanzarla, 'warn' con cautela, 'good' merece la prueba en vivo. */
+  tone: 'bad' | 'warn' | 'good';
+  title: string;
+  text: string;
+}
+
+export interface LabVerdictInput {
+  /** Resultado total del periodo, en fracción. */
+  total: number | null;
+  /** Comprar y esperar el mismo activo, en fracción. */
+  benchmark: number | null;
+  trades: number;
+  /** Activo legible («EUR/USD»). */
+  asset: string;
+}
+
+const pctText = (v: number): string =>
+  `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v * 100)
+    .toFixed(1)
+    .replace('.', ',')} %`;
+
+/**
+ * Traduce las cifras de una prueba histórica a una conclusión para alguien
+ * que empieza: ¿gana?, ¿gana más que no hacer nada?, ¿es suerte?
+ */
+export function labVerdict(input: LabVerdictInput): LabVerdict {
+  const { total, benchmark, trades, asset } = input;
+  if (trades === 0 || total === null) {
+    return {
+      level: 'sin-operaciones',
+      tone: 'bad',
+      title: 'No ha hecho ninguna operación',
+      text: 'Sus condiciones casi nunca se cumplen. Cambia la idea o pide reglas menos estrictas.',
+    };
+  }
+  if (total < 0) {
+    return {
+      level: 'pierde',
+      tone: 'bad',
+      title: 'Esta idea pierde dinero',
+      text: `Habría perdido ${pctText(total).replace('−', '')}${
+        benchmark !== null ? ` (comprar ${asset} y esperar: ${pctText(benchmark)})` : ''
+      }. No la lances: prueba otra idea o pide cambios.`,
+    };
+  }
+  if (benchmark !== null && total < benchmark) {
+    return {
+      level: 'peor',
+      tone: 'warn',
+      title: 'Gana, pero menos que no hacer nada',
+      text: `Gana ${pctText(total)}, pero comprar ${asset} y esperar daba ${pctText(benchmark)}. Así no compensa el esfuerzo.`,
+    };
+  }
+  if (trades < 30) {
+    return {
+      level: 'dudosa',
+      tone: 'warn',
+      title: 'Gana, pero puede ser suerte',
+      text: `Gana ${pctText(total)} con solo ${trades} operaciones. Pruébala en vivo para ver si se repite.`,
+    };
+  }
+  return {
+    level: 'prometedora',
+    tone: 'good',
+    title: 'Esta idea gana',
+    text: `Gana ${pctText(total)} en ${trades} operaciones${
+      benchmark !== null ? `, más que comprar ${asset} y esperar (${pctText(benchmark)})` : ''
+    }. Siguiente paso: pruébala en vivo con dinero ficticio.`,
+  };
 }
 
 export function isLabBacktestRequest(v: unknown): v is LabBacktestRequest {

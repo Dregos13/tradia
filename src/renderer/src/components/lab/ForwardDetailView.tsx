@@ -4,6 +4,7 @@ import type { ForwardDetail } from '../../../../shared/lab';
 import { EquityChart } from './EquityChart';
 import {
   EXIT_LABEL,
+  isHourlyStart,
   longDate,
   money,
   ORDER_LABEL,
@@ -13,7 +14,11 @@ import {
   signedMoney,
   signedPct,
   tone,
+  when,
 } from './format';
+
+/** Velas de 1 hora en un año de divisas (24 h × 5 días × 52 semanas). */
+const HOURS_PER_YEAR = 24 * 5 * 52;
 
 export function ForwardDetailView({ id }: { id: number }) {
   const [detail, setDetail] = useState<ForwardDetail | null | undefined>(undefined);
@@ -62,11 +67,19 @@ export function ForwardDetailView({ id }: { id: number }) {
   const { test } = detail;
   const live = test.status === 'activa';
   const started = detail.sessions > 0;
+  const hourly = isHourlyStart(test.startDate);
+  const unit = hourly ? 'horas' : 'sesiones';
+  const idle =
+    started &&
+    detail.tradeCount === 0 &&
+    detail.positions.length === 0 &&
+    detail.pendingOrders.length === 0;
   const edge =
     detail.benchmarkReturnPct === null ? null : detail.returnPct - detail.benchmarkReturnPct;
   const expected =
     detail.backtestAnnualPct !== null && started
-      ? Math.pow(1 + detail.backtestAnnualPct, detail.sessions / 252) - 1
+      ? Math.pow(1 + detail.backtestAnnualPct, detail.sessions / (hourly ? HOURS_PER_YEAR : 252)) -
+        1
       : null;
 
   const stop = async () => {
@@ -94,8 +107,10 @@ export function ForwardDetailView({ id }: { id: number }) {
         <div>
           <h2>{test.strategyName}</h2>
           <p className="lab-detail-meta">
-            v{test.version} congelada · {test.markets.join(' · ')} · desde{' '}
-            {longDate(test.startDate)}
+            v{test.version} congelada · {test.markets.join(' · ')} ·{' '}
+            {hourly
+              ? 'velas de 1 hora · desde ' + when(test.startDate)
+              : 'desde ' + longDate(test.startDate)}
             {!live && test.stoppedAt && ` hasta ${longDate(test.stoppedAt)}`}
             {detail.dataKind === 'simulated' && ' · datos simulados'}
           </p>
@@ -127,6 +142,22 @@ export function ForwardDetailView({ id }: { id: number }) {
             ))}
         </div>
       </header>
+
+      {detail.backtestAnnualPct !== null && detail.backtestAnnualPct < 0 && live && (
+        <p className="lab-call" data-tone="bad" role="note">
+          <strong>Ojo: en el histórico esta estrategia perdía dinero</strong>
+          {`Perdía ${signedPct(detail.backtestAnnualPct).replace('−', '')} al año. Puedes dejarla para comprobarlo, pero lo normal es detenerla y probar otra idea.`}
+        </p>
+      )}
+
+      {started && (
+        <p className="lab-status-line">
+          Lleva <b>{detail.sessions}</b> {unit} mirando el mercado real
+          {detail.asOf ? ` (última: ${when(detail.asOf)})` : ''}.
+          {idle &&
+            ' Todavía no se ha dado su señal, así que no ha comprado nada: es normal, espera.'}
+        </p>
+      )}
 
       {detail.error && (
         <p className="lab-error" role="alert">
@@ -176,10 +207,17 @@ export function ForwardDetailView({ id }: { id: number }) {
         />
       ) : (
         <div className="lab-waiting">
-          <p>
-            Esperando su primer cierre. La estrategia evalúa las reglas al cierre del{' '}
-            {longDate(test.startDate)} y, si da señal, opera en la apertura siguiente.
-          </p>
+          {hourly ? (
+            <p>
+              Empieza a las {when(test.startDate)}. Cada hora mira la vela que acaba de cerrar y, si
+              se cumplen sus reglas, compra o vende al empezar la siguiente.
+            </p>
+          ) : (
+            <p>
+              Esperando su primer cierre. La estrategia evalúa las reglas al cierre del{' '}
+              {longDate(test.startDate)} y, si da señal, opera en la apertura siguiente.
+            </p>
+          )}
         </div>
       )}
 
@@ -188,13 +226,14 @@ export function ForwardDetailView({ id }: { id: number }) {
           Al ritmo de su backtest ({signedPct(detail.backtestAnnualPct)} al año) llevaría{' '}
           <b>{signedPct(expected)}</b>. Lleva{' '}
           <b data-tone={tone(detail.returnPct)}>{signedPct(detail.returnPct)}</b>.
-          {detail.sessions < 60 && ' Con tan pocas sesiones la diferencia todavía no dice mucho.'}
+          {detail.sessions < (hourly ? 120 : 60) &&
+            ` Con tan pocas ${unit} la diferencia todavía no dice mucho.`}
         </p>
       )}
 
       <div className="lab-columns">
         <section aria-labelledby="lab-next">
-          <h3 id="lab-next">Próxima apertura</h3>
+          <h3 id="lab-next">{hourly ? 'Próxima hora' : 'Próxima apertura'}</h3>
           {detail.pendingOrders.length === 0 ? (
             <p className="lab-muted">
               {live ? 'Sin órdenes: la estrategia espera su señal.' : 'Prueba detenida.'}
@@ -239,7 +278,7 @@ export function ForwardDetailView({ id }: { id: number }) {
                       {p.ticker}
                       {p.side === 'corto' && <span className="lab-row-sub">Corto</span>}
                     </th>
-                    <td className="mono">{shortDate(p.entryDate)}</td>
+                    <td className="mono">{when(p.entryDate)}</td>
                     <td className="num">{price(p.entryPrice)}</td>
                     <td className="num">{price(p.lastClose)}</td>
                     <td className="num" data-tone={tone(p.unrealizedPnl)}>
@@ -278,10 +317,10 @@ export function ForwardDetailView({ id }: { id: number }) {
                     {t.side === 'corto' && <span className="lab-row-sub">Corto</span>}
                   </th>
                   <td className="mono">
-                    {shortDate(t.entryDate)} · {price(t.entryPrice)}
+                    {when(t.entryDate)} · {price(t.entryPrice)}
                   </td>
                   <td className="mono">
-                    {shortDate(t.exitDate)} · {price(t.exitPrice)}
+                    {when(t.exitDate)} · {price(t.exitPrice)}
                   </td>
                   <td>{EXIT_LABEL[t.exitReason] ?? t.exitReason}</td>
                   <td className="num" data-tone={tone(t.pnl)}>

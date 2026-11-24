@@ -1,5 +1,5 @@
 import type { ForwardSummary } from '../../../../shared/lab';
-import { money, pct, shortDate, signedPct, tone } from './format';
+import { isHourlyStart, money, pct, signedPct, tone, when } from './format';
 
 /**
  * Tablero de pruebas en vivo: una fila por estrategia, ordenadas por lo
@@ -73,6 +73,7 @@ export function ForwardBoard({
           <tbody>
             {sorted.map((row) => {
               const started = row.sessions > 0;
+              const unit = isHourlyStart(row.test.startDate) ? 'horas' : 'sesiones';
               return (
                 <tr key={row.test.id} data-status={row.test.status}>
                   <th scope="row">
@@ -83,11 +84,13 @@ export function ForwardBoard({
                         : row.error
                           ? row.error
                           : started
-                            ? `${row.sessions} sesiones · ${row.openPositions} abiertas`
-                            : 'Esperando su primer cierre'}
+                            ? row.tradeCount === 0 && row.openPositions === 0
+                              ? `${row.sessions} ${unit} · aún sin operar`
+                              : `${row.sessions} ${unit} · ${row.openPositions} abiertas`
+                            : `Empieza ${when(row.test.startDate)}`}
                     </span>
                   </th>
-                  <td className="mono">{shortDate(row.test.startDate)}</td>
+                  <td className="mono">{when(row.test.startDate)}</td>
                   <td className="num">{money(row.equity)}</td>
                   <td className="num" data-tone={started ? tone(row.returnPct) : 'flat'}>
                     {started ? signedPct(row.returnPct) : '—'}

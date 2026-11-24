@@ -12,6 +12,7 @@ import {
   type LabEngineStatus,
   type LabHistoryDays,
   type LabSessionId,
+  labVerdict,
 } from '../../../../shared/lab';
 import type { StrategyTimeframe } from '../../../../shared/strategy';
 import { EquityChart } from './EquityChart';
@@ -431,6 +432,7 @@ export function LabStudio({ onLaunched }: { onLaunched: (forwardId: number) => v
           onCash={setCash}
           launching={step.kind === 'launching'}
           onLaunch={() => void launch()}
+          onReset={reset}
           sectionRef={resultRef}
         />
       )}
@@ -510,6 +512,7 @@ function BacktestVerdict({
   onCash,
   launching,
   onLaunch,
+  onReset,
   sectionRef,
 }: {
   outcome: Outcome;
@@ -520,11 +523,18 @@ function BacktestVerdict({
   onCash: (value: string) => void;
   launching: boolean;
   onLaunch: () => void;
+  onReset: () => void;
   sectionRef: React.RefObject<HTMLElement | null>;
 }) {
   const v = summarize(outcome);
   const beat = v.total !== null && v.bench !== null ? v.total - v.bench : null;
-  const few = v.trades < 30;
+  const verdict = labVerdict({
+    total: v.total,
+    benchmark: v.bench,
+    trades: v.trades,
+    asset: prettyTicker(v.ticker),
+  });
+  const discourage = verdict.tone === 'bad';
   const hourly = outcome.timeframe === '1h' ? outcome.result : null;
   // Solo se destaca una sesión que haya ganado dinero.
   const sessions = hourly?.bySession.filter((s) => s.trades > 0 && s.pnl > 0) ?? [];
@@ -545,6 +555,10 @@ function BacktestVerdict({
           <a href={`#estrategias/${strategyId}/backtest/${outcome.report.id}`}>Informe completo</a>
         )}
       </header>
+      <div className="lab-call" data-tone={verdict.tone} role="status">
+        <strong>{verdict.title}</strong>
+        <p>{verdict.text}</p>
+      </div>
       <dl className="lab-stats">
         <div>
           <dt>{hourly ? 'Resultado total' : 'Rentabilidad anual'}</dt>
@@ -605,26 +619,23 @@ function BacktestVerdict({
           </tbody>
         </table>
       )}
-      {hourly
-        ? hourly.warnings.map((w) => (
-            <p key={w} className="lab-caution">
-              {w}
-            </p>
-          ))
-        : (few || (beat !== null && beat < 0)) && (
-            <p className="lab-caution">
-              {beat !== null && beat < 0
-                ? `En este periodo rinde menos que comprar ${prettyTicker(v.ticker)} y esperar. Ajusta la idea o lánzala para ver si en el mercado actual se comporta distinto.`
-                : 'Con menos de 30 operaciones el resultado puede ser suerte. La prueba en vivo es la forma de saberlo.'}
-            </p>
-          )}
+      {/* El veredicto ya habla de pocas operaciones; aquí solo el resto de avisos. */}
+      {hourly?.warnings
+        .filter((w) => !/30 operaciones/.test(w))
+        .map((w) => (
+          <p key={w} className="lab-caution">
+            {w}
+          </p>
+        ))}
       <div className="lab-launch">
         <div>
-          <h4>Pruébala en el mercado real con dinero ficticio</h4>
+          <h4>{discourage ? '¿Y ahora?' : 'Pruébala en el mercado real con dinero ficticio'}</h4>
           <p>
-            {hourly
-              ? 'Las reglas quedan congeladas y la estrategia opera cada hora desde la próxima hora en punto. Nada de lo que pase después puede cambiar su resultado.'
-              : 'Las reglas quedan congeladas y la estrategia opera cada cierre desde hoy. Nada de lo que pase después puede cambiar su resultado.'}
+            {discourage
+              ? 'Lo normal es probar otra idea o pedir cambios arriba. Si aun así quieres verla en el mercado real, puedes lanzarla con dinero ficticio.'
+              : hourly
+                ? 'Las reglas quedan congeladas y la estrategia opera cada hora desde la próxima hora en punto. Nada de lo que pase después puede cambiar su resultado.'
+                : 'Las reglas quedan congeladas y la estrategia opera cada cierre desde hoy. Nada de lo que pase después puede cambiar su resultado.'}
           </p>
         </div>
         <div className="lab-launch-row">
@@ -636,14 +647,19 @@ function BacktestVerdict({
             aria-invalid={!cashValid}
             onChange={(event) => onCash(event.target.value)}
           />
+          {discourage && (
+            <button type="button" className="button primary" onClick={onReset}>
+              Probar otra idea
+            </button>
+          )}
           <button
             type="button"
-            className="button primary"
+            className={discourage ? 'button' : 'button primary'}
             disabled={!cashValid || launching}
             aria-busy={launching}
             onClick={onLaunch}
           >
-            {launching ? 'Lanzando…' : 'Lanzar prueba en vivo'}
+            {launching ? 'Lanzando…' : discourage ? 'Lanzar igualmente' : 'Lanzar prueba en vivo'}
           </button>
         </div>
       </div>

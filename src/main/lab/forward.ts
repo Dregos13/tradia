@@ -461,8 +461,10 @@ export function createForwardService(deps: ForwardServiceDeps): ForwardService {
     const strategy = deps.strategies.get(row.strategy_id, row.version);
     const test = toTest(row, strategy);
     if (!strategy) return emptyForwardDetail(test, 'La estrategia ya no existe.', 'simulated');
+    const fromFicha = strategy.metricsSummary?.annualReturnPct;
     const backtestAnnualPct =
-      deps.runs.latestRun(row.strategy_id, row.version)?.metrics.annualizedReturn ?? null;
+      deps.runs.latestRun(row.strategy_id, row.version)?.metrics.annualizedReturn ??
+      (typeof fromFicha === 'number' ? fromFicha / 100 : null);
     let create: () => EngineStrategy;
     try {
       create = createImpl(strategy);

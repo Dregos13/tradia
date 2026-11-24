@@ -814,3 +814,39 @@
 .lab-sessions tr[data-best] th {
   color: var(--color-accent);
 }
+
+/* Veredicto en una frase: lo primero que se lee del resultado. */
+.lab-call {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--call-color);
+  border-radius: var(--radius-md);
+  background: var(--call-surface);
+  --call-color: var(--state-paused);
+  --call-surface: var(--state-paused-surface);
+}
+.lab-call[data-tone='bad'] {
+  --call-color: var(--state-critical);
+  --call-surface: var(--state-critical-surface);
+}
+.lab-call[data-tone='good'] {
+  --call-color: var(--state-success);
+  --call-surface: var(--state-success-surface);
+}
+.lab-call strong {
+  color: var(--color-text);
+  font-size: var(--type-lg);
+}
+.lab-call p {
+  margin: 0;
+  color: var(--color-text);
+}
+.lab-status-line {
+  color: var(--color-textMuted);
+}
+.lab-status-line b {
+  color: var(--color-text);
+  font-family: var(--font-numeric);
+}

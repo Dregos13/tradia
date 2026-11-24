@@ -61,6 +61,22 @@ export function shortDate(iso: string): string {
   return dateFmt.format(parse(iso)).replace('.', '');
 }
 
+const whenFmt = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Madrid',
+});
+
+/** Fecha con hora de Madrid si el ISO la trae («24 nov, 14:00»); si no, solo el día. */
+export function when(iso: string): string {
+  return iso.includes('T') ? whenFmt.format(new Date(iso)).replace('.', '') : shortDate(iso);
+}
+
+/** ¿Es una prueba de 1 hora? (su inicio lleva hora). */
+export const isHourlyStart = (startDate: string): boolean => startDate.includes('T');
+
 export function longDate(iso: string): string {
   return longDateFmt.format(parse(iso)).replace('.', '');
 }

@@ -2036,7 +2036,11 @@ export function createSimulatedAdapter() {
       getBars: async (ticker, desde, hasta) => fakeBars(ticker, desde, hasta),
       today: nyParts(Date.now()).date,
       dataKind: 'simulated',
-      backtestAnnualPct: latest?.metrics.annualizedReturn ?? null,
+      backtestAnnualPct:
+        latest?.metrics.annualizedReturn ??
+        (typeof strategy.metricsSummary?.annualReturnPct === 'number'
+          ? strategy.metricsSummary.annualReturnPct / 100
+          : null),
       getHourlyBars: async (ticker, fromMs, toMs) => simulatedIntradayBars(ticker, fromMs, toMs),
       nowMs: Date.now(),
     });
@@ -2436,13 +2440,19 @@ export function createSimulatedAdapter() {
         const ticker = executableMarkets(strategy.markets)[0];
         if (!ticker) throw new Error('La estrategia no tiene un activo operable.');
         const end = Date.now();
-        return runHourlyBacktest({
+        const result = runHourlyBacktest({
           strategy,
           create: implForStrategy(strategy).create,
           bars: simulatedIntradayBars(ticker, end - request.days * DAY_MS, end),
           ticker,
           requestedDays: request.days,
         });
+        strategyVersions = strategyVersions.map((v) =>
+          v.id === strategy.id && v.version === strategy.version
+            ? { ...v, metricsSummary: result.summary }
+            : v,
+        );
+        return result;
       },
     },
     forward: {

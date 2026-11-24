@@ -45,7 +45,7 @@ test('de una idea a una prueba en vivo', async () => {
   });
   await capturePhaseScreenshot(page, 'laboratorio-veredicto.png');
 
-  await page.getByRole('button', { name: 'Lanzar prueba en vivo' }).click();
+  await page.getByRole('button', { name: /^Lanzar (prueba en vivo|igualmente)$/ }).click();
   await expect(page).toHaveURL(/#laboratorio\/prueba\/\d+$/);
   await expect(page.getByRole('heading', { name: 'Cruce de medias', level: 2 })).toBeVisible({
     timeout: 60_000,
@@ -82,7 +82,7 @@ test('en velas de 1 hora prueba por sesiones y la lanza en vivo', async () => {
   await expect(sessions.getByRole('rowheader', { name: 'Londres' })).toBeVisible();
   await capturePhaseScreenshot(page, 'laboratorio-veredicto-1h.png');
 
-  await page.getByRole('button', { name: 'Lanzar prueba en vivo' }).click();
+  await page.getByRole('button', { name: /^Lanzar (prueba en vivo|igualmente)$/ }).click();
   await expect(page).toHaveURL(/#laboratorio\/prueba\/\d+$/);
   await expect(
     page.getByRole('heading', { name: 'Ruptura en la sesión de Londres', level: 2 }),

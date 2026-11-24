@@ -121,6 +121,11 @@ export function runHourlyBacktest(input: HourlyBacktestInput): LabBacktestResult
     );
   }
 
+  const totalReturn = metrics.totalReturn ?? result.finalEquity / initialCash - 1;
+  const annualizedReturn = Number.isFinite(metrics.annualizedReturn ?? NaN)
+    ? metrics.annualizedReturn
+    : null;
+  const buyAndHold = first > 0 ? last.close / first - 1 : null;
   return {
     timeframe: '1h',
     ticker: input.ticker,
@@ -128,16 +133,29 @@ export function runHourlyBacktest(input: HourlyBacktestInput): LabBacktestResult
     hasta: last.date,
     bars: bars.length - HOURLY_WARMUP_BARS,
     initialCash,
-    totalReturn: metrics.totalReturn ?? result.finalEquity / initialCash - 1,
-    annualizedReturn: Number.isFinite(metrics.annualizedReturn ?? NaN)
-      ? metrics.annualizedReturn
-      : null,
+    totalReturn,
+    annualizedReturn,
     maxDrawdown: metrics.maxDrawdown?.pct ?? 0,
     tradeCount: result.trades.length,
     winRate: metrics.winRate,
-    buyAndHold: first > 0 ? last.close / first - 1 : null,
+    buyAndHold,
     bySession,
     curve: sample(curve, CURVE_POINTS),
     warnings,
+    summary: {
+      totalReturnPct: totalReturn * 100,
+      maxDrawdownPct: (metrics.maxDrawdown?.pct ?? 0) * 100,
+      sharpe: metrics.sharpe,
+      profitFactor: metrics.profitFactor,
+      winRatePct: metrics.winRate === null ? null : metrics.winRate * 100,
+      expectancy: metrics.expectancy,
+      maxLosingStreak: metrics.maxLosingStreak,
+      trades: result.trades.length,
+      annualReturnPct: annualizedReturn === null ? null : annualizedReturn * 100,
+      benchmarkReturnPct: buyAndHold === null ? null : buyAndHold * 100,
+      timeframe: '1h',
+      desde: startDate,
+      hasta: last.date,
+    },
   };
 }

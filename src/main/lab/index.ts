@@ -104,13 +104,17 @@ export function registerLab(
     if (data.bars.length === 0) {
       throw new Error(data.error ?? `No hay velas de 1 hora de ${ticker}.`);
     }
-    return runHourlyBacktest({
+    const result = runHourlyBacktest({
       strategy,
       create: () => createCustomStrategy(parsed.program, strategy.parameters),
       bars: data.bars,
       ticker,
       requestedDays: request.days,
     });
+    // La ficha y la prueba en vivo recuerdan el resultado.
+    strategies.setVersionMetrics(strategy.id, result.summary, strategy.version);
+    forward.invalidate();
+    return result;
   });
   ipcMain.handle(IPC_CHANNELS.forward.list, () => forward.list());
   ipcMain.handle(IPC_CHANNELS.forward.get, (_event, id: unknown) => {

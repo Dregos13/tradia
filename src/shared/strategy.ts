@@ -121,6 +121,15 @@ export interface StrategyMetricsSummary {
   expectancy: number | null;
   maxLosingStreak: number;
   trades: number;
+  /** Rentabilidad anualizada en % (pruebas del laboratorio). */
+  annualReturnPct?: number | null;
+  /** Comprar y esperar el mismo activo, en %. */
+  benchmarkReturnPct?: number | null;
+  /** Velas de la prueba que produjo el resumen. */
+  timeframe?: StrategyTimeframe;
+  /** Periodo probado (ISO). */
+  desde?: string;
+  hasta?: string;
 }
 
 /** Ficha completa: la estrategia en una versión concreta. */
