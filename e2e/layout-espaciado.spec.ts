@@ -774,7 +774,9 @@ test('el tour ilumina el ancla data-tour de cada paso, también en Mercado, IA y
               spot.height <= target.height + 2 * slack;
             return fits ? 'ancla' : `respaldo ${Math.round(spot.width)}×${Math.round(spot.height)}`;
           },
-          { timeout: 5_000 },
+          // Mismo margen que la espera del ancla: en el runner de Linux de CI
+          // el foco puede tardar más de 5 s en recolocarse.
+          { timeout: 15_000 },
         )
         .toBe('ancla');
     }
