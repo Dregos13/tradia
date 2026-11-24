@@ -772,3 +772,58 @@ describe('validación de entrada', () => {
     ]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Prueba en vivo: cartera viva al final (`keepOpenAtEnd`)
+// ---------------------------------------------------------------------------
+
+describe('keepOpenAtEnd', () => {
+  const bars = {
+    AAA: [
+      flat('2024-01-02', 100),
+      flat('2024-01-03', 100),
+      flat('2024-01-04', 104),
+      flat('2024-01-05', 106),
+    ],
+    BBB: [
+      flat('2024-01-02', 50),
+      flat('2024-01-03', 50),
+      flat('2024-01-04', 50),
+      flat('2024-01-05', 50),
+    ],
+  };
+  const strategy = () =>
+    scripted({
+      0: (ctx) => ctx.buy('AAA', { stop: 90 }),
+      // Señal en el último cierre: queda pendiente para la próxima apertura.
+      3: (ctx) => ctx.buy('BBB', { stop: 45 }),
+    });
+
+  it('sin la opción, el backtest liquida al final como siempre', () => {
+    const result = runBacktest({ strategy: strategy(), bars, costs: NO_COSTS });
+    expect(result.trades.map((t) => t.exitReason)).toEqual(['end-of-data']);
+    expect(result.openPositions).toBeUndefined();
+    expect(result.pendingOrders).toBeUndefined();
+  });
+
+  it('con la opción, devuelve la posición abierta marcada al último cierre y la orden pendiente', () => {
+    const result = runBacktest({
+      strategy: strategy(),
+      bars,
+      costs: NO_COSTS,
+      keepOpenAtEnd: true,
+    });
+    expect(result.trades).toEqual([]);
+    expect(result.openPositions).toHaveLength(1);
+    const [open] = result.openPositions!;
+    expect(open).toMatchObject({ ticker: 'AAA', side: 'largo', entryPrice: 100, lastClose: 106 });
+    expect(open!.unrealizedPnl).toBeCloseTo(6 * open!.shares, 10);
+    expect(result.pendingOrders).toEqual([
+      { ticker: 'BBB', kind: 'buy', signalDate: '2024-01-05' },
+    ]);
+    // La curva marca la posición, no la liquida.
+    const last = result.equityCurve.at(-1)!;
+    expect(last.positions).toBe(1);
+    expect(result.finalEquity).toBeCloseTo(last.equity, 10);
+  });
+});

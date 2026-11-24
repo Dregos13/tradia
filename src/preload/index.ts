@@ -28,6 +28,10 @@ import type {
   CalendarListQuery,
   CalendarUpdatedEvent,
   CancelOrderRequest,
+  ForwardStartRequest,
+  IntradayRequest,
+  LabGenerateRequest,
+  LabBacktestRequest,
   ConnectivityState,
   CreateOrderRequest,
   DataStatusEntry,
@@ -174,6 +178,8 @@ const api: TradiaApi = {
   },
   market: {
     getBars: (request: GetBarsRequest) => ipcRenderer.invoke(IPC_CHANNELS.market.getBars, request),
+    getIntraday: (request: IntradayRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.market.getIntraday, request),
     refreshNow: () => ipcRenderer.invoke(IPC_CHANNELS.market.refreshNow),
     search: (query: string) => ipcRenderer.invoke(IPC_CHANNELS.market.search, query),
     onUpdated: (listener) => subscribe<MarketUpdatedEvent>(IPC_CHANNELS.market.updated, listener),
@@ -209,6 +215,21 @@ const api: TradiaApi = {
     getPrefs: () => ipcRenderer.invoke(IPC_CHANNELS.alerts.getPrefs),
     setPrefs: (prefs: AlertPrefs) => ipcRenderer.invoke(IPC_CHANNELS.alerts.setPrefs, prefs),
     onNavigate: (listener) => subscribe<NotificationRoute>(IPC_CHANNELS.alerts.navigate, listener),
+  },
+  lab: {
+    engine: () => ipcRenderer.invoke(IPC_CHANNELS.lab.engine),
+    generate: (request: LabGenerateRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.lab.generate, request),
+    backtest: (request: LabBacktestRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.lab.backtest, request),
+  },
+  forward: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.forward.list),
+    get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.get, id),
+    start: (request: ForwardStartRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.forward.start, request),
+    stop: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.stop, id),
+    remove: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.forward.remove, id),
   },
   strategies: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.strategies.list),

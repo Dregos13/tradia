@@ -177,6 +177,31 @@ import type {
 // El falso ejecuta el motor real: estos módulos son TS puro, sin Electron
 // ni Node (contrato de src/main/backtest/).
 import { runBacktest } from '../../../main/backtest/engine';
+import {
+  INTRADAY_DEFAULT_DAYS,
+  isIntradayRequest,
+  simulatedIntradayBars,
+} from '../../../shared/intraday';
+import {
+  computeForward,
+  emptyForwardDetail,
+  executableMarkets,
+  forwardHourlyStart,
+  forwardStartDate,
+  forwardSummaryOf,
+  nyParts,
+} from '../../../main/lab/forward';
+import { createStrategyGenerator } from '../../../main/lab/generator';
+import { runHourlyBacktest } from '../../../main/lab/hourly';
+import { createSimulatedLabEngine } from '../../../main/lab/simulated';
+import {
+  FORWARD_DEFAULT_CASH,
+  isForwardStartRequest,
+  isLabBacktestRequest,
+  isLabGenerateRequest,
+  type ForwardDetail,
+  type ForwardTest,
+} from '../../../shared/lab';
 import { computeMetrics, type BacktestMetrics } from '../../../main/backtest/metrics';
 import { CLASSIC_STRATEGIES } from '../../../main/backtest/strategies';
 import { runMonteCarlo, splitTimeline } from '../../../main/backtest/validation';
@@ -699,8 +724,9 @@ export function createSimulatedAdapter() {
     initialCash: number,
     desde: string,
     hasta: string,
+    ticker = 'SPY',
   ): BacktestReport['benchmark'] => {
-    const inside = fakeBars('SPY', desde, hasta);
+    const inside = fakeBars(ticker, desde, hasta);
     if (inside.length === 0 || inside[0]!.close <= 0) return null;
     const first = inside[0]!.close;
     const curve: EquityPointDto[] = inside.map((b) => ({
@@ -709,7 +735,7 @@ export function createSimulatedAdapter() {
       equity: (initialCash * b.close) / first,
       positions: 1,
     }));
-    return { ticker: 'SPY', totalReturn: inside.at(-1)!.close / first - 1, curve };
+    return { ticker, totalReturn: inside.at(-1)!.close / first - 1, curve };
   };
 
   const fakeWarnings = (tradeCount: number) => [
@@ -743,7 +769,7 @@ export function createSimulatedAdapter() {
   /** Run del motor real sobre datos simulados; devuelve el informe persistido. */
   const runFakeBacktest = (
     strategy: Strategy,
-    request: { params?: Record<string, number>; initialCash?: number },
+    request: { params?: Record<string, number>; initialCash?: number; benchmark?: string },
     range: { desde: string; hasta: string },
     kind: 'completo' | 'prueba-final',
     progress: { ticket: string; percentBase: number },
@@ -834,7 +860,7 @@ export function createSimulatedAdapter() {
       sensitivity: null,
       monteCarlo,
       warnings: fakeWarnings(metrics.tradeCount),
-      benchmark: fakeBenchmark(initialCash, range.desde, range.hasta),
+      benchmark: fakeBenchmark(initialCash, range.desde, range.hasta, request.benchmark),
       finalTest: {
         status: finalTestRunByKey.has(key) ? 'ejecutada' : 'disponible',
         runId: finalTestRunByKey.get(key) ?? null,
@@ -1958,6 +1984,85 @@ export function createSimulatedAdapter() {
 
   const regimeComparisons = new Map<string, RegimeComparison>();
 
+  // -- Laboratorio: generador simulado y pruebas en vivo en memoria --------
+  const labEngine = createSimulatedLabEngine();
+  const labGenerator = createStrategyGenerator({ engine: () => labEngine });
+  interface SimForwardRow {
+    id: number;
+    strategyId: number;
+    version: number;
+    startDate: string;
+    initialCash: number;
+    status: 'activa' | 'detenida';
+    stoppedAt: string | null;
+    createdAt: string;
+  }
+  let nextForwardId = 1;
+  const forwardRows: SimForwardRow[] = [];
+  const forwardTestOf = (row: SimForwardRow): ForwardTest => {
+    const strategy = findStrategyVersion(row.strategyId, row.version);
+    return {
+      id: row.id,
+      strategyId: row.strategyId,
+      strategyName: strategy?.name ?? `Estrategia ${row.strategyId}`,
+      version: row.version,
+      startDate: row.startDate,
+      initialCash: row.initialCash,
+      benchmark: (strategy ? executableMarkets(strategy.markets)[0] : undefined) ?? 'SPY',
+      markets: strategy ? executableMarkets(strategy.markets) : [],
+      status: row.status,
+      stoppedAt: row.stoppedAt,
+      createdAt: row.createdAt,
+    };
+  };
+  const forwardDetail = async (row: SimForwardRow): Promise<ForwardDetail> => {
+    const test = forwardTestOf(row);
+    const strategy = findStrategyVersion(row.strategyId, row.version);
+    if (!strategy) return emptyForwardDetail(test, 'La estrategia ya no existe.', 'simulated');
+    let create: () => ReturnType<ReturnType<typeof implForStrategy>['create']>;
+    try {
+      create = implForStrategy(strategy).create;
+    } catch (error) {
+      return emptyForwardDetail(test, (error as Error).message, 'simulated');
+    }
+    const key = `${strategy.id}:${strategy.version}`;
+    const latest = [...backtestRuns.values()]
+      .filter((r) => `${r.strategyId}:${r.version}` === key)
+      .at(-1);
+    return computeForward({
+      test,
+      strategy,
+      create,
+      getBars: async (ticker, desde, hasta) => fakeBars(ticker, desde, hasta),
+      today: nyParts(Date.now()).date,
+      dataKind: 'simulated',
+      backtestAnnualPct:
+        latest?.metrics.annualizedReturn ??
+        (typeof strategy.metricsSummary?.annualReturnPct === 'number'
+          ? strategy.metricsSummary.annualReturnPct / 100
+          : null),
+      getHourlyBars: async (ticker, fromMs, toMs) => simulatedIntradayBars(ticker, fromMs, toMs),
+      nowMs: Date.now(),
+    });
+  };
+  // Demostración: la primera estrategia lleva unas semanas en prueba.
+  {
+    const first = strategyVersions[0];
+    if (first) {
+      const start = new Date(Date.now() - 70 * DAY_MS).toISOString().slice(0, 10);
+      forwardRows.push({
+        id: nextForwardId++,
+        strategyId: first.id,
+        version: first.version,
+        startDate: start,
+        initialCash: FORWARD_DEFAULT_CASH,
+        status: 'activa',
+        stoppedAt: null,
+        createdAt: `${start}T13:00:00.000Z`,
+      });
+    }
+  }
+
   const api: TradiaApi = {
     connectivity: {
       getState: async () => connectivity,
@@ -2097,6 +2202,16 @@ export function createSimulatedAdapter() {
       },
     },
     market: {
+      getIntraday: async (request) => {
+        if (!isIntradayRequest(request)) throw new Error('Petición inválida.');
+        const end = Date.now();
+        const bars = simulatedIntradayBars(
+          request.ticker,
+          end - (request.days ?? INTRADAY_DEFAULT_DAYS) * 86_400_000,
+          end,
+        );
+        return { ticker: request.ticker, source: 'simulated', bars, error: null };
+      },
       getBars: async (request: GetBarsRequest) => {
         if (!isGetBarsRequest(request)) {
           throw new Error('Petición de velas inválida (ticker o rango de fechas).');
@@ -2312,6 +2427,79 @@ export function createSimulatedAdapter() {
       },
       onNavigate: (listener) => subscribe(alertNavigateListeners, listener),
     },
+    lab: {
+      engine: async () => ({ available: true, label: labEngine.label, hint: null }),
+      generate: async (request) => {
+        if (!isLabGenerateRequest(request)) throw new Error('Idea inválida.');
+        return labGenerator.generate(request);
+      },
+      backtest: async (request) => {
+        if (!isLabBacktestRequest(request)) throw new Error('Petición inválida.');
+        const strategy = latestStrategyVersion(request.strategyId);
+        if (!strategy) throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        const ticker = executableMarkets(strategy.markets)[0];
+        if (!ticker) throw new Error('La estrategia no tiene un activo operable.');
+        const end = Date.now();
+        const result = runHourlyBacktest({
+          strategy,
+          create: implForStrategy(strategy).create,
+          bars: simulatedIntradayBars(ticker, end - request.days * DAY_MS, end),
+          ticker,
+          requestedDays: request.days,
+        });
+        strategyVersions = strategyVersions.map((v) =>
+          v.id === strategy.id && v.version === strategy.version
+            ? { ...v, metricsSummary: result.summary }
+            : v,
+        );
+        return result;
+      },
+    },
+    forward: {
+      list: async () => {
+        const out = [];
+        for (const row of forwardRows) out.push(forwardSummaryOf(await forwardDetail(row)));
+        return [...out].reverse();
+      },
+      get: async (id) => {
+        const row = forwardRows.find((r) => r.id === id);
+        return row ? forwardDetail(row) : null;
+      },
+      start: async (request) => {
+        if (!isForwardStartRequest(request)) throw new Error('Petición inválida.');
+        const strategy = latestStrategyVersion(request.strategyId);
+        if (!strategy) throw new Error(`No existe la estrategia ${request.strategyId}.`);
+        implForStrategy(strategy);
+        const row: SimForwardRow = {
+          id: nextForwardId++,
+          strategyId: strategy.id,
+          version: strategy.version,
+          // Vista previa simulada: la prueba arranca hace 60 días para que
+          // haya sesiones que ver (en la app real empieza hoy).
+          startDate:
+            strategy.timeframe === '1h'
+              ? forwardHourlyStart(Date.now() - 10 * DAY_MS)
+              : forwardStartDate(Date.now() - 60 * DAY_MS),
+          initialCash: request.initialCash ?? FORWARD_DEFAULT_CASH,
+          status: 'activa',
+          stoppedAt: null,
+          createdAt: new Date().toISOString(),
+        };
+        forwardRows.push(row);
+        return forwardTestOf(row);
+      },
+      stop: async (id) => {
+        const row = forwardRows.find((r) => r.id === id);
+        if (!row) throw new Error(`No existe la prueba ${id}.`);
+        row.status = 'detenida';
+        row.stoppedAt = new Date().toISOString();
+        return forwardTestOf(row);
+      },
+      remove: async (id) => {
+        const index = forwardRows.findIndex((r) => r.id === id);
+        if (index !== -1) forwardRows.splice(index, 1);
+      },
+    },
     strategies: {
       list: async () =>
         [...new Set(strategyVersions.map((v) => v.id))].map((id) => {
@@ -2320,6 +2508,7 @@ export function createSimulatedAdapter() {
             id,
             name: latest.name,
             version: latest.version,
+            timeframe: latest.timeframe ?? '1d',
             status: latest.status,
             regime: latest.regime,
             worksIn: latest.worksIn,
@@ -2364,6 +2553,7 @@ export function createSimulatedAdapter() {
           worksIn: request.worksIn ?? [],
           failsIn: request.failsIn ?? [],
           assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          timeframe: request.timeframe ?? '1d',
           status: 'investigacion',
           changeNote: note,
           createdAt: now,
@@ -2403,6 +2593,7 @@ export function createSimulatedAdapter() {
           worksIn: merged.worksIn ?? [],
           failsIn: merged.failsIn ?? [],
           assumedCosts: merged.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+          timeframe: merged.timeframe ?? current.timeframe ?? '1d',
           changeNote: note.trim(),
           updatedAt: now,
           versionCreatedAt: now,

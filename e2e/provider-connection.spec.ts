@@ -240,7 +240,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     await expectConnected(page, PROVIDERS[0]);
 
     // Enlaces profundos de las franjas: foco en el control del proveedor.
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await page.evaluate(() => {
       window.location.hash = 'ajustes?provider=fred&focus=test';
     });

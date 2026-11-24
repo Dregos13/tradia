@@ -33,8 +33,7 @@ import {
   type StrategyPeriod,
   type StrategyStatus,
   type StrategySummary,
-  type UpdateStrategyRequest,
-} from '../../shared/strategy';
+  type UpdateStrategyRequest, type StrategyTimeframe } from '../../shared/strategy';
 
 // ---------------------------------------------------------------------------
 // Errores
@@ -90,6 +89,7 @@ interface VersionRow {
   // RegimeLabel[]; '[]' en fichas sin preferencia declarada.
   regimen_funciona_en: string;
   regimen_falla_en: string;
+  temporalidad: StrategyTimeframe;
   costes: string;
   nota: string;
   creado_en: string;
@@ -112,7 +112,7 @@ const VERSION_COLUMNS =
   'parametros, rangos_parametros, mercados, ' +
   'entrenamiento_desde, entrenamiento_hasta, fuera_muestra_desde, ' +
   'fuera_muestra_hasta, metricas_resumen, regimen, ' +
-  'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en';
+  'regimen_funciona_en, regimen_falla_en, costes, nota, creado_en, temporalidad';
 
 // ---------------------------------------------------------------------------
 // Conversión y JSON defensivo
@@ -193,6 +193,7 @@ function toStrategy(strategy: StrategyRow, row: VersionRow, executable: boolean)
     worksIn: parseRegimeLabels(row.regimen_funciona_en, ref),
     failsIn: parseRegimeLabels(row.regimen_falla_en, ref),
     assumedCosts: parseJsonObject<StrategyCosts>(row.costes, DEFAULT_STRATEGY_COSTS, 'costes', ref),
+    timeframe: row.temporalidad ?? '1d',
     status: strategy.estado,
     changeNote: row.nota,
     createdAt: strategy.creado_en,
@@ -270,6 +271,7 @@ interface ResolvedDraft {
   worksIn: RegimeLabel[];
   failsIn: RegimeLabel[];
   assumedCosts: StrategyCosts;
+  timeframe: StrategyTimeframe;
 }
 
 function assertDraft(draft: ResolvedDraft): void {
@@ -382,6 +384,7 @@ function draftFromCreate(request: CreateStrategyRequest): ResolvedDraft {
     worksIn: request.worksIn ?? [],
     failsIn: request.failsIn ?? [],
     assumedCosts: request.assumedCosts ?? DEFAULT_STRATEGY_COSTS,
+    timeframe: request.timeframe ?? '1d',
   };
 }
 
@@ -407,6 +410,7 @@ function draftFromRow(row: VersionRow): ResolvedDraft {
     worksIn: parseRegimeLabels(row.regimen_funciona_en, ref),
     failsIn: parseRegimeLabels(row.regimen_falla_en, ref),
     assumedCosts: parseJsonObject(row.costes, DEFAULT_STRATEGY_COSTS, 'costes', ref),
+    timeframe: row.temporalidad ?? '1d',
   };
 }
 
@@ -460,8 +464,8 @@ export function createStrategiesRepository(
        parametros, rangos_parametros, mercados,
        entrenamiento_desde, entrenamiento_hasta,
        fuera_muestra_desde, fuera_muestra_hasta,
-       regimen, regimen_funciona_en, regimen_falla_en, costes, nota
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       regimen, regimen_funciona_en, regimen_falla_en, costes, nota, temporalidad
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertChangelog = db.prepare(
     `INSERT INTO strategy_changelog
@@ -509,6 +513,7 @@ export function createStrategiesRepository(
       JSON.stringify(draft.failsIn),
       JSON.stringify(draft.assumedCosts),
       note,
+      draft.timeframe,
     );
   };
 
@@ -518,7 +523,7 @@ export function createStrategiesRepository(
         .prepare(
           `SELECT s.id, s.estado, s.actualizado_en,
                   v.version, v.nombre, v.regimen, v.regimen_funciona_en,
-                  v.regimen_falla_en, v.mercados, v.metricas_resumen
+                  v.regimen_falla_en, v.mercados, v.metricas_resumen, v.temporalidad
            FROM strategies s
            JOIN strategy_versions v
              ON v.strategy_id = s.id
@@ -536,6 +541,7 @@ export function createStrategiesRepository(
         regimen_falla_en: string;
         mercados: string;
         metricas_resumen: string | null;
+        temporalidad: StrategyTimeframe;
       }[];
       return rows.map((row) => ({
         id: row.id,
@@ -555,6 +561,7 @@ export function createStrategiesRepository(
                 'metricas_resumen',
                 `estrategia ${row.id} v${row.version}`,
               ),
+        timeframe: row.temporalidad ?? '1d',
         updatedAt: row.actualizado_en,
       }));
     },

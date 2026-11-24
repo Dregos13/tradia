@@ -341,23 +341,21 @@ describe('registerCalendar (cableado IPC y servicios)', () => {
     const { ctx, sent, watchlistListeners, setTickers } = makeCtx(db());
     const service = registerCalendar(ctx);
     await service.refresh();
+    // Ventana alrededor de hoy: los resultados simulados se fechan desde el reloj real.
+    const day = (offset: number) =>
+      new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    const window = { desde: day(-120), hasta: day(180) };
     // Con TRADIA_E2E los resultados simulados cubren los activos seguidos.
-    expect(
-      service
-        .list({ desde: '2026-10-01', hasta: '2026-10-31' })
-        .some((e) => e.kind === 'resultados' && e.asset === 'AAPL'),
-    ).toBe(true);
+    expect(service.list(window).some((e) => e.kind === 'resultados' && e.asset === 'AAPL')).toBe(
+      true,
+    );
 
     const before = updatedEvents(sent).length;
     setTickers([]);
     for (const listener of watchlistListeners) listener();
     await service.refresh(); // espera a la pasada encadenada por el listener
     expect(updatedEvents(sent).length).toBeGreaterThan(before);
-    expect(
-      service
-        .list({ desde: '2026-10-01', hasta: '2026-10-31' })
-        .filter((e) => e.kind === 'resultados'),
-    ).toHaveLength(0);
+    expect(service.list(window).filter((e) => e.kind === 'resultados')).toHaveLength(0);
     vi.unstubAllEnvs();
     service.stop();
   });

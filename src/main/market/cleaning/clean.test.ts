@@ -313,6 +313,30 @@ describe('duplicados, huecos y valores anómalos', () => {
     expect(findBar(result, '2026-01-21')).toBeDefined();
   });
 
+  it('un salto antiguo queda anotado sin invalidar el lote; uno reciente sí lo invalida', () => {
+    const flat = (from: number, count: number, price: number) =>
+      Array.from({ length: count }, (_, i) =>
+        bar(`2026-02-${String(from + i).padStart(2, '0')}`, {
+          close: price * (i % 2 === 0 ? 1.001 : 0.999),
+        }),
+      );
+    // Salto real del histórico (como el +10,5 % del SPY en abril de 2025)
+    // seguido de diez sesiones normales: anotado, pero el lote es fiable.
+    const old = cleanBars({
+      ticker: 'TEST',
+      bars: [...flat(2, 14, 100), bar('2026-02-16', { close: 1_000 }), ...flat(17, 10, 1_000)],
+    });
+    expect(old.report.anomalies.some((a) => a.kind === 'return-outlier')).toBe(true);
+    expect(old.report.reliable).toBe(true);
+
+    // El mismo salto en la última vela afecta a las decisiones de hoy.
+    const recent = cleanBars({
+      ticker: 'TEST',
+      bars: [...flat(2, 14, 100), bar('2026-02-16', { close: 1_000 })],
+    });
+    expect(recent.report.reliable).toBe(false);
+  });
+
   it('un salto con acción corporativa ese día no es anómalo (es el split)', () => {
     const result = cleanBars({
       ticker: 'TEST',

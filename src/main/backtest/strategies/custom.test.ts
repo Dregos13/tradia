@@ -564,3 +564,34 @@ describe('estrategia propia: garantías', () => {
     expect(() => createCustomStrategy(program, params).init({ ...params, otro: 1 })).not.toThrow();
   });
 });
+
+describe('reglas por sesión y hora (velas de 1 hora)', () => {
+  it('entra solo con la sesión de Nueva York abierta y lee la hora de Madrid', () => {
+    const rules = {
+      entry: 'sesion_nueva_york = 1 y hora >= 16',
+      exit: 'sesion_nueva_york = 0',
+      stop: 'ninguno',
+      target: 'ninguno',
+    };
+    const parsed = parseStrategyRules(rules, {});
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    // Lunes 23 nov 2026, velas de 1 hora desde las 12:00 UTC.
+    const bars = Array.from({ length: 12 }, (_, i) => {
+      const date = new Date(Date.UTC(2026, 10, 23, 12 + i)).toISOString();
+      return { date, open: 100, high: 101, low: 99, close: 100, volume: 0 };
+    });
+    const result = runBacktest({
+      strategy: createCustomStrategy(parsed.program, {}),
+      bars: { EURUSD: bars },
+      costs: { commissionPct: 0, commissionMin: 0, slippageBp: 0, spreadBp: 0 },
+      keepOpenAtEnd: true,
+    });
+    // NY abre 14:30 UTC (15:30 Madrid): la vela de 15:00 UTC = 16:00 Madrid
+    // da la señal y entra en la apertura de las 16:00 UTC.
+    const opened = result.trades[0]?.entryDate ?? result.openPositions?.[0]?.entryDate;
+    expect(opened).toBe('2026-11-23T16:00:00.000Z');
+    // NY cierra 21:00 UTC: la vela de 21:00 da la salida y vende a las 22:00.
+    expect(result.trades[0]?.exitDate).toBe('2026-11-23T22:00:00.000Z');
+  });
+});

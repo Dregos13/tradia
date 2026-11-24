@@ -31,7 +31,7 @@ async function acceptRisk(page: Page) {
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
   await skipGuidedTour(page);
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 }
 
 function containsValueInJsonFiles(directory: string, value: string): string[] {
@@ -88,7 +88,7 @@ test.describe('Tradia Electron', () => {
     app = await launchTradia(userData);
     appClosed = false;
     page = await app.firstWindow();
-    await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Antes de empezar' })).toHaveCount(0);
     await page.getByRole('link', { name: 'Ajustes' }).click();
     await page.getByRole('button', { name: /Ver aviso de riesgo/ }).click();

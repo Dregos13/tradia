@@ -1,6 +1,9 @@
 import { OnboardingProvider, useOnboarding } from './components/onboarding/OnboardingProvider';
 import { FirstStepsCard } from './components/onboarding/FirstStepsCard';
 import { AiPage } from './components/ai/AiPage';
+import { LabPage } from './components/lab/LabPage';
+import { MesaPage } from './components/mesa/MesaPage';
+import { SummaryPage } from './components/summary/SummaryPage';
 import { ModelHealthPage } from './components/model-health/ModelHealthPage';
 import { ChecklistPage } from './components/live/ChecklistPage';
 import { LiveBanner } from './components/live/LiveBanner';
@@ -33,6 +36,9 @@ import { useSystemState } from './hooks/useSystemState';
 import { useScrollHint } from './hooks/useScrollHint';
 
 type Page =
+  | 'resumen'
+  | 'mesa'
+  | 'laboratorio'
   | 'ia'
   | 'salud-modelos'
   | 'dinero-real'
@@ -51,7 +57,10 @@ type Page =
 const currentPage = (): Page => {
   const hash = window.location.hash.slice(1).split('?')[0] ?? '';
   if (hash === 'estrategias' || hash.startsWith('estrategias/')) return 'estrategias';
-  return hash === 'ia' ||
+  if (hash === 'laboratorio' || hash.startsWith('laboratorio/')) return 'laboratorio';
+  return hash === 'mesa' ||
+    hash === 'inicio' ||
+    hash === 'ia' ||
     hash === 'salud-modelos' ||
     hash === 'dinero-real' ||
     hash === 'ordenes' ||
@@ -65,7 +74,39 @@ const currentPage = (): Page => {
     hash === 'fuentes' ||
     hash === 'ajustes'
     ? hash
-    : 'inicio';
+    : 'resumen';
+};
+
+/** Lo que usa quien opera; el resto vive plegado en «Herramientas avanzadas». */
+const MAIN_LINKS: { page: Page; label: string }[] = [
+  { page: 'resumen', label: 'Resumen' },
+  { page: 'mesa', label: 'Mercado' },
+  { page: 'laboratorio', label: 'Crear' },
+  { page: 'dinero-real', label: 'Dinero real' },
+  { page: 'ajustes', label: 'Ajustes' },
+];
+const ADVANCED_LINKS: { page: Page; label: string }[] = [
+  { page: 'mercado', label: 'Lista de activos' },
+  { page: 'noticias', label: 'Noticias' },
+  { page: 'inicio', label: 'Estado del sistema' },
+  { page: 'estrategias', label: 'Estrategias' },
+  { page: 'ia', label: 'IA' },
+  { page: 'salud-modelos', label: 'Salud de modelos' },
+  { page: 'macro', label: 'Macro' },
+  { page: 'calendario', label: 'Calendario' },
+  { page: 'fuentes', label: 'Fuentes' },
+  { page: 'riesgo', label: 'Riesgo' },
+  { page: 'diario', label: 'Diario' },
+  { page: 'ordenes', label: 'Órdenes' },
+  { page: 'real-vs-backtest', label: 'Real vs backtest' },
+];
+const ADVANCED_KEY = 'tradia.nav.advanced';
+const readAdvanced = (): boolean => {
+  try {
+    return window.localStorage.getItem(ADVANCED_KEY) === 'open';
+  } catch {
+    return false;
+  }
 };
 
 export default function App() {
@@ -83,6 +124,7 @@ function AppShell() {
   const [legalOpen, setLegalOpen] = useState(false);
   const legalButton = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>(currentPage);
+  const [advancedOpen, setAdvancedOpen] = useState(readAdvanced);
   const heading = useRef<HTMLHeadingElement>(null);
   const state = useSystemState();
   const risk = useRisk();
@@ -123,56 +165,48 @@ function AppShell() {
       <aside className="side" data-more-below={navMoreBelow || undefined}>
         <TradiaBrand />
         <nav ref={nav} className="nav" aria-label="Principal">
-          <a href="#inicio" aria-current={page === 'inicio' ? 'page' : undefined}>
-            Inicio
-          </a>
-          <a href="#mercado" aria-current={page === 'mercado' ? 'page' : undefined}>
-            Mercado
-          </a>
-          <a href="#ia" aria-current={page === 'ia' ? 'page' : undefined}>
-            IA
-          </a>
-          <a href="#salud-modelos" aria-current={page === 'salud-modelos' ? 'page' : undefined}>
-            Salud de modelos
-          </a>
-          <a href="#macro" aria-current={page === 'macro' ? 'page' : undefined}>
-            Macro
-          </a>
-          {(['noticias', 'calendario', 'fuentes'] as const).map((route) => (
-            <a key={route} href={`#${route}`} aria-current={page === route ? 'page' : undefined}>
-              {{ noticias: 'Noticias', calendario: 'Calendario', fuentes: 'Fuentes' }[route]}
+          {MAIN_LINKS.map((link) => (
+            <a
+              key={link.page}
+              href={`#${link.page}`}
+              aria-current={page === link.page ? 'page' : undefined}
+            >
+              {link.label}
             </a>
           ))}
-          <a href="#estrategias" aria-current={page === 'estrategias' ? 'page' : undefined}>
-            Estrategias
-          </a>
-          <a href="#riesgo" aria-current={page === 'riesgo' ? 'page' : undefined}>
-            Riesgo
-          </a>
-          <a href="#diario" aria-current={page === 'diario' ? 'page' : undefined}>
-            Diario
-          </a>
-          <a href="#ordenes" aria-current={page === 'ordenes' ? 'page' : undefined}>
-            Órdenes
-          </a>
-          <a
-            href="#real-vs-backtest"
-            aria-current={page === 'real-vs-backtest' ? 'page' : undefined}
+          <details
+            className="nav-advanced"
+            open={advancedOpen || ADVANCED_LINKS.some((link) => link.page === page)}
+            onToggle={(event) => {
+              const open = (event.currentTarget as HTMLDetailsElement).open;
+              setAdvancedOpen(open);
+              try {
+                window.localStorage.setItem(ADVANCED_KEY, open ? 'open' : 'closed');
+              } catch {
+                // Sin almacenamiento solo se pierde la preferencia.
+              }
+            }}
           >
-            Real vs backtest
-          </a>
-          <a href="#dinero-real" aria-current={page === 'dinero-real' ? 'page' : undefined}>
-            Dinero real
-          </a>
-          <a href="#ajustes" aria-current={page === 'ajustes' ? 'page' : undefined}>
-            Ajustes
-          </a>
+            <summary>Herramientas avanzadas</summary>
+            {ADVANCED_LINKS.map((link) => (
+              <a
+                key={link.page}
+                href={`#${link.page}`}
+                aria-current={page === link.page ? 'page' : undefined}
+              >
+                {link.label}
+              </a>
+            ))}
+          </details>
         </nav>
       </aside>
       <header className="top">
         <h1 ref={heading} tabIndex={-1}>
           {
             {
+              resumen: 'Resumen',
+              mesa: 'Mercado',
+              laboratorio: 'Crear',
               ia: 'IA',
               'salud-modelos': 'Salud de modelos',
               'dinero-real': 'Dinero real',
@@ -181,7 +215,7 @@ function AppShell() {
               diario: 'Diario',
               riesgo: 'Riesgo',
               inicio: 'Estado del sistema',
-              mercado: 'Mercado',
+              mercado: 'Lista de activos',
               macro: 'Contexto macro',
               noticias: 'Noticias',
               calendario: 'Calendario',
@@ -245,6 +279,15 @@ function AppShell() {
                 requestAnimationFrame(() => legalButton.current?.focus());
               }}
             />
+          ) : page === 'resumen' ? (
+            <>
+              <FirstStepsCard />
+              <SummaryPage />
+            </>
+          ) : page === 'mesa' ? (
+            <MesaPage />
+          ) : page === 'laboratorio' ? (
+            <LabPage />
           ) : page === 'ia' ? (
             <AiPage
               onOpenStrategy={(id) => {

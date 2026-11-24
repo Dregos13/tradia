@@ -21,4 +21,18 @@ export async function skipGuidedTour(page: Page): Promise<void> {
   await expect(tour).toBeVisible({ timeout: 15_000 });
   await tour.getByRole('button', { name: 'Saltar tour', exact: true }).click();
   await expect(tour).toHaveCount(0, { timeout: 5_000 });
+  await openAdvancedNav(page);
+}
+
+/**
+ * Despliega «Avanzado» en el menú (las secciones técnicas) si está
+ * plegado. La preferencia se guarda, así que tras un reinicio sigue
+ * abierto: como alguien que lo abrió una vez.
+ */
+export async function openAdvancedNav(page: Page): Promise<void> {
+  const group = page.getByRole('navigation', { name: 'Principal' }).locator('details.nav-advanced');
+  if ((await group.getAttribute('open')) === null) {
+    await group.locator('summary').click();
+    await expect(group).toHaveAttribute('open', '');
+  }
 }

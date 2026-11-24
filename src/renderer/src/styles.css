@@ -117,8 +117,9 @@ summary:focus-visible,
 }
 .side {
   /* La marca queda fija y la lista desplaza dentro de la barra (UXP-01):
-     16 + 24 + 16 de marca, 15 × 44 + 14 × 4 + 8 de lista y 16 abajo = 796 px,
-     así que a 1280 × 800 caben las 15 entradas sin desplazar. */
+     16 + 24 + 16 de marca, 16 × 44 + 8 de lista y 16 abajo = 784 px, así
+     que a 1280 × 800 caben las 16 entradas sin desplazar. Las filas van
+     juntas (sin hueco): cada una ya tiene 44 px de área táctil. */
   position: relative;
   grid-row: 1 / 5;
   min-height: 0;
@@ -178,7 +179,7 @@ summary:focus-visible,
   overflow-y: auto;
   display: grid;
   align-content: start;
-  gap: var(--space-1);
+  gap: 0;
   /* El anillo separado 2 px queda dentro del área de recorte del scroll. */
   padding: var(--space-1);
   /* La entrada enfocada con teclado no queda bajo el degradado. */
@@ -196,6 +197,44 @@ summary:focus-visible,
   font-size: var(--type-sm);
   line-height: var(--type-sm-line);
   text-decoration: none;
+}
+/* «Avanzado»: las secciones técnicas, plegadas bajo las cinco principales. */
+.nav-advanced {
+  display: grid;
+  margin-top: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+.nav-advanced summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--size-controlMin);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  color: var(--color-textFaint);
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-line);
+  cursor: pointer;
+  list-style: none;
+}
+.nav-advanced summary::-webkit-details-marker {
+  display: none;
+}
+.nav-advanced summary::after {
+  content: '+';
+  font-family: var(--font-numeric);
+}
+.nav-advanced[open] summary::after {
+  content: '−';
+}
+.nav-advanced summary:hover {
+  background: var(--color-surfaceSubtle);
+  color: var(--color-sidebarText);
+}
+.nav-advanced summary:focus-visible {
+  outline: var(--focus-width) var(--focus-style) var(--color-focus);
+  outline-offset: calc(var(--focus-offset) * -1);
 }
 .nav a:focus-visible {
   outline-color: var(--color-focus);

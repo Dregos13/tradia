@@ -77,8 +77,8 @@ for (const colorScheme of THEMES) {
 
     test('IDV-UXP-2: el h1 de la barra es el único título dominante en Inicio, Mercado, Estrategias y Ajustes', async () => {
       for (const [link, heading] of [
-        ['Inicio', 'Estado del sistema'],
-        ['Mercado', 'Mercado'],
+        ['Estado del sistema', 'Estado del sistema'],
+        ['Lista de activos', 'Lista de activos'],
         ['Estrategias', 'Estrategias'],
         ['Ajustes', 'Ajustes'],
       ] as const) {
@@ -87,7 +87,7 @@ for (const colorScheme of THEMES) {
         expect(h2.length, link).toBeGreaterThan(0);
         expect(h1, link).toBe(24);
         for (const size of h2) expect(size, `${link}: h2`).toBeLessThan(h1);
-        if (link === 'Inicio') {
+        if (link === 'Estado del sistema') {
           const lane = await page.locator('.dashboard-block').first().boundingBox();
           const main = await page.locator('.main').boundingBox();
           expect(lane).not.toBeNull();
@@ -102,7 +102,7 @@ for (const colorScheme of THEMES) {
     });
 
     test('IDV-UXP-3 e IDV-UXP-6: con 25 activos y SPY, filas compactas, gráfico a la vista y ayuda alineada', async () => {
-      await openPage(page, 'Mercado');
+      await openPage(page, 'Lista de activos');
       await page.getByRole('button', { name: /Añadir universo inicial/ }).click();
       await expect(page.locator('.market-watch li')).toHaveCount(25, { timeout: 30_000 });
       await page.locator('button.market-asset[aria-label="SPY"]').click();
@@ -150,16 +150,16 @@ for (const colorScheme of THEMES) {
     test('IDV-UXP-4 e IDV-E2E-8: a 1100 × 760 la barra de estado se lee completa y sin solapamientos', async () => {
       await page.setViewportSize({ width: 1100, height: 760 });
       for (const [link, offline] of [
-        ['Inicio', false],
+        ['Estado del sistema', false],
         ['Riesgo', false],
-        ['Inicio', true],
+        ['Estado del sistema', true],
         ['Riesgo', true],
       ] as const) {
         await page.evaluate((value) => window.tradia.testing!.simulateOffline(value), offline);
         await expect(page.locator('footer.statusbar')).toContainText(
           offline ? 'Sin conexión' : 'En línea',
         );
-        await openPage(page, link, link === 'Inicio' ? 'Estado del sistema' : link);
+        await openPage(page, link, link);
         const reading = await page.evaluate(() => {
           const bar = document.querySelector('footer.statusbar')!;
           const items = [

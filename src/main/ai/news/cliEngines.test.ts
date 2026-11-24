@@ -342,6 +342,25 @@ describe.each(NEWS_CLI_ENGINES)('motor %s · resolución del ejecutable', (engin
     expect(invalid.configuredInvalid).toBe(true);
   });
 
+  it('un nombre a secas en Ajustes («claude») se busca como comando en el PATH', () => {
+    const cliPath = installEngine(engine);
+    const byName = resolveCliExecutable(spec, {
+      configured: name,
+      env: { HOME: home, PATH: binDir, TMPDIR: root },
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: () => [],
+    });
+    expect(byName).toMatchObject({ path: cliPath, source: 'path', configuredInvalid: false });
+
+    const unknown = resolveCliExecutable(spec, {
+      configured: 'no-existe-esta-cli',
+      env: { HOME: home, PATH: binDir, TMPDIR: root },
+      isExecutableFile: sandboxedIsExecutable,
+      listDir: () => [],
+    });
+    expect(unknown).toMatchObject({ path: null, configuredInvalid: true });
+  });
+
   it('encuentra el ejecutable en el PATH y en ubicaciones conocidas POSIX', () => {
     const cliPath = installEngine(engine);
     const viaPath = resolveCliExecutable(spec, {

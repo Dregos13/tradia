@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net';
 
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
-import { skipGuidedTour } from './onboarding.helpers';
+import { skipGuidedTour, openAdvancedNav } from './onboarding.helpers';
 
 const projectRoot = resolve('.');
 const nowRssDate = (): string => new Date().toUTCString();
@@ -156,7 +156,7 @@ async function acceptRisk(page: Page): Promise<void> {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await skipGuidedTour(page);
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 }
 
 async function setOfficialFeeds(page: Page, feedUrl: (path: string) => string): Promise<void> {
@@ -183,7 +183,8 @@ async function setOfficialFeeds(page: Page, feedUrl: (path: string) => string): 
 }
 
 async function followAapl(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Mercado', exact: true }).click();
+  await openAdvancedNav(page);
+  await page.getByRole('link', { name: 'Lista de activos', exact: true }).click();
   const ticker = page.getByLabel('Ticker', { exact: true });
   await ticker.fill('AAPL');
   await ticker.press('Enter');

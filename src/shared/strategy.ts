@@ -22,6 +22,10 @@ export const STRATEGY_STATUSES = [
 ] as const;
 export type StrategyStatus = (typeof STRATEGY_STATUSES)[number];
 
+/** Temporalidad de las velas con que opera la versión. */
+export const STRATEGY_TIMEFRAMES = ['1d', '1h'] as const;
+export type StrategyTimeframe = (typeof STRATEGY_TIMEFRAMES)[number];
+
 /** Toda estrategia nueva nace «en investigación» (no hay transiciones automáticas). */
 export const STRATEGY_INITIAL_STATUS: StrategyStatus = 'investigacion';
 
@@ -117,6 +121,15 @@ export interface StrategyMetricsSummary {
   expectancy: number | null;
   maxLosingStreak: number;
   trades: number;
+  /** Rentabilidad anualizada en % (pruebas del laboratorio). */
+  annualReturnPct?: number | null;
+  /** Comprar y esperar el mismo activo, en %. */
+  benchmarkReturnPct?: number | null;
+  /** Velas de la prueba que produjo el resumen. */
+  timeframe?: StrategyTimeframe;
+  /** Periodo probado (ISO). */
+  desde?: string;
+  hasta?: string;
 }
 
 /** Ficha completa: la estrategia en una versión concreta. */
@@ -153,6 +166,8 @@ export interface Strategy {
    */
   failsIn: RegimeLabel[];
   assumedCosts: StrategyCosts;
+  /** Velas con que opera: diarias ('1d', ausente = diaria) o de 1 hora ('1h'). */
+  timeframe?: StrategyTimeframe;
   status: StrategyStatus;
   /** Nota del cambio que creó esta versión (en v1, la del alta). */
   changeNote: string;
@@ -176,6 +191,8 @@ export interface StrategySummary {
   failsIn: RegimeLabel[];
   markets: string[];
   metricsSummary: StrategyMetricsSummary | null;
+  /** Ausente = diaria. */
+  timeframe?: StrategyTimeframe;
   updatedAt: string;
 }
 
@@ -218,6 +235,8 @@ export interface StrategyDraft {
   worksIn?: RegimeLabel[];
   failsIn?: RegimeLabel[];
   assumedCosts?: StrategyCosts;
+  /** Temporalidad; por defecto '1d'. */
+  timeframe?: StrategyTimeframe;
 }
 
 /** Alta de estrategia: siempre crea la versión 1 en estado 'investigacion'. */

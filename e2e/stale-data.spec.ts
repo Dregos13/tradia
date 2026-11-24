@@ -109,8 +109,8 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
 
     // Una sola franja global y el mismo texto en el chip de cada pantalla.
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
-      ['Mercado', 'Mercado'],
+      ['Estado del sistema', 'Estado del sistema'],
+      ['Lista de activos', 'Lista de activos'],
       ['IA', 'IA'],
     ] as const) {
       await openPage(page, link, heading);
@@ -281,7 +281,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     const friday = new Date(Date.parse(PINNED_MARKET_NOW) + 3 * DAY_MS).toISOString();
     await relaunchPhaseApp(context!, { env: { TRADIA_E2E_MARKET_NOW: friday } });
     const next = context!.page;
-    await expect(next.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(next.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
       timeout: 30_000,
     });
     await expect.poll(() => lastBar(next, 'SPY'), { timeout: 60_000 }).toBe('2026-10-09');
@@ -300,7 +300,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
         }),
       )
       .toBe('false 2026-10-09');
-    await openPage(next, 'Mercado');
+    await openPage(next, 'Lista de activos');
     await expect(next.getByRole('group', { name: 'Frescura de datos' })).toHaveCount(0);
     await capturePhaseScreenshot(next, 'continuacion-datos-puesta-al-dia-arranque.png');
   });

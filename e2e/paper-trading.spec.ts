@@ -3,6 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
+import { openAdvancedNav } from './onboarding.helpers';
 import { expect, test } from '@playwright/test';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 
@@ -42,7 +43,8 @@ test.beforeEach(async () => {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByRole('button', { name: 'Saltar tour', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+  await openAdvancedNav(page);
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 });
 
 test.afterEach(async () => {

@@ -119,6 +119,11 @@ export function StrategyDetail({
             {report.config.ejecutadoHasta ?? report.config.hasta} ·{' '}
             <a href={`#estrategias/${s.id}/backtest/${report.id}`}>Consultar informe</a>
           </p>
+        ) : s.metricsSummary?.timeframe === '1h' && s.metricsSummary.desde ? (
+          <p>
+            Último resultado: prueba de «Crear» con velas de 1 hora · Periodo:{' '}
+            {s.metricsSummary.desde.slice(0, 10)} → {s.metricsSummary.hasta?.slice(0, 10)}
+          </p>
         ) : (
           <p>Aún no hay resultados guardados para esta versión.</p>
         )}
@@ -159,7 +164,13 @@ export function StrategyDetail({
           {(['trainingPeriod', 'outOfSamplePeriod'] as const).map((key) => (
             <div key={key}>
               <dt>{key === 'trainingPeriod' ? 'Entrenamiento' : 'Fuera de muestra'}</dt>
-              <dd>{s[key] ? `${s[key].desde} → ${s[key].hasta}` : 'Sin datos'}</dd>
+              <dd>
+                {s[key]
+                  ? `${s[key].desde} → ${s[key].hasta}`
+                  : s.timeframe === '1h'
+                    ? 'No aplica: se prueba con 1 o 2 años en «Crear»'
+                    : 'Sin datos'}
+              </dd>
             </div>
           ))}
         </dl>

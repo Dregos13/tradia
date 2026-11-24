@@ -379,6 +379,29 @@ export interface BacktestInput {
    * evalúa con el régimen del cierre de esa misma sesión).
    */
   regimeFilter?: RegimeFilterOptions;
+  /**
+   * Prueba en vivo (laboratorio): con true el motor NO liquida al final lo
+   * que siga abierto y devuelve `openPositions` y `pendingOrders` — el
+   * estado real de la cartera tras el último cierre y las órdenes que se
+   * ejecutarán en la próxima apertura. Por defecto (false) se conserva el
+   * cierre forzoso 'end-of-data' de un backtest.
+   */
+  keepOpenAtEnd?: boolean;
+}
+
+/** Posición viva al final de una simulación con `keepOpenAtEnd`. */
+export interface OpenPositionSnapshot extends PositionView {
+  /** Último cierre conocido del activo. */
+  lastClose: number;
+  /** Resultado latente al último cierre (con signo del lado, sin comisiones de salida). */
+  unrealizedPnl: number;
+}
+
+/** Orden pendiente para la próxima apertura (`keepOpenAtEnd`). */
+export interface PendingOrderSnapshot {
+  ticker: string;
+  kind: 'buy' | 'sell' | 'short' | 'cover';
+  signalDate: SessionDate;
 }
 
 /** Resultado del backtest: operaciones cerradas y curva de capital diaria. */
@@ -390,4 +413,8 @@ export interface BacktestResult {
   initialCash: number;
   /** Último valor de la curva (igual al capital inicial si no hubo sesiones). */
   finalEquity: number;
+  /** Solo con `keepOpenAtEnd`: posiciones que siguen abiertas. */
+  openPositions?: OpenPositionSnapshot[];
+  /** Solo con `keepOpenAtEnd`: órdenes para la próxima apertura. */
+  pendingOrders?: PendingOrderSnapshot[];
 }

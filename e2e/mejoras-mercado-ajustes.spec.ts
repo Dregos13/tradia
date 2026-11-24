@@ -304,7 +304,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     test.setTimeout(120_000);
     context = await launchPhaseApp('tradia-mercado-buscador');
     const { page } = context;
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     await expect(page.getByText('Tu lista está vacía.')).toBeVisible();
 
     // Buscar «EUR» sugiere el par de divisas con su badge y lo añade.
@@ -342,7 +342,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     test.setTimeout(60_000);
     context = await launchPhaseApp('tradia-mercado-buscador-vacio');
     const { page } = context;
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     const search = page.getByLabel('Buscar activo o divisa');
     // Con espacios no es un ticker directo añadible: solo cabe el estado
     // sin resultados (un «zzznoexiste» de un solo token sí lo sería).
@@ -361,7 +361,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
     context = await launchPhaseApp('tradia-mercado-grafico');
     const { page, app } = context;
     await page.setViewportSize({ width: 1280, height: 800 });
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     await addViaSearch(page, 'EUR', /EUR\/USD/);
     await waitForCandles(page, 'EURUSD');
     const chartCard = page.locator('.market-chart-card');

@@ -67,7 +67,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     expect(journal.entries.some((entry) => /queda degradado/.test(entry.reason))).toBe(true);
 
     // Inicio avisa de la degradación.
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     const notice = page.getByRole('region', { name: 'Avisos de IA y dinero real' });
     await expect(notice.getByRole('heading', { name: 'Degradación detectada' })).toBeVisible();
     await expect(notice).toContainText(model.name);

@@ -236,6 +236,20 @@ import type {
 // ./broker. Los de la IA predictiva y del dinero real mínimo (fases 6-7)
 // viven en ./ai y ./live.
 export * from './strategy';
+export * from './lab';
+export * from './intraday';
+import type { IntradayRequest, IntradayResult } from './intraday';
+import type {
+  ForwardDetail,
+  ForwardStartRequest,
+  ForwardSummary,
+  ForwardTest,
+  LabBacktestRequest,
+  LabBacktestResult,
+  LabEngineStatus,
+  LabGenerateRequest,
+  LabGenerateResult,
+} from './lab';
 export * from './backtest';
 export * from './risk';
 export * from './signals';
@@ -301,6 +315,8 @@ export const IPC_CHANNELS = {
   },
   market: {
     getBars: 'market:get-bars',
+    /** Velas de 1 hora bajo demanda (IntradayRequest → IntradayResult). */
+    getIntraday: 'market:get-intraday',
     /** Fuerza una actualización incremental fuera del horario programado. */
     refreshNow: 'market:refresh-now',
     /** Catálogo de activos: filtra por símbolo o nombre (acciones, ETF y divisas). */
@@ -384,6 +400,25 @@ export const IPC_CHANNELS = {
     setStatus: 'strategies:set-status',
     /** Registro de cambios de una estrategia, más reciente primero. */
     history: 'strategies:history',
+  },
+  lab: {
+    /** Motor de IA que usará el generador (LabEngineStatus). */
+    engine: 'lab:engine',
+    /** Idea en lenguaje natural → borrador validado (LabGenerateResult). */
+    generate: 'lab:generate',
+    /** Prueba histórica sobre velas de 1 hora (LabBacktestResult). */
+    backtest: 'lab:backtest',
+  },
+  forward: {
+    /** Tablero de pruebas en vivo (ForwardSummary[]). */
+    list: 'forward:list',
+    /** Detalle de una prueba (ForwardDetail | null). */
+    get: 'forward:get',
+    /** Lanza una prueba con la versión vigente congelada. */
+    start: 'forward:start',
+    /** Detiene una prueba: su resultado queda fijo en esa fecha. */
+    stop: 'forward:stop',
+    remove: 'forward:remove',
   },
   backtest: {
     /** Lanza la ejecución completa (métricas, walk-forward, sensibilidad, MC). */
@@ -1697,6 +1732,8 @@ export interface TradiaApi {
   };
   market: {
     getBars(request: GetBarsRequest): Promise<MarketBarsResult>;
+    /** Velas de 1 hora: guarda lo descargado y pide solo lo que falta. */
+    getIntraday(request: IntradayRequest): Promise<IntradayResult>;
     refreshNow(): Promise<MarketRefreshResult>;
     /** Catálogo de activos: coincidencias por símbolo o nombre + `directTicker`. */
     search(query: string): Promise<AssetSearchResult>;
@@ -1749,6 +1786,20 @@ export interface TradiaApi {
     setStatus(request: SetStrategyStatusRequest): Promise<Strategy>;
     /** Registro de cambios, más reciente primero. */
     history(id: number): Promise<StrategyChangelogEntry[]>;
+  };
+  lab: {
+    engine(): Promise<LabEngineStatus>;
+    /** Traduce una idea a reglas válidas con la IA del usuario. */
+    generate(request: LabGenerateRequest): Promise<LabGenerateResult>;
+    /** Prueba histórica de una estrategia de 1 hora (1 o 2 años). */
+    backtest(request: LabBacktestRequest): Promise<LabBacktestResult>;
+  };
+  forward: {
+    list(): Promise<ForwardSummary[]>;
+    get(id: number): Promise<ForwardDetail | null>;
+    start(request: ForwardStartRequest): Promise<ForwardTest>;
+    stop(id: number): Promise<ForwardTest>;
+    remove(id: number): Promise<void>;
   };
   backtest: {
     /**
@@ -2583,6 +2634,7 @@ const STRATEGY_DRAFT_KEYS = [
   'worksIn',
   'failsIn',
   'assumedCosts',
+  'timeframe',
 ] as const;
 
 /** Valida cada campo versionable presente en `v`. Devuelve los presentes. */
@@ -2622,6 +2674,7 @@ function checkStrategyDraftFields(
     return null;
   }
   if ('assumedCosts' in v && !isStrategyCosts(v.assumedCosts)) return null;
+  if ('timeframe' in v && v.timeframe !== '1d' && v.timeframe !== '1h') return null;
   // Etiquetas de régimen estructuradas (fase 6): arrays sin duplicados del
   // catálogo de cuatro etiquetas; una etiqueta no puede estar en ambos.
   if ('worksIn' in v && !isRegimeLabelList(v.worksIn)) return null;
@@ -2795,9 +2848,16 @@ export function isBacktestRunRequest(value: unknown): value is BacktestRunReques
     'sensitivity',
     'monteCarlo',
     'regimeFilter',
+    'benchmark',
   ];
   if (Object.keys(v).some((k) => !allowed.includes(k))) return false;
   if (!isStrategyId(v.strategyId)) return false;
+  if (
+    'benchmark' in v &&
+    !(typeof v.benchmark === 'string' && /^[A-Z0-9.]{1,12}$/.test(v.benchmark))
+  ) {
+    return false;
+  }
   if ('version' in v && !isStrategyId(v.version)) return false;
   if ('desde' in v && !isIsoDate(v.desde)) return false;
   if ('hasta' in v && !isIsoDate(v.hasta)) return false;

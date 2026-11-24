@@ -65,6 +65,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const links = page.getByRole('navigation', { name: 'Principal' }).getByRole('link');
         for (let index = 0; index < (await links.count()); index++) {
           await page.keyboard.press('Tab');
+          // Tras las cinco principales, el resumen «Avanzado» también recibe el foco.
+          if (index === 5) {
+            await expect(page.locator('details.nav-advanced > summary')).toBeFocused();
+            await page.keyboard.press('Tab');
+          }
           const link = links.nth(index);
           await expect(link).toBeFocused();
           expect(

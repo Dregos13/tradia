@@ -51,7 +51,7 @@ async function openWithLegacyEur(prefix: string): Promise<PhaseApp> {
   // El rearranque a veces tarda más de 30 s (traspaso del bloqueo de
   // instancia única y arranque pesado de servicios); no es un fallo del
   // producto, así que la espera de arranque es más amplia.
-  await expect(app.page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(app.page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
     timeout: 60_000,
   });
   await app.page.evaluate((delta) => window.tradia.testing!.advanceMarketClock(delta), DAY_MS);
@@ -72,7 +72,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     context = await launchPhaseApp('tradia-ticker-sin-cobertura');
     const { page } = context;
     await watchTickers(page, ['SPY']);
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
 
     const input = page.getByLabel('Ticker', { exact: true });
     // En minúsculas y con espacios: se normaliza igual que «EUR».
@@ -125,7 +125,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     test.setTimeout(240_000);
     const { page } = await openWithLegacyEur('tradia-ticker-legado');
     // Inicio: un solo aviso de EUR y «Precios» sigue «Disponible» (SPY está al día).
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await expect(
       page.getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
     ).toHaveCount(1);
@@ -133,7 +133,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     await expect(page.locator('.dashboard-row').filter({ hasText: /^Precios/ })).toContainText(
       'Disponible',
     );
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
 
     const banner = dataBanner(page);
     await expect(
@@ -195,7 +195,7 @@ test.describe('Profesional independiente que organiza varios proyectos', () => {
     expect(JSON.stringify(signalRun)).not.toMatch(/paus|stale|desactualizad/i);
 
     // Quitar con teclado: Tab desde «Cambiar por FXE» llega a «Quitar de la lista».
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     await banner.getByRole('button', { name: 'Cambiar por FXE para EUR' }).focus();
     await page.keyboard.press('Tab');
     const remove = banner.getByRole('button', { name: 'Quitar EUR de la lista' });
@@ -242,7 +242,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
           updatedAt: value.updatedAt,
         });
     }, stale);
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     const banner = dataBanner(page);
     await expect(banner.getByRole('status').first()).toContainText('Datos desactualizados');
     const refresh = banner.getByRole('button', { name: 'Actualizar ahora' });
@@ -315,7 +315,7 @@ test.describe('Responsable de equipo que revisa entregas', () => {
 
     // Sin EUR en la lista, Conectores deja de nombrarlo.
     await page.evaluate(() => window.tradia.watchlist.remove('EUR'));
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await openPage(page, 'Ajustes');
     await expect(tiingo.getByText('Tiingo cubre todos los activos de tu lista.')).toBeVisible();
     await expect(tiingo).not.toContainText('EUR no está disponible en Tiingo');
@@ -339,7 +339,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
   test('H1: «Quitar EUR de la lista» con teclado retira el aviso en Mercado e Inicio sin reiniciar', async () => {
     test.setTimeout(300_000);
     const { page } = await openWithLegacyEur('tradia-cierre-quitar');
-    await openPage(page, 'Mercado');
+    await openPage(page, 'Lista de activos');
     const banner = dataBanner(page);
     await expect(banner.getByRole('heading', { name: EUR_HEADING })).toBeVisible();
 
@@ -353,7 +353,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0, { timeout: 10_000 });
     await expect(banner).toHaveCount(0);
     await expect(page.getByText('EUR se ha quitado de tu lista.')).toBeVisible();
-    await openPage(page, 'Inicio', 'Estado del sistema');
+    await openPage(page, 'Estado del sistema');
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
     await expect(page.getByRole('button', { name: REMOVE_EUR })).toHaveCount(0);
     await expect(page.locator('.dashboard-row').filter({ hasText: /^Precios/ })).toContainText(
@@ -375,7 +375,7 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     await expect(page.getByText(EUR_HEADING)).toHaveCount(0);
     await relaunchPhaseApp(context!);
     const restarted = context!.page;
-    await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+    await expect(restarted.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
       timeout: 60_000,
     });
     await expect
@@ -391,8 +391,8 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
     const { page } = await openWithLegacyEur('tradia-cierre-unico');
 
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
-      ['Mercado', 'Mercado'],
+      ['Estado del sistema', 'Estado del sistema'],
+      ['Lista de activos', 'Lista de activos'],
     ] as const) {
       await openPage(page, link, heading);
       await expect(page.getByRole('heading', { name: EUR_HEADING })).toHaveCount(1);
@@ -438,8 +438,8 @@ test.describe('Cierre de los tres fallos del activo sin cobertura', () => {
 
     const visibleText = async (): Promise<string> => page.locator('body').innerText();
     for (const [link, heading] of [
-      ['Inicio', 'Estado del sistema'],
-      ['Mercado', 'Mercado'],
+      ['Estado del sistema', 'Estado del sistema'],
+      ['Lista de activos', 'Lista de activos'],
       ['IA', 'IA'],
     ] as const) {
       await openPage(page, link, heading);

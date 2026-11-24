@@ -76,7 +76,7 @@ test('quitar un activo sin cobertura borra su aviso, también tras reiniciar la 
     .toEqual(['EUR']);
 
   // El aviso nombra a EUR; SPY y AAPL siguen al día.
-  await openPage(page, 'Mercado');
+  await openPage(page, 'Lista de activos');
   const banner = page.getByRole('region', { name: 'Estado de los datos' });
   await expect(
     banner.first().getByRole('heading', { name: 'EUR no está disponible en Tiingo' }),
@@ -107,7 +107,7 @@ test('quitar un activo sin cobertura borra su aviso, también tras reiniciar la 
   // Tras reiniciar la app el aviso no vuelve: la fila ya no existe.
   await relaunchPhaseApp(context);
   const restarted = context.page;
-  await expect(restarted.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+  await expect(restarted.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
     timeout: 30_000,
   });
   await expect

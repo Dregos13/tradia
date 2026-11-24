@@ -137,7 +137,7 @@ describe('contrato IPC', () => {
     }
   });
 
-  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, providers, reconcile, deviation, logs, ai y live', () => {
+  it('cubre los dominios de la fase: connectivity, notifications, settings, secrets, agents, watchlist, market, macro, dataStatus, sources, news, calendar, alerts, strategies, backtest, stress, risk, signals, journal, delivery, routine, backup, broker, orders, providers, reconcile, deviation, logs, ai, live, lab y forward', () => {
     expect(Object.keys(IPC_CHANNELS).sort()).toEqual([
       'agents',
       'ai',
@@ -150,7 +150,9 @@ describe('contrato IPC', () => {
       'dataStatus',
       'delivery',
       'deviation',
+      'forward',
       'journal',
+      'lab',
       'live',
       'logs',
       'macro',
@@ -182,6 +184,7 @@ describe('contrato IPC', () => {
     });
     expect(IPC_CHANNELS.market).toEqual({
       getBars: 'market:get-bars',
+      getIntraday: 'market:get-intraday',
       refreshNow: 'market:refresh-now',
       search: 'market:search',
       updated: 'market:updated',

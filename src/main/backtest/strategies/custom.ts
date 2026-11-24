@@ -1,3 +1,5 @@
+import { EXCHANGE_SESSIONS, zonedParts } from '../../../shared/sessions';
+import type { CampoPrecio } from '../../../shared/strategyRules';
 /**
  * Estrategia propia: ejecuta un `StrategyProgram` compilado por
  * `parseStrategyRules` (`src/shared/strategyRules.ts`) — el lenguaje de
@@ -124,10 +126,31 @@ interface EvalEnv {
 const INVALID_LEVEL = Symbol('nivel-invalido');
 type LevelPrice = number | null | typeof INVALID_LEVEL;
 
-function fieldValue(
-  bar: EngineBar,
-  field: 'cierre' | 'apertura' | 'maximo' | 'minimo' | 'volumen',
-) {
+const MADRID_HOUR = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Madrid',
+  hour: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** ¿La vela (inicio en ms UTC) empieza con la sesión abierta? */
+function inSession(ms: number, id: 'tokio' | 'londres' | 'nueva-york'): boolean {
+  const session = EXCHANGE_SESSIONS.find((s) => s.id === id)!;
+  const { weekday, minutes } = zonedParts(ms, session.timeZone);
+  if (weekday === 0 || weekday === 6) return false;
+  return minutes >= session.openMin && minutes < session.closeMin;
+}
+
+function fieldValue(bar: EngineBar, field: CampoPrecio): number | null {
+  if (field === 'hora' || field.startsWith('sesion_')) {
+    // Solo las velas de 1 hora llevan hora; una vela diaria vale 0.
+    if (!bar.date.includes('T')) return 0;
+    const ms = Date.parse(bar.date);
+    if (!Number.isFinite(ms)) return null;
+    if (field === 'hora') return Number(MADRID_HOUR.format(ms));
+    const id =
+      field === 'sesion_tokio' ? 'tokio' : field === 'sesion_londres' ? 'londres' : 'nueva-york';
+    return inSession(ms, id) ? 1 : 0;
+  }
   const value =
     field === 'apertura'
       ? bar.open

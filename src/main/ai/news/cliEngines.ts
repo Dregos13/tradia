@@ -89,6 +89,11 @@ const BASE_AUTH_PATTERN =
  */
 const CHILD_ENV_ALLOWLIST = [
   'HOME',
+  // Identidad del usuario (no son secretos): en macOS Claude Code busca su
+  // sesión en el Llavero por usuario y sin USER responde «Not logged in».
+  'USER',
+  'LOGNAME',
+  'USERNAME',
   'USERPROFILE',
   'HOMEDRIVE',
   'HOMEPATH',
@@ -297,26 +302,40 @@ export function resolveCliExecutable(
   const listDir = deps.listDir ?? defaultListDir;
 
   const configured = deps.configured?.trim();
-  if (configured) {
+  // Un nombre a secas («claude», «codex») es un comando, no una ruta: se
+  // busca en el PATH y en las ubicaciones habituales como si no hubiera
+  // ruta configurada (el nombre de la propia CLI) o con ese nombre.
+  const bareName = configured && !/[\\/]/.test(configured) ? configured : null;
+  if (configured && bareName === null) {
     return isExecutableFile(configured)
       ? { path: configured, source: 'config', configuredInvalid: false }
       : { path: null, source: null, configuredInvalid: true };
   }
+  const ownName =
+    bareName === null ||
+    bareName.replace(/\.(exe|cmd|bat)$/i, '').toLowerCase() === spec.cliName.toLowerCase();
+  const names = ownName
+    ? spec.fileNames(platform)
+    : platform === 'win32'
+      ? [bareName!, `${bareName}.exe`, `${bareName}.cmd`, `${bareName}.bat`]
+      : [bareName!];
 
   for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) {
-    for (const name of spec.fileNames(platform)) {
+    for (const name of names) {
       const candidate = join(dir, name);
       if (isExecutableFile(candidate)) {
         return { path: candidate, source: 'path', configuredInvalid: false };
       }
     }
   }
-  for (const candidate of spec.knownCandidates(env, platform, listDir)) {
-    if (isExecutableFile(candidate)) {
-      return { path: candidate, source: 'known', configuredInvalid: false };
+  if (ownName) {
+    for (const candidate of spec.knownCandidates(env, platform, listDir)) {
+      if (isExecutableFile(candidate)) {
+        return { path: candidate, source: 'known', configuredInvalid: false };
+      }
     }
   }
-  return { path: null, source: null, configuredInvalid: false };
+  return { path: null, source: null, configuredInvalid: bareName !== null && !ownName };
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +657,12 @@ export interface CliEngineAnalyzer extends NewsHeadlineAnalyzer {
    * Falla con 'CLI no encontrada', 'sesión no iniciada' o el motivo.
    */
   ping(): Promise<number>;
+  /**
+   * Una pasada de texto libre (laboratorio de estrategias): mismo modo
+   * headless sin herramientas y misma cola en serie; no descuenta el tope
+   * diario de titulares. Devuelve el texto del modelo.
+   */
+  complete(prompt: string): Promise<string>;
 }
 
 export function createCliEngineAnalyzer(
@@ -908,12 +933,22 @@ export function createCliEngineAnalyzer(
       return Math.max(0, now() - started);
     });
 
+  const complete = (prompt: string): Promise<string> =>
+    enqueue(async () => {
+      const resolution = resolve();
+      if (!resolution.path) throw missingCliError(resolution);
+      const run = await runOnce(resolution.path, prompt);
+      if (run.code !== 0) throw classifyRunFailure(run);
+      return extractText(run.stdout);
+    });
+
   return {
     analyzer: 'suscripcion',
     model: spec.modelLabel,
     analyze,
     ping,
     available,
+    complete,
   };
 }
 

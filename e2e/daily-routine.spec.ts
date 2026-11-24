@@ -102,7 +102,7 @@ async function acceptRisk(page: Page): Promise<void> {
   await page.getByLabel('He leído y acepto').check();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await skipGuidedTour(page);
-  await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible();
 }
 
 async function captureNotifications(app: ElectronApplication): Promise<void> {

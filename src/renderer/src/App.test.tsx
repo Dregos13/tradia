@@ -10,9 +10,17 @@ import { ONBOARDING_TOUR_VERSION } from '../../shared/ipc';
 import { RISK_DISCLAIMER_VERSION } from '../../shared/riskDisclaimer';
 import { createSimulatedAdapter } from './adapters/simulated';
 
+// El gráfico de velas de Mercado (lightweight-charts) necesita canvas y
+// matchMedia reales; en jsdom basta con un gráfico mudo.
+vi.mock('./components/mesa/MesaChart', () => ({
+  MesaChart: ({ label }: { label: string }) => <div role="img" aria-label={`Velas de ${label}`} />,
+}));
+
 let simulation: ReturnType<typeof createSimulatedAdapter>;
 beforeEach(async () => {
-  window.location.hash = '';
+  // «Estado del sistema» (antes Inicio) vive en «Avanzado»; abrir en él
+  // mantiene el grupo desplegado como en las pruebas de siempre.
+  window.location.hash = '#inicio';
   localStorage.clear();
   simulation = createSimulatedAdapter();
   window.tradia = simulation.api;
@@ -46,10 +54,10 @@ describe('Estructura de Tradia', () => {
     expect(skip).toHaveAttribute('href', '#contenido');
     skip.focus();
     await user.tab();
-    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Resumen' })).toHaveFocus();
     expect(
       within(screen.getByRole('navigation', { name: 'Principal' })).getAllByRole('link'),
-    ).toHaveLength(15);
+    ).toHaveLength(18);
   });
 
   it('navega entre Inicio y Ajustes con teclado y conserva la barra de estado', async () => {
@@ -57,7 +65,10 @@ describe('Estructura de Tradia', () => {
     await act(async () => {
       render(<App />);
     });
-    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Estado del sistema' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     const settings = screen.getByRole('link', { name: 'Ajustes' });
     settings.focus();
     await user.keyboard('{Enter}');
@@ -67,7 +78,7 @@ describe('Estructura de Tradia', () => {
     expect(settings).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('region', { name: 'Preferencias' })).toBeInTheDocument();
     expect(statusbar().getByText('Comprobando conexión')).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Inicio' }));
+    await user.click(screen.getByRole('link', { name: 'Estado del sistema' }));
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Estado del sistema' }),
     ).toBeInTheDocument();
@@ -182,7 +193,7 @@ it('navega a Mercado y Macro con teclado y muestra el vacío sin claves', async 
     render(<App />);
   });
   for (const [name, heading] of [
-    ['Mercado', 'Mercado'],
+    ['Lista de activos', 'Lista de activos'],
     ['Macro', 'Contexto macro'],
   ]) {
     const link = screen.getByRole('link', { name });
@@ -376,7 +387,7 @@ it('marca Posiciones simuladas solo cuando hay una cuenta paper conectada', asyn
   await act(async () => {
     await simulation.api.broker.connect({ apiKeyId: 'paper-key', apiSecret: 'paper-secret' });
   });
-  await user.click(screen.getByRole('link', { name: 'Inicio' }));
+  await user.click(screen.getByRole('link', { name: 'Estado del sistema' }));
   expect(
     await within(screen.getByRole('region', { name: 'Posiciones simuladas' })).findByText(
       'Paper conectado',
@@ -416,8 +427,15 @@ it('abre IA, Salud de modelos y Dinero real con teclado en el orden aprobado', a
   });
   const nav = within(screen.getByRole('navigation', { name: 'Principal' }));
   const routes = nav.getAllByRole('link').map((link) => link.getAttribute('href'));
-  expect(routes.slice(1, 4)).toEqual(['#mercado', '#ia', '#salud-modelos']);
-  expect(routes.slice(-2)).toEqual(['#dinero-real', '#ajustes']);
+  expect(routes.slice(0, 5)).toEqual([
+    '#resumen',
+    '#mesa',
+    '#laboratorio',
+    '#dinero-real',
+    '#ajustes',
+  ]);
+  expect(routes.slice(5, 8)).toEqual(['#mercado', '#noticias', '#inicio']);
+  expect(routes.at(-1)).toBe('#real-vs-backtest');
   for (const name of ['IA', 'Salud de modelos', 'Dinero real']) {
     const link = nav.getByRole('link', { name });
     link.focus();
@@ -508,12 +526,14 @@ it('conserva una única franja DINERO REAL en todas las páginas y en el aviso l
     link.focus();
     await user.keyboard('{Enter}');
     await waitFor(() => expect(link).toHaveAttribute('aria-current', 'page'));
-    if (link.textContent !== 'Inicio') {
+    if (link.textContent !== 'Estado del sistema') {
       await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus());
     }
     expect(screen.getAllByRole('complementary', { name: 'Aviso de dinero real' })).toHaveLength(1);
     expect(banner).toBeVisible();
   }
+  // El aviso legal está en Ajustes (ya no es la última entrada del menú).
+  await user.click(screen.getByRole('link', { name: 'Ajustes' }));
   await user.click(screen.getByRole('button', { name: /^Ver aviso de riesgo/ }));
   expect(banner).toBeVisible();
   await user.click(

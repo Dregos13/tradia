@@ -10,7 +10,7 @@ import {
   type Locator,
   type Page,
 } from 'playwright';
-import { skipGuidedTour } from './onboarding.helpers';
+import { skipGuidedTour, openAdvancedNav } from './onboarding.helpers';
 
 /**
  * Utilidades comunes de los E2E de la fase 6-7 (IA predictiva y dinero
@@ -84,7 +84,7 @@ async function startApp(
       await page.getByLabel('He leído y acepto').check();
       await page.getByRole('button', { name: 'Continuar', exact: true }).click();
       await skipGuidedTour(page);
-      await expect(page.getByRole('heading', { name: 'Estado del sistema' })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Resumen', level: 1 })).toBeVisible({
         timeout: 30_000,
       });
     }
@@ -159,10 +159,12 @@ export async function closePhaseApp(context: PhaseApp | undefined): Promise<void
 
 /** Abre una página desde la navegación lateral y espera el título de la cabecera. */
 export async function openPage(page: Page, link: string, heading = link): Promise<void> {
-  await page
+  const target = page
     .getByRole('navigation', { name: 'Principal' })
-    .getByRole('link', { name: link, exact: true })
-    .click();
+    .getByRole('link', { name: link, exact: true });
+  // Las secciones técnicas viven plegadas en «Avanzado».
+  if (!(await target.isVisible())) await openAdvancedNav(page);
+  await target.click();
   await expect(page.getByRole('heading', { name: heading, exact: true, level: 1 })).toBeVisible({
     timeout: 15_000,
   });
